@@ -98,9 +98,34 @@ export const TASKS = {
       rubric: "ielts",
       tasks: [
         {
-          id: "iw1", name: "Task 1", minutes: 20, minWords: 150,
-          prompt: "The chart below shows the percentage of households in a European country with access to a fixed broadband connection, from 2005 to 2020. In 2005 the figure was 14 percent. It rose steadily to 52 percent by 2012, then more slowly, reaching 79 percent in 2020. Rural households lagged throughout, standing at 4 percent in 2005 and 61 percent in 2020.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.",
-          tip: "Task 1 is a description, not an argument. No opinion, no causes you were not given. Open with an overview sentence covering the overall trend, then two body paragraphs of detail with figures.",
+          id: "iw1a", name: "Task 1", minutes: 20, minWords: 150,
+          prompt: "The graph below shows the percentage of households with a fixed broadband connection in one European country between 2005 and 2020.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+          chart: {
+            kind: "line",
+            title: "Households with fixed broadband, 2005 to 2020",
+            unit: "% of households",
+            x: ["2005", "2008", "2011", "2014", "2017", "2020"],
+            series: [
+              { name: "All households", values: [14, 31, 47, 61, 71, 79] },
+              { name: "Rural households", values: [4, 12, 22, 36, 49, 61] },
+            ],
+          },
+          tip: "Task 1 is a description, not an argument. No opinion, and no causes you were not given. Open with an overview sentence covering the overall movement, then two body paragraphs of detail with figures. The gap between the two lines is the comparison the question is asking for.",
+        },
+        {
+          id: "iw1b", name: "Task 1, bar chart", minutes: 20, minWords: 150,
+          prompt: "The chart below shows how adults in one city travelled to work in 2010 and in 2022.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+          chart: {
+            kind: "bar",
+            title: "Main mode of travel to work, 2010 and 2022",
+            unit: "% of working adults",
+            x: ["Car", "Bus", "Rail", "Cycle", "Walk", "Work from home"],
+            series: [
+              { name: "2010", values: [58, 14, 12, 5, 9, 2] },
+              { name: "2022", values: [37, 11, 15, 12, 10, 15] },
+            ],
+          },
+          tip: "With two periods, the marks are in the changes, not in reading out twelve numbers. Group what fell, group what rose, and name the largest movement in your overview. Working from home going from 2 to 15 percent is the headline here.",
         },
         {
           id: "iw2", name: "Task 2", minutes: 40, minWords: 250,

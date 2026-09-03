@@ -1151,3 +1151,45 @@ kbd {
 }
 
 .speak-stage.speaking .speak-clock { color: var(--good); }
+
+/* ---------- task charts ---------- */
+
+:root { --chart-1: #3b5bfd; --chart-2: #d97a2b; }
+:root[data-theme="dark"] { --chart-1: #8ba0ff; --chart-2: #e8a765; }
+
+.chart {
+  margin: 18px 0 0;
+  padding: 16px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.chart figcaption {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 10px;
+}
+
+.chart-scroll { overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 420px; height: auto; }
+
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis-line { stroke: var(--ink-3); stroke-width: 1; }
+.chart .axis { fill: var(--ink-3); font-size: 11px; }
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.chart-unit { color: var(--ink-3); margin-right: auto; }
+.chart-key { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.chart-key i { width: 10px; height: 10px; border-radius: 3px; }

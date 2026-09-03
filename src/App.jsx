@@ -1373,7 +1373,10 @@ function buildPaper(test, sec) {
   if (sec.build) return { qs: BUILDERS[sec.build](sec.real), full: true };
   const pool = test.questions.filter((q) => q.section === sec.pool);
   const qs = [...pool].sort(() => Math.random() - 0.5).slice(0, sec.real);
-  return { qs, full: qs.length >= sec.real };
+  // Every section under 50 questions is authored to its real length, so a short
+  // form should only ever be possible on a very long paper. If one appears
+  // below that, the pool is missing questions and the row should say so.
+  return { qs, full: qs.length >= sec.real, short: qs.length < sec.real };
 }
 
 function TestPrep({ grade }) {
@@ -1668,6 +1671,97 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
   );
 }
 
+
+/* ---------- task charts ---------- */
+
+// IELTS Task 1 gives you a real figure to describe, so the app draws one.
+// Plain SVG, sized by viewBox and themed from the same tokens as everything else.
+function TaskChart({ chart }) {
+  const W = 640, H = 300;
+  const pad = { l: 44, r: 16, t: 16, b: 46 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  const all = chart.series.flatMap((s) => s.values);
+  const top = Math.ceil(Math.max(...all) / 20) * 20;
+  const ticks = [0, top / 4, top / 2, (top * 3) / 4, top];
+
+  const y = (v) => pad.t + plotH - (v / top) * plotH;
+  const colours = ["var(--chart-1)", "var(--chart-2)"];
+
+  return (
+    <figure className="chart">
+      <figcaption>{chart.title}</figcaption>
+      <div className="chart-scroll">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={chart.title}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="grid" />
+              <text x={pad.l - 8} y={y(t) + 4} className="axis" textAnchor="end">{t}</text>
+            </g>
+          ))}
+
+          {chart.kind === "line"
+            ? chart.series.map((s, si) => {
+                const step = plotW / (chart.x.length - 1);
+                const pts = s.values.map((v, i) => [pad.l + i * step, y(v)]);
+                return (
+                  <g key={s.name}>
+                    <polyline
+                      points={pts.map((p) => p.join(",")).join(" ")}
+                      fill="none" stroke={colours[si]} strokeWidth="2.5"
+                      strokeLinejoin="round" strokeLinecap="round"
+                    />
+                    {pts.map(([px, py], i) => (
+                      <circle key={i} cx={px} cy={py} r="3.5" fill="var(--surface)"
+                        stroke={colours[si]} strokeWidth="2" />
+                    ))}
+                  </g>
+                );
+              })
+            : chart.x.map((label, i) => {
+                const group = plotW / chart.x.length;
+                const barW = (group * 0.62) / chart.series.length;
+                const gx = pad.l + i * group + group * 0.19;
+                return (
+                  <g key={label}>
+                    {chart.series.map((s, si) => (
+                      <rect key={s.name} x={gx + si * barW} y={y(s.values[i])}
+                        width={barW - 2} height={pad.t + plotH - y(s.values[i])}
+                        fill={colours[si]} rx="2" />
+                    ))}
+                  </g>
+                );
+              })}
+
+          <line x1={pad.l} x2={W - pad.r} y1={pad.t + plotH} y2={pad.t + plotH} className="axis-line" />
+
+          {chart.x.map((label, i) => {
+            const cx = chart.kind === "line"
+              ? pad.l + i * (plotW / (chart.x.length - 1))
+              : pad.l + i * (plotW / chart.x.length) + (plotW / chart.x.length) / 2;
+            return (
+              <text key={label} x={cx} y={pad.t + plotH + 18} className="axis" textAnchor="middle">
+                {label}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="chart-legend">
+        <span className="chart-unit">{chart.unit}</span>
+        {chart.series.map((s, si) => (
+          <span key={s.name} className="chart-key">
+            <i style={{ background: colours[si] }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+    </figure>
+  );
+}
+
 /* ---------- writing and speaking ---------- */
 
 // Shared: rate your own answer against the test's published criteria.
@@ -1786,6 +1880,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
         <div className="card card-pad">
           <div className="prompt-label">Prompt</div>
           <div className="prompt">{task.prompt}</div>
+          {task.chart && <TaskChart chart={task.chart} />}
         </div>
 
         {!running && !done && (
