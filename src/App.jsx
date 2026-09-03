@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
-import { load, save, KEYS } from "./store.js";
-import { useAuth, Account, SignInDialog } from "./Account.jsx";
+import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
+import { useAuth, Account, SignInPage } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
@@ -165,13 +165,21 @@ export default function App() {
     save(KEYS.bannerOff, true);
   }
 
-  const auth = useAuth();
-  const [entered, setEnteredRaw] = useState(() => load(KEYS.entered, false));
+  // Signing out returns you to the landing page rather than dropping you into
+  // an empty app with no explanation.
+  const auth = useAuth(() => {
+    clearSession(KEYS.entered);
+    setEnteredRaw(false);
+  });
+
+  // Session storage, so closing the tab brings the landing page back. Anyone
+  // signed in skips it entirely, because their work is already safe.
+  const [entered, setEnteredRaw] = useState(() => loadSession(KEYS.entered, false));
   const [people, setPeople] = useState(null);
 
   function enter() {
     setEnteredRaw(true);
-    save(KEYS.entered, true);
+    saveSession(KEYS.entered, true);
   }
 
   // Worth saying only when there is an account to be had and none in use.
@@ -229,17 +237,12 @@ export default function App() {
   const title = ALL_NAV.find((n) => n.id === page).label;
 
   // Someone signed in, or who has been here before, goes straight to the app.
+  if (signInOpen && !auth.user) {
+    return <SignInPage onClose={() => { setSignInOpen(false); enter(); }} />;
+  }
+
   if (!auth.user && !entered && auth.ready) {
-    return (
-      <>
-        <Landing
-          people={people}
-          onSignIn={() => setSignInOpen(true)}
-          onSkip={enter}
-        />
-        <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
-      </>
-    );
+    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} />;
   }
 
   return (
@@ -358,8 +361,6 @@ export default function App() {
           auth={auth}
         />
       </main>
-
-      <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
     </div>
   );
 }

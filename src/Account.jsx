@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase, configured, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 
-export function useAuth() {
+export function useAuth(onSignedOut) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(!configured);
   const [syncedAt, setSyncedAt] = useState(null);
@@ -20,6 +20,7 @@ export function useAuth() {
   async function signOut() {
     setSyncedAt(null);
     setUser(null);
+    onSignedOut?.();
 
     if (!supabase) return;
 
@@ -69,16 +70,36 @@ export function useAuth() {
   return { user, ready, syncedAt, setSyncedAt, signOut };
 }
 
-// The magic link form, used by the Settings page and by the sign in dialog.
-export function SignInForm({ onDone, compact = false }) {
+// Google first, then the email link. Both live on the sign in page.
+export function SignInPanel({ onDone }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | sent | error
   const [message, setMessage] = useState("");
+
+  async function withGoogle() {
+    setState("sending");
+    setMessage("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setState("error");
+      // The commonest cause by far is the provider not being switched on.
+      setMessage(
+        /provider/i.test(error.message)
+          ? "Google sign in is not enabled on this project yet. Use the email link below."
+          : error.message,
+      );
+    }
+    // On success the browser leaves for Google, so there is nothing to do here.
+  }
 
   async function sendLink(e) {
     e.preventDefault();
     if (!email.trim()) return;
     setState("sending");
+    setMessage("");
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin },
@@ -95,40 +116,77 @@ export function SignInForm({ onDone, compact = false }) {
 
   if (state === "sent") {
     return (
-      <div className={compact ? "" : "set-row"}>
-        <div className="small good-text">{message}</div>
+      <div className="auth-sent">
+        <span className="pill good">Link sent</span>
+        <p className="small">{message}</p>
+        <p className="small muted">
+          You can close this page. Opening the link signs you in on whichever device you open it on.
+        </p>
       </div>
     );
   }
 
   return (
     <>
-      <form className={compact ? "stack" : "set-row"} onSubmit={sendLink}>
-        {!compact && (
-          <div className="sec-main">
-            <div className="list-title">Sync across devices</div>
-            <div className="small muted">We email a link. No password to choose, remember or lose.</div>
-          </div>
-        )}
-        <div className={compact ? "stack" : "row"} style={compact ? { gap: 10 } : undefined}>
+      <button className="btn ghost full auth-google" onClick={withGoogle} disabled={state === "sending"}>
+        <GoogleMark /> Continue with Google
+      </button>
+
+      <div className="or"><span>or</span></div>
+
+      <form onSubmit={sendLink} className="auth-form">
+        <label className="field">
+          <span>Email</span>
           <input
             type="email"
             required
             value={email}
             placeholder="you@example.com"
             autoComplete="email"
-            style={compact ? undefined : { width: 220 }}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <button className={"btn" + (compact ? " full" : "")} type="submit" disabled={state === "sending"}>
-            {state === "sending" ? "Sending" : "Email me a link"}
-          </button>
-        </div>
+        </label>
+        <button className="btn full" type="submit" disabled={state === "sending"}>
+          {state === "sending" ? "Sending" : "Email me a link"}
+        </button>
       </form>
-      {state === "error" && (
-        <p className="small warn-text" style={{ margin: compact ? "10px 0 0" : undefined }}>{message}</p>
-      )}
+
+      {state === "error" && <p className="small warn-text auth-error">{message}</p>}
     </>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62Z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.35 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18Z" />
+      <path fill="#FBBC05" d="M3.96 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.96a9 9 0 0 0 0 8.08l3-2.33Z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.65 3.58 9 3.58Z" />
+    </svg>
+  );
+}
+
+// A page rather than a dialog, so there is room for both routes in.
+export function SignInPage({ onClose }) {
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <Duck size={64} shadow={false} className="auth-duck" />
+        <h1>Save your progress</h1>
+        <p className="auth-sub">
+          {configured
+            ? "Your topics, missed questions and retired cards follow you to any device."
+            : "Accounts are not configured on this deployment yet, so progress stays in this browser."}
+        </p>
+
+        {configured && <SignInPanel />}
+
+        <button className="btn quiet auth-back" onClick={onClose}>
+          {configured ? "Continue without an account" : "Close"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -165,39 +223,13 @@ export function Account({ user, syncedAt, signOut }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-head"><h3>Sign in</h3></div>
-      <SignInForm />
+    <div className="card card-pad">
+      <b className="small">Sign in</b>
+      <p className="small muted" style={{ margin: "4px 0 14px" }}>
+        Sync your progress across devices.
+      </p>
+      <SignInPanel />
     </div>
   );
 }
 
-// The dialog opened from the banner and from the sidebar.
-export function SignInDialog({ open, onClose }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div className="scrim dialog-scrim" onClick={onClose}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <Duck size={54} shadow={false} className="dialog-duck" />
-        <h3>Save your progress</h3>
-        <p>
-          {configured
-            ? "Your topics, missed questions and retired cards follow you to any device. We email a link, so there is no password."
-            : "Accounts are not configured on this deployment yet, so progress stays in this browser."}
-        </p>
-        {configured && <SignInForm compact />}
-        <button className="btn quiet dialog-dismiss" onClick={onClose}>
-          {configured ? "Not now" : "Close"}
-        </button>
-      </div>
-    </div>
-  );
-}

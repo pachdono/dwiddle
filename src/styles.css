@@ -1547,63 +1547,87 @@ kbd {
 }
 .user-button:hover { background: var(--hover); }
 
-/* ---------- dialog ---------- */
+/* ---------- sign in page ---------- */
 
-.dialog-scrim {
+.auth-page {
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 32px 20px;
+  background:
+    radial-gradient(900px 400px at 50% -10%, var(--accent-soft), transparent 70%),
+    var(--bg);
 }
 
-.dialog {
+.auth-card {
   width: 100%;
-  max-width: 340px;
-  padding: 24px 24px 14px;
+  max-width: 360px;
+  padding: 30px 28px 18px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 24px 64px -24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 64px -28px rgba(20, 20, 40, 0.35);
   text-align: center;
-  animation: fade 0.18s ease both;
 }
 
-.dialog-duck { display: block; margin: 0 auto 10px; }
+.auth-duck { display: block; margin: 0 auto 12px; }
 
-.dialog h3 {
+.auth-card h1 {
   margin: 0 0 6px;
-  font-size: 18px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 
-/* The body copy was set at the same weight and size as the interface text,
-   which made the whole dialog read as one grey block. */
-.dialog p {
-  margin: 0 0 18px;
+.auth-sub {
+  margin: 0 0 20px;
   font-size: 13px;
   line-height: 1.55;
   color: var(--ink-3);
   text-wrap: pretty;
 }
 
-.dialog input[type="email"] { width: 100%; }
-.dialog .stack { gap: 8px; }
+.auth-google { gap: 9px; height: 44px; font-size: 13.5px; }
 
-/* One primary action, then a quiet way out. Three identical full width bars
-   gave the dismiss the same weight as the thing you came here to do. */
-.dialog-dismiss {
+/* The field was shorter than the buttons around it and carried a heavier
+   border, so the form read as three mismatched parts. Everything in the
+   column is now the same height, radius and border weight. */
+.auth-form { text-align: left; margin-top: 4px; }
+
+.auth-form label.field > span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+
+.auth-form input[type="email"] {
   width: 100%;
-  margin-top: 4px;
-  font-size: 12.5px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border-color: var(--line);
+  background: var(--panel);
+  font-size: 14px;
 }
 
-.warn-text { color: var(--warn); }
-
-@media (max-width: 860px) {
-  .notice { padding: 10px 16px; gap: 10px; }
-  .notice-text { font-size: 12.5px; }
+.auth-form input[type="email"]:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
+
+.auth-form .btn { height: 44px; margin-top: 12px; border-radius: 9px; font-size: 13.5px; }
+
+.auth-error { margin: 12px 0 0; text-align: left; }
+
+.auth-sent { text-align: center; }
+.auth-sent p { margin: 12px 0 0; line-height: 1.55; }
+
+.auth-back { width: 100%; margin-top: 14px; font-size: 12.5px; }
+
+.auth-page .or { margin: 18px 0; }
 
 /* ---------- dashboard pitch ---------- */
 

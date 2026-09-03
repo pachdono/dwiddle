@@ -19,6 +19,33 @@ export function save(key, value) {
   }
 }
 
+// Session storage clears when the tab closes, which is what we want for things
+// that should reset on a fresh visit rather than be remembered forever.
+export function loadSession(key, fallback) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveSession(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // nothing to do
+  }
+}
+
+export function clearSession(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // nothing to do
+  }
+}
+
 export const KEYS = {
   theme: "dwiddle-theme",
   known: "dwiddle-known",   // card ids retired from the deck
@@ -29,5 +56,5 @@ export const KEYS = {
   stats: "dwiddle-stats",     // answered, correct, and the days you studied
   made: "dwiddle-made",       // material generated from your own notes
   bannerOff: "dwiddle-banner", // the not signed in notice was dismissed
-  entered: "dwiddle-entered",  // the landing page has been passed once
+  entered: "dwiddle-entered",  // landing passed, for this tab only
 };
