@@ -1193,3 +1193,100 @@ kbd {
 .chart-unit { color: var(--ink-3); margin-right: auto; }
 .chart-key { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
 .chart-key i { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ---------- paper layout ---------- */
+
+.paper-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.paper-passage {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.passage-body {
+  white-space: pre-wrap;
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--ink-2);
+}
+
+.part-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+
+.q-text {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+/* ---------- question navigator ---------- */
+
+.qnav {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.qnav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.qnav-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.qnav-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.qnav-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+.qnav-btn.done { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.qnav-btn.now { border-color: var(--ink); color: var(--ink); box-shadow: 0 0 0 2px var(--accent-soft); }
+.qnav-btn.done.now { background: var(--accent); color: var(--btn-ink); border-color: var(--accent); }
+.qnav-btn.part { margin-left: 14px; position: relative; }
+.qnav-btn.part::before {
+  content: "";
+  position: absolute;
+  left: -8px; top: 4px; bottom: 4px;
+  width: 1px;
+  background: var(--line);
+}
+
+@media (max-width: 1000px) {
+  .paper-split { grid-template-columns: 1fr; }
+  .paper-passage { position: static; max-height: 340px; }
+}

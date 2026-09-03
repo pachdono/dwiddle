@@ -1371,8 +1371,22 @@ function Reader() {
 // the caller shows that as a short form rather than repeating questions.
 function buildPaper(test, sec) {
   if (sec.build) return { qs: BUILDERS[sec.build](sec.real), full: true };
+
+  // Passage based sections must keep each passage's questions together and in
+  // order, the way a real paper does. Only the order of the passages varies.
   const pool = test.questions.filter((q) => q.section === sec.pool);
-  const qs = [...pool].sort(() => Math.random() - 0.5).slice(0, sec.real);
+  const blocks = [];
+  pool.forEach((q) => {
+    const last = blocks[blocks.length - 1];
+    if (last && last.passage === q.passage) last.items.push(q);
+    else blocks.push({ passage: q.passage, items: [q] });
+  });
+
+  const qs = [];
+  for (const b of shuffle(blocks)) {
+    if (qs.length + b.items.length > sec.real) continue; // never split a passage
+    qs.push(...b.items);
+  }
   // Every section under 50 questions is authored to its real length, so a short
   // form should only ever be possible on a very long paper. If one appears
   // below that, the pool is missing questions and the row should say so.
@@ -1621,8 +1635,48 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
   const q = qs[i];
   const answered = Object.keys(answers).length;
 
+  // Consecutive questions on the same passage form one part, the way a real
+  // reading paper does. The passage stays on screen while you work through them.
+  const parts = [];
+  qs.forEach((item, n) => {
+    const last = parts[parts.length - 1];
+    if (last && last.passage === item.passage) last.idx.push(n);
+    else parts.push({ passage: item.passage, idx: [n] });
+  });
+  const part = parts.find((pt) => pt.idx.includes(i));
+  const partNo = parts.indexOf(part) + 1;
+  const inPart = part.idx.indexOf(i) + 1;
+
+  const questionPane = (
+    <>
+      {q.passage && parts.length > 1 && (
+        <div className="part-tag">
+          Part {partNo}, question {inPart} of {part.idx.length}
+        </div>
+      )}
+
+      <h3 className="q-text">{q.q}</h3>
+
+      {q.choices.map((c, n) => (
+        <button key={n} className={"choice" + (answers[i] === n ? " picked" : "")}
+          onClick={() => setAnswers((a) => ({ ...a, [i]: n }))}>
+          <span className="key">{"ABCDE"[n]}</span>
+          {c}
+        </button>
+      ))}
+
+      <div className="spread" style={{ marginTop: 16 }}>
+        <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>Back</button>
+        <span className="small muted">{qs.length - answered} unanswered</span>
+        {i + 1 < qs.length
+          ? <button className="btn ghost" onClick={() => setI(i + 1)}>Next</button>
+          : <button className="btn" onClick={finish}>Submit section</button>}
+      </div>
+    </>
+  );
+
   return (
-    <div className="page fade">
+    <div className="page wide fade paper">
       <div className="page-head">
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
         <div className="spread">
@@ -1636,36 +1690,63 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
         </div>
       </div>
 
-      <div className="card card-pad">
-        <div className="spread" style={{ marginBottom: 8 }}>
-          <span className="small muted">Question {i + 1} of {qs.length}</span>
-          <span className="small muted">{answered} answered</span>
+      <div className="spread" style={{ marginBottom: 8 }}>
+        <span className="small muted">Question {i + 1} of {qs.length}</span>
+        <span className="small muted">{answered} answered</span>
+      </div>
+      <div className="bar" style={{ marginBottom: 16 }}>
+        <i style={{ width: `${(answered / qs.length) * 100}%` }} />
+      </div>
+
+      {q.passage ? (
+        <div className="paper-split">
+          <div className="paper-passage">
+            <div className="prompt-label">
+              {parts.length > 1 ? `Reading passage ${partNo}` : "Passage"}
+            </div>
+            <div className="passage-body">{q.passage}</div>
+          </div>
+          <div className="card card-pad paper-questions">{questionPane}</div>
         </div>
-        <div className="bar" style={{ marginBottom: 20 }}>
-          <i style={{ width: `${(answered / qs.length) * 100}%` }} />
-        </div>
+      ) : (
+        <div className="card card-pad">{questionPane}</div>
+      )}
 
-        {q.passage && <div className="stimulus">{q.passage}</div>}
+      <QuestionNav qs={qs} parts={parts} answers={answers} current={i} onGo={setI} />
+    </div>
+  );
+}
 
-        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          {q.q}
-        </h3>
-
-        {q.choices.map((c, n) => (
-          <button key={n} className={"choice" + (answers[i] === n ? " picked" : "")}
-            onClick={() => setAnswers((a) => ({ ...a, [i]: n }))}>
-            <span className="key">{"ABCDE"[n]}</span>
-            {c}
-          </button>
-        ))}
-
-        <div className="spread" style={{ marginTop: 16 }}>
-          <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>Back</button>
-          <span className="small muted">{qs.length - answered} unanswered</span>
-          {i + 1 < qs.length
-            ? <button className="btn ghost" onClick={() => setI(i + 1)}>Next</button>
-            : <button className="btn" onClick={finish}>Submit section</button>}
-        </div>
+// The strip of numbered buttons along the bottom. Filled means answered, the
+// ring is where you are, and a gap marks the start of a new passage.
+function QuestionNav({ qs, parts, answers, current, onGo }) {
+  return (
+    <div className="qnav">
+      <div className="qnav-head">
+        <b className="small">Questions</b>
+        <span className="small muted">
+          {Object.keys(answers).length} of {qs.length} answered
+        </span>
+      </div>
+      <div className="qnav-grid">
+        {qs.map((_, n) => {
+          const startsPart = parts.length > 1 && parts.some((pt) => pt.idx[0] === n && pt.idx[0] !== 0);
+          return (
+            <button
+              key={n}
+              className={
+                "qnav-btn" +
+                (n === current ? " now" : "") +
+                (answers[n] !== undefined ? " done" : "") +
+                (startsPart ? " part" : "")
+              }
+              onClick={() => onGo(n)}
+              title={`Question ${n + 1}${answers[n] !== undefined ? ", answered" : ""}`}
+            >
+              {n + 1}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
