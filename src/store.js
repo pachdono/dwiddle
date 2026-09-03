@@ -28,6 +28,6 @@ export const KEYS = {
   quizLen: "dwiddle-quizlen", // questions per quiz run
   stats: "dwiddle-stats",     // answered, correct, and the days you studied
   made: "dwiddle-made",       // material generated from your own notes
-  sample: "dwiddle-sample",   // whether the demonstration material is loaded
   bannerOff: "dwiddle-banner", // the not signed in notice was dismissed
+  entered: "dwiddle-entered",  // the landing page has been passed once
 };

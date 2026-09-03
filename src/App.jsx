@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import {
-  MATERIALS, TOPICS, QUIZ, BANK, DECKS, EXAM_SIZES, EXAM_TIMES,
-  SHEET, SAMPLE_NOTES, DOC, HL_KINDS,
-} from "./mock.js";
+import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, KEYS } from "./store.js";
 import { useAuth, Account, SignInDialog } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
+import { Landing } from "./Landing.jsx";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
 import { BUILDERS } from "./generate.js";
 import { TASKS, RUBRICS } from "./tasks.js";
@@ -168,37 +166,34 @@ export default function App() {
   }
 
   const auth = useAuth();
+  const [entered, setEnteredRaw] = useState(() => load(KEYS.entered, false));
+  const [people, setPeople] = useState(null);
+
+  function enter() {
+    setEnteredRaw(true);
+    save(KEYS.entered, true);
+  }
 
   // Worth saying only when there is an account to be had and none in use.
   const warnUnsaved = configured && !auth.user && !bannerOff;
-  const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
-  const [sample, setSampleRaw] = useState(() => load(KEYS.sample, false));
 
-  function setSample(on) {
-    setSampleRaw(on);
-    save(KEYS.sample, on);
-  }
+  // Read once for the landing page. The dashboard keeps its own copy current.
+  useEffect(() => {
+    let live = true;
+    userCount().then((n) => live && setPeople(n));
+    return () => { live = false; };
+  }, []);
+  const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
 
   function setMade(data) {
     setMadeRaw(data);
     save(KEYS.made, data);
   }
 
-  // The app starts empty. Your own material comes first, and the demonstration
-  // set only appears if you ask for it, so nothing is ever presented as your
-  // work when it is not.
-  const bank = [
-    ...(made ? made.questions : []),
-    ...(sample ? BANK : []),
-  ];
-  const topics = [
-    ...(made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : []),
-    ...(sample ? TOPICS : []),
-  ];
-  const materials = [
-    ...(made ? [{ id: "made", title: made.title, kind: "Yours" }] : []),
-    ...(sample ? MATERIALS : []),
-  ];
+  // Everything comes from the person's own notes. There is no built in content.
+  const bank = made ? made.questions : [];
+  const topics = made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : [];
+  const materials = made ? [{ id: "made", title: made.title, kind: "Yours" }] : [];
 
   // Push progress up whenever it changes, debounced so a run of answers does
   // not become a run of requests.
@@ -228,11 +223,24 @@ export default function App() {
     upload: AddMaterial,
     library: Library,
     settings: Settings,
-    reader: Reader,
     tests: TestPrep,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
+
+  // Someone signed in, or who has been here before, goes straight to the app.
+  if (!auth.user && !entered && auth.ready) {
+    return (
+      <>
+        <Landing
+          people={people}
+          onSignIn={() => setSignInOpen(true)}
+          onSkip={enter}
+        />
+        <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <div className="app">
@@ -325,7 +333,7 @@ export default function App() {
             <Icon name="menu" size={18} />
           </button>
           <h1>{title}</h1>
-          <span className="crumb small">{made ? made.title : sample ? "Sample material" : ""}</span>
+          <span className="crumb small">{made ? made.title : ""}</span>
         </header>
         <Page
           key={`${page}:${seq}`}
@@ -344,8 +352,6 @@ export default function App() {
           stats={stats}
           made={made}
           setMade={setMade}
-          sample={sample}
-          setSample={setSample}
           bank={bank}
           topics={topics}
           materials={materials}
@@ -444,7 +450,7 @@ function streakOf(days) {
   return n;
 }
 
-function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, setSample }) {
+function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
   // Only shown if the database actually answers. No number is better than an
   // invented one. It refreshes on its own so the figure stays current without
   // a reload: every 30 seconds while the tab is in front, and immediately when
@@ -518,17 +524,12 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, s
               <b>Nothing here yet</b>
               <div className="small muted">
                 Paste your notes or drop a PDF, and it writes the topics, the questions and an
-                explanation for every answer. Or load some sample material to look around first.
+                explanation for every answer.
               </div>
               <div className="row" style={{ marginTop: 12 }}>
                 <button className="btn" onClick={() => go("upload")}>
                   <Icon name="upload" size={14} /> Add material
                 </button>
-                {!sample && (
-                  <button className="btn ghost" onClick={() => setSample(true)}>
-                    Load sample material
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -595,11 +596,11 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, s
               {made?.sheet && <span className="pill accent">Yours</span>}
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              {made?.sheet || sample
+              {made?.sheet
                 ? "A one page condensation with the important bits marked."
                 : "Add material and a study sheet is written along with the questions."}
             </p>
-            <button className="btn ghost" disabled={!made?.sheet && !sample}
+            <button className="btn ghost" disabled={!made?.sheet}
               onClick={() => go("sheet")}>Open sheet</button>
           </div>
         </div>
@@ -670,7 +671,7 @@ function TopicRow({ t, go, topic, setTopic, onHide, stats }) {
   );
 }
 
-function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, materials, stats, sample, setSample }) {
+function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, materials, stats }) {
   const [justHidden, setJustHidden] = useState(null);
 
   function hide(id) {
@@ -742,15 +743,10 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
             <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 380 }}>
               {hidden.length > 0
                 ? "Restore them below to start again."
-                : "Topics appear once you add your own notes. You can also load some sample material to look around with."}
+                : "Topics appear once you add your own notes."}
             </p>
             {hidden.length === 0 && (
-              <div className="row" style={{ justifyContent: "center" }}>
-                <button className="btn" onClick={() => go("upload")}>Add material</button>
-                {!sample && (
-                  <button className="btn ghost" onClick={() => setSample(true)}>Load sample</button>
-                )}
-              </div>
+              <button className="btn" onClick={() => go("upload")}>Add material</button>
             )}
           </div>
         )}
@@ -951,7 +947,7 @@ function AddMaterial({ go, setMade }) {
 
 /* ---------- library ---------- */
 
-function Library({ go, made, materials, sample, setSample }) {
+function Library({ go, made, materials }) {
   return (
     <div className="page fade">
       <PageHead title="Library" sub="Everything you have added so far." />
@@ -962,10 +958,7 @@ function Library({ go, made, materials, sample, setSample }) {
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
             Anything you add shows up here, along with the topics and questions written from it.
           </p>
-          <div className="row" style={{ justifyContent: "center" }}>
-            <button className="btn" onClick={() => go("upload")}>Add material</button>
-            <button className="btn ghost" onClick={() => setSample(true)}>Load sample</button>
-          </div>
+          <button className="btn" onClick={() => go("upload")}>Add material</button>
         </div>
       ) : (
         <div className="stack">
@@ -991,17 +984,6 @@ function Library({ go, made, materials, sample, setSample }) {
             </div>
           </div>
 
-          {sample && (
-            <div className="card card-pad spread">
-              <div>
-                <b className="small">Sample material is loaded</b>
-                <div className="small muted">
-                  Three demonstration documents and their topics. Remove them once you have your own.
-                </div>
-              </div>
-              <button className="btn ghost" onClick={() => setSample(false)}>Remove sample</button>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -1217,9 +1199,9 @@ function sheetParts(sheet) {
   ].flat().filter(Boolean);
 }
 
-function StudySheet({ made, sample, go }) {
+function StudySheet({ made, go }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
-  const sheet = made?.sheet?.big ? made.sheet : sample ? SHEET : null;
+  const sheet = made?.sheet?.big ? made.sheet : null;
 
   if (!sheet) {
     return (
@@ -1247,9 +1229,7 @@ function StudySheet({ made, sample, go }) {
     <div className="page fade">
       <PageHead
         title={sheet.title || "Study sheet"}
-        sub={made?.sheet
-          ? `Written from your own notes. ${total} highlights.`
-          : `From the sample material. ${SHEET.readTime}, ${total} highlights.`}
+        sub={`Written from your own notes. ${total} highlight${total === 1 ? "" : "s"}.`}
       />
 
       <HighlightFilters on={on} setOn={setOn} counts={counts} />
@@ -1389,14 +1369,16 @@ function Settings({ theme, setTheme, auth }) {
 /* ---------- practice: flashcards ---------- */
 
 // A card per bank question. The front asks, the back answers and explains.
-const CARDS = BANK.map((q) => ({
-  id: q.id,
-  kind: q.kind,
-  topic: q.topic,
-  front: q.kind === "vocab" ? `Define: ${q.q}` : q.q,
-  back: q.choices[q.answer],
-  note: q.why,
-}));
+function cardsFrom(questions) {
+  return questions.map((q) => ({
+    id: q.id,
+    kind: q.kind,
+    topic: q.topic,
+    front: q.kind === "vocab" ? `Define: ${q.q}` : q.q,
+    back: q.choices[q.answer],
+    note: q.why,
+  }));
+}
 
 function Flashcards({ pool }) {
   const [deck, setDeck] = useState("all");
@@ -1405,8 +1387,7 @@ function Flashcards({ pool }) {
   const [flipped, setFlipped] = useState(false);
   const [again, setAgain] = useState([]); // cards pushed to the back of the run
 
-  const ids = new Set(pool.map((q) => q.id));
-  const deckSource = CARDS.filter((c) => ids.has(c.id));
+  const deckSource = cardsFrom(pool);
   const inDeck = deckSource.filter((c) => deck === "all" || c.kind === deck);
   const live = inDeck.filter((c) => !known.includes(c.id));
   const queue = [...live.filter((c) => !again.includes(c.id)), ...live.filter((c) => again.includes(c.id))];
@@ -1709,10 +1690,10 @@ function MockExam({ grade, pool }) {
 
 /* ---------- practice: missed questions ---------- */
 
-function MissedMode({ missed, setMissed, grade, setPMode }) {
+function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
-  const [list] = useState(() => [...BANK, ...TEST_QUESTIONS].filter((q) => missed.includes(q.id)));
+  const [list] = useState(() => [...bank, ...TEST_QUESTIONS].filter((q) => missed.includes(q.id)));
 
   function clearAll() {
     setMissed([]);
@@ -1885,315 +1866,6 @@ function SpeedRound({ grade, pool }) {
           {c}
         </button>
       ))}
-    </div>
-  );
-}
-
-/* ---------- material reader ---------- */
-
-// Flatten the document into a numbered list of highlights, so the rail and
-// the body can point at the same thing.
-const HIGHLIGHTS = DOC.blocks.flatMap((b, bi) =>
-  b.p.flatMap((seg, si) => (seg.mark ? [{ id: `h${bi}-${si}`, ...seg, section: b.h }] : [])),
-);
-
-function Reader({ sample, go }) {
-  const [on, setOn] = useState({ def: true, key: true, exam: true });
-  const [active, setActive] = useState(null);
-
-  const shown = HIGHLIGHTS.filter((h) => on[h.mark]);
-
-  function jump(id) {
-    setActive(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  // The highlighted reader only has the sample document behind it for now.
-  if (!sample) {
-    return (
-      <div className="page fade">
-        <PageHead title="Material" sub="Your source text, with the important passages marked." />
-        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={84} />
-          <b style={{ display: "block", marginTop: 10 }}>Nothing to read yet</b>
-          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
-            Add material, or load the sample to see how highlighting works.
-          </p>
-          <button className="btn" onClick={() => go("upload")}>Add material</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="page wide fade">
-      <div className="page-head">
-        <div className="spread">
-          <div>
-            <h2>{DOC.title}</h2>
-            <p>{DOC.subtitle}, {DOC.pages} pages, {HIGHLIGHTS.length} highlights</p>
-          </div>
-          <button className="btn ghost">Export highlights</button>
-        </div>
-      </div>
-
-      <HighlightFilters on={on} setOn={setOn} counts={{
-        def: HIGHLIGHTS.filter((h) => h.mark === "def").length,
-        key: HIGHLIGHTS.filter((h) => h.mark === "key").length,
-        exam: HIGHLIGHTS.filter((h) => h.mark === "exam").length,
-      }} />
-
-      <div className="reader">
-        <article className="doc">
-          {DOC.blocks.map((b, bi) => (
-            <section key={bi}>
-              <h3>{b.h}</h3>
-              <p>
-                {b.p.map((seg, si) => {
-                  const id = `h${bi}-${si}`;
-                  if (!seg.mark || !on[seg.mark]) return <span key={si}>{seg.t}</span>;
-                  return (
-                    <mark key={si} id={id}
-                      className={"hl " + seg.mark + (active === id ? " active" : "")}
-                      onClick={() => setActive(id)}>
-                      {seg.t}
-                    </mark>
-                  );
-                })}
-              </p>
-            </section>
-          ))}
-        </article>
-
-        <aside className="rail">
-          <div className="rail-head">
-            <b className="small">Highlights</b>
-            <span className="small muted">{shown.length}</span>
-          </div>
-
-          {shown.length === 0 && <div className="empty small">Every type is switched off.</div>}
-
-          {shown.map((h) => (
-            <button key={h.id} className={"rail-item" + (active === h.id ? " on" : "")}
-              onClick={() => jump(h.id)}>
-              <span className={"tag " + h.mark}>{HL_KINDS[h.mark].label}</span>
-              <span className="rail-text">{h.t}</span>
-              {h.note && <span className="rail-note">{h.note}</span>}
-              <span className="rail-src">{h.section}</span>
-            </button>
-          ))}
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- answer formats ---------- */
-
-// Real papers do not use one answer layout. IELTS mixes True/False/Not Given,
-// Yes/No/Not Given, gap fill typed by hand and roman numbered heading lists.
-// The format is derived from the skill so each question renders the way its
-// own test presents it.
-function formatOf(q) {
-  const sk = (q.skill || "").toLowerCase();
-  if (sk.includes("true, false")) return "tfng";
-  if (sk.includes("yes, no")) return "ynng";
-  if (sk.includes("completion")) return "gap";
-  if (sk.includes("matching headings")) return "headings";
-  return "mcq";
-}
-
-const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"];
-
-// ACT alternates its answer letters between odd and even questions, TOEFL uses
-// no letters at all, and everyone else runs A onwards.
-function lettersFor(testId, index) {
-  if (testId === "act") return index % 2 === 0 ? "ABCD" : "FGHJ";
-  if (testId === "toefl") return null;
-  return "ABCDE";
-}
-
-const norm = (v) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-
-function isRight(q, given) {
-  if (formatOf(q) === "gap") return given !== undefined && norm(given) === norm(q.choices[q.answer]);
-  return given === q.answer;
-}
-
-const isAnswered = (given) => given !== undefined && given !== "";
-
-// One question's answer control, in whatever shape its test uses.
-function AnswerInput({ q, testId, index, value, onChange, disabled }) {
-  const format = formatOf(q);
-
-  if (format === "gap") {
-    return (
-      <div className="gap-answer">
-        <label className="field">
-          <span>Type your answer</span>
-          <input type="text" value={value ?? ""} disabled={disabled}
-            placeholder="Your answer"
-            onChange={(e) => onChange(e.target.value)} />
-        </label>
-        <div className="small muted" style={{ marginTop: 6 }}>
-          Spelling counts, and answers over the stated word limit score zero.
-        </div>
-      </div>
-    );
-  }
-
-  if (format === "tfng" || format === "ynng") {
-    return (
-      <div className="tf-row">
-        {q.choices.map((c, n) => (
-          <button key={n} className={"tf-btn" + (value === n ? " on" : "")}
-            disabled={disabled} onClick={() => onChange(n)}>
-            {c}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  if (format === "headings") {
-    return (
-      <ol className="headings">
-        {q.choices.map((c, n) => (
-          <li key={n}>
-            <button className={"heading-opt" + (value === n ? " on" : "")}
-              disabled={disabled} onClick={() => onChange(n)}>
-              <span className="key roman">{ROMAN[n]}</span>
-              {c}
-            </button>
-          </li>
-        ))}
-      </ol>
-    );
-  }
-
-  const letters = lettersFor(testId, index);
-  return (
-    <>
-      {q.choices.map((c, n) => (
-        <button key={n} className={"choice" + (value === n ? " picked" : "")}
-          disabled={disabled} onClick={() => onChange(n)}>
-          <span className={"key" + (letters ? "" : " blank")}>{letters ? letters[n] : ""}</span>
-          {c}
-        </button>
-      ))}
-    </>
-  );
-}
-
-/* ---------- post test feedback ---------- */
-
-// Breaks a finished paper down by skill and by section, works out what the
-// pattern actually says, and points at the next thing to do about it.
-function analyse(qs, answers, secondsAllowed, secondsLeft) {
-  if (!qs || qs.length === 0) {
-    return { rows: [], sections: [], right: 0, unanswered: 0, used: 0, notes: [], weakest: null };
-  }
-  const bySkill = {};
-  const bySection = {};
-
-  qs.forEach((q, n) => {
-    const ok = isRight(q, answers[n]);
-    const skill = q.skill || q.section || "General";
-    const section = q.section || "General";
-    (bySkill[skill] ||= { right: 0, total: 0 }).total += 1;
-    (bySection[section] ||= { right: 0, total: 0 }).total += 1;
-    if (ok) {
-      bySkill[skill].right += 1;
-      bySection[section].right += 1;
-    }
-  });
-
-  const rows = Object.entries(bySkill)
-    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
-    .sort((a, b) => a.pct - b.pct || b.total - a.total);
-
-  const sections = Object.entries(bySection)
-    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
-    .sort((a, b) => a.pct - b.pct);
-
-  const right = qs.filter((q, n) => isRight(q, answers[n])).length;
-  const unanswered = qs.filter((q, n) => !isAnswered(answers[n])).length;
-  const pct = right / qs.length;
-  const used = secondsAllowed - secondsLeft;
-  const notes = [];
-
-  // Pace. Two failure modes, and they need opposite advice.
-  if (unanswered > 0 && secondsLeft <= 0) {
-    notes.push(`You ran out of time with ${unanswered} unanswered. On a real paper those are marks given away for nothing, so put something down for every question before the clock stops.`);
-  } else if (unanswered > 0) {
-    notes.push(`You left ${unanswered} blank with time still on the clock. There is no penalty for a wrong answer here, so a considered guess is always better than a gap.`);
-  } else if (secondsLeft > secondsAllowed * 0.4 && pct < 0.7) {
-    notes.push(`You finished with ${Math.round(secondsLeft / 60)} minutes spare but got ${qs.length - right} wrong. Speed is not your problem. Slow down and use the time you are being given.`);
-  } else if (secondsLeft < secondsAllowed * 0.05) {
-    notes.push("You used almost the whole clock. That is fine on this paper, but it leaves nothing for checking, so any careless error stands.");
-  }
-
-  // Where the marks actually went.
-  const weak = rows.filter((r) => r.pct < 0.6 && r.total >= 2);
-  if (weak.length > 0) {
-    notes.push(`Most of your lost marks sit in ${weak.slice(0, 2).map((w) => w.name.toLowerCase()).join(" and ")}. That is a pattern rather than bad luck, so it is worth drilling on its own before you sit the section again.`);
-  }
-
-  const strong = rows.filter((r) => r.pct >= 0.8 && r.total >= 2);
-  if (strong.length > 0) {
-    notes.push(`${strong[strong.length - 1].name} is solid. Spend less time there and more on the rows above.`);
-  }
-
-  if (pct >= 0.9) notes.push("At this accuracy the useful next step is the full paper under time, not more practice on single sections.");
-  else if (pct < 0.4) notes.push("Accuracy this low usually means a method problem rather than a knowledge one. Drill a section with the explanations on before timing yourself again.");
-
-  return { rows, sections, right, unanswered, used, notes, weakest: sections[0] };
-}
-
-function Feedback({ qs, answers, secondsAllowed, secondsLeft, onDrill }) {
-  const a = analyse(qs, answers, secondsAllowed, secondsLeft);
-
-  return (
-    <div className="stack">
-      <div className="card">
-        <div className="card-head">
-          <h3>What to work on</h3>
-          <span className="small muted">
-            {fmt(a.used)} used of {fmt(secondsAllowed)}
-          </span>
-        </div>
-
-        <div className="fb-notes">
-          {a.notes.map((n, i) => (
-            <p key={i} className="small">{n}</p>
-          ))}
-        </div>
-
-        <div className="fb-rows">
-          {a.rows.map((r) => (
-            <div key={r.name} className="fb-row">
-              <span className="fb-name">{r.name}</span>
-              <div className="fb-bar">
-                <i className={r.pct < 0.5 ? "low" : r.pct < 0.8 ? "mid" : "high"}
-                  style={{ width: `${Math.max(r.pct * 100, 2)}%` }} />
-              </div>
-              <span className="fb-score small">{r.right}/{r.total}</span>
-            </div>
-          ))}
-        </div>
-
-        {onDrill && a.weakest && a.weakest.pct < 0.8 && (
-          <div className="set-row">
-            <div className="hint">
-              {a.weakest.name} was your weakest section at {a.weakest.right} of {a.weakest.total}.
-              A drill runs ten of them with no clock and the reasoning after each answer.
-            </div>
-            <button className="btn" onClick={() => onDrill(a.weakest.name)}>
-              <Icon name="quiz" size={14} /> Drill {a.weakest.name}
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
