@@ -13,43 +13,58 @@ const BASE = "https://integrate.api.nvidia.com/v1";
 const ENDPOINT = `${BASE}/chat/completions`;
 const MODELS = `${BASE}/models`;
 
-// NVIDIA's catalogue changes, so hard coding a model id means the app breaks
-// the day that one is retired. If NVIDIA_MODEL is not set we ask the key which
-// models it can actually use and pick the best available instruct model.
-// The answer is cached for the life of the warm function instance.
+// NVIDIA's catalogue changes, and being listed is not the same as being
+// callable: the models endpoint happily returns models that answer a chat
+// request with 400. So we build an ordered list of candidates and work down it
+// until one actually replies, remembering both the winner and the failures.
+
+// Models that exist but are wrong for this job.
+const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva/i;
+
 const PREFERENCES = [
   /llama-3\.3-70b-instruct/i,
+  /mistral-large-2-instruct/i,
+  /nemotron-4-340b-instruct/i,
+  /llama-3\.1-nemotron-70b-instruct/i,
   /llama-3\.1-70b-instruct/i,
-  /nemotron.*70b.*instruct/i,
-  /llama-3\.1-8b-instruct/i,
-  /qwen.*instruct/i,
-  /mixtral.*instruct/i,
-  /mistral.*instruct/i,
+  /jamba-1\.5-large-instruct/i,
+  /phi-3\.5-moe-instruct/i,
+  /nemotron-51b-instruct/i,
+  /mistral-nemo-12b-instruct/i,
+  /dbrx-instruct/i,
+  /granite-3\.0-8b-instruct/i,
+  /mistral-7b-instruct/i,
   /instruct/i,
 ];
 
 let cachedModel = null;
+const rejected = new Set();
+
+// Ordered best first, with anything already known to fail removed.
+export async function candidates() {
+  if (process.env.NVIDIA_MODEL) return [process.env.NVIDIA_MODEL];
+
+  const all = (await listModels()).filter((id) => !UNSUITABLE.test(id) && !rejected.has(id));
+  const ordered = [];
+
+  for (const pattern of PREFERENCES) {
+    for (const id of all) {
+      if (pattern.test(id) && !ordered.includes(id)) ordered.push(id);
+    }
+  }
+  for (const id of all) if (!ordered.includes(id)) ordered.push(id);
+
+  return ordered;
+}
 
 export async function resolveModel() {
   if (process.env.NVIDIA_MODEL) return process.env.NVIDIA_MODEL;
   if (cachedModel) return cachedModel;
-
-  const ids = await listModels();
-  if (ids.length === 0) {
-    throw Object.assign(new Error("Your NVIDIA key returned no available models"), { status: 502 });
+  const list = await candidates();
+  if (list.length === 0) {
+    throw Object.assign(new Error("Your NVIDIA key has no usable models"), { status: 502 });
   }
-
-  for (const pattern of PREFERENCES) {
-    const hit = ids.find((id) => pattern.test(id));
-    if (hit) {
-      cachedModel = hit;
-      console.log("[api] using model", hit);
-      return hit;
-    }
-  }
-
-  cachedModel = ids[0];
-  return cachedModel;
+  return list[0];
 }
 
 export async function listModels() {
@@ -117,57 +132,77 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
     throw Object.assign(new Error("NVIDIA_API_KEY is not set on the server"), { status: 500 });
   }
 
-  const model = await resolveModel();
+  // Try the cached winner first, then the rest in preference order.
+  const list = cachedModel ? [cachedModel, ...(await candidates()).filter((m) => m !== cachedModel)] : await candidates();
+  let lastError = null;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
+  for (const model of list) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
 
-  let reply;
-  try {
-    reply = await fetch(ENDPOINT, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature,
-        max_tokens: maxTokens,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-  } catch (err) {
+    let reply;
+    try {
+      reply = await fetch(ENDPOINT, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      throw Object.assign(
+        new Error(err.name === "AbortError" ? "The model took too long to answer" : "Could not reach the model"),
+        { status: 504 },
+      );
+    }
     clearTimeout(timeout);
-    throw Object.assign(new Error(err.name === "AbortError" ? "The model took too long to answer" : "Could not reach the model"), { status: 504 });
-  }
-  clearTimeout(timeout);
 
-  if (!reply.ok) {
+    if (reply.ok) {
+      const data = await reply.json();
+      const text = data?.choices?.[0]?.message?.content;
+      if (text) {
+        if (cachedModel !== model) console.log("[api] using model", model);
+        cachedModel = model;
+        return text;
+      }
+      lastError = Object.assign(new Error("The model returned an empty answer"), { status: 502 });
+      continue;
+    }
+
     const body = await reply.text().catch(() => "");
-    cachedModel = null; // so the next call re-resolves rather than repeating a bad id
 
-    let message;
-    if (reply.status === 401) message = "The NVIDIA key was rejected";
-    else if (reply.status === 404 || reply.status === 400) {
-      message = `The model "${model}" is not available to your key. Clear NVIDIA_MODEL to let the server pick one, or open /api/models to see the list.`;
-    } else if (reply.status === 429) message = "Rate limited by NVIDIA. Wait a moment and try again.";
-    else message = `The model returned ${reply.status}`;
+    if (reply.status === 401) {
+      throw Object.assign(new Error("The NVIDIA key was rejected"), { status: 500, detail: body.slice(0, 300) });
+    }
 
-    throw Object.assign(new Error(message), {
-      status: reply.status === 401 ? 500 : 502,
-      detail: body.slice(0, 300),
-    });
+    // Listed but not callable with this key. Remember it and move on.
+    if (reply.status === 400 || reply.status === 403 || reply.status === 404) {
+      console.warn(`[api] ${model} is not usable (${reply.status}), trying the next one`);
+      rejected.add(model);
+      if (cachedModel === model) cachedModel = null;
+      lastError = Object.assign(new Error(`No model your key can use accepted the request`), { status: 502 });
+      continue;
+    }
+
+    if (reply.status === 429) {
+      throw Object.assign(new Error("Rate limited by NVIDIA. Wait a moment and try again."), { status: 502 });
+    }
+
+    lastError = Object.assign(new Error(`The model returned ${reply.status}`), { status: 502, detail: body.slice(0, 300) });
   }
 
-  const data = await reply.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw Object.assign(new Error("The model returned an empty answer"), { status: 502 });
-  return text;
+  throw lastError || Object.assign(new Error("No usable model found for your key"), { status: 502 });
 }
 
 // Every endpoint shares the same shape: check the method, read and cap the
