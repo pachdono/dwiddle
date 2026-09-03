@@ -1496,3 +1496,15 @@ kbd {
 @media (max-width: 700px) {
   .fb-row { grid-template-columns: minmax(0, 1fr) 70px 44px; }
 }
+
+/* ---------- mascot ---------- */
+
+.brand-mark-duck { flex: 0 0 auto; margin-left: -2px; }
+
+.welcome { gap: 16px; align-items: center; }
+.welcome-duck { flex: 0 0 auto; }
+
+@media (max-width: 860px) {
+  .welcome { flex-direction: row; }
+  .welcome-duck { display: none; }
+}

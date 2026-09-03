@@ -7,6 +7,7 @@ import { load, save, KEYS } from "./store.js";
 import { useAuth, Account } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
+import { Duck, DuckMark } from "./Duck.jsx";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
 import { BUILDERS } from "./generate.js";
 import { TASKS, RUBRICS } from "./tasks.js";
@@ -214,7 +215,7 @@ export default function App() {
           <Icon name="close" size={16} />
         </button>
         <div className="brand">
-          <span className="brand-mark">D</span>
+          <DuckMark size={26} className="brand-mark-duck" />
           Dwiddle
         </div>
 
@@ -419,7 +420,8 @@ function Dashboard({ go, auth, stats, missed }) {
         </div>
 
         {!started && (
-          <div className="card card-pad spread">
+          <div className="card card-pad spread welcome">
+            <Duck size={64} className="welcome-duck" />
             <div>
               <b>Start with your own material</b>
               <div className="small muted">
@@ -925,7 +927,8 @@ function Practice(props) {
 
       {pool.length === 0 && active.id !== "missed" ? (
         <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
-          <b>Nothing to practise</b>
+          <Duck size={80} />
+          <b style={{ display: "block", marginTop: 10 }}>Nothing to practise</b>
           <p className="muted small" style={{ margin: "6px 0 18px" }}>
             {topic
               ? "That topic has no questions left."
@@ -1290,8 +1293,8 @@ function Flashcards({ pool }) {
       <div className="fade">
         {decks}
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <span className="speed-mark good-mark"><Icon name="check" size={22} /></span>
-          <h3 style={{ margin: "12px 0 4px", fontSize: 17 }}>Deck clear</h3>
+          <Duck size={92} />
+          <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>Deck clear</h3>
           <p className="muted small" style={{ margin: "0 0 20px" }}>
             You retired all {inDeck.length} cards in this deck. They will not come back until you reset it.
           </p>
@@ -1532,8 +1535,8 @@ function MissedMode({ missed, setMissed, grade, setPMode }) {
   if (list.length === 0) {
     return (
       <div className="fade card card-pad" style={{ textAlign: "center", padding: 44 }}>
-        <span className="speed-mark good-mark"><Icon name="check" size={22} /></span>
-        <h3 style={{ margin: "12px 0 4px", fontSize: 17 }}>Nothing missed yet</h3>
+        <Duck size={92} />
+        <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>Nothing missed yet</h3>
         <p className="muted small" style={{ margin: "0 0 20px" }}>
           Questions you get wrong in any mode are saved here, and leave the list once you get them right.
         </p>
