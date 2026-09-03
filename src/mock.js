@@ -1,9 +1,11 @@
 // Mock data. Swap these for real API calls later; every page reads from here only.
 
+// Demonstration material, shown only if someone asks to see it. Nothing here
+// is presented as the visitor's own work.
 export const MATERIALS = [
-  { id: "m1", title: "Cell Biology, Lecture 4", kind: "PDF", pages: 18, added: "2 days ago" },
-  { id: "m2", title: "Linear Algebra: Eigenvalues", kind: "Notes", pages: 6, added: "5 days ago" },
-  { id: "m3", title: "Modern History: Cold War", kind: "PDF", pages: 24, added: "1 week ago" },
+  { id: "m1", title: "Cell Biology, Lecture 4", kind: "Sample", pages: 18 },
+  { id: "m2", title: "Linear Algebra: Eigenvalues", kind: "Sample", pages: 6 },
+  { id: "m3", title: "Modern History: Cold War", kind: "Sample", pages: 24 },
 ];
 
 // Recommended topics, ranked by how much they need work.
@@ -13,8 +15,7 @@ export const TOPICS = [
     name: "Active transport",
     source: "Cell Biology, Lecture 4",
     material: "m1",
-    reason: "You missed 4 of the last 6 questions here.",
-    mastery: 32,
+    reason: "How pumps move substances against a gradient, and why it costs ATP.",
     questions: 12,
     priority: "focus",
   },
@@ -23,8 +24,7 @@ export const TOPICS = [
     name: "Tonicity and osmosis",
     source: "Cell Biology, Lecture 4",
     material: "m1",
-    reason: "Hypertonic and hypotonic keep getting swapped.",
-    mastery: 48,
+    reason: "Water movement, and the three tonicity terms that get swapped most.",
     questions: 9,
     priority: "focus",
   },
@@ -33,8 +33,7 @@ export const TOPICS = [
     name: "The sodium potassium pump",
     source: "Cell Biology, Lecture 4",
     material: "m1",
-    reason: "Ratio questions are worth an easy mark. Lock it in.",
-    mastery: 55,
+    reason: "The 3:2 ratio, the ATP cost, and why the pump is electrogenic.",
     questions: 7,
     priority: "focus",
   },
@@ -43,8 +42,7 @@ export const TOPICS = [
     name: "Facilitated diffusion",
     source: "Cell Biology, Lecture 4",
     material: "m1",
-    reason: "Solid, but you last reviewed it 5 days ago.",
-    mastery: 76,
+    reason: "Channel and carrier proteins, saturation, and why it is still passive.",
     questions: 8,
     priority: "warm",
   },
@@ -53,8 +51,7 @@ export const TOPICS = [
     name: "Bulk transport",
     source: "Cell Biology, Lecture 4",
     material: "m1",
-    reason: "Strong. A quick pass keeps it there.",
-    mastery: 88,
+    reason: "Endocytosis and exocytosis, and why moving vesicles costs energy.",
     questions: 6,
     priority: "warm",
   },
@@ -253,13 +250,13 @@ export const HL_KINDS = {
 // Topics for the other two materials in the library, so the list groups.
 TOPICS.push(
   { id: "tp6", name: "Eigenvalues and eigenvectors", material: "m2", source: "Linear Algebra: Eigenvalues",
-    reason: "Characteristic polynomial questions keep going wrong.", mastery: 41, questions: 8, priority: "focus" },
+    reason: "Finding them, what they mean geometrically, and the trace and determinant shortcut.", questions: 8, priority: "focus" },
   { id: "tp7", name: "Matrix operations", material: "m2", source: "Linear Algebra: Eigenvalues",
-    reason: "Solid on multiplication, shaky on inverses.", mastery: 67, questions: 8, priority: "warm" },
+    reason: "Multiplication rules, inverses, transposes and when each is defined.", questions: 8, priority: "warm" },
   { id: "tp8", name: "Origins of the Cold War", material: "m3", source: "Modern History: Cold War",
-    reason: "You have not looked at this since the first week.", mastery: 38, questions: 8, priority: "focus" },
+    reason: "Containment, the Marshall Plan, Berlin, and the two schools of interpretation.", questions: 8, priority: "focus" },
   { id: "tp9", name: "The Cuban Missile Crisis", material: "m3", source: "Modern History: Cold War",
-    reason: "Strong on the timeline, weaker on the aftermath.", mastery: 72, questions: 8, priority: "warm" },
+    reason: "The thirteen days, the secret half of the deal, and what changed afterwards.", questions: 8, priority: "warm" },
 );
 
 BANK.push(

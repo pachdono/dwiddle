@@ -110,7 +110,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => load(KEYS.theme, "light"));
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
-  const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [] }));
+  const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
   const [topic, setTopicRaw] = useState(() => load(KEYS.topic, null));
   const [hidden, setHiddenRaw] = useState(() => load(KEYS.hidden, []));
 
@@ -126,7 +126,7 @@ export default function App() {
   }
 
   // A question joins the list when you get it wrong and leaves when you get it right.
-  function grade(id, correct) {
+  function grade(id, correct, topicName) {
     setMissed((prev) => {
       const next = correct ? prev.filter((x) => x !== id) : prev.includes(id) ? prev : [...prev, id];
       save(KEYS.missed, next);
@@ -138,7 +138,17 @@ export default function App() {
     setStats((prev) => {
       const today = new Date().toISOString().slice(0, 10);
       const days = prev.days.includes(today) ? prev.days : [...prev.days, today].slice(-400);
-      const next = { answered: prev.answered + 1, correct: prev.correct + (correct ? 1 : 0), days };
+      const byTopic = { ...(prev.byTopic || {}) };
+      if (topicName) {
+        const t = byTopic[topicName] || { right: 0, total: 0 };
+        byTopic[topicName] = { right: t.right + (correct ? 1 : 0), total: t.total + 1 };
+      }
+      const next = {
+        answered: prev.answered + 1,
+        correct: prev.correct + (correct ? 1 : 0),
+        days,
+        byTopic,
+      };
       save(KEYS.stats, next);
       return next;
     });
@@ -151,25 +161,33 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const auth = useAuth();
   const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
+  const [sample, setSampleRaw] = useState(() => load(KEYS.sample, false));
+
+  function setSample(on) {
+    setSampleRaw(on);
+    save(KEYS.sample, on);
+  }
 
   function setMade(data) {
     setMadeRaw(data);
     save(KEYS.made, data);
   }
 
-  // Anything generated from your own notes joins the built in sample rather
-  // than sitting in a corner unused.
-  const bank = made ? [...BANK, ...made.questions] : BANK;
-  const topics = made
-    ? [...TOPICS, ...made.topics.map((t) => ({
-        ...t,
-        material: "made",
-        source: made.title,
-        mastery: 0,
-        priority: "focus",
-      }))]
-    : TOPICS;
-  const materials = made ? [{ id: "made", title: made.title }, ...MATERIALS] : MATERIALS;
+  // The app starts empty. Your own material comes first, and the demonstration
+  // set only appears if you ask for it, so nothing is ever presented as your
+  // work when it is not.
+  const bank = [
+    ...(made ? made.questions : []),
+    ...(sample ? BANK : []),
+  ];
+  const topics = [
+    ...(made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : []),
+    ...(sample ? TOPICS : []),
+  ];
+  const materials = [
+    ...(made ? [{ id: "made", title: made.title, kind: "Yours" }] : []),
+    ...(sample ? MATERIALS : []),
+  ];
 
   // Push progress up whenever it changes, debounced so a run of answers does
   // not become a run of requests.
@@ -272,7 +290,7 @@ export default function App() {
             <Icon name="menu" size={18} />
           </button>
           <h1>{title}</h1>
-          <span className="crumb small">{made ? made.title : "Sample material"}</span>
+          <span className="crumb small">{made ? made.title : sample ? "Sample material" : ""}</span>
         </header>
         <Page
           key={`${page}:${seq}`}
@@ -291,6 +309,8 @@ export default function App() {
           stats={stats}
           made={made}
           setMade={setMade}
+          sample={sample}
+          setSample={setSample}
           bank={bank}
           topics={topics}
           materials={materials}
@@ -387,8 +407,14 @@ function streakOf(days) {
   return n;
 }
 
-function Dashboard({ go, auth, stats, missed }) {
-  const focus = TOPICS.filter((t) => t.priority === "focus").slice(0, 3);
+function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, setSample }) {
+  // Weakest first, and only topics you have actually attempted.
+  const attempted = topics
+    .map((t) => ({ t, seen: stats.byTopic?.[t.name] }))
+    .filter((x) => x.seen && x.seen.total > 0)
+    .sort((a, b) => a.seen.right / a.seen.total - b.seen.right / b.seen.total)
+    .slice(0, 3);
+  const upNext = attempted.length > 0 ? attempted : topics.slice(0, 3).map((t) => ({ t, seen: null }));
   const started = stats.answered > 0;
   const accuracy = started ? Math.round((stats.correct / stats.answered) * 100) : 0;
 
@@ -398,7 +424,9 @@ function Dashboard({ go, auth, stats, missed }) {
         title={`${greeting()}${auth?.user ? `, ${displayName(auth.user)}` : ""}`}
         sub={started
           ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
-          : "Add your notes, or start on the sample material below."}
+          : topics.length > 0
+            ? "Ready when you are."
+            : "Turn your notes into questions, and sit full length practice papers."}
       />
 
       <div className="stack">
@@ -419,40 +447,51 @@ function Dashboard({ go, auth, stats, missed }) {
           </div>
         </div>
 
-        {!started && (
-          <div className="card card-pad spread welcome">
-            <Duck size={64} className="welcome-duck" />
-            <div>
-              <b>Start with your own material</b>
+        {topics.length === 0 && (
+          <div className="card card-pad welcome">
+            <Duck size={72} className="welcome-duck" />
+            <div style={{ flex: 1 }}>
+              <b>Nothing here yet</b>
               <div className="small muted">
-                Paste your notes or drop a PDF and it writes the topics, the questions and the
-                explanations. The sample material below is there to look around with.
+                Paste your notes or drop a PDF, and it writes the topics, the questions and an
+                explanation for every answer. Or load some sample material to look around first.
+              </div>
+              <div className="row" style={{ marginTop: 12 }}>
+                <button className="btn" onClick={() => go("upload")}>
+                  <Icon name="upload" size={14} /> Add material
+                </button>
+                {!sample && (
+                  <button className="btn ghost" onClick={() => setSample(true)}>
+                    Load sample material
+                  </button>
+                )}
               </div>
             </div>
-            <button className="btn" onClick={() => go("upload")}>
-              <Icon name="upload" size={14} /> Add material
-            </button>
           </div>
         )}
 
-        <div className="card">
-          <div className="card-head">
-            <h3>{started ? "Recommended topics" : "Sample topics"}</h3>
-            <button className="btn quiet" onClick={() => go("topics")}>See all</button>
-          </div>
-          <div className="list">
-            {focus.map((t) => (
-              <div key={t.id} className="list-item" onClick={() => go("topics")}>
-                <div style={{ flex: 1 }}>
-                  <div className="list-title">{t.name}</div>
-                  <div className="small muted">{t.reason}</div>
+        {topics.length > 0 && (
+          <div className="card">
+            <div className="card-head">
+              <h3>{attempted.length > 0 ? "Weakest topics" : "Your topics"}</h3>
+              <button className="btn quiet" onClick={() => go("topics")}>See all</button>
+            </div>
+            <div className="list">
+              {upNext.map(({ t, seen }) => (
+                <div key={t.id} className="list-item" onClick={() => go("topics")}>
+                  <div style={{ flex: 1 }}>
+                    <div className="list-title">{t.name}</div>
+                    <div className="small muted">{t.reason}</div>
+                  </div>
+                  <span className="small muted">
+                    {seen ? `${Math.round((seen.right / seen.total) * 100)}%` : "Not started"}
+                  </span>
+                  <span className="muted"><Icon name="arrow" /></span>
                 </div>
-                <span className="small muted">{t.mastery}%</span>
-                <span className="muted"><Icon name="arrow" /></span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid-2">
           <div className="card card-pad">
@@ -471,32 +510,39 @@ function Dashboard({ go, auth, stats, missed }) {
           <div className="card card-pad">
             <div className="spread" style={{ marginBottom: 12 }}>
               <b>Study sheet</b>
-              <span className="pill">4 min read</span>
+              {made?.sheet && <span className="pill accent">Yours</span>}
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              A one page condensation of the chapter, ready to review.
+              {made?.sheet || sample
+                ? "A one page condensation with the important bits marked."
+                : "Add material and a study sheet is written along with the questions."}
             </p>
-            <button className="btn ghost" onClick={() => go("sheet")}>Open sheet</button>
+            <button className="btn ghost" disabled={!made?.sheet && !sample}
+              onClick={() => go("sheet")}>Open sheet</button>
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-head">
-            <h3>Your material</h3>
-            <button className="btn quiet" onClick={() => go("upload")}>Upload</button>
-          </div>
-          <div className="list">
-            {MATERIALS.map((m) => (
-              <div key={m.id} className="list-item" onClick={() => go("reader")}>
-                <div style={{ flex: 1 }}>
-                  <div className="list-title">{m.title}</div>
-                  <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
+        {materials.length > 0 && (
+          <div className="card">
+            <div className="card-head">
+              <h3>Your material</h3>
+              <button className="btn quiet" onClick={() => go("upload")}>Add</button>
+            </div>
+            <div className="list">
+              {materials.map((m) => (
+                <div key={m.id} className="list-item" onClick={() => go(m.id === "made" ? "quiz" : "reader")}>
+                  <div style={{ flex: 1 }}>
+                    <div className="list-title">{m.title}</div>
+                    <div className="small muted">
+                      {m.pages ? `${m.pages} pages` : "Generated from your notes"}
+                    </div>
+                  </div>
+                  <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
                 </div>
-                <span className="pill">{m.kind}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -504,8 +550,10 @@ function Dashboard({ go, auth, stats, missed }) {
 
 /* ---------- recommended topics ---------- */
 
-function TopicRow({ t, go, topic, setTopic, onHide }) {
+function TopicRow({ t, go, topic, setTopic, onHide, stats }) {
   const current = topic === t.name;
+  const seen = stats?.byTopic?.[t.name];
+  const mastery = seen && seen.total > 0 ? Math.round((seen.right / seen.total) * 100) : null;
   return (
     <div className={"topic" + (current ? " current" : "")}>
       <div className="topic-main">
@@ -514,12 +562,14 @@ function TopicRow({ t, go, topic, setTopic, onHide }) {
             <div className="list-title">{t.name}</div>
             {current && <span className="pill accent">Currently learning</span>}
           </div>
-          <span className={"pill " + (t.mastery < 50 ? "warn" : t.mastery < 75 ? "" : "good")}>
-            {t.mastery}% mastered
-          </span>
+          {mastery === null
+            ? <span className="pill">Not started</span>
+            : <span className={"pill " + (mastery < 50 ? "warn" : mastery < 75 ? "" : "good")}>
+                {mastery}% of {seen.total} right
+              </span>}
         </div>
         <div className="small muted" style={{ margin: "2px 0 10px" }}>{t.reason}</div>
-        <div className="bar"><i style={{ width: `${t.mastery}%` }} /></div>
+        <div className="bar"><i style={{ width: `${mastery ?? 0}%` }} /></div>
         <div className="small muted" style={{ marginTop: 8 }}>
           {t.questions} questions available
         </div>
@@ -538,7 +588,7 @@ function TopicRow({ t, go, topic, setTopic, onHide }) {
   );
 }
 
-function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, materials }) {
+function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, materials, stats, sample, setSample }) {
   const [justHidden, setJustHidden] = useState(null);
 
   function hide(id) {
@@ -560,7 +610,7 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
     <div className="page fade">
       <PageHead
         title="Topics"
-        sub="Grouped by the material they came from, and ranked by what you have been getting wrong."
+        sub="Grouped by the material they came from. Your score on each appears once you have answered some."
       />
 
       <div className="spread learning-bar" style={{ marginBottom: 18 }}>
@@ -595,14 +645,32 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
             </div>
             <div className="stack" style={{ gap: 10 }}>
               {g.topics.map((t) => (
-                <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} onHide={hide} />
+                <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} onHide={hide} stats={stats} />
               ))}
             </div>
           </div>
         ))}
 
         {live.length === 0 && (
-          <div className="empty">You have removed every topic. Restore them below to start again.</div>
+          <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
+            <Duck size={80} />
+            <b style={{ display: "block", marginTop: 10 }}>
+              {hidden.length > 0 ? "You have removed every topic" : "No topics yet"}
+            </b>
+            <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 380 }}>
+              {hidden.length > 0
+                ? "Restore them below to start again."
+                : "Topics appear once you add your own notes. You can also load some sample material to look around with."}
+            </p>
+            {hidden.length === 0 && (
+              <div className="row" style={{ justifyContent: "center" }}>
+                <button className="btn" onClick={() => go("upload")}>Add material</button>
+                {!sample && (
+                  <button className="btn ghost" onClick={() => setSample(true)}>Load sample</button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {hidden.length > 0 && (
@@ -801,40 +869,59 @@ function AddMaterial({ go, setMade }) {
 
 /* ---------- library ---------- */
 
-function Library({ go, made }) {
+function Library({ go, made, materials, sample, setSample }) {
   return (
     <div className="page fade">
       <PageHead title="Library" sub="Everything you have added so far." />
-      <div className="card">
-        <div className="card-head">
-          <h3>{MATERIALS.length + (made ? 1 : 0)} items</h3>
-          <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
+      {materials.length === 0 ? (
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} />
+          <b style={{ display: "block", marginTop: 10 }}>Your library is empty</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
+            Anything you add shows up here, along with the topics and questions written from it.
+          </p>
+          <div className="row" style={{ justifyContent: "center" }}>
+            <button className="btn" onClick={() => go("upload")}>Add material</button>
+            <button className="btn ghost" onClick={() => setSample(true)}>Load sample</button>
+          </div>
         </div>
-        <div className="list">
-          {made && (
-            <div className="list-item" onClick={() => go("quiz")}>
-              <span className="muted"><Icon name="spark" /></span>
-              <div style={{ flex: 1 }}>
-                <div className="list-title">{made.title}</div>
+      ) : (
+        <div className="stack">
+          <div className="card">
+            <div className="card-head">
+              <h3>{materials.length} item{materials.length === 1 ? "" : "s"}</h3>
+              <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
+            </div>
+            <div className="list">
+              {materials.map((m) => (
+                <div key={m.id} className="list-item"
+                  onClick={() => go(m.id === "made" ? "quiz" : "reader")}>
+                  <span className="muted"><Icon name={m.id === "made" ? "spark" : "file"} /></span>
+                  <div style={{ flex: 1 }}>
+                    <div className="list-title">{m.title}</div>
+                    <div className="small muted">
+                      {m.pages ? `${m.pages} pages` : "Generated from your notes"}
+                    </div>
+                  </div>
+                  <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {sample && (
+            <div className="card card-pad spread">
+              <div>
+                <b className="small">Sample material is loaded</b>
                 <div className="small muted">
-                  Yours, {made.questions.length} questions across {made.topics.length} topics
+                  Three demonstration documents and their topics. Remove them once you have your own.
                 </div>
               </div>
-              <span className="pill accent">Generated</span>
+              <button className="btn ghost" onClick={() => setSample(false)}>Remove sample</button>
             </div>
           )}
-          {MATERIALS.map((m) => (
-            <div key={m.id} className="list-item" onClick={() => go("reader")}>
-              <span className="muted"><Icon name="file" /></span>
-              <div style={{ flex: 1 }}>
-                <div className="list-title">{m.title}</div>
-                <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
-              </div>
-              <button className="btn ghost" onClick={(e) => { e.stopPropagation(); go("reader"); }}>Read</button>
-            </div>
-          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -962,7 +1049,7 @@ function QuizMode({ grade, pool, len }) {
     setPicked(n);
     const ok = n === q.answer;
     if (ok) setScore((s) => s + 1);
-    grade(q.id, ok);
+    grade(q.id, ok, q.topic);
   }
 
   function next() {
@@ -1048,9 +1135,27 @@ function sheetParts(sheet) {
   ].flat().filter(Boolean);
 }
 
-function StudySheet({ made }) {
+function StudySheet({ made, sample, go }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
-  const sheet = made?.sheet?.big ? made.sheet : SHEET;
+  const sheet = made?.sheet?.big ? made.sheet : sample ? SHEET : null;
+
+  if (!sheet) {
+    return (
+      <div className="page fade">
+        <PageHead title="Study sheet" sub="A one page condensation, with the important bits marked." />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} />
+          <b style={{ display: "block", marginTop: 10 }}>No study sheet yet</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
+            One is written automatically when you add your own notes, alongside the questions.
+          </p>
+          <button className="btn" onClick={() => go("upload")}>
+            <Icon name="upload" size={14} /> Add material
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const counts = { def: 0, key: 0, exam: 0 };
   sheetParts(sheet).forEach((seg) => { if (seg?.mark && counts[seg.mark] !== undefined) counts[seg.mark] += 1; });
@@ -1394,7 +1499,7 @@ function MockExam({ grade, pool }) {
   }
 
   function submit() {
-    paper.forEach((q, n) => grade(q.id, answers[n] === q.answer));
+    paper.forEach((q, n) => grade(q.id, answers[n] === q.answer, q.topic));
     setStage("marked");
   }
 
@@ -1551,7 +1656,7 @@ function MissedMode({ missed, setMissed, grade, setPMode }) {
   function pick(n) {
     if (picked !== null) return;
     setPicked(n);
-    grade(q.id, n === q.answer);
+    grade(q.id, n === q.answer, q.topic);
   }
 
   function next() {
@@ -1632,7 +1737,7 @@ function SpeedRound({ grade, pool }) {
 
   function answer(pick) {
     const ok = pick === q.answer;
-    grade(q.id, ok);
+    grade(q.id, ok, q.topic);
     setFlash(ok ? "hit" : "miss");
     setTimeout(() => setFlash(null), 180);
     if (ok) {
@@ -1710,7 +1815,7 @@ const HIGHLIGHTS = DOC.blocks.flatMap((b, bi) =>
   b.p.flatMap((seg, si) => (seg.mark ? [{ id: `h${bi}-${si}`, ...seg, section: b.h }] : [])),
 );
 
-function Reader() {
+function Reader({ sample, go }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
   const [active, setActive] = useState(null);
 
@@ -1719,6 +1824,23 @@ function Reader() {
   function jump(id) {
     setActive(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // The highlighted reader only has the sample document behind it for now.
+  if (!sample) {
+    return (
+      <div className="page fade">
+        <PageHead title="Material" sub="Your source text, with the important passages marked." />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} />
+          <b style={{ display: "block", marginTop: 10 }}>Nothing to read yet</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
+            Add material, or load the sample to see how highlighting works.
+          </p>
+          <button className="btn" onClick={() => go("upload")}>Add material</button>
+        </div>
+      </div>
+    );
   }
 
   return (
