@@ -37,7 +37,7 @@ Shape:
 }
 
 Rules:
-- 3 to 5 topics, 4 to 5 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 18 questions in total.
+- 3 to 4 topics, 3 to 4 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 12 questions in total.
 - Only use what is in the notes. Never invent facts that are not there.
 - "why" must teach something, not restate the answer. Two sentences, no more.
 - Mark types: "def" for wording to learn verbatim, "key" for a fact to memorise, "exam" for where marks are lost.
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM,
       user: `Build study material from these notes.\n\n${notes}`,
-      maxTokens: 4000,
+      maxTokens: 2600,
       temperature: 0.3,
     });
 

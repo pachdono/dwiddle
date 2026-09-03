@@ -21,6 +21,9 @@ async function post(path, body) {
   }
 
   if (!reply.ok) {
+    if (reply.status === 503) {
+      throw new Error(data?.error || "The free model service is busy. Wait a minute and try again.");
+    }
     if (reply.status === 404) {
       throw new Error("The AI endpoints are not running. They only exist when the app is served by Vercel, so use vercel dev locally.");
     }

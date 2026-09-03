@@ -194,8 +194,8 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
         console.warn(`[api] ${model} did not answer in time, trying the next one`);
         if (cachedModel === model) cachedModel = null;
         lastError = Object.assign(
-          new Error("The models were too slow to answer. Try again, or send shorter notes."),
-          { status: 504 },
+          new Error("The free model service is busy at the moment. Wait a minute and try again."),
+          { status: 503 },
         );
         continue;
       }
@@ -231,8 +231,16 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
       continue;
     }
 
-    if (reply.status === 429) {
-      throw Object.assign(new Error("Rate limited by NVIDIA. Wait a moment and try again."), { status: 502 });
+    // 429 and 529 are capacity, not configuration. The free tier for these
+    // models is frequently saturated, so try the next candidate rather than
+    // giving up, and say what is actually happening if none of them are free.
+    if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
+      console.warn(`[api] ${model} is busy (${reply.status}), trying the next one`);
+      lastError = Object.assign(
+        new Error("The free model service is busy at the moment. Wait a minute and try again."),
+        { status: 503 },
+      );
+      continue;
     }
 
     lastError = Object.assign(new Error(`The model returned ${reply.status}`), { status: 502, detail: body.slice(0, 300) });
