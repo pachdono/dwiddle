@@ -446,12 +446,31 @@ function streakOf(days) {
 
 function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, setSample }) {
   // Only shown if the database actually answers. No number is better than an
-  // invented one.
+  // invented one. It refreshes on its own so the figure stays current without
+  // a reload: every 30 seconds while the tab is in front, and immediately when
+  // you come back to it. Hidden tabs skip the call rather than polling in the
+  // background for nothing.
   const [people, setPeople] = useState(null);
+
   useEffect(() => {
     let live = true;
-    userCount().then((n) => live && setPeople(n));
-    return () => { live = false; };
+
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      userCount().then((n) => { if (live) setPeople(n); });
+    };
+
+    tick();
+    const timer = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+
+    return () => {
+      live = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+    };
   }, []);
   // Weakest first, and only topics you have actually attempted.
   const attempted = topics
