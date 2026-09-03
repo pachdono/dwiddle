@@ -39,10 +39,13 @@ let cachedModel = null;
 const rejected = new Set();
 
 // Ordered best first, with anything already known to fail removed.
-export async function candidates() {
-  if (process.env.NVIDIA_MODEL) return [process.env.NVIDIA_MODEL];
+// includeRejected is for the probe endpoint, which wants the full picture.
+export async function candidates({ includeRejected = false } = {}) {
+  if (process.env.NVIDIA_MODEL && !includeRejected) return [process.env.NVIDIA_MODEL];
 
-  const all = (await listModels()).filter((id) => !UNSUITABLE.test(id) && !rejected.has(id));
+  const all = (await listModels()).filter(
+    (id) => !UNSUITABLE.test(id) && (includeRejected || !rejected.has(id)),
+  );
   const ordered = [];
 
   for (const pattern of PREFERENCES) {
@@ -137,15 +140,21 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
   // Each attempt gets its own budget, and we stop before the platform would cut
   // the function off. A model that will not answer in 20 seconds is not going
   // to be a good experience anyway, so we move on rather than waiting it out.
-  const PER_ATTEMPT = 20000;
-  const deadline = Date.now() + 50000;
+  const deadline = Date.now() + 52000;
+  let attempt = 0;
 
   for (const model of list) {
     const remaining = deadline - Date.now();
     if (remaining < 6000) break;
 
+    // The first candidate gets the lion's share: a refusal comes back in
+    // milliseconds, so a long budget only ever costs time on a model that is
+    // genuinely working but slow.
+    const budget = attempt === 0 ? Math.min(38000, remaining) : Math.min(14000, remaining);
+    attempt += 1;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Math.min(PER_ATTEMPT, remaining));
+    const timeout = setTimeout(() => controller.abort(), budget);
 
     let reply;
     try {
@@ -172,8 +181,10 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
       // A model that times out is treated the same as one that refuses: note it
       // and try the next. Previously one slow model blocked every request.
       if (err.name === "AbortError") {
+        // Do not blacklist on a timeout. Slowness is often transient load, and
+        // permanently excluding the one model that actually works leaves the
+        // request with nothing to fall back to.
         console.warn(`[api] ${model} did not answer in time, trying the next one`);
-        rejected.add(model);
         if (cachedModel === model) cachedModel = null;
         lastError = Object.assign(
           new Error("The models were too slow to answer. Try again, or send shorter notes."),

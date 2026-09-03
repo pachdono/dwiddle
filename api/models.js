@@ -39,10 +39,10 @@ async function probe(model) {
 
 export default async function handler(req, res) {
   try {
-    const order = await candidates();
+    const order = await candidates({ includeRejected: Boolean(req.query?.probe) });
 
     if (req.query?.probe) {
-      const top = order.slice(0, 6);
+      const top = order.slice(0, 18);
       const results = [];
       for (const model of top) results.push(await probe(model));
       const working = results.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
