@@ -1,6 +1,6 @@
 # Dwiddle
 
-A sleek, minimal study app interface — recommended topics, practice quizzes, and study sheets.
+A sleek, minimal study app interface with recommended topics, practice quizzes, and study sheets.
 
 Currently a **UI shell**: every page reads from `src/mock.js`, no backend calls.
 
@@ -18,7 +18,7 @@ Opens on http://localhost:5180.
 | File | What |
 |---|---|
 | `src/App.jsx` | Shell, sidebar nav, and all six pages |
-| `src/mock.js` | All content — swap for real API responses |
+| `src/mock.js` | All content, swap for real API responses |
 | `src/styles.css` | The whole design system |
 
 ## Wiring up a backend
