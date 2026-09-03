@@ -4,7 +4,7 @@
 // or to get wrong, and it needs no extra fields.
 
 import { useEffect, useState } from "react";
-import { supabase, configured, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
+import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 
 export function useAuth(onSignedOut) {
@@ -75,6 +75,13 @@ export function SignInPanel({ onDone }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | sent | error
   const [message, setMessage] = useState("");
+  const [google, setGoogle] = useState(null); // null while we find out
+
+  useEffect(() => {
+    let live = true;
+    enabledProviders().then((p) => live && setGoogle(Boolean(p.google)));
+    return () => { live = false; };
+  }, []);
 
   async function withGoogle() {
     setState("sending");
@@ -85,12 +92,7 @@ export function SignInPanel({ onDone }) {
     });
     if (error) {
       setState("error");
-      // The commonest cause by far is the provider not being switched on.
-      setMessage(
-        /provider/i.test(error.message)
-          ? "Google sign in is not enabled on this project yet. Use the email link below."
-          : error.message,
-      );
+      setMessage(error.message);
     }
     // On success the browser leaves for Google, so there is nothing to do here.
   }
@@ -128,11 +130,14 @@ export function SignInPanel({ onDone }) {
 
   return (
     <>
-      <button className="btn ghost full auth-google" onClick={withGoogle} disabled={state === "sending"}>
-        <GoogleMark /> Continue with Google
-      </button>
-
-      <div className="or"><span>or</span></div>
+      {google && (
+        <>
+          <button className="btn ghost full auth-google" onClick={withGoogle} disabled={state === "sending"}>
+            <GoogleMark /> Continue with Google
+          </button>
+          <div className="or"><span>or</span></div>
+        </>
+      )}
 
       <form onSubmit={sendLink} className="auth-form">
         <label className="field">

@@ -44,6 +44,28 @@ const url = apiUrl(rawUrl);
 
 export const configured = Boolean(url && anon);
 
+// Which third party sign in methods are actually switched on for this project.
+//
+// signInWithOAuth does not fail when a provider is disabled: it builds the
+// authorize URL and sends the browser there, and the server answers with
+// "Unsupported provider: provider is not enabled" as a raw JSON page. So the
+// only way to avoid showing a dead button is to ask first.
+let providerCache = null;
+
+export async function enabledProviders() {
+  if (!configured) return {};
+  if (providerCache) return providerCache;
+  try {
+    const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: anon } });
+    if (!res.ok) return {};
+    const data = await res.json();
+    providerCache = data?.external || {};
+    return providerCache;
+  } catch {
+    return {};
+  }
+}
+
 export const supabase = configured
   ? createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true } })
   : null;

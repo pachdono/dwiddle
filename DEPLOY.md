@@ -57,7 +57,13 @@ Gives you sign in and progress that follows you between devices.
    dashboard lives at `https://supabase.com/dashboard/project/<ref>` and the
    API is at `https://<ref>.supabase.co`. Pasting the first is the single
    easiest mistake here: everything builds, and every request quietly fails.
-6. Go to **Authentication**, then **URL Configuration**, and set
+6. Optional: to offer **Continue with Google**, go to **Authentication**,
+   **Providers**, and enable **Google**. It needs an OAuth client from the
+   Google Cloud console, and Supabase shows you the callback URL to paste
+   there. Until it is enabled the app hides the button and offers the email
+   link only, so nothing is broken by leaving it off.
+
+7. Go to **Authentication**, then **URL Configuration**, and set
    **Site URL** to your Vercel URL once you have it in step 3. Until then
    `http://localhost:5180` works for local testing.
 
@@ -136,4 +142,5 @@ gitignored. Never commit it.
 | Sign in link goes to the wrong place | Supabase **Site URL** is not set to your Vercel URL. |
 | Signed in but nothing syncs | The SQL from step 2.4 did not run. Check the `progress` table exists. |
 | "Accounts are not switched on" | The two `VITE_SUPABASE_` variables are missing. They must be set at build time, so redeploy after adding them. |
+| "Unsupported provider: provider is not enabled" | Google is not enabled under Authentication, Providers. The app hides the button once it can see that, so this only appears on an old build. |
 | Sign in does nothing, no error | `VITE_SUPABASE_URL` is probably the dashboard link. It must be `https://<ref>.supabase.co`. Check the browser console for a warning naming the correct value. |
