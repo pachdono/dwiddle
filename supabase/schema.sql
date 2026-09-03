@@ -52,3 +52,22 @@ drop trigger if exists progress_touch on public.progress;
 create trigger progress_touch
   before update on public.progress
   for each row execute function public.touch_updated_at();
+
+-- A public headcount for the dashboard.
+--
+-- Row level security means a signed in client can only see its own row, so a
+-- plain count would always return 1. This runs as the definer instead, which
+-- lets it count every row while exposing nothing but the number. No row
+-- contents, no emails, no ids.
+create or replace function public.user_count()
+returns bigint
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select count(*) from public.progress;
+$$;
+
+revoke all on function public.user_count() from public;
+grant execute on function public.user_count() to anon, authenticated;

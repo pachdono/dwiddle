@@ -5,7 +5,7 @@ import {
 } from "./mock.js";
 import { load, save, KEYS } from "./store.js";
 import { useAuth, Account, SignInDialog } from "./Account.jsx";
-import { pushProgress, localSnapshot, configured } from "./supabase.js";
+import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
@@ -445,6 +445,14 @@ function streakOf(days) {
 }
 
 function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, setSample }) {
+  // Only shown if the database actually answers. No number is better than an
+  // invented one.
+  const [people, setPeople] = useState(null);
+  useEffect(() => {
+    let live = true;
+    userCount().then((n) => live && setPeople(n));
+    return () => { live = false; };
+  }, []);
   // Weakest first, and only topics you have actually attempted.
   const attempted = topics
     .map((t) => ({ t, seen: stats.byTopic?.[t.name] }))
@@ -506,6 +514,24 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, sample, s
             </div>
           </div>
         )}
+
+        <div className="card card-pad pitch">
+          <div className="pitch-main">
+            {people !== null && people > 0 && (
+              <b>
+                {people.toLocaleString()} {people === 1 ? "person is" : "people are"} studying with Dwiddle
+              </b>
+            )}
+            <p className="small muted">
+              Turn your own notes into questions, and sit full length timed practice for the
+              <b> SAT</b>, <b>ACT</b>, <b>SSAT</b>, <b>IELTS</b> and <b>TOEFL</b>, marked and
+              converted to each test's own score scale.
+            </p>
+          </div>
+          <button className="btn ghost" onClick={() => go("tests")}>
+            <Icon name="target" size={14} /> Test prep
+          </button>
+        </div>
 
         {topics.length > 0 && (
           <div className="card">

@@ -100,3 +100,17 @@ export async function listMaterials(userId) {
   }
   return data || [];
 }
+
+// The headcount shown on the dashboard. Returns null rather than a guess when
+// the function is missing or the project is not configured, so the app can
+// simply not make the claim.
+export async function userCount() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("user_count");
+  if (error) {
+    console.warn("[stats] user_count unavailable", error.message);
+    return null;
+  }
+  const n = Number(data);
+  return Number.isFinite(n) ? n : null;
+}

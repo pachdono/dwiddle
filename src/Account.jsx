@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase, configured, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
+import { Duck } from "./Duck.jsx";
 
 export function useAuth() {
   const [user, setUser] = useState(null);
@@ -185,14 +186,15 @@ export function SignInDialog({ open, onClose }) {
   return (
     <div className="scrim dialog-scrim" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <Duck size={54} shadow={false} className="dialog-duck" />
         <h3>Save your progress</h3>
-        <p className="small muted">
+        <p>
           {configured
-            ? "Sign in and your topics, missed questions and retired cards follow you to any device. We email a link, so there is no password."
+            ? "Your topics, missed questions and retired cards follow you to any device. We email a link, so there is no password."
             : "Accounts are not configured on this deployment yet, so progress stays in this browser."}
         </p>
-        {configured && <SignInForm compact onDone={() => {}} />}
-        <button className="btn ghost full" style={{ marginTop: 10 }} onClick={onClose}>
+        {configured && <SignInForm compact />}
+        <button className="btn quiet dialog-dismiss" onClick={onClose}>
           {configured ? "Not now" : "Close"}
         </button>
       </div>

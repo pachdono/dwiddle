@@ -1558,22 +1558,69 @@ kbd {
 
 .dialog {
   width: 100%;
-  max-width: 360px;
-  padding: 22px;
+  max-width: 340px;
+  padding: 24px 24px 14px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 24px 64px -24px rgba(0, 0, 0, 0.45);
+  text-align: center;
   animation: fade 0.18s ease both;
 }
 
-.dialog h3 { margin: 0 0 6px; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
-.dialog p { margin: 0 0 16px; line-height: 1.6; }
-.dialog input[type="email"] { width: 100%; }
+.dialog-duck { display: block; margin: 0 auto 10px; }
+
+.dialog h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* The body copy was set at the same weight and size as the interface text,
+   which made the whole dialog read as one grey block. */
+.dialog p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+
+.dialog input[type="email"] { width: 100%; text-align: center; }
+.dialog .stack { gap: 8px; }
+
+/* One primary action, then a quiet way out. Three identical full width bars
+   gave the dismiss the same weight as the thing you came here to do. */
+.dialog-dismiss {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 12.5px;
+}
 
 .warn-text { color: var(--warn); }
 
 @media (max-width: 860px) {
   .notice { padding: 10px 16px; gap: 10px; }
   .notice-text { font-size: 12.5px; }
+}
+
+/* ---------- dashboard pitch ---------- */
+
+.pitch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: var(--panel);
+}
+
+.pitch-main { min-width: 0; }
+.pitch-main b { font-size: 14px; }
+.pitch-main p { margin: 2px 0 0; line-height: 1.55; }
+.pitch-main p b { font-size: inherit; color: var(--ink-2); font-weight: 600; }
+.pitch .btn { flex: 0 0 auto; }
+
+@media (max-width: 860px) {
+  .pitch { flex-direction: column; align-items: stretch; }
 }
