@@ -32,6 +32,8 @@ const paths = {
   exam: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 11l1.5 1.5L12.5 9",
   bolt: "M11 2.5 4.5 11.5H9l-1 6 6.5-9H10z",
   trash: "M4.5 6h11M8 6V4.5h4V6M6 6l.7 10.5h6.6L14 6M8.5 9v5M11.5 9v5",
+  menu: "M3.5 6h13M3.5 10h13M3.5 14h13",
+  close: "M5 5l10 10M15 5L5 15",
   pen: "M4 16h3l8.5-8.5a2.1 2.1 0 0 0-3-3L4 13z",
   mic: "M10 12.5a2.5 2.5 0 0 0 2.5-2.5V5a2.5 2.5 0 0 0-5 0v5a2.5 2.5 0 0 0 2.5 2.5ZM5 9.5a5 5 0 0 0 10 0M10 15v2.5",
   build: "M3 16.5h14M5.5 16.5v-5h3v5M11.5 16.5V6h3v10.5",
@@ -60,6 +62,31 @@ function Icon({ name, size = 16 }) {
   );
 }
 
+/* ---------- who is using it ---------- */
+
+// Everything shown about the person comes from their account. Signed out, the
+// app stays anonymous rather than greeting somebody else's name.
+function displayName(user) {
+  if (!user) return "Guest";
+  const name = user.user_metadata?.name || user.user_metadata?.full_name;
+  if (name) return String(name).split(" ")[0];
+  return String(user.email || "You").split("@")[0];
+}
+
+function initialsOf(user) {
+  const n = displayName(user);
+  if (n === "Guest") return "?";
+  const parts = n.replace(/[^a-zA-Z ]/g, " ").trim().split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || n[0].toUpperCase();
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 /* ---------- shell ---------- */
 
 const NAV_STUDY = [
@@ -82,6 +109,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => load(KEYS.theme, "light"));
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
+  const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [] }));
   const [topic, setTopicRaw] = useState(() => load(KEYS.topic, null));
   const [hidden, setHiddenRaw] = useState(() => load(KEYS.hidden, []));
 
@@ -103,14 +131,44 @@ export default function App() {
       save(KEYS.missed, next);
       return next;
     });
+
+    // The dashboard numbers come from here, so they are yours rather than a
+    // decorative placeholder.
+    setStats((prev) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const days = prev.days.includes(today) ? prev.days : [...prev.days, today].slice(-400);
+      const next = { answered: prev.answered + 1, correct: prev.correct + (correct ? 1 : 0), days };
+      save(KEYS.stats, next);
+      return next;
+    });
   }
 
   // Clicking the nav item for the page you are already on resets it, which is
   // how you get out of an open practice set or test without hunting for a back
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const auth = useAuth();
-  const [generated, setGenerated] = useState(null);
+  const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
+
+  function setMade(data) {
+    setMadeRaw(data);
+    save(KEYS.made, data);
+  }
+
+  // Anything generated from your own notes joins the built in sample rather
+  // than sitting in a corner unused.
+  const bank = made ? [...BANK, ...made.questions] : BANK;
+  const topics = made
+    ? [...TOPICS, ...made.topics.map((t) => ({
+        ...t,
+        material: "made",
+        source: made.title,
+        mastery: 0,
+        priority: "focus",
+      }))]
+    : TOPICS;
+  const materials = made ? [{ id: "made", title: made.title }, ...MATERIALS] : MATERIALS;
 
   // Push progress up whenever it changes, debounced so a run of answers does
   // not become a run of requests.
@@ -124,6 +182,7 @@ export default function App() {
     if (mode) setPMode(mode);
     if (p === page) setSeq((n) => n + 1);
     setPage(p);
+    setMenuOpen(false);
   };
 
   useEffect(() => {
@@ -147,7 +206,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
+
+      <aside className={"sidebar" + (menuOpen ? " open" : "")}>
+        <button className="icon-btn drawer-close" aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}>
+          <Icon name="close" size={16} />
+        </button>
         <div className="brand">
           <span className="brand-mark">D</span>
           Dwiddle
@@ -182,10 +247,10 @@ export default function App() {
 
         <div className="sidebar-foot">
           <div className="user">
-            <span className="avatar">PC</span>
-            <div>
-              <div className="user-name">Pacharapol</div>
-              <div className="user-sub">Free plan</div>
+            <span className="avatar">{initialsOf(auth.user)}</span>
+            <div style={{ minWidth: 0 }}>
+              <div className="user-name">{displayName(auth.user)}</div>
+              <div className="user-sub">{auth.user ? "Synced" : "Not signed in"}</div>
             </div>
           </div>
           <button
@@ -201,8 +266,12 @@ export default function App() {
 
       <main className="main">
         <header className="topbar">
+          <button className="icon-btn menu-btn" aria-label="Open menu"
+            onClick={() => setMenuOpen(true)}>
+            <Icon name="menu" size={18} />
+          </button>
           <h1>{title}</h1>
-          <span className="crumb small">Cell Biology, Lecture 4</span>
+          <span className="crumb small">{made ? made.title : "Sample material"}</span>
         </header>
         <Page
           key={`${page}:${seq}`}
@@ -218,9 +287,13 @@ export default function App() {
           setTopic={setTopic}
           hidden={hidden}
           setHidden={setHidden}
+          stats={stats}
+          made={made}
+          setMade={setMade}
+          bank={bank}
+          topics={topics}
+          materials={materials}
           auth={auth}
-          generated={generated}
-          setGenerated={setGenerated}
         />
       </main>
     </div>
@@ -294,32 +367,75 @@ function Loading({ label }) {
 
 /* ---------- dashboard ---------- */
 
-function Dashboard({ go }) {
+// Consecutive days ending today or yesterday. Missing a day resets it, which
+// is the only definition of a streak anybody finds convincing.
+function streakOf(days) {
+  if (!days || days.length === 0) return 0;
+  const set = new Set(days);
+  const day = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  if (!set.has(iso(day))) {
+    day.setDate(day.getDate() - 1);
+    if (!set.has(iso(day))) return 0;
+  }
+  let n = 0;
+  while (set.has(iso(day))) {
+    n += 1;
+    day.setDate(day.getDate() - 1);
+  }
+  return n;
+}
+
+function Dashboard({ go, auth, stats, missed }) {
   const focus = TOPICS.filter((t) => t.priority === "focus").slice(0, 3);
+  const started = stats.answered > 0;
+  const accuracy = started ? Math.round((stats.correct / stats.answered) * 100) : 0;
 
   return (
     <div className="page wide fade">
-      <PageHead title="Good afternoon, Pacharapol" sub="Three days until your Cell Biology midterm." />
+      <PageHead
+        title={`${greeting()}${auth?.user ? `, ${displayName(auth.user)}` : ""}`}
+        sub={started
+          ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
+          : "Add your notes, or start on the sample material below."}
+      />
 
       <div className="stack">
         <div className="grid-3">
           <div className="stat">
             <div className="k">Study streak</div>
-            <div className="v">6 days</div>
+            <div className="v">
+              {(() => { const n = streakOf(stats.days); return n === 0 ? "None yet" : `${n} day${n === 1 ? "" : "s"}`; })()}
+            </div>
           </div>
           <div className="stat">
             <div className="k">Questions answered</div>
-            <div className="v">184</div>
+            <div className="v">{stats.answered}</div>
           </div>
           <div className="stat">
             <div className="k">Accuracy</div>
-            <div className="v">78%</div>
+            <div className="v">{started ? `${accuracy}%` : "Not yet"}</div>
           </div>
         </div>
 
+        {!started && (
+          <div className="card card-pad spread">
+            <div>
+              <b>Start with your own material</b>
+              <div className="small muted">
+                Paste your notes or drop a PDF and it writes the topics, the questions and the
+                explanations. The sample material below is there to look around with.
+              </div>
+            </div>
+            <button className="btn" onClick={() => go("upload")}>
+              <Icon name="upload" size={14} /> Add material
+            </button>
+          </div>
+        )}
+
         <div className="card">
           <div className="card-head">
-            <h3>Recommended topics</h3>
+            <h3>{started ? "Recommended topics" : "Sample topics"}</h3>
             <button className="btn quiet" onClick={() => go("topics")}>See all</button>
           </div>
           <div className="list">
@@ -420,21 +536,21 @@ function TopicRow({ t, go, topic, setTopic, onHide }) {
   );
 }
 
-function Topics({ go, topic, setTopic, hidden, setHidden }) {
+function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, materials }) {
   const [justHidden, setJustHidden] = useState(null);
 
   function hide(id) {
-    const t = TOPICS.find((x) => x.id === id);
+    const t = allTopics.find((x) => x.id === id);
     setHidden([...hidden, id]);
     setJustHidden(t);
     // Removing the topic you were learning drops you back to everything.
     if (topic === t.name) setTopic(null);
   }
 
-  const live = TOPICS.filter((t) => !hidden.includes(t.id));
+  const live = allTopics.filter((t) => !hidden.includes(t.id));
 
   // Grouped by the material they came from, so several courses can coexist.
-  const groups = MATERIALS
+  const groups = materials
     .map((m) => ({ material: m, topics: live.filter((t) => t.material === m.id) }))
     .filter((g) => g.topics.length > 0);
 
@@ -492,7 +608,7 @@ function Topics({ go, topic, setTopic, hidden, setHidden }) {
             <div>
               <b className="small">{hidden.length} topic{hidden.length === 1 ? "" : "s"} removed</b>
               <div className="small muted">
-                {TOPICS.filter((t) => hidden.includes(t.id)).map((t) => t.name).join(", ")}
+                {allTopics.filter((t) => hidden.includes(t.id)).map((t) => t.name).join(", ")}
               </div>
             </div>
             <button className="btn ghost" onClick={() => { setHidden([]); setJustHidden(null); }}>
@@ -532,7 +648,7 @@ async function readFile(file) {
   return file.text();
 }
 
-function AddMaterial({ go, setGenerated }) {
+function AddMaterial({ go, setMade }) {
   const [file, setFile] = useState(null);
   const [notes, setNotes] = useState("");
   const [over, setOver] = useState(false);
@@ -569,7 +685,7 @@ function AddMaterial({ go, setGenerated }) {
     try {
       const data = await generateFromNotes(text);
       setResult(data);
-      setGenerated(data);
+      setMade(data);
       setState("done");
     } catch (err) {
       setState("error");
@@ -683,16 +799,28 @@ function AddMaterial({ go, setGenerated }) {
 
 /* ---------- library ---------- */
 
-function Library({ go }) {
+function Library({ go, made }) {
   return (
     <div className="page fade">
       <PageHead title="Library" sub="Everything you have added so far." />
       <div className="card">
         <div className="card-head">
-          <h3>{MATERIALS.length} items</h3>
+          <h3>{MATERIALS.length + (made ? 1 : 0)} items</h3>
           <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
         </div>
         <div className="list">
+          {made && (
+            <div className="list-item" onClick={() => go("quiz")}>
+              <span className="muted"><Icon name="spark" /></span>
+              <div style={{ flex: 1 }}>
+                <div className="list-title">{made.title}</div>
+                <div className="small muted">
+                  Yours, {made.questions.length} questions across {made.topics.length} topics
+                </div>
+              </div>
+              <span className="pill accent">Generated</span>
+            </div>
+          )}
           {MATERIALS.map((m) => (
             <div key={m.id} className="list-item" onClick={() => go("reader")}>
               <span className="muted"><Icon name="file" /></span>
@@ -722,7 +850,7 @@ const MODES = [
 const QUIZ_LENGTHS = [5, 10, 15, 20];
 
 function Practice(props) {
-  const { pMode, setPMode, missed, topic, setTopic, go, hidden } = props;
+  const { pMode, setPMode, missed, topic, setTopic, go, hidden, bank, topics } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
   const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
@@ -734,13 +862,13 @@ function Practice(props) {
 
   // Removed topics drop out of practice too, otherwise removing one from the
   // list would not actually declutter anything.
-  const liveTopics = TOPICS.filter((t) => !hidden.includes(t.id)).map((t) => t.name);
-  const choices = [...new Set(BANK.map((q) => q.topic))].filter((t) => liveTopics.includes(t));
+  const liveTopics = topics.filter((t) => !hidden.includes(t.id)).map((t) => t.name);
+  const choices = [...new Set(bank.map((q) => q.topic))].filter((t) => liveTopics.includes(t));
 
   // Every mode draws from here, so changing the topic changes the whole page.
   const pool = topic
-    ? BANK.filter((q) => q.topic === topic)
-    : BANK.filter((q) => liveTopics.includes(q.topic));
+    ? bank.filter((q) => q.topic === topic)
+    : bank.filter((q) => liveTopics.includes(q.topic));
 
   return (
     <div className="page fade">
@@ -795,7 +923,22 @@ function Practice(props) {
         )}
       </div>
 
-      <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} len={quizLen} />
+      {pool.length === 0 && active.id !== "missed" ? (
+        <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
+          <b>Nothing to practise</b>
+          <p className="muted small" style={{ margin: "6px 0 18px" }}>
+            {topic
+              ? "That topic has no questions left."
+              : "You have removed every topic. Restore one, or add some material of your own."}
+          </p>
+          <div className="row" style={{ justifyContent: "center" }}>
+            <button className="btn ghost" onClick={() => go("topics")}>Open Topics</button>
+            <button className="btn" onClick={() => go("upload")}>Add material</button>
+          </div>
+        </div>
+      ) : (
+        <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} len={quizLen} />
+      )}
     </div>
   );
 }
@@ -894,24 +1037,29 @@ function QuizMode({ grade, pool, len }) {
 
 /* ---------- study sheet ---------- */
 
-const SHEET_PARTS = [
-  ...SHEET.big,
-  ...SHEET.watch,
-  ...SHEET.terms.map((t) => t.d),
-].flat();
+function sheetParts(sheet) {
+  return [
+    ...(sheet.big || []),
+    ...(sheet.watch || []),
+    ...(sheet.terms || []).map((t) => t.d),
+  ].flat().filter(Boolean);
+}
 
-function StudySheet() {
+function StudySheet({ made }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
+  const sheet = made?.sheet?.big ? made.sheet : SHEET;
 
   const counts = { def: 0, key: 0, exam: 0 };
-  SHEET_PARTS.forEach((seg) => { if (seg.mark) counts[seg.mark] += 1; });
+  sheetParts(sheet).forEach((seg) => { if (seg?.mark && counts[seg.mark] !== undefined) counts[seg.mark] += 1; });
   const total = counts.def + counts.key + counts.exam;
 
   return (
     <div className="page fade">
       <PageHead
-        title={SHEET.title}
-        sub={`Condensed from Cell Biology, Lecture 4. ${SHEET.readTime}, ${total} highlights.`}
+        title={sheet.title || "Study sheet"}
+        sub={made?.sheet
+          ? `Written from your own notes. ${total} highlights.`
+          : `From the sample material. ${SHEET.readTime}, ${total} highlights.`}
       />
 
       <HighlightFilters on={on} setOn={setOn} counts={counts} />
@@ -919,12 +1067,12 @@ function StudySheet() {
       <div className="card card-pad sheet">
         <h4>The big idea</h4>
         <ul>
-          {SHEET.big.map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+          {(sheet.big || []).map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
         </ul>
 
         <h4>Key terms</h4>
         <div className="terms">
-          {SHEET.terms.map((t) => (
+          {(sheet.terms || []).map((t) => (
             <div key={t.t} className="term">
               <b>{t.t}</b>
               <span><Marked parts={t.d} on={on} /></span>
@@ -934,7 +1082,7 @@ function StudySheet() {
 
         <h4>Where people lose marks</h4>
         <ul>
-          {SHEET.watch.map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+          {(sheet.watch || []).map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
         </ul>
       </div>
 
@@ -970,7 +1118,7 @@ function SetRow({ label, hint, children }) {
 }
 
 function Settings({ theme, setTheme, auth }) {
-  const [name, setName] = useState("Pacharapol");
+  const [name, setName] = useState(() => displayName(auth?.user));
   const [goal, setGoal] = useState("20");
   const [style, setStyle] = useState("mixed");
   const [reminders, setReminders] = useState(true);
@@ -999,7 +1147,7 @@ function Settings({ theme, setTheme, auth }) {
 
         <div className="card">
           <div className="card-head"><h3>Profile</h3></div>
-          <SetRow label="Display name">
+          <SetRow label="Display name" hint={auth?.user ? undefined : "Sign in to save this."}>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
           </SetRow>
           <SetRow label="Plan" hint="Pro is coming soon.">
@@ -1735,6 +1883,9 @@ function AnswerInput({ q, testId, index, value, onChange, disabled }) {
 // Breaks a finished paper down by skill and by section, works out what the
 // pattern actually says, and points at the next thing to do about it.
 function analyse(qs, answers, secondsAllowed, secondsLeft) {
+  if (!qs || qs.length === 0) {
+    return { rows: [], sections: [], right: 0, unanswered: 0, used: 0, notes: [], weakest: null };
+  }
   const bySkill = {};
   const bySection = {};
 
@@ -2158,6 +2309,14 @@ function TestRun({ test, sec, qs, full, grade, onExit, onDrill }) {
   }
 
   const q = qs[i];
+  if (!q) {
+    return (
+      <div className="page fade">
+        <PageHead title={`${test.name}, ${sec.name}`} sub="This section has no questions yet." />
+        <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+      </div>
+    );
+  }
   const answered = Object.values(answers).filter(isAnswered).length;
 
   // Consecutive questions on the same passage form one part, the way a real
@@ -2658,6 +2817,17 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
   const [done, setDone] = useState(false);
 
   const q = qs[i];
+
+  // Defensive: a drill should never start empty, but rendering undefined would
+  // take the whole page down rather than showing a message.
+  if (!q && !done) {
+    return (
+      <div className="page fade">
+        <PageHead title={`${test.name}, ${sec.name}`} sub="No questions available for this section yet." />
+        <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+      </div>
+    );
+  }
 
   function check() {
     if (locked || !isAnswered(given)) return;

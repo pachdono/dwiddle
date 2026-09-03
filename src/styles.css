@@ -545,11 +545,63 @@ textarea:focus, input[type="text"]:focus, select:focus {
 .switch.on { background: var(--accent); }
 .switch.on > i { transform: translateX(16px); background: #fff; }
 
+.menu-btn, .drawer-close { display: none; }
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(10, 10, 14, 0.45);
+  backdrop-filter: blur(2px);
+  animation: fade 0.15s ease both;
+}
+
 @media (max-width: 860px) {
-  .sidebar { display: none; }
-  .page, .topbar { padding-left: 20px; padding-right: 20px; }
+  /* The sidebar becomes a drawer rather than disappearing. Hiding it outright
+     left a phone with no navigation at all. */
+  /* The closed state is written as :not(.open) so the two states never
+     override one another. Overriding a transform from a lower specificity
+     rule proved unreliable here. */
+  .sidebar {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    bottom: 0;
+    width: 264px;
+    flex-basis: 264px;
+    left: 0;
+    transition: left 0.22s cubic-bezier(0.4, 0.15, 0.2, 1);
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar:not(.open) {
+    left: -280px;
+    box-shadow: none;
+  }
+
+  .menu-btn { display: grid; margin-left: -6px; }
+
+  .drawer-close {
+    display: grid;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+
+  .topbar { gap: 10px; }
+  .topbar h1 { flex: 1; }
+  .crumb { display: none; }
+
+  .page, .topbar { padding-left: 16px; padding-right: 16px; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .set-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .set-row select, .set-row input[type="text"] { width: 100%; }
+  .topic, .sec-row, .crit-row { flex-direction: column; align-items: stretch; gap: 12px; }
+  .topic .row, .sec-row .btn { justify-content: flex-start; }
+  .tf-btn { min-width: 0; }
+  .deck-actions { flex-direction: column; }
+  .deck-actions .btn { width: 100%; }
 }
 
 /* ---------- paste notes panel ---------- */

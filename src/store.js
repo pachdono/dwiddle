@@ -26,4 +26,6 @@ export const KEYS = {
   topic: "dwiddle-topic",   // the topic Practice is currently working on
   hidden: "dwiddle-hidden", // topic ids removed from the list
   quizLen: "dwiddle-quizlen", // questions per quiz run
+  stats: "dwiddle-stats",     // answered, correct, and the days you studied
+  made: "dwiddle-made",       // material generated from your own notes
 };
