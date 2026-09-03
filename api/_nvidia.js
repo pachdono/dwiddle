@@ -22,18 +22,16 @@ const MODELS = `${BASE}/models`;
 const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva/i;
 
 const PREFERENCES = [
-  /llama-3\.3-70b-instruct/i,
-  /mistral-large-2-instruct/i,
-  /nemotron-4-340b-instruct/i,
-  /llama-3\.1-nemotron-70b-instruct/i,
-  /llama-3\.1-70b-instruct/i,
-  /jamba-1\.5-large-instruct/i,
-  /phi-3\.5-moe-instruct/i,
-  /nemotron-51b-instruct/i,
   /mistral-nemo-12b-instruct/i,
-  /dbrx-instruct/i,
+  /phi-3\.5-moe-instruct/i,
   /granite-3\.0-8b-instruct/i,
   /mistral-7b-instruct/i,
+  /nemotron-51b-instruct/i,
+  /llama-3\.3-70b-instruct/i,
+  /llama-3\.1-nemotron-70b-instruct/i,
+  /mistral-large-2-instruct/i,
+  /jamba-1\.5-large-instruct/i,
+  /dbrx-instruct/i,
   /instruct/i,
 ];
 
@@ -136,9 +134,18 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
   const list = cachedModel ? [cachedModel, ...(await candidates()).filter((m) => m !== cachedModel)] : await candidates();
   let lastError = null;
 
+  // Each attempt gets its own budget, and we stop before the platform would cut
+  // the function off. A model that will not answer in 20 seconds is not going
+  // to be a good experience anyway, so we move on rather than waiting it out.
+  const PER_ATTEMPT = 20000;
+  const deadline = Date.now() + 50000;
+
   for (const model of list) {
+    const remaining = deadline - Date.now();
+    if (remaining < 6000) break;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), Math.min(PER_ATTEMPT, remaining));
 
     let reply;
     try {
@@ -161,14 +168,21 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
       });
     } catch (err) {
       clearTimeout(timeout);
-      throw Object.assign(
-        new Error(
-          err.name === "AbortError"
-            ? "The model took too long. Try again, or send a shorter set of notes."
-            : "Could not reach the model",
-        ),
-        { status: 504 },
-      );
+
+      // A model that times out is treated the same as one that refuses: note it
+      // and try the next. Previously one slow model blocked every request.
+      if (err.name === "AbortError") {
+        console.warn(`[api] ${model} did not answer in time, trying the next one`);
+        rejected.add(model);
+        if (cachedModel === model) cachedModel = null;
+        lastError = Object.assign(
+          new Error("The models were too slow to answer. Try again, or send shorter notes."),
+          { status: 504 },
+        );
+        continue;
+      }
+
+      throw Object.assign(new Error("Could not reach the model"), { status: 504 });
     }
     clearTimeout(timeout);
 
