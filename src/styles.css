@@ -1409,3 +1409,38 @@ kbd {
 .gap-answer input[type="text"] { max-width: 320px; }
 
 .drill-note { padding: 12px 20px; border-bottom: 1px solid var(--line-soft); }
+
+/* ---------- feedback ---------- */
+
+.fb-notes { padding: 14px 20px 4px; }
+.fb-notes p { margin: 0 0 10px; color: var(--ink-2); line-height: 1.6; }
+.fb-notes p:last-child { margin-bottom: 10px; }
+
+.fb-rows { padding: 6px 20px 14px; border-top: 1px solid var(--line-soft); }
+
+.fb-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 44px;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 0;
+}
+
+.fb-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fb-bar { height: 6px; border-radius: 999px; background: var(--active); overflow: hidden; }
+.fb-bar > i { display: block; height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+.fb-bar > i.low { background: var(--warn); }
+.fb-bar > i.mid { background: var(--chart-2); }
+.fb-bar > i.high { background: var(--good); }
+
+.fb-score { color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 700px) {
+  .fb-row { grid-template-columns: minmax(0, 1fr) 70px 44px; }
+}

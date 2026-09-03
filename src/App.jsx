@@ -1617,6 +1617,116 @@ function AnswerInput({ q, testId, index, value, onChange, disabled }) {
   );
 }
 
+/* ---------- post test feedback ---------- */
+
+// Breaks a finished paper down by skill and by section, works out what the
+// pattern actually says, and points at the next thing to do about it.
+function analyse(qs, answers, secondsAllowed, secondsLeft) {
+  const bySkill = {};
+  const bySection = {};
+
+  qs.forEach((q, n) => {
+    const ok = isRight(q, answers[n]);
+    const skill = q.skill || q.section || "General";
+    const section = q.section || "General";
+    (bySkill[skill] ||= { right: 0, total: 0 }).total += 1;
+    (bySection[section] ||= { right: 0, total: 0 }).total += 1;
+    if (ok) {
+      bySkill[skill].right += 1;
+      bySection[section].right += 1;
+    }
+  });
+
+  const rows = Object.entries(bySkill)
+    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
+    .sort((a, b) => a.pct - b.pct || b.total - a.total);
+
+  const sections = Object.entries(bySection)
+    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
+    .sort((a, b) => a.pct - b.pct);
+
+  const right = qs.filter((q, n) => isRight(q, answers[n])).length;
+  const unanswered = qs.filter((q, n) => !isAnswered(answers[n])).length;
+  const pct = right / qs.length;
+  const used = secondsAllowed - secondsLeft;
+  const notes = [];
+
+  // Pace. Two failure modes, and they need opposite advice.
+  if (unanswered > 0 && secondsLeft <= 0) {
+    notes.push(`You ran out of time with ${unanswered} unanswered. On a real paper those are marks given away for nothing, so put something down for every question before the clock stops.`);
+  } else if (unanswered > 0) {
+    notes.push(`You left ${unanswered} blank with time still on the clock. There is no penalty for a wrong answer here, so a considered guess is always better than a gap.`);
+  } else if (secondsLeft > secondsAllowed * 0.4 && pct < 0.7) {
+    notes.push(`You finished with ${Math.round(secondsLeft / 60)} minutes spare but got ${qs.length - right} wrong. Speed is not your problem. Slow down and use the time you are being given.`);
+  } else if (secondsLeft < secondsAllowed * 0.05) {
+    notes.push("You used almost the whole clock. That is fine on this paper, but it leaves nothing for checking, so any careless error stands.");
+  }
+
+  // Where the marks actually went.
+  const weak = rows.filter((r) => r.pct < 0.6 && r.total >= 2);
+  if (weak.length > 0) {
+    notes.push(`Most of your lost marks sit in ${weak.slice(0, 2).map((w) => w.name.toLowerCase()).join(" and ")}. That is a pattern rather than bad luck, so it is worth drilling on its own before you sit the section again.`);
+  }
+
+  const strong = rows.filter((r) => r.pct >= 0.8 && r.total >= 2);
+  if (strong.length > 0) {
+    notes.push(`${strong[strong.length - 1].name} is solid. Spend less time there and more on the rows above.`);
+  }
+
+  if (pct >= 0.9) notes.push("At this accuracy the useful next step is the full paper under time, not more practice on single sections.");
+  else if (pct < 0.4) notes.push("Accuracy this low usually means a method problem rather than a knowledge one. Drill a section with the explanations on before timing yourself again.");
+
+  return { rows, sections, right, unanswered, used, notes, weakest: sections[0] };
+}
+
+function Feedback({ qs, answers, secondsAllowed, secondsLeft, onDrill }) {
+  const a = analyse(qs, answers, secondsAllowed, secondsLeft);
+
+  return (
+    <div className="stack">
+      <div className="card">
+        <div className="card-head">
+          <h3>What to work on</h3>
+          <span className="small muted">
+            {fmt(a.used)} used of {fmt(secondsAllowed)}
+          </span>
+        </div>
+
+        <div className="fb-notes">
+          {a.notes.map((n, i) => (
+            <p key={i} className="small">{n}</p>
+          ))}
+        </div>
+
+        <div className="fb-rows">
+          {a.rows.map((r) => (
+            <div key={r.name} className="fb-row">
+              <span className="fb-name">{r.name}</span>
+              <div className="fb-bar">
+                <i className={r.pct < 0.5 ? "low" : r.pct < 0.8 ? "mid" : "high"}
+                  style={{ width: `${Math.max(r.pct * 100, 2)}%` }} />
+              </div>
+              <span className="fb-score small">{r.right}/{r.total}</span>
+            </div>
+          ))}
+        </div>
+
+        {onDrill && a.weakest && a.weakest.pct < 0.8 && (
+          <div className="set-row">
+            <div className="hint">
+              {a.weakest.name} was your weakest section at {a.weakest.right} of {a.weakest.total}.
+              A drill runs ten of them with no clock and the reasoning after each answer.
+            </div>
+            <button className="btn" onClick={() => onDrill(a.weakest.name)}>
+              <Icon name="quiz" size={14} /> Drill {a.weakest.name}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- test prep ---------- */
 
 // Builds one section's paper. Generated sections run at true full length.
@@ -1663,7 +1773,19 @@ function TestPrep({ grade }) {
     if (paper.sec.kind === "speaking") {
       return <SpeakingRun test={test} sec={paper.sec} cfg={paper.cfg} onExit={() => setPaper(null)} />;
     }
-    return <TestRun {...paper} test={test} grade={grade} onExit={() => setPaper(null)} />;
+    return (
+      <TestRun
+        {...paper}
+        test={test}
+        grade={grade}
+        onExit={() => setPaper(null)}
+        onDrill={(sectionName) => {
+          const target = secs.find((x) => x.name === sectionName)
+            || secs.find((x) => !x.essay && !x.soon && !x.kind);
+          if (target) setPaper({ drill: true, sec: target, qs: buildPaper(test, target).qs.slice(0, 10) });
+        }}
+      />
+    );
   }
 
   if (test) {
@@ -1828,7 +1950,7 @@ function TestPrep({ grade }) {
   );
 }
 
-function TestRun({ test, sec, qs, full, grade, onExit }) {
+function TestRun({ test, sec, qs, full, grade, onExit, onDrill }) {
   const [i, setI] = useState(0);
   const [answers, setAnswers] = useState({});
   const [left, setLeft] = useState(sec.minutes * 60);
@@ -1875,6 +1997,9 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
               </p>
             </div>
           </div>
+
+          <Feedback qs={qs} answers={answers} secondsAllowed={sec.minutes * 60}
+            secondsLeft={left} onDrill={onDrill} />
 
           <div className="card card-pad note-card">
             <b className="small">How to read this</b>
@@ -2412,6 +2537,7 @@ function SpeakingRun({ test, sec, cfg, onExit }) {
 // every question. This is where you learn a test's habits before timing yourself.
 function TestDrill({ test, sec, qs, grade, onExit }) {
   const [i, setI] = useState(0);
+  const [picks, setPicks] = useState({});
   const [given, setGiven] = useState(undefined);
   const [locked, setLocked] = useState(false);
   const [right, setRight] = useState(0);
@@ -2423,6 +2549,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
     if (locked || !isAnswered(given)) return;
     const ok = isRight(q, given);
     if (ok) setRight((v) => v + 1);
+    setPicks((p) => ({ ...p, [i]: given }));
     grade(q.id, ok);
     setLocked(true);
   }
@@ -2438,14 +2565,21 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
     return (
       <div className="page fade">
         <PageHead title={`${test.name}, ${sec.name} drill`} sub={`${right} of ${qs.length} correct`} />
-        <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>
-            {Math.round((right / qs.length) * 100)}%
+        <div className="stack">
+          <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
+            <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>
+              {Math.round((right / qs.length) * 100)}%
+            </div>
+            <div className="muted">
+              Drills are not scored on the real scale, since ten questions cannot place you on it.
+            </div>
           </div>
-          <div className="muted" style={{ marginBottom: 20 }}>
-            Drills are not scored on the real scale, since ten questions cannot place you on it.
+
+          <Feedback qs={qs} answers={picks} secondsAllowed={0} secondsLeft={0} />
+
+          <div className="row">
+            <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
           </div>
-          <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
         </div>
       </div>
     );
