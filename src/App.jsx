@@ -4,6 +4,9 @@ import {
   SHEET, SAMPLE_NOTES, DOC, HL_KINDS,
 } from "./mock.js";
 import { load, save, KEYS } from "./store.js";
+import { useAuth, Account } from "./Account.jsx";
+import { pushProgress, localSnapshot, configured } from "./supabase.js";
+import { generateFromNotes, gradeWriting } from "./ai.js";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
 import { BUILDERS } from "./generate.js";
 import { TASKS, RUBRICS } from "./tasks.js";
@@ -106,6 +109,16 @@ export default function App() {
   // how you get out of an open practice set or test without hunting for a back
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
+  const auth = useAuth();
+  const [generated, setGenerated] = useState(null);
+
+  // Push progress up whenever it changes, debounced so a run of answers does
+  // not become a run of requests.
+  useEffect(() => {
+    if (!auth.user) return;
+    const t = setTimeout(() => pushProgress(auth.user.id, localSnapshot()), 1200);
+    return () => clearTimeout(t);
+  }, [auth.user, missed, hidden, topic, theme]);
 
   const go = (p, mode) => {
     if (mode) setPMode(mode);
@@ -205,6 +218,9 @@ export default function App() {
           setTopic={setTopic}
           hidden={hidden}
           setHidden={setHidden}
+          auth={auth}
+          generated={generated}
+          setGenerated={setGenerated}
         />
       </main>
     </div>
@@ -491,20 +507,74 @@ function Topics({ go, topic, setTopic, hidden, setHidden }) {
 
 /* ---------- add material ---------- */
 
-function AddMaterial({ go }) {
+// Reads a PDF in the browser. pdf.js is larger than the rest of the app, so it
+// is imported only at the moment someone actually picks a PDF.
+async function readFile(file) {
+  if (/\.pdf$/i.test(file.name)) {
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ).toString();
+    const buf = await file.arrayBuffer();
+    const doc = await pdfjs.getDocument({ data: buf }).promise;
+    let text = "";
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      text += content.items.map((it) => it.str).join(" ") + "\n";
+    }
+    if (!text.trim()) {
+      throw new Error("That PDF has no selectable text, so it is probably a scan. Reading those needs OCR, which this does not do yet.");
+    }
+    return text;
+  }
+  return file.text();
+}
+
+function AddMaterial({ go, setGenerated }) {
   const [file, setFile] = useState(null);
   const [notes, setNotes] = useState("");
   const [over, setOver] = useState(false);
-  const [state, run] = useFakeRun(1100);
+  const [state, setState] = useState("idle"); // idle | reading | working | done | error
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
 
-  function onDrop(e) {
+  async function onDrop(e) {
     e.preventDefault();
     setOver(false);
     const f = e.dataTransfer.files?.[0];
     if (f) setFile(f);
+  }
+
+  async function run() {
+    setError("");
+    let text = notes;
+
+    if (file) {
+      setState("reading");
+      try {
+        text = await readFile(file);
+      } catch (err) {
+        setState("error");
+        setError(err.message);
+        return;
+      }
+    }
+
+    setState("working");
+    try {
+      const data = await generateFromNotes(text);
+      setResult(data);
+      setGenerated(data);
+      setState("done");
+    } catch (err) {
+      setState("error");
+      setError(err.message);
+    }
   }
 
   return (
@@ -554,22 +624,58 @@ function AddMaterial({ go }) {
 
           <div className="notes-foot">
             <span className="small muted">
-              {state === "done"
-                ? <span className="good-text">Ready. 12 questions across 5 topics.</span>
-                : words === 0
-                  ? "Plain text works best"
-                  : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
+              {state === "reading" ? "Reading the file"
+                : words === 0 ? "Plain text works best"
+                : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
-            <button className="btn" disabled={!ready || state === "loading"}
+            <button className="btn" disabled={!ready || state === "reading" || state === "working"}
               onClick={state === "done" ? () => go("quiz") : run}>
-              {state === "loading"
-                ? <Loading label="Reading material" />
-                : state === "done"
-                  ? <>Start practice <Icon name="arrow" /></>
-                  : <><Icon name="spark" /> Generate questions</>}
+              {state === "reading" ? <Loading label="Reading file" />
+                : state === "working" ? <Loading label="Building questions" />
+                : state === "done" ? <>Start practice <Icon name="arrow" /></>
+                : <><Icon name="spark" /> Generate questions</>}
             </button>
           </div>
         </div>
+
+        {state === "working" && (
+          <div className="card card-pad note-card fade">
+            <b className="small">This takes a few seconds</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
+              The model is reading your notes and writing the topics, the questions, the explanation
+              for each answer, and the study sheet in one pass.
+            </p>
+          </div>
+        )}
+
+        {state === "error" && (
+          <div className="card card-pad fade" style={{ borderColor: "var(--warn-line)" }}>
+            <span className="pill warn">Could not generate</span>
+            <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{error}</p>
+          </div>
+        )}
+
+        {state === "done" && result && (
+          <div className="card fade">
+            <div className="card-head">
+              <h3>{result.title}</h3>
+              <span className="pill good">Ready</span>
+            </div>
+            <div className="drill-note small muted">
+              {result.questions.length} questions across {result.topics.length} topics, each with the
+              answer explained. {result.sheet ? "A study sheet was written too." : ""}
+            </div>
+            {result.topics.map((t) => (
+              <div key={t.id} className="sec-row">
+                <div className="sec-main">
+                  <span className="list-title">{t.name}</span>
+                  <div className="small muted">{t.reason}</div>
+                </div>
+                <span className="pill">{t.questions} questions</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -863,7 +969,7 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-function Settings({ theme, setTheme }) {
+function Settings({ theme, setTheme, auth }) {
   const [name, setName] = useState("Pacharapol");
   const [goal, setGoal] = useState("20");
   const [style, setStyle] = useState("mixed");
@@ -875,6 +981,8 @@ function Settings({ theme, setTheme }) {
       <PageHead title="Settings" sub="Preferences are saved to this browser." />
 
       <div className="stack">
+        <Account user={auth?.user} syncedAt={auth?.syncedAt} />
+
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
           <SetRow label="Theme" hint="Dark mode applies across every page.">
@@ -896,6 +1004,11 @@ function Settings({ theme, setTheme }) {
           </SetRow>
           <SetRow label="Plan" hint="Pro is coming soon.">
             <span className="pill">Free</span>
+          </SetRow>
+          <SetRow label="Sync" hint={configured ? "Signed in accounts sync automatically." : "Not configured on this deployment."}>
+            <span className={"pill " + (auth?.user ? "good" : "")}>
+              {auth?.user ? "On" : configured ? "Sign in to enable" : "Off"}
+            </span>
           </SetRow>
         </div>
 
@@ -2411,6 +2524,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
               <b className="small">What the examiner is looking for</b>
               <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{task.tip}</p>
             </div>
+            <AiMark task={task} rubric={cfg.rubric} answer={text} onScores={setScores} />
             <Rubric rubric={cfg.rubric} scores={scores} setScores={setScores} />
             <RubricResult rubric={cfg.rubric} scores={scores} />
             <div className="row">
@@ -2644,6 +2758,113 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
               : <button className="btn" disabled={!isAnswered(given)} onClick={check}>Check answer</button>}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- ai marking ---------- */
+
+// Asks the model to mark a writing task against the same published criteria
+// the self assessment uses, then offers to fill those scores in.
+function AiMark({ task, rubric, answer, onScores }) {
+  const [state, setState] = useState("idle"); // idle | working | done | error
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const r = RUBRICS[rubric];
+
+  async function run() {
+    setState("working");
+    setError("");
+    try {
+      const data = await gradeWriting({
+        answer,
+        prompt: task.prompt,
+        rubric: r.name,
+        criteria: r.criteria.map((c) => c.n),
+        scale: r.scale,
+      });
+      setResult(data);
+      setState("done");
+    } catch (err) {
+      setError(err.message);
+      setState("error");
+    }
+  }
+
+  if (state === "idle") {
+    return (
+      <div className="card card-pad spread">
+        <div>
+          <b className="small">Get it marked</b>
+          <div className="small muted">
+            An examiner's read against the {r.name}, before you mark it yourself.
+          </div>
+        </div>
+        <button className="btn" onClick={run} disabled={answer.trim().length < 80}>
+          <Icon name="spark" size={14} /> Mark my answer
+        </button>
+      </div>
+    );
+  }
+
+  if (state === "working") {
+    return (
+      <div className="card card-pad">
+        <Loading label="Reading your answer" />
+      </div>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>
+        <div className="spread">
+          <span className="pill warn">Could not mark it</span>
+          <button className="btn ghost" onClick={run}>Try again</button>
+        </div>
+        <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{error}</p>
+        <p className="small muted" style={{ margin: "6px 0 0" }}>
+          You can still mark it yourself below.
+        </p>
+      </div>
+    );
+  }
+
+  const value = r.combine(result.scores);
+
+  return (
+    <div className="card fade">
+      <div className="card-head">
+        <h3>Marked against the {r.name}</h3>
+        <span className="pill accent">{r.format(value)}</span>
+      </div>
+
+      {r.criteria.map((c, i) => (
+        <div key={c.n} className="crit-row">
+          <div className="sec-main">
+            <div className="list-title">{c.n}</div>
+            <div className="small muted">{result.comments[i] || ""}</div>
+          </div>
+          <span className="pill">{result.scores[i]}</span>
+        </div>
+      ))}
+
+      {(result.strength || result.fix) && (
+        <div className="fb-notes">
+          {result.strength && <p className="small"><b>Keep:</b> {result.strength}</p>}
+          {result.fix && <p className="small"><b>Change:</b> {result.fix}</p>}
+        </div>
+      )}
+
+      <div className="set-row">
+        <div className="hint">
+          A model's mark, not an examiner's. Treat it as a second opinion against your own reading.
+        </div>
+        <button className="btn ghost" onClick={() => onScores(result.scores)}>
+          Use these scores
+        </button>
       </div>
     </div>
   );
