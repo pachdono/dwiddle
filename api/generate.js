@@ -4,6 +4,10 @@
 
 import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_nvidia.js";
 
+// Generating takes real time on a 70B model, and the platform default cuts a
+// function off long before it finishes.
+export const config = { maxDuration: 60 };
+
 const SYSTEM = `You build study material from a student's own notes.
 
 Return ONE JSON object and nothing else. No prose, no code fences.
@@ -33,10 +37,11 @@ Shape:
 }
 
 Rules:
-- 4 to 6 topics, 5 to 8 questions per topic, 4 choices each, "answer" is the index of the correct one.
+- 3 to 5 topics, 4 to 5 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 18 questions in total.
 - Only use what is in the notes. Never invent facts that are not there.
-- "why" must teach something, not restate the answer.
+- "why" must teach something, not restate the answer. Two sentences, no more.
 - Mark types: "def" for wording to learn verbatim, "key" for a fact to memorise, "exam" for where marks are lost.
+- Keep the sheet to 3 big idea lines, 5 terms and 3 watch out lines.
 - Each line in "big" and "watch" is an array of segments. Segments without "mark" are plain text. Concatenated, the segments must read as one natural sentence.
 - Write in British English. Do not use em dashes or en dashes.`;
 
@@ -51,7 +56,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM,
       user: `Build study material from these notes.\n\n${notes}`,
-      maxTokens: 6000,
+      maxTokens: 4000,
       temperature: 0.3,
     });
 

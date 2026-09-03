@@ -138,7 +138,7 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
 
   for (const model of list) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     let reply;
     try {
@@ -162,7 +162,11 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
     } catch (err) {
       clearTimeout(timeout);
       throw Object.assign(
-        new Error(err.name === "AbortError" ? "The model took too long to answer" : "Could not reach the model"),
+        new Error(
+          err.name === "AbortError"
+            ? "The model took too long. Try again, or send a shorter set of notes."
+            : "Could not reach the model",
+        ),
         { status: 504 },
       );
     }

@@ -2,6 +2,8 @@
 
 import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_nvidia.js";
 
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
   if (!guard(req, res)) return;
 
