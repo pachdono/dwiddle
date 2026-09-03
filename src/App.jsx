@@ -1376,9 +1376,7 @@ function Settings({ theme, setTheme, auth }) {
           </SetRow>
         </div>
 
-        <div className="row">
-          <button className="btn ghost">Sign out</button>
-        </div>
+
       </div>
     </div>
   );
