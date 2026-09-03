@@ -11,8 +11,15 @@ The whole thing runs on free tiers.
 
 The key that generates questions and marks writing.
 
-**OpenRouter is the one to use.** Go to https://openrouter.ai/keys, sign in,
-**Create key**, and copy it. It starts with `sk-or-`.
+Any one of these works. If several are set, they are used in this order:
+Groq, then OpenRouter, then NVIDIA.
+
+**Groq** is free and by far the fastest. https://console.groq.com/keys, sign
+in, **Create API Key**. It starts with `gsk_`. Set it as `GROQ_API_KEY`.
+
+**OpenRouter** has the widest catalogue and free models.
+https://openrouter.ai/keys, **Create key**, starts with `sk-or-`. Set it as
+`OPENROUTER_API_KEY`.
 
 The app also supports a free NVIDIA key from https://build.nvidia.com as a
 fallback, but that tier limits an account to a couple of models and they are
@@ -78,7 +85,7 @@ grant access. The SQL from step 4 is what actually protects the data.
 
    | Name | Value | Notes |
    |---|---|---|
-   | `OPENROUTER_API_KEY` | your `sk-or-...` key | server only |
+   | `GROQ_API_KEY` | your `gsk_...` key | server only, or use `OPENROUTER_API_KEY` |
    | `VITE_SUPABASE_URL` | Project URL from step 2.5 | must be `https://<ref>.supabase.co` |
    | `VITE_SUPABASE_ANON_KEY` | anon public key from step 2.5 | |
 

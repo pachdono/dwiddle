@@ -25,6 +25,7 @@ const PROVIDERS = [
       "HTTP-Referer": process.env.PUBLIC_SITE_URL || "https://dwiddle.vercel.app",
       "X-Title": "Dwiddle",
     },
+    supportsReasoningFlag: true,
     // Free first. Someone running on a free key is the common case, and a
     // paid model that returns 402 costs a round trip to discover.
     preferences: [
@@ -49,11 +50,31 @@ const PROVIDERS = [
     ],
   },
   {
+    id: "groq",
+    env: "GROQ_API_KEY",
+    modelEnv: "GROQ_MODEL",
+    base: "https://api.groq.com/openai/v1",
+    extraHeaders: {},
+    // Groq rejects unknown fields, so it gets none of the OpenRouter extras.
+    supportsReasoningFlag: false,
+    preferences: [
+      /^llama-3\.3-70b-versatile$/i,
+      /^moonshotai\/kimi-k2-instruct/i,
+      /^openai\/gpt-oss-120b$/i,
+      /^qwen\/qwen3-32b$/i,
+      /^openai\/gpt-oss-20b$/i,
+      /^llama-3\.1-8b-instant$/i,
+      /^gemma2-9b-it$/i,
+      /versatile|instant|instruct/i,
+    ],
+  },
+  {
     id: "nvidia",
     env: "NVIDIA_API_KEY",
     modelEnv: "NVIDIA_MODEL",
     base: "https://integrate.api.nvidia.com/v1",
     extraHeaders: {},
+    supportsReasoningFlag: false,
     preferences: [
       /deepseek-v[0-9]+.*flash/i,
       /deepseek-v[0-9]/i,
@@ -69,15 +90,21 @@ const PROVIDERS = [
   },
 ];
 
-export function provider() {
-  const found = PROVIDERS.find((p) => process.env[p.env]);
-  if (!found) {
+// Every provider that has a key, in order. The first is used; the rest are
+// fallbacks, tried only when everything the one above offers has failed.
+export function providers() {
+  const found = PROVIDERS.filter((p) => process.env[p.env]);
+  if (found.length === 0) {
     throw Object.assign(
-      new Error("No model provider is configured. Set OPENROUTER_API_KEY or NVIDIA_API_KEY."),
+      new Error("No model provider is configured. Set OPENROUTER_API_KEY, GROQ_API_KEY or NVIDIA_API_KEY."),
       { status: 500 },
     );
   }
   return found;
+}
+
+export function provider() {
+  return providers()[0];
 }
 
 function authHeaders(p) {
@@ -92,12 +119,11 @@ function authHeaders(p) {
 const UNSUITABLE =
   /vision|translate|embed|rerank|guard|reward|coder|-code-|-code:|ocr|speech|riva|image|tts|whisper|content-safety|:batch|:online|:extended|:thinking|moderation/i;
 
-let cachedModel = null;
+let cachedModel = null; // { provider, model }
 let paidBlocked = false;
 const rejected = new Set();
 
-export async function listModels() {
-  const p = provider();
+export async function listModels(p = provider()) {
   const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p) });
   if (!reply.ok) {
     throw Object.assign(
@@ -111,12 +137,11 @@ export async function listModels() {
 
 // Ordered best first, with anything already known to fail removed.
 // includeRejected is for the probe endpoint, which wants the full picture.
-export async function candidates({ includeRejected = false } = {}) {
-  const p = provider();
+export async function candidates({ includeRejected = false, p = provider() } = {}) {
   const pinned = process.env[p.modelEnv];
   if (pinned && !includeRejected) return [pinned];
 
-  const all = (await listModels()).filter(
+  const all = (await listModels(p)).filter(
     (id) =>
       !UNSUITABLE.test(id) &&
       (includeRejected || !rejected.has(id)) &&
@@ -135,11 +160,10 @@ export async function candidates({ includeRejected = false } = {}) {
   return ordered;
 }
 
-export async function resolveModel() {
-  const p = provider();
+export async function resolveModel(p = provider()) {
   if (process.env[p.modelEnv]) return process.env[p.modelEnv];
   if (cachedModel) return cachedModel;
-  const list = await candidates();
+  const list = await candidates({ p });
   if (list.length === 0) {
     throw Object.assign(new Error("No usable models for this key"), { status: 502 });
   }
@@ -211,130 +235,118 @@ export function safeParse(text, requiredKey) {
 }
 
 export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false }) {
-  const p = provider();
-
-  // Try the cached winner first, then the rest in preference order.
-  const list = cachedModel ? [cachedModel, ...(await candidates()).filter((m) => m !== cachedModel)] : await candidates();
+  const all = providers();
+  const deadline = Date.now() + 52000;
   let lastError = null;
 
-  // Each attempt gets its own budget, and we stop before the platform would cut
-  // the function off. A model that will not answer in 20 seconds is not going
-  // to be a good experience anyway, so we move on rather than waiting it out.
-  const deadline = Date.now() + 52000;
-  let attempt = 0;
-
-  for (const model of list) {
-    const remaining = deadline - Date.now();
-    if (remaining < 6000) break;
-
-    // Not a fixed share per attempt. Models the account cannot use refuse in
-    // milliseconds, so the budget is simply whatever is left, and the first
-    // model that actually starts working gets nearly the whole window.
-    const budget = Math.min(40000, remaining - 3000);
-    attempt += 1;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), budget);
-
-    let reply;
+  for (const p of all) {
+    // Try the cached winner for this provider first, then the rest in order.
+    const cached = cachedModel?.provider === p.id ? cachedModel.model : null;
+    let list;
     try {
-      reply = await fetch(`${p.base}/chat/completions`, {
-        method: "POST",
-        signal: controller.signal,
-        headers: authHeaders(p),
-        body: JSON.stringify({
-          model,
-          temperature,
-          max_tokens: maxTokens,
-          // Reasoning models otherwise spend the whole budget thinking out
-          // loud and never reach the answer. Both fields are ignored by
-          // providers and models that do not support them.
-          ...(json ? { response_format: { type: "json_object" } } : {}),
-          reasoning: { enabled: false, exclude: true },
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-        }),
-      });
+      const found = await candidates({ p });
+      list = cached ? [cached, ...found.filter((m) => m !== cached)] : found;
     } catch (err) {
+      lastError = err;
+      continue; // this provider cannot even list models, try the next
+    }
+
+    for (const model of list) {
+      const remaining = deadline - Date.now();
+      if (remaining < 6000) break;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Math.min(40000, remaining - 3000));
+
+      let reply;
+      try {
+        reply = await fetch(`${p.base}/chat/completions`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: authHeaders(p),
+          body: JSON.stringify({
+            model,
+            temperature,
+            max_tokens: maxTokens,
+            // Reasoning models otherwise spend the whole budget thinking out
+            // loud and never reach the answer. Both fields are ignored by
+            // providers and models that do not support them.
+            ...(json ? { response_format: { type: "json_object" } } : {}),
+            ...(p.supportsReasoningFlag ? { reasoning: { enabled: false, exclude: true } } : {}),
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: user },
+            ],
+          }),
+        });
+      } catch (err) {
+        clearTimeout(timeout);
+
+        if (err.name === "AbortError") {
+          // Slowness is usually transient load, so this does not blacklist.
+          console.warn(`[api] ${p.id}/${model} did not answer in time`);
+          if (cachedModel?.model === model) cachedModel = null;
+          lastError = Object.assign(
+            new Error("The model service is busy at the moment. Wait a minute and try again."),
+            { status: 503 },
+          );
+          continue;
+        }
+
+        lastError = Object.assign(new Error(`Could not reach ${p.id}`), { status: 504 });
+        break; // network trouble with this provider, move to the next one
+      }
       clearTimeout(timeout);
 
-      // A model that times out is treated the same as one that refuses: note it
-      // and try the next. Previously one slow model blocked every request.
-      if (err.name === "AbortError") {
-        // Do not blacklist on a timeout. Slowness is often transient load, and
-        // permanently excluding the one model that actually works leaves the
-        // request with nothing to fall back to.
-        console.warn(`[api] ${model} did not answer in time, trying the next one`);
-        if (cachedModel === model) cachedModel = null;
+      if (reply.ok) {
+        const data = await reply.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (text) {
+          if (cachedModel?.model !== model) console.log(`[api] using ${p.id}/${model}`);
+          cachedModel = { provider: p.id, model };
+          return text;
+        }
+        lastError = Object.assign(new Error("The model returned an empty answer"), { status: 502 });
+        continue;
+      }
+
+      const body = await reply.text().catch(() => "");
+
+      if (reply.status === 401) {
+        lastError = Object.assign(new Error(`The ${p.id} key was rejected`), { status: 500, detail: body.slice(0, 200) });
+        break; // a bad key will not improve with another model
+      }
+
+      if (reply.status === 402) {
+        console.warn(`[api] ${p.id}/${model} needs credit, falling back to free models`);
+        paidBlocked = true;
+        rejected.add(model);
+        lastError = Object.assign(new Error("No credit for paid models on this key."), { status: 503 });
+        continue;
+      }
+
+      if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
+        console.warn(`[api] ${p.id}/${model} is busy (${reply.status})`);
         lastError = Object.assign(
-          new Error("The free model service is busy at the moment. Wait a minute and try again."),
+          new Error("The model service is busy at the moment. Wait a minute and try again."),
           { status: 503 },
         );
         continue;
       }
 
-      throw Object.assign(new Error("Could not reach the model"), { status: 504 });
-    }
-    clearTimeout(timeout);
-
-    if (reply.ok) {
-      const data = await reply.json();
-      const text = data?.choices?.[0]?.message?.content;
-      if (text) {
-        if (cachedModel !== model) console.log("[api] using model", model);
-        cachedModel = model;
-        return text;
+      if (reply.status === 400 || reply.status === 403 || reply.status === 404) {
+        console.warn(`[api] ${p.id}/${model} unusable (${reply.status})`);
+        rejected.add(model);
+        if (cachedModel?.model === model) cachedModel = null;
+        lastError = Object.assign(new Error("No model this key can use accepted the request"), { status: 502 });
+        continue;
       }
-      lastError = Object.assign(new Error("The model returned an empty answer"), { status: 502 });
-      continue;
+
+      lastError = Object.assign(new Error(`${p.id} returned ${reply.status}`), { status: 502, detail: body.slice(0, 200) });
     }
-
-    const body = await reply.text().catch(() => "");
-
-    if (reply.status === 401) {
-      throw Object.assign(new Error("The API key was rejected"), { status: 500, detail: body.slice(0, 300) });
-    }
-
-    // Listed but not callable with this key. Remember it and move on.
-    if (reply.status === 400 || reply.status === 403 || reply.status === 404) {
-      console.warn(`[api] ${model} is not usable (${reply.status}), trying the next one`);
-      rejected.add(model);
-      if (cachedModel === model) cachedModel = null;
-      lastError = Object.assign(new Error(`No model your key can use accepted the request`), { status: 502 });
-      continue;
-    }
-
-    // Out of credit. Every paid model will say the same, so switch to free
-    // only and carry on rather than working through the whole paid catalogue.
-    if (reply.status === 402) {
-      console.warn(`[api] ${model} needs credit, falling back to free models`);
-      paidBlocked = true;
-      rejected.add(model);
-      lastError = Object.assign(
-        new Error("No credit on this key for paid models, and no free model answered. Try again shortly."),
-        { status: 503 },
-      );
-      continue;
-    }
-
-    // 429 and 529 are capacity, not configuration. The free tier for these
-    // models is frequently saturated, so try the next candidate rather than
-    // giving up, and say what is actually happening if none of them are free.
-    if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
-      console.warn(`[api] ${model} is busy (${reply.status}), trying the next one`);
-      lastError = Object.assign(
-        new Error("The free model service is busy at the moment. Wait a minute and try again."),
-        { status: 503 },
-      );
-      continue;
-    }
-
-    lastError = Object.assign(new Error(`The model returned ${reply.status}`), { status: 502, detail: body.slice(0, 300) });
   }
 
-  throw lastError || Object.assign(new Error("No usable model found for your key"), { status: 502 });
+  throw lastError || Object.assign(new Error("No usable model found"), { status: 502 });
 }
 
 // Every endpoint shares the same shape: check the method, read and cap the

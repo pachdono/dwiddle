@@ -5,7 +5,7 @@
 // and a model that is listed, accepts the request and then never replies looks
 // identical from the outside until you measure it.
 
-import { listModels, candidates, provider, fail } from "./_llm.js";
+import { listModels, candidates, provider, providers, fail } from "./_llm.js";
 
 export const config = { maxDuration: 60 };
 
@@ -76,6 +76,7 @@ export default async function handler(req, res) {
     const models = await listModels();
     res.status(200).json({
       provider: provider().id,
+      fallbacks: providers().slice(1).map((p) => p.id),
       count: models.length,
       pinned: process.env[provider().modelEnv] || null,
       willTry: order.slice(0, 8),
