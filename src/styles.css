@@ -1884,3 +1884,12 @@ kbd {
   .hero-duck { top: -44px; left: -8px; }
   .marquee-item { font-size: 20px; padding: 0 22px; }
 }
+
+/* ---------- profile picture ---------- */
+
+.avatar-img {
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--accent-soft);
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { useAuth, Account, SignInPage } from "./Account.jsx";
+import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
@@ -303,7 +303,7 @@ export default function App() {
         <div className="sidebar-foot">
           {auth.user ? (
             <div className="user">
-              <span className="avatar">{initialsOf(auth.user)}</span>
+              <Avatar user={auth.user} size={26} initials={initialsOf(auth.user)} />
               <div style={{ minWidth: 0 }}>
                 <div className="user-name">{displayName(auth.user)}</div>
                 <div className="user-sub">Synced</div>

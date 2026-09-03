@@ -7,6 +7,13 @@ import { useEffect, useState } from "react";
 import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 
+// Google supplies a profile picture; an email link sign in does not. Either
+// way the caller gets something to show.
+export function avatarUrl(user) {
+  const m = user?.user_metadata || {};
+  return m.avatar_url || m.picture || null;
+}
+
 export function useAuth(onSignedOut) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(!configured);
@@ -22,20 +29,31 @@ export function useAuth(onSignedOut) {
     setUser(null);
     onSignedOut?.();
 
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // fall through to clearing storage
+    if (supabase) {
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // fall through to clearing storage
+      }
     }
 
     try {
-      const stale = Object.keys(localStorage).filter((k) => k.startsWith("sb-"));
-      stale.forEach((k) => localStorage.removeItem(k));
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("sb-"))
+        .forEach((k) => localStorage.removeItem(k));
     } catch {
       // private browsing, nothing to clear
+    }
+
+    // Then reload. Clearing state in place left too many ways to end up half
+    // signed out: a listener that fires afterwards and restores the session, a
+    // stale token the client refreshes on its own, an effect still holding the
+    // old user. Starting the app again from a cleared store cannot half work.
+    try {
+      window.location.replace(window.location.origin);
+    } catch {
+      // non browser environment, nothing to do
     }
   }
 
@@ -213,12 +231,15 @@ export function Account({ user, syncedAt, signOut }) {
       <div className="card">
         <div className="card-head"><h3>Account</h3></div>
         <div className="set-row">
-          <div className="sec-main">
-            <div className="list-title">{user.email}</div>
+          <div className="row" style={{ flex: 1, minWidth: 0 }}>
+            <Avatar user={user} size={34} />
+            <div className="sec-main">
+              <div className="list-title">{user.email}</div>
             <div className="small muted">
               {syncedAt
                 ? `Progress synced at ${syncedAt.toLocaleTimeString()}. It will follow you to any device you sign in on.`
                 : "Syncing your progress."}
+              </div>
             </div>
           </div>
           <button className="btn ghost" onClick={signOut}>Sign out</button>
@@ -238,3 +259,32 @@ export function Account({ user, syncedAt, signOut }) {
   );
 }
 
+
+// The circle beside a name: a real picture when the provider gave us one,
+// otherwise initials. A broken image URL falls back rather than showing a
+// broken image icon.
+export function Avatar({ user, size = 26, initials }) {
+  const [failed, setFailed] = useState(false);
+  const src = failed ? null : avatarUrl(user);
+
+  if (src) {
+    return (
+      <img
+        className="avatar avatar-img"
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size }}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span className="avatar" style={{ width: size, height: size, flexBasis: size }}>
+      {initials}
+    </span>
+  );
+}
