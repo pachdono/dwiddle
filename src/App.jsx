@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MATERIALS, TOPICS, QUIZ, SHEET, SAMPLE_NOTES } from "./mock.js";
+import { MATERIALS, TOPICS, QUIZ, SHEET, SAMPLE_NOTES, DOC, HL_KINDS } from "./mock.js";
 
 /* ---------- icons ---------- */
 
@@ -56,7 +56,7 @@ const NAV_MATERIAL = [
   { id: "library", label: "Library", icon: "library" },
 ];
 
-const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }];
+const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
 
 function readTheme() {
   try {
@@ -87,6 +87,7 @@ export default function App() {
     upload: AddMaterial,
     library: Library,
     settings: Settings,
+    reader: Reader,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -263,7 +264,7 @@ function Dashboard({ go }) {
           </div>
           <div className="list">
             {MATERIALS.map((m) => (
-              <div key={m.id} className="list-item" onClick={() => go("library")}>
+              <div key={m.id} className="list-item" onClick={() => go("reader")}>
                 <div style={{ flex: 1 }}>
                   <div className="list-title">{m.title}</div>
                   <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
@@ -430,13 +431,13 @@ function Library({ go }) {
         </div>
         <div className="list">
           {MATERIALS.map((m) => (
-            <div key={m.id} className="list-item">
+            <div key={m.id} className="list-item" onClick={() => go("reader")}>
               <span className="muted"><Icon name="file" /></span>
               <div style={{ flex: 1 }}>
                 <div className="list-title">{m.title}</div>
                 <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
               </div>
-              <button className="btn ghost" onClick={() => go("quiz")}>Practice</button>
+              <button className="btn ghost" onClick={(e) => { e.stopPropagation(); go("reader"); }}>Read</button>
             </div>
           ))}
         </div>
@@ -696,10 +697,11 @@ function Settings({ theme, setTheme }) {
 /* ---------- practice: flashcards ---------- */
 
 // One card per question: the prompt on the front, the answer and the why on the back.
-const CARDS = QUIZ.map((q) => ({
+const CARDS = QUIZ.map((q, i) => ({
   front: q.q,
   back: q.choices[q.answer],
   note: q.why,
+  topic: TOPICS[i % TOPICS.length].name,
 }));
 
 function Flashcards() {
@@ -717,41 +719,79 @@ function Flashcards() {
     setFlipped(false);
   }
 
+  function reset() {
+    setI(0); setKnew(0); setDone(false); setFlipped(false);
+  }
+
+  // Space flips, 1 and 2 grade. Keeps a run of cards fast to get through.
+  useEffect(() => {
+    if (done) return;
+    function onKey(e) {
+      const t = e.target;
+      if (t && t.closest && t.closest("input, textarea, select")) return;
+      if (e.code === "Space") { e.preventDefault(); setFlipped((f) => !f); }
+      if (e.key === "1") mark(false);
+      if (e.key === "2") mark(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   if (done) {
+    const pct = Math.round((knew / CARDS.length) * 100);
     return (
       <div className="fade card card-pad" style={{ textAlign: "center", padding: 40 }}>
-        <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>
-          {knew}/{CARDS.length}
+        <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>{pct}%</div>
+        <div className="muted" style={{ marginBottom: 20 }}>
+          {knew} of {CARDS.length} cards you knew
         </div>
-        <div className="muted" style={{ marginBottom: 20 }}>cards you knew</div>
-        <button className="btn" onClick={() => { setI(0); setKnew(0); setDone(false); setFlipped(false); }}>
-          Go again
-        </button>
+        <button className="btn" onClick={reset}>Go again</button>
       </div>
     );
   }
 
   return (
     <div className="fade">
-      <div className="spread small muted" style={{ marginBottom: 10 }}>
-        <span>Card {i + 1} of {CARDS.length}</span>
-        <span>{knew} known</span>
-      </div>
-      <div className="bar" style={{ marginBottom: 16 }}>
-        <i style={{ width: `${(i / CARDS.length) * 100}%` }} />
+      <div className="deck-bar">
+        <span className="small muted">Card {i + 1} of {CARDS.length}</span>
+        <div className="pips">
+          {CARDS.map((_, n) => (
+            <span key={n} className={"pip" + (n < i ? " past" : n === i ? " now" : "")} />
+          ))}
+        </div>
+        <span className="small muted">{knew} known</span>
       </div>
 
-      <button className={"flashcard" + (flipped ? " flipped" : "")} onClick={() => setFlipped((f) => !f)}>
-        <span className="flash-tag">{flipped ? "Answer" : "Question"}</span>
-        <span className="flash-body">{flipped ? card.back : card.front}</span>
-        {flipped
-          ? <span className="flash-note">{card.note}</span>
-          : <span className="flash-hint">Click to flip</span>}
-      </button>
+      <div className="flip-scene" onClick={() => setFlipped((f) => !f)}>
+        <div className={"flip-card" + (flipped ? " flipped" : "")}>
+          <div className="flip-face front">
+            <span className="flash-tag">Question</span>
+            <p className="flash-body">{card.front}</p>
+            <span className="flash-foot">
+              <span className="pill">{card.topic}</span>
+              <span className="kbd-hint"><kbd>Space</kbd> to flip</span>
+            </span>
+          </div>
 
-      <div className="row" style={{ marginTop: 16, justifyContent: "center" }}>
-        <button className="btn ghost" onClick={() => mark(false)}>Study again</button>
-        <button className="btn" onClick={() => mark(true)}>I knew it</button>
+          <div className="flip-face back">
+            <span className="flash-tag">Answer</span>
+            <p className="flash-body answer">{card.back}</p>
+            <p className="flash-note">{card.note}</p>
+            <span className="flash-foot">
+              <span className="pill">{card.topic}</span>
+              <span className="kbd-hint"><kbd>Space</kbd> to flip back</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="deck-actions">
+        <button className="btn ghost" onClick={() => mark(false)}>
+          Study again <kbd>1</kbd>
+        </button>
+        <button className="btn" onClick={() => mark(true)}>
+          I knew it <kbd>2</kbd>
+        </button>
       </div>
     </div>
   );
@@ -978,6 +1018,93 @@ function SpeedRound() {
           {c}
         </button>
       ))}
+    </div>
+  );
+}
+
+/* ---------- material reader ---------- */
+
+// Flatten the document into a numbered list of highlights, so the rail and
+// the body can point at the same thing.
+const HIGHLIGHTS = DOC.blocks.flatMap((b, bi) =>
+  b.p.flatMap((seg, si) => (seg.mark ? [{ id: `h${bi}-${si}`, ...seg, section: b.h }] : [])),
+);
+
+function Reader() {
+  const [on, setOn] = useState({ def: true, key: true, exam: true });
+  const [active, setActive] = useState(null);
+
+  const shown = HIGHLIGHTS.filter((h) => on[h.mark]);
+
+  function jump(id) {
+    setActive(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  return (
+    <div className="page wide fade">
+      <div className="page-head">
+        <div className="spread">
+          <div>
+            <h2>{DOC.title}</h2>
+            <p>{DOC.subtitle}, {DOC.pages} pages, {HIGHLIGHTS.length} highlights</p>
+          </div>
+          <button className="btn ghost">Export highlights</button>
+        </div>
+      </div>
+
+      <div className="filters">
+        {Object.entries(HL_KINDS).map(([k, v]) => (
+          <button key={k} className={"filter " + k + (on[k] ? " on" : "")}
+            onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))}>
+            <span className="swatch" />
+            {v.label}
+            <span className="count">{HIGHLIGHTS.filter((h) => h.mark === k).length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="reader">
+        <article className="doc">
+          {DOC.blocks.map((b, bi) => (
+            <section key={bi}>
+              <h3>{b.h}</h3>
+              <p>
+                {b.p.map((seg, si) => {
+                  const id = `h${bi}-${si}`;
+                  if (!seg.mark || !on[seg.mark]) return <span key={si}>{seg.t}</span>;
+                  return (
+                    <mark key={si} id={id}
+                      className={"hl " + seg.mark + (active === id ? " active" : "")}
+                      onClick={() => setActive(id)}>
+                      {seg.t}
+                    </mark>
+                  );
+                })}
+              </p>
+            </section>
+          ))}
+        </article>
+
+        <aside className="rail">
+          <div className="rail-head">
+            <b className="small">Highlights</b>
+            <span className="small muted">{shown.length}</span>
+          </div>
+
+          {shown.length === 0 && <div className="empty small">Every type is switched off.</div>}
+
+          {shown.map((h) => (
+            <button key={h.id} className={"rail-item" + (active === h.id ? " on" : "")}
+              onClick={() => jump(h.id)}>
+              <span className={"tag " + h.mark}>{HL_KINDS[h.mark].label}</span>
+              <span className="rail-text">{h.t}</span>
+              {h.note && <span className="rail-note">{h.note}</span>}
+              <span className="rail-src">{h.section}</span>
+            </button>
+          ))}
+        </aside>
+      </div>
     </div>
   );
 }

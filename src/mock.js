@@ -116,3 +116,66 @@ export const SAMPLE_NOTES = `Membrane transport comes in two families. Passive t
 Tonicity describes the solution outside the cell. Hypertonic means more solute outside, so water leaves and the cell shrinks. Hypotonic means less solute outside, so water enters and the cell swells, and in animal cells it can burst. Isotonic means no net movement.
 
 Bulk transport handles anything too large for a protein channel: endocytosis brings material in via vesicles, exocytosis pushes it out.`;
+
+// The reader shows source material with the important bits marked up.
+// Each block is a run of segments; a segment with `mark` gets highlighted.
+// Types: def (a definition), key (a fact worth memorising), exam (likely to be asked).
+export const DOC = {
+  title: "Cell Biology, Lecture 4",
+  subtitle: "Membrane transport",
+  pages: 18,
+  blocks: [
+    {
+      h: "1. Two families",
+      p: [
+        { t: "Everything that crosses a membrane belongs to one of two families, and the split is energy. " },
+        { t: "Passive transport moves substances down their concentration gradient and requires no energy from the cell.", mark: "def", note: "The definition to lead with in any answer." },
+        { t: " It covers simple diffusion, facilitated diffusion and osmosis. " },
+        { t: "Active transport moves substances up their concentration gradient and is powered by ATP.", mark: "def", note: "Mirror wording of the passive definition. Examiners like the symmetry." },
+      ],
+    },
+    {
+      h: "2. Facilitated diffusion",
+      p: [
+        { t: "Some molecules are too large or too polar to slip between the phospholipids. These cross through channel or carrier proteins instead. " },
+        { t: "Facilitated diffusion uses membrane proteins but still costs no energy.", mark: "exam", note: "The single most common trap. Proteins involved does not mean active." },
+        { t: " The gradient still does the work; the protein only provides a route. Rate rises with concentration until every protein is occupied, at which point it plateaus. " },
+        { t: "That plateau is called saturation, and it does not happen in simple diffusion.", mark: "key" },
+      ],
+    },
+    {
+      h: "3. The sodium potassium pump",
+      p: [
+        { t: "The classic worked example of active transport. For each cycle it " },
+        { t: "moves 3 Na+ out of the cell and 2 K+ in, using one ATP", mark: "key", note: "Learn the 3:2 ratio verbatim. It is often a single mark." },
+        { t: ". Because three positive charges leave and only two enter, the cell interior becomes slightly more negative. " },
+        { t: "A pump that creates a net charge difference is called electrogenic.", mark: "def" },
+        { t: " This standing gradient is what nerve cells later spend on an action potential." },
+      ],
+    },
+    {
+      h: "4. Osmosis and tonicity",
+      p: [
+        { t: "Water gets its own term because it moves in response to solute, not to itself. " },
+        { t: "Osmosis is the diffusion of water across a semi permeable membrane, from a dilute solution to a concentrated one.", mark: "def" },
+        { t: " Tonicity describes the solution outside the cell. " },
+        { t: "Hypertonic means more solute outside, so water leaves and the cell shrinks. Hypotonic means less solute outside, so water enters and the cell swells.", mark: "exam", note: "Anchor it: hyper means more stuff outside, so the cell shrinks." },
+        { t: " Isotonic means no net movement. An animal cell in a strongly hypotonic solution can burst, which is called lysis; a plant cell cannot, because the wall resists." },
+      ],
+    },
+    {
+      h: "5. Bulk transport",
+      p: [
+        { t: "Anything too large for a protein channel is wrapped in membrane instead. " },
+        { t: "Endocytosis brings material into the cell in a vesicle, exocytosis expels it.", mark: "key" },
+        { t: " Both are active, because forming and moving a vesicle costs ATP. Phagocytosis, taking in solid particles, is the version a white blood cell uses to swallow bacteria." },
+      ],
+    },
+  ],
+};
+
+export const HL_KINDS = {
+  def: { label: "Definition", hint: "Learn these word for word" },
+  key: { label: "Key fact", hint: "Worth memorising" },
+  exam: { label: "Likely on the exam", hint: "Where marks are usually lost" },
+};
