@@ -46,7 +46,7 @@ ${answer}`;
 
   try {
     const text = await ask({ system: SYSTEM, user, maxTokens: 1500, temperature: 0.2 });
-    const data = safeParse(text);
+    const data = safeParse(text, "scores");
 
     if (!data || !Array.isArray(data.scores) || data.scores.length !== criteria.length) {
       return userError(res, 502, "The model did not return a usable mark. Try again.");

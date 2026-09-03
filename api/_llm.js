@@ -28,11 +28,13 @@ const PROVIDERS = [
     // Free first. Someone running on a free key is the common case, and a
     // paid model that returns 402 costs a round trip to discover.
     preferences: [
-      // Ordered by measured response time on a real key, fastest first.
-      /^nvidia\/nemotron-3-super.*:free/i,
+      // Instruction tuned first. Reasoning models answer quickly on a short
+      // probe but spend a whole generation budget thinking out loud, which is
+      // exactly the wrong shape for "return one JSON object".
       /^google\/gemma-4-\d+b-it:free/i,
-      /^inclusionai\/ling.*:free/i,
+      /^inclusionai\/ling.*flash.*:free/i,
       /^z-ai\/glm.*:free/i,
+      /^nvidia\/nemotron-3-super.*:free/i,
       /^minimax\/minimax-m2[0-9.]*:free/i,
       /^minimax\/minimax-m[0-9.]+:free/i,
       /:free$/i,
@@ -153,41 +155,62 @@ export function userError(res, status, message) {
 
 // Models wrap JSON in prose or code fences often enough that parsing has to be
 // defensive. Pull out the first balanced object or array and parse that.
-export function safeParse(text) {
+export function safeParse(text, requiredKey) {
   if (!text) return null;
+
   let t = String(text).trim();
-  t = t.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  // Some models emit their working in tags before the answer.
+  t = t.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  t = t.replace(/```(?:json)?/gi, "").trim();
 
-  const start = t.search(/[[{]/);
-  if (start === -1) return null;
-  const open = t[start];
-  const close = open === "{" ? "}" : "]";
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
+  const found = [];
 
-  for (let i = start; i < t.length; i++) {
-    const c = t[i];
-    if (escaped) { escaped = false; continue; }
-    if (c === "\\") { escaped = true; continue; }
-    if (c === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (c === open) depth++;
-    else if (c === close) {
-      depth--;
-      if (depth === 0) {
-        try {
-          return JSON.parse(t.slice(start, i + 1));
-        } catch {
-          return null;
+  // Every balanced object or array in the text, not just the first one. A model
+  // that reasons in prose will produce braces long before the real answer.
+  for (let start = 0; start < t.length; start++) {
+    const open = t[start];
+    if (open !== "{" && open !== "[") continue;
+
+    const close = open === "{" ? "}" : "]";
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < t.length; i++) {
+      const c = t[i];
+      if (escaped) { escaped = false; continue; }
+      if (c === "\\") { escaped = true; continue; }
+      if (c === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (c === open) depth++;
+      else if (c === close) {
+        depth--;
+        if (depth === 0) {
+          try {
+            const parsed = JSON.parse(t.slice(start, i + 1));
+            if (parsed && typeof parsed === "object") found.push({ parsed, length: i + 1 - start });
+          } catch {
+            // not valid, keep looking
+          }
+          start = i; // do not rescan the inside of what we just consumed
+          break;
         }
       }
     }
   }
-  return null;
+
+  if (found.length === 0) return null;
+
+  if (requiredKey) {
+    const match = found.filter((f) => f.parsed?.[requiredKey] !== undefined);
+    if (match.length) return match.sort((a, b) => b.length - a.length)[0].parsed;
+  }
+
+  // Otherwise the largest object is the likeliest to be the answer.
+  return found.sort((a, b) => b.length - a.length)[0].parsed;
 }
 
-export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 }) {
+export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false }) {
   const p = provider();
 
   // Try the cached winner first, then the rest in preference order.
@@ -223,6 +246,11 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
           model,
           temperature,
           max_tokens: maxTokens,
+          // Reasoning models otherwise spend the whole budget thinking out
+          // loud and never reach the answer. Both fields are ignored by
+          // providers and models that do not support them.
+          ...(json ? { response_format: { type: "json_object" } } : {}),
+          reasoning: { enabled: false, exclude: true },
           messages: [
             { role: "system", content: system },
             { role: "user", content: user },

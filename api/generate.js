@@ -56,11 +56,12 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM,
       user: `Build study material from these notes.\n\n${notes}`,
-      maxTokens: 2600,
+      maxTokens: 3500,
+      json: true,
       temperature: 0.3,
     });
 
-    const data = safeParse(text);
+    const data = safeParse(text, "questions");
     if (!data || !Array.isArray(data.questions) || data.questions.length === 0) {
       // Seeing the reply is the only way to tell a truncation from a model that
       // wrapped its JSON in prose. No key or user content is exposed.
