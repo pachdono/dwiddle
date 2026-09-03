@@ -9,10 +9,10 @@ import { listModels, candidates, fail } from "./_nvidia.js";
 
 export const config = { maxDuration: 60 };
 
-async function probe(model) {
+async function probe(model, tokens = 40) {
   const started = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), 45000);
   try {
     const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -23,14 +23,29 @@ async function probe(model) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 40,
+        max_tokens: tokens,
         temperature: 0.2,
-        messages: [{ role: "user", content: 'Reply with only this JSON: {"ok":true}' }],
+        messages: [{
+          role: "user",
+          content: tokens > 100
+            ? "Write a JSON array of 12 short multiple choice questions about photosynthesis. Each entry: {q, choices:[4], answer, why}. JSON only."
+            : 'Reply with only this JSON: {"ok":true}',
+        }],
       }),
     });
     clearTimeout(timer);
     const body = await res.text();
-    return { model, status: res.status, ms: Date.now() - started, ok: res.ok, note: res.ok ? undefined : body.slice(0, 120) };
+    let produced;
+    try { produced = JSON.parse(body)?.usage?.completion_tokens; } catch { /* not json */ }
+    return {
+      model,
+      status: res.status,
+      ms: Date.now() - started,
+      ok: res.ok,
+      producedTokens: produced,
+      tokensPerSecond: produced ? Math.round(produced / ((Date.now() - started) / 1000)) : undefined,
+      note: res.ok ? undefined : body.slice(0, 120),
+    };
   } catch (err) {
     clearTimeout(timer);
     return { model, status: err.name === "AbortError" ? "timeout" : "error", ms: Date.now() - started, ok: false };
@@ -42,9 +57,10 @@ export default async function handler(req, res) {
     const order = await candidates({ includeRejected: Boolean(req.query?.probe) });
 
     if (req.query?.probe) {
-      const top = order.slice(0, 18);
+      const tokens = Number(req.query.tokens) || 40;
+      const top = order.slice(0, Number(req.query.limit) || 18);
       const results = [];
-      for (const model of top) results.push(await probe(model));
+      for (const model of top) results.push(await probe(model, tokens));
       const working = results.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
       return res.status(200).json({
         tried: results,
