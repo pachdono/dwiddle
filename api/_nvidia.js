@@ -9,8 +9,65 @@
 // Files in /api beginning with an underscore are not routed, so this is a
 // module rather than an endpoint.
 
-const ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
-const MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct";
+const BASE = "https://integrate.api.nvidia.com/v1";
+const ENDPOINT = `${BASE}/chat/completions`;
+const MODELS = `${BASE}/models`;
+
+// NVIDIA's catalogue changes, so hard coding a model id means the app breaks
+// the day that one is retired. If NVIDIA_MODEL is not set we ask the key which
+// models it can actually use and pick the best available instruct model.
+// The answer is cached for the life of the warm function instance.
+const PREFERENCES = [
+  /llama-3\.3-70b-instruct/i,
+  /llama-3\.1-70b-instruct/i,
+  /nemotron.*70b.*instruct/i,
+  /llama-3\.1-8b-instruct/i,
+  /qwen.*instruct/i,
+  /mixtral.*instruct/i,
+  /mistral.*instruct/i,
+  /instruct/i,
+];
+
+let cachedModel = null;
+
+export async function resolveModel() {
+  if (process.env.NVIDIA_MODEL) return process.env.NVIDIA_MODEL;
+  if (cachedModel) return cachedModel;
+
+  const ids = await listModels();
+  if (ids.length === 0) {
+    throw Object.assign(new Error("Your NVIDIA key returned no available models"), { status: 502 });
+  }
+
+  for (const pattern of PREFERENCES) {
+    const hit = ids.find((id) => pattern.test(id));
+    if (hit) {
+      cachedModel = hit;
+      console.log("[api] using model", hit);
+      return hit;
+    }
+  }
+
+  cachedModel = ids[0];
+  return cachedModel;
+}
+
+export async function listModels() {
+  if (!process.env.NVIDIA_API_KEY) {
+    throw Object.assign(new Error("NVIDIA_API_KEY is not set on the server"), { status: 500 });
+  }
+  const reply = await fetch(MODELS, {
+    headers: { Authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
+  });
+  if (!reply.ok) {
+    throw Object.assign(
+      new Error(reply.status === 401 ? "The NVIDIA key was rejected" : `Listing models returned ${reply.status}`),
+      { status: reply.status === 401 ? 500 : 502 },
+    );
+  }
+  const data = await reply.json();
+  return (data?.data || []).map((m) => m.id).filter(Boolean).sort();
+}
 
 export const MAX_INPUT = 24000; // characters of user text we will accept
 
@@ -60,6 +117,8 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
     throw Object.assign(new Error("NVIDIA_API_KEY is not set on the server"), { status: 500 });
   }
 
+  const model = await resolveModel();
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
 
@@ -73,7 +132,7 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
         Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         temperature,
         max_tokens: maxTokens,
         messages: [
@@ -90,10 +149,19 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
 
   if (!reply.ok) {
     const body = await reply.text().catch(() => "");
-    throw Object.assign(
-      new Error(reply.status === 401 ? "The NVIDIA key was rejected" : `The model returned ${reply.status}`),
-      { status: reply.status === 401 ? 500 : 502, detail: body.slice(0, 300) },
-    );
+    cachedModel = null; // so the next call re-resolves rather than repeating a bad id
+
+    let message;
+    if (reply.status === 401) message = "The NVIDIA key was rejected";
+    else if (reply.status === 404 || reply.status === 400) {
+      message = `The model "${model}" is not available to your key. Clear NVIDIA_MODEL to let the server pick one, or open /api/models to see the list.`;
+    } else if (reply.status === 429) message = "Rate limited by NVIDIA. Wait a moment and try again.";
+    else message = `The model returned ${reply.status}`;
+
+    throw Object.assign(new Error(message), {
+      status: reply.status === 401 ? 500 : 502,
+      detail: body.slice(0, 300),
+    });
   }
 
   const data = await reply.json();

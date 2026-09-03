@@ -12,9 +12,24 @@ The whole thing runs on free tiers.
 The key that generates questions and marks writing.
 
 1. Go to https://build.nvidia.com and sign in.
-2. Pick any model, for example **Llama 3.3 70B Instruct**.
-3. Click **Get API Key**, then **Generate Key**.
-4. Copy it. It starts with `nvapi-`. You will paste it into Vercel in step 3.
+2. Open any model, then click **Get API Key** and **Generate Key**.
+   The key works across the whole catalogue, so it does not matter which model
+   page you happen to be on when you generate it.
+3. Copy it. It starts with `nvapi-`. You will paste it into Vercel in step 3.
+
+**You do not need to choose a model.** The catalogue changes and models get
+retired, so the server asks your key what it can run and picks the best
+instruct model itself. If you want to check before deploying:
+
+```bash
+NVIDIA_API_KEY=nvapi-your-key-here node scripts/list-models.mjs
+```
+
+That prints every model the key can use. After deploying you can see the same
+list, plus which one the server chose, at `/api/models` on your site.
+
+To pin a specific one, set `NVIDIA_MODEL` in Vercel to an id exactly as it
+appears in that list. Leave it blank otherwise.
 
 **Do not put this key anywhere in the code, and do not paste it into a chat.**
 It only ever goes in Vercel's environment variables, where the browser cannot
@@ -59,7 +74,7 @@ grant access. The SQL from step 4 is what actually protects the data.
    | Name | Value | Notes |
    |---|---|---|
    | `NVIDIA_API_KEY` | your `nvapi-...` key | server only |
-   | `NVIDIA_MODEL` | `meta/llama-3.3-70b-instruct` | optional |
+   | `NVIDIA_MODEL` | leave blank | only to pin one model |
    | `VITE_SUPABASE_URL` | Project URL from step 2.5 | |
    | `VITE_SUPABASE_ANON_KEY` | anon public key from step 2.5 | |
 
@@ -111,6 +126,8 @@ gitignored. Never commit it.
 |---|---|
 | "The AI endpoints are not running" | You are on `npm run dev`. Use `vercel dev`, or test on the deployed site. |
 | "The NVIDIA key was rejected" | `NVIDIA_API_KEY` is wrong or missing in Vercel. Redeploy after adding it. |
+| "The model X is not available to your key" | You pinned `NVIDIA_MODEL` to an id that does not exist. Clear it, or copy an exact id from `/api/models`. |
+| "Rate limited by NVIDIA" | Free tier limit. Wait a minute. |
 | Sign in link goes to the wrong place | Supabase **Site URL** is not set to your Vercel URL. |
 | Signed in but nothing syncs | The SQL from step 2.4 did not run. Check the `progress` table exists. |
 | "Accounts are not switched on" | The two `VITE_SUPABASE_` variables are missing. They must be set at build time, so redeploy after adding them. |
