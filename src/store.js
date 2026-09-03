@@ -24,4 +24,6 @@ export const KEYS = {
   known: "dwiddle-known",   // card ids retired from the deck
   missed: "dwiddle-missed", // question ids answered wrong
   topic: "dwiddle-topic",   // the topic Practice is currently working on
+  hidden: "dwiddle-hidden", // topic ids removed from the list
+  quizLen: "dwiddle-quizlen", // questions per quiz run
 };

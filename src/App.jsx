@@ -28,6 +28,7 @@ const paths = {
   cards: "M6.5 6.5h9v9h-9zM4.5 13V4.5h8.5",
   exam: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 11l1.5 1.5L12.5 9",
   bolt: "M11 2.5 4.5 11.5H9l-1 6 6.5-9H10z",
+  trash: "M4.5 6h11M8 6V4.5h4V6M6 6l.7 10.5h6.6L14 6M8.5 9v5M11.5 9v5",
   pen: "M4 16h3l8.5-8.5a2.1 2.1 0 0 0-3-3L4 13z",
   mic: "M10 12.5a2.5 2.5 0 0 0 2.5-2.5V5a2.5 2.5 0 0 0-5 0v5a2.5 2.5 0 0 0 2.5 2.5ZM5 9.5a5 5 0 0 0 10 0M10 15v2.5",
   build: "M3 16.5h14M5.5 16.5v-5h3v5M11.5 16.5V6h3v10.5",
@@ -79,6 +80,12 @@ export default function App() {
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
   const [topic, setTopicRaw] = useState(() => load(KEYS.topic, null));
+  const [hidden, setHiddenRaw] = useState(() => load(KEYS.hidden, []));
+
+  function setHidden(next) {
+    setHiddenRaw(next);
+    save(KEYS.hidden, next);
+  }
 
   // null means every topic. The choice is remembered between visits.
   function setTopic(name) {
@@ -196,6 +203,8 @@ export default function App() {
           setPMode={setPMode}
           topic={topic}
           setTopic={setTopic}
+          hidden={hidden}
+          setHidden={setHidden}
         />
       </main>
     </div>
@@ -361,7 +370,7 @@ function Dashboard({ go }) {
 
 /* ---------- recommended topics ---------- */
 
-function TopicRow({ t, go, topic, setTopic }) {
+function TopicRow({ t, go, topic, setTopic, onHide }) {
   const current = topic === t.name;
   return (
     <div className={"topic" + (current ? " current" : "")}>
@@ -378,26 +387,46 @@ function TopicRow({ t, go, topic, setTopic }) {
         <div className="small muted" style={{ margin: "2px 0 10px" }}>{t.reason}</div>
         <div className="bar"><i style={{ width: `${t.mastery}%` }} /></div>
         <div className="small muted" style={{ marginTop: 8 }}>
-          {t.source}, {t.questions} questions available
+          {t.questions} questions available
         </div>
       </div>
-      <button className={current ? "btn" : "btn ghost"}
-        onClick={() => { setTopic(t.name); go("quiz"); }}>
-        {current ? "Continue" : "Learn this"}
-      </button>
+      <div className="row">
+        <button className="icon-btn" title={`Remove ${t.name}`} aria-label={`Remove ${t.name}`}
+          onClick={() => onHide(t.id)}>
+          <Icon name="trash" size={15} />
+        </button>
+        <button className={current ? "btn" : "btn ghost"}
+          onClick={() => { setTopic(t.name); go("quiz"); }}>
+          {current ? "Continue" : "Learn this"}
+        </button>
+      </div>
     </div>
   );
 }
 
-function Topics({ go, topic, setTopic }) {
-  const focus = TOPICS.filter((t) => t.priority === "focus");
-  const warm = TOPICS.filter((t) => t.priority === "warm");
+function Topics({ go, topic, setTopic, hidden, setHidden }) {
+  const [justHidden, setJustHidden] = useState(null);
+
+  function hide(id) {
+    const t = TOPICS.find((x) => x.id === id);
+    setHidden([...hidden, id]);
+    setJustHidden(t);
+    // Removing the topic you were learning drops you back to everything.
+    if (topic === t.name) setTopic(null);
+  }
+
+  const live = TOPICS.filter((t) => !hidden.includes(t.id));
+
+  // Grouped by the material they came from, so several courses can coexist.
+  const groups = MATERIALS
+    .map((m) => ({ material: m, topics: live.filter((t) => t.material === m.id) }))
+    .filter((g) => g.topics.length > 0);
 
   return (
     <div className="page fade">
       <PageHead
-        title="Recommended topics"
-        sub="Ranked by what you have been getting wrong, and what you have not seen in a while."
+        title="Topics"
+        sub="Grouped by the material they came from, and ranked by what you have been getting wrong."
       />
 
       <div className="spread learning-bar" style={{ marginBottom: 18 }}>
@@ -408,20 +437,53 @@ function Topics({ go, topic, setTopic }) {
         {topic && <button className="btn quiet" onClick={() => setTopic(null)}>Practise all topics instead</button>}
       </div>
 
-      <div className="stack">
-        <div>
-          <div className="section-label">Focus first</div>
-          <div className="stack" style={{ gap: 10 }}>
-            {focus.map((t) => <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} />)}
-          </div>
+      {justHidden && (
+        <div className="undo-bar fade">
+          <span className="small">Removed {justHidden.name}.</span>
+          <button className="btn quiet" onClick={() => {
+            setHidden(hidden.filter((id) => id !== justHidden.id));
+            setJustHidden(null);
+          }}>
+            Undo
+          </button>
         </div>
+      )}
 
-        <div>
-          <div className="section-label">Keep warm</div>
-          <div className="stack" style={{ gap: 10 }}>
-            {warm.map((t) => <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} />)}
+      <div className="stack">
+        {groups.map((g) => (
+          <div key={g.material.id}>
+            <div className="group-head">
+              <div className="row">
+                <span className="muted"><Icon name="file" size={14} /></span>
+                <b className="small">{g.material.title}</b>
+              </div>
+              <span className="small muted">{g.topics.length} topics</span>
+            </div>
+            <div className="stack" style={{ gap: 10 }}>
+              {g.topics.map((t) => (
+                <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} onHide={hide} />
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
+
+        {live.length === 0 && (
+          <div className="empty">You have removed every topic. Restore them below to start again.</div>
+        )}
+
+        {hidden.length > 0 && (
+          <div className="card card-pad spread">
+            <div>
+              <b className="small">{hidden.length} topic{hidden.length === 1 ? "" : "s"} removed</b>
+              <div className="small muted">
+                {TOPICS.filter((t) => hidden.includes(t.id)).map((t) => t.name).join(", ")}
+              </div>
+            </div>
+            <button className="btn ghost" onClick={() => { setHidden([]); setJustHidden(null); }}>
+              Restore all
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -551,15 +613,28 @@ const MODES = [
   { id: "missed", label: "Missed", icon: "flag", sub: "Only the questions you have got wrong." },
 ];
 
-const ALL_TOPICS = [...new Set(BANK.map((q) => q.topic))];
+const QUIZ_LENGTHS = [5, 10, 15, 20];
 
 function Practice(props) {
-  const { pMode, setPMode, missed, topic, setTopic, go } = props;
+  const { pMode, setPMode, missed, topic, setTopic, go, hidden } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
   const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
+  const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
+
+  function setQuizLen(n) {
+    setQuizLenRaw(n);
+    save(KEYS.quizLen, n);
+  }
+
+  // Removed topics drop out of practice too, otherwise removing one from the
+  // list would not actually declutter anything.
+  const liveTopics = TOPICS.filter((t) => !hidden.includes(t.id)).map((t) => t.name);
+  const choices = [...new Set(BANK.map((q) => q.topic))].filter((t) => liveTopics.includes(t));
 
   // Every mode draws from here, so changing the topic changes the whole page.
-  const pool = topic ? BANK.filter((q) => q.topic === topic) : BANK;
+  const pool = topic
+    ? BANK.filter((q) => q.topic === topic)
+    : BANK.filter((q) => liveTopics.includes(q.topic));
 
   return (
     <div className="page fade">
@@ -571,42 +646,62 @@ function Practice(props) {
           <div className="learning-name">{topic || "All topics"}</div>
           <div className="small muted">
             {pool.length} question{pool.length === 1 ? "" : "s"} in this set
-            {topic ? "" : `, across ${ALL_TOPICS.length} topics`}
+            {topic ? "" : `, across ${choices.length} topics`}
           </div>
         </div>
         <div className="row">
           <label className="field topic-pick">
             <select value={topic || ""} onChange={(e) => setTopic(e.target.value || null)}>
               <option value="">All topics</option>
-              {ALL_TOPICS.map((t) => <option key={t} value={t}>{t}</option>)}
+              {choices.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
           <button className="btn ghost" onClick={() => go("topics")}>Choose in Topics</button>
         </div>
       </div>
 
-      <div className="seg modes">
-        {MODES.map((m) => (
-          <button key={m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
-            <Icon name={m.icon} size={14} /> {m.label}
-            {m.id === "missed" && missed.length > 0 && <span className="badge">{missed.length}</span>}
-          </button>
-        ))}
+      <div className="spread mode-bar">
+        <div className="seg modes">
+          {MODES.map((m) => (
+            <button key={m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
+              <Icon name={m.icon} size={14} /> {m.label}
+              {m.id === "missed" && missed.length > 0 && <span className="badge">{missed.length}</span>}
+            </button>
+          ))}
+        </div>
+
+        {pMode === "quiz" && (
+          <label className="len-pick">
+            <span className="small muted">Questions</span>
+            <div className="seg tight">
+              {QUIZ_LENGTHS.map((n) => (
+                <button key={n} className={quizLen === n ? "on" : ""}
+                  disabled={n > pool.length}
+                  onClick={() => setQuizLen(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            {quizLen > pool.length && (
+              <span className="small muted">using {pool.length}</span>
+            )}
+          </label>
+        )}
       </div>
 
-      <Mode key={active.id + ":" + (topic || "all")} {...props} pool={pool} />
+      <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} len={quizLen} />
     </div>
   );
 }
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool }) {
+function QuizMode({ grade, pool, len }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
-  const [QUIZ] = useState(() => shuffle(pool).slice(0, Math.min(5, pool.length)));
+  const [QUIZ] = useState(() => shuffle(pool).slice(0, Math.min(len, pool.length)));
 
   const q = QUIZ[i];
 
