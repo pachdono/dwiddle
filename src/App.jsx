@@ -4,6 +4,9 @@ import {
   SHEET, SAMPLE_NOTES, DOC, HL_KINDS,
 } from "./mock.js";
 import { load, save, KEYS } from "./store.js";
+import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
+import { BUILDERS } from "./generate.js";
+import { estimate } from "./scoring.js";
 
 /* ---------- icons ---------- */
 
@@ -12,6 +15,7 @@ const paths = {
   topics: "M4 5.5h12M4 10h12M4 14.5h8",
   quiz: "M7 7a3 3 0 1 1 3 3v2M10 15.5v.5",
   sheet: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 10h5M7.5 13h5",
+  target: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM10 13.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z",
   library: "M4 4h4v12H4zM10 4h3v12h-3zM15 5l2 11",
   upload: "M10 13V4M6.5 7.5 10 4l3.5 3.5M4 13v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2",
   spark: "M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z",
@@ -55,6 +59,7 @@ const NAV_STUDY = [
   { id: "topics", label: "Topics", icon: "topics" },
   { id: "quiz", label: "Practice", icon: "quiz" },
   { id: "sheet", label: "Study sheet", icon: "sheet" },
+  { id: "tests", label: "Test prep", icon: "target" },
 ];
 
 const NAV_MATERIAL = [
@@ -79,8 +84,14 @@ export default function App() {
     });
   }
 
+  // Clicking the nav item for the page you are already on resets it, which is
+  // how you get out of an open practice set or test without hunting for a back
+  // button. Bumping the seq remounts the page component.
+  const [seq, setSeq] = useState(0);
+
   const go = (p, mode) => {
     if (mode) setPMode(mode);
+    if (p === page) setSeq((n) => n + 1);
     setPage(p);
   };
 
@@ -98,6 +109,7 @@ export default function App() {
     library: Library,
     settings: Settings,
     reader: Reader,
+    tests: TestPrep,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -162,7 +174,7 @@ export default function App() {
           <span className="crumb small">Cell Biology, Lecture 4</span>
         </header>
         <Page
-          key={page}
+          key={`${page}:${seq}`}
           go={go}
           theme={theme}
           setTheme={setTheme}
@@ -1089,7 +1101,7 @@ function MockExam({ grade }) {
 function MissedMode({ missed, setMissed, grade, setPMode }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
-  const [list] = useState(() => BANK.filter((q) => missed.includes(q.id)));
+  const [list] = useState(() => [...BANK, ...TEST_QUESTIONS].filter((q) => missed.includes(q.id)));
 
   function clearAll() {
     setMissed([]);
@@ -1343,6 +1355,291 @@ function Reader() {
             </button>
           ))}
         </aside>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- test prep ---------- */
+
+// Builds one section's paper. Generated sections run at true full length.
+// Pool backed sections are capped at however many authored items exist, and
+// the caller shows that as a short form rather than repeating questions.
+function buildPaper(test, sec) {
+  if (sec.build) return { qs: BUILDERS[sec.build](sec.real), full: true };
+  const pool = test.questions.filter((q) => q.section === sec.pool);
+  const qs = [...pool].sort(() => Math.random() - 0.5).slice(0, sec.real);
+  return { qs, full: qs.length >= sec.real };
+}
+
+function TestPrep({ grade }) {
+  const [openId, setOpenId] = useState(null);
+  const [paper, setPaper] = useState(null);
+
+  const test = TESTS.find((t) => t.id === openId);
+  const secs = test ? SECTIONS[test.id] : [];
+
+  if (test && paper) {
+    return <TestRun {...paper} test={test} grade={grade} onExit={() => setPaper(null)} />;
+  }
+
+  if (test) {
+    const sittable = secs.filter((x) => !x.essay);
+    return (
+      <div className="page fade">
+        <div className="page-head">
+          <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setOpenId(null)}>
+            Back to all tests
+          </button>
+          <h2>{test.name}</h2>
+          <p>{test.full}</p>
+        </div>
+
+        <div className="stack">
+          <div className="grid-3">
+            <div className="stat"><div className="k">Score scale</div><div className="v small-v">{test.scaleLabel}</div></div>
+            <div className="stat"><div className="k">Total time</div><div className="v small-v">{test.length}</div></div>
+            <div className="stat"><div className="k">Used for</div><div className="v small-v">{test.who}</div></div>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <h3>Choose a section</h3>
+              <span className="small muted">Real length and real timing</span>
+            </div>
+
+            {secs.map((sec) => {
+              const built = sec.essay ? null : buildPaper(test, sec);
+              const have = built ? built.qs.length : 0;
+              return (
+                <div key={sec.id} className="sec-row">
+                  <div className="sec-main">
+                    <div className="row">
+                      <span className="list-title">{sec.name}</span>
+                      {sec.essay
+                        ? <span className="pill">Not machine marked</span>
+                        : built.full
+                          ? <span className="pill good">Full length</span>
+                          : <span className="pill warn">Short form, {have} of {sec.real}</span>}
+                    </div>
+                    <div className="small muted">
+                      {sec.real} {sec.essay ? "tasks" : "questions"}, {sec.minutes} min
+                      {sec.note ? `. ${sec.note}` : ""}
+                    </div>
+                  </div>
+                  {sec.essay ? (
+                    <span className="small muted" style={{ maxWidth: 190, textAlign: "right" }}>
+                      Needs a human or an examiner to score
+                    </span>
+                  ) : (
+                    <button className="btn ghost" disabled={have === 0}
+                      onClick={() => setPaper({ sec, qs: built.qs, full: built.full })}>
+                      {have === 0 ? "No questions yet" : "Sit this section"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {sittable.length > 1 && (
+            <div className="card card-pad spread">
+              <div>
+                <b className="small">Sit the whole test</b>
+                <div className="small muted">
+                  Every scorable section back to back, {sittable.reduce((n, x) => n + x.minutes, 0)} minutes.
+                </div>
+              </div>
+              <button className="btn" onClick={() => {
+                const all = sittable.flatMap((sec) => buildPaper(test, sec).qs);
+                setPaper({ sec: { name: "Full test", minutes: sittable.reduce((n, x) => n + x.minutes, 0) }, qs: all, full: true });
+              }}>
+                Start full test
+              </button>
+            </div>
+          )}
+
+          <div className="card card-pad note-card">
+            <b className="small">Worth knowing</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{test.note}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page wide fade">
+      <PageHead title="Test prep" sub="Pick a test, then sit a whole section at its real length and timing." />
+
+      <div className="disclaimer">
+        <Icon name="flag" size={14} />
+        <span>
+          Structure, timings and score scales are the real published ones. Questions are original and
+          generated fresh each sitting, so no two papers are the same. They are not from any past paper.
+        </span>
+      </div>
+
+      <div className="test-grid">
+        {TESTS.map((t) => {
+          const secs = SECTIONS[t.id].filter((x) => !x.essay);
+          return (
+            <button key={t.id} className="test-card" onClick={() => setOpenId(t.id)}>
+              <div className="spread">
+                <b className="test-name">{t.name}</b>
+                <span className="pill accent">{secs.length} sections</span>
+              </div>
+              <span className="small muted">{t.full}</span>
+              <div className="test-meta">
+                <span><b>{t.scaleLabel}</b></span>
+                <span className="muted">{t.length}</span>
+              </div>
+              <span className="small muted">{t.who}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TestRun({ test, sec, qs, full, grade, onExit }) {
+  const [i, setI] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [left, setLeft] = useState(sec.minutes * 60);
+  const [done, setDone] = useState(false);
+
+  // Real tests give no feedback while you sit them, so neither does this.
+  useEffect(() => {
+    if (done) return;
+    if (left <= 0) { finish(); return; }
+    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left, done]);
+
+  function finish() {
+    qs.forEach((q, n) => grade(q.id, answers[n] === q.answer));
+    setDone(true);
+  }
+
+  const right = qs.filter((q, n) => answers[n] === q.answer).length;
+
+  if (done) {
+    const score = estimate(test.scoring, right, qs.length);
+    const wrong = qs.map((q, n) => ({ q, n })).filter(({ q, n }) => answers[n] !== q.answer);
+    return (
+      <div className="page fade">
+        <PageHead title={`${test.name}, ${sec.name}`} sub={`${right} of ${qs.length} correct`} />
+
+        <div className="stack">
+          <div className="card card-pad score-card">
+            <div className="score-main">
+              <span className="score-value">{score.scaled}</span>
+              <span className="score-unit">{score.unit}</span>
+            </div>
+            <div className="score-side">
+              <div className="spread small">
+                <span className="muted">Estimated percentile</span>
+                <b>{Math.round(score.percentile)}th</b>
+              </div>
+              <div className="bar" style={{ marginTop: 6 }}>
+                <i style={{ width: `${score.percentile}%` }} />
+              </div>
+              <p className="small muted" style={{ margin: "10px 0 0" }}>
+                Ahead of about {Math.round(score.percentile)} percent of test takers. {score.detail}
+              </p>
+            </div>
+          </div>
+
+          <div className="card card-pad note-card">
+            <b className="small">How to read this</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
+              {full
+                ? `This section ran at its real length of ${qs.length} questions.`
+                : `This was a short form of ${qs.length} questions against a real ${sec.real}.`}{" "}
+              Scaled scores are still an estimate: real tests are equated between sittings, so the same
+              raw score can move a little either way. Use the band, not the exact number.
+            </p>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <h3>Review</h3>
+              <span className="small muted">{wrong.length} to look at</span>
+            </div>
+            {wrong.length === 0 && <div className="empty small">Nothing wrong. Every question correct.</div>}
+            {wrong.map(({ q, n }) => (
+              <div key={q.id} className="review">
+                <span className="pill warn">{q.skill}</span>
+                <div>
+                  {q.passage && <div className="small muted" style={{ marginBottom: 4 }}>{q.passage}</div>}
+                  <div className="list-title">{q.q}</div>
+                  <div className="small muted">
+                    You put {answers[n] === undefined ? "nothing" : q.choices[answers[n]]}.
+                    Answer: {q.choices[q.answer]}.
+                  </div>
+                  <div className="small" style={{ marginTop: 4, color: "var(--ink-2)" }}>{q.why}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="row">
+            <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const q = qs[i];
+  const answered = Object.keys(answers).length;
+
+  return (
+    <div className="page fade">
+      <div className="page-head">
+        <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
+        <div className="spread">
+          <div>
+            <h2>{test.name}, {sec.name}</h2>
+            <p>{q.section}{q.skill ? `, ${q.skill}` : ""}</p>
+          </div>
+          <span className={"clock big" + (left <= 300 ? " low" : "")}>
+            <Icon name="timer" size={15} /> {fmt(left)}
+          </span>
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <span className="small muted">Question {i + 1} of {qs.length}</span>
+          <span className="small muted">{answered} answered</span>
+        </div>
+        <div className="bar" style={{ marginBottom: 20 }}>
+          <i style={{ width: `${(answered / qs.length) * 100}%` }} />
+        </div>
+
+        {q.passage && <div className="stimulus">{q.passage}</div>}
+
+        <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          {q.q}
+        </h3>
+
+        {q.choices.map((c, n) => (
+          <button key={n} className={"choice" + (answers[i] === n ? " picked" : "")}
+            onClick={() => setAnswers((a) => ({ ...a, [i]: n }))}>
+            <span className="key">{"ABCDE"[n]}</span>
+            {c}
+          </button>
+        ))}
+
+        <div className="spread" style={{ marginTop: 16 }}>
+          <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>Back</button>
+          <span className="small muted">{qs.length - answered} unanswered</span>
+          {i + 1 < qs.length
+            ? <button className="btn ghost" onClick={() => setI(i + 1)}>Next</button>
+            : <button className="btn" onClick={finish}>Submit section</button>}
+        </div>
       </div>
     </div>
   );
