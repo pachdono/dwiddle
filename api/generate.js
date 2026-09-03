@@ -62,6 +62,17 @@ export default async function handler(req, res) {
 
     const data = safeParse(text);
     if (!data || !Array.isArray(data.questions) || data.questions.length === 0) {
+      // Seeing the reply is the only way to tell a truncation from a model that
+      // wrapped its JSON in prose. No key or user content is exposed.
+      if (req.query?.debug) {
+        return res.status(502).json({
+          error: "The model did not return usable material.",
+          parsed: data ? Object.keys(data) : null,
+          length: text.length,
+          head: text.slice(0, 700),
+          tail: text.slice(-400),
+        });
+      }
       return userError(res, 502, "The model did not return usable material. Try again, or send shorter notes.");
     }
 
