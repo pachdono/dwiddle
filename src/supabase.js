@@ -8,8 +8,39 @@
 import { createClient } from "@supabase/supabase-js";
 import { load, save, KEYS } from "./store.js";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
+const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+
+// The dashboard link and the API endpoint are different addresses, and pasting
+// the first is an easy mistake that fails silently: the client builds fine,
+// every request 404s, and sign in appears to do nothing. Recover the project
+// reference and say so loudly rather than shipping a broken client.
+function apiUrl(value) {
+  if (!value) return "";
+
+  const dashboard = value.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+  if (dashboard) {
+    const fixed = `https://${dashboard[1]}.supabase.co`;
+    console.warn(
+      `[supabase] VITE_SUPABASE_URL is the dashboard link, not the API endpoint. ` +
+      `Using ${fixed} instead. Set it to that in your host's environment variables.`,
+    );
+    return fixed;
+  }
+
+  // A bare project reference is also a reasonable thing to paste.
+  if (/^[a-z0-9]{16,}$/i.test(value)) return `https://${value}.supabase.co`;
+
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  try {
+    return new URL(withScheme).origin;
+  } catch {
+    console.warn("[supabase] VITE_SUPABASE_URL is not a valid URL:", value);
+    return "";
+  }
+}
+
+const url = apiUrl(rawUrl);
 
 export const configured = Boolean(url && anon);
 

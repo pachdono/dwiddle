@@ -50,8 +50,13 @@ Gives you sign in and progress that follows you between devices.
    This creates the two tables and, importantly, the row level security
    policies that stop anyone reading anyone else's data.
 5. Go to **Project Settings**, then **API**. Copy two values:
-   - **Project URL**
+   - **Project URL**, which looks like `https://abcdefghijklmnop.supabase.co`
    - **anon public** key
+
+   Do not use the address of the dashboard page you are looking at. The
+   dashboard lives at `https://supabase.com/dashboard/project/<ref>` and the
+   API is at `https://<ref>.supabase.co`. Pasting the first is the single
+   easiest mistake here: everything builds, and every request quietly fails.
 6. Go to **Authentication**, then **URL Configuration**, and set
    **Site URL** to your Vercel URL once you have it in step 3. Until then
    `http://localhost:5180` works for local testing.
@@ -131,3 +136,4 @@ gitignored. Never commit it.
 | Sign in link goes to the wrong place | Supabase **Site URL** is not set to your Vercel URL. |
 | Signed in but nothing syncs | The SQL from step 2.4 did not run. Check the `progress` table exists. |
 | "Accounts are not switched on" | The two `VITE_SUPABASE_` variables are missing. They must be set at build time, so redeploy after adding them. |
+| Sign in does nothing, no error | `VITE_SUPABASE_URL` is probably the dashboard link. It must be `https://<ref>.supabase.co`. Check the browser console for a warning naming the correct value. |
