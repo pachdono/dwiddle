@@ -25,13 +25,22 @@ const PROVIDERS = [
       "HTTP-Referer": process.env.PUBLIC_SITE_URL || "https://dwiddle.vercel.app",
       "X-Title": "Dwiddle",
     },
+    // Free first. Someone running on a free key is the common case, and a
+    // paid model that returns 402 costs a round trip to discover.
     preferences: [
-      /^google\/gemini-2\.\d+-flash/i,
-      /^openai\/gpt-4o-mini/i,
-      /^anthropic\/claude-3\.5-haiku/i,
-      /^meta-llama\/llama-3\.3-70b-instruct/i,
+      /^z-ai\/glm.*:free/i,
+      /^minimax\/minimax-m[0-9.]+:free/i,
+      /^google\/gemma-4-\d+b-it:free/i,
+      /^nvidia\/nemotron-3-super.*:free/i,
+      /^nvidia\/nemotron-3-ultra.*:free/i,
+      /^inclusionai\/ling.*:free/i,
+      /:free$/i,
+      /^google\/gemini-[0-9.]+-flash-lite$/i,
+      /^google\/gemini-[0-9.]+-flash$/i,
+      /^openai\/gpt-4o-mini$/i,
+      /^anthropic\/claude-[0-9.]+-haiku$/i,
+      /^meta-llama\/llama-3\.3-70b-instruct$/i,
       /^deepseek\/deepseek-chat/i,
-      /^mistralai\/mistral-small/i,
       /flash/i,
       /instruct/i,
     ],
@@ -77,9 +86,11 @@ function authHeaders(p) {
 }
 
 // Models that exist but are wrong for this job.
-const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva|image|tts|whisper/i;
+const UNSUITABLE =
+  /vision|translate|embed|rerank|guard|reward|coder|-code-|-code:|ocr|speech|riva|image|tts|whisper|content-safety|:batch|:online|:extended|:thinking|moderation/i;
 
 let cachedModel = null;
+let paidBlocked = false;
 const rejected = new Set();
 
 export async function listModels() {
@@ -103,7 +114,11 @@ export async function candidates({ includeRejected = false } = {}) {
   if (pinned && !includeRejected) return [pinned];
 
   const all = (await listModels()).filter(
-    (id) => !UNSUITABLE.test(id) && (includeRejected || !rejected.has(id)),
+    (id) =>
+      !UNSUITABLE.test(id) &&
+      (includeRejected || !rejected.has(id)) &&
+      // Once a paid model has refused for want of credit, the rest will too.
+      (includeRejected || !paidBlocked || id.endsWith(":free")),
   );
   const ordered = [];
 
@@ -259,6 +274,19 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
       rejected.add(model);
       if (cachedModel === model) cachedModel = null;
       lastError = Object.assign(new Error(`No model your key can use accepted the request`), { status: 502 });
+      continue;
+    }
+
+    // Out of credit. Every paid model will say the same, so switch to free
+    // only and carry on rather than working through the whole paid catalogue.
+    if (reply.status === 402) {
+      console.warn(`[api] ${model} needs credit, falling back to free models`);
+      paidBlocked = true;
+      rejected.add(model);
+      lastError = Object.assign(
+        new Error("No credit on this key for paid models, and no free model answered. Try again shortly."),
+        { status: 503 },
+      );
       continue;
     }
 
