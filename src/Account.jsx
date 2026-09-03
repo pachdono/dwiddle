@@ -11,6 +11,32 @@ export function useAuth() {
   const [ready, setReady] = useState(!configured);
   const [syncedAt, setSyncedAt] = useState(null);
 
+  // Signing out has to work even when the server call fails, which it does
+  // whenever the session has already expired or the refresh token is stale.
+  // Fire and forget left you visibly signed in with no way out, so this awaits
+  // the call, falls back to a local sign out, and clears the stored session by
+  // hand if both are refused. The local state is cleared either way.
+  async function signOut() {
+    setSyncedAt(null);
+    setUser(null);
+
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // fall through to clearing storage
+    }
+
+    try {
+      const stale = Object.keys(localStorage).filter((k) => k.startsWith("sb-"));
+      stale.forEach((k) => localStorage.removeItem(k));
+    } catch {
+      // private browsing, nothing to clear
+    }
+  }
+
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => {
@@ -39,13 +65,20 @@ export function useAuth() {
     return () => { cancelled = true; };
   }, [user]);
 
-  return { user, ready, syncedAt, setSyncedAt };
+  return { user, ready, syncedAt, setSyncedAt, signOut };
 }
 
-export function Account({ user, syncedAt }) {
+export function Account({ user, syncedAt, signOut }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | sent | error
   const [message, setMessage] = useState("");
+
+  // A fresh link is needed each time, so clear any old message when the signed
+  // in state changes rather than leaving "check your inbox" on screen.
+  useEffect(() => {
+    setState("idle");
+    setMessage("");
+  }, [user]);
 
   if (!configured) {
     return (
@@ -89,7 +122,7 @@ export function Account({ user, syncedAt }) {
                 : "Syncing your progress."}
             </div>
           </div>
-          <button className="btn ghost" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          <button className="btn ghost" onClick={signOut}>Sign out</button>
         </div>
       </div>
     );

@@ -981,7 +981,7 @@ function Settings({ theme, setTheme, auth }) {
       <PageHead title="Settings" sub="Preferences are saved to this browser." />
 
       <div className="stack">
-        <Account user={auth?.user} syncedAt={auth?.syncedAt} />
+        <Account user={auth?.user} syncedAt={auth?.syncedAt} signOut={auth?.signOut} />
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
