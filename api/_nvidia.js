@@ -21,7 +21,14 @@ const MODELS = `${BASE}/models`;
 // Models that exist but are wrong for this job.
 const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva/i;
 
+// Access varies by account: the catalogue lists everything, but a given key
+// gets "Not found for account" for most of it. Refusals come back in about 40
+// milliseconds, so walking the list is cheap and the order is a preference
+// rather than a bet.
 const PREFERENCES = [
+  /deepseek-v[0-9]+.*flash/i,
+  /deepseek-v[0-9]/i,
+  /flash/i,
   /mistral-nemo-12b-instruct/i,
   /phi-3\.5-moe-instruct/i,
   /granite-3\.0-8b-instruct/i,
@@ -147,10 +154,10 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
     const remaining = deadline - Date.now();
     if (remaining < 6000) break;
 
-    // The first candidate gets the lion's share: a refusal comes back in
-    // milliseconds, so a long budget only ever costs time on a model that is
-    // genuinely working but slow.
-    const budget = attempt === 0 ? Math.min(38000, remaining) : Math.min(14000, remaining);
+    // Not a fixed share per attempt. Models the account cannot use refuse in
+    // milliseconds, so the budget is simply whatever is left, and the first
+    // model that actually starts working gets nearly the whole window.
+    const budget = Math.min(40000, remaining - 3000);
     attempt += 1;
 
     const controller = new AbortController();
