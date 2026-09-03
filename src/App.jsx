@@ -41,8 +41,8 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">S</span>
-          Studyspace
+          <span className="brand-mark">D</span>
+          Dwiddle
         </div>
 
         <nav className="nav">

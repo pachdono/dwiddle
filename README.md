@@ -1,4 +1,4 @@
-# Studyspace
+# Dwiddle
 
 A sleek, minimal study app interface — study plan, practice quiz, and study sheet.
 
