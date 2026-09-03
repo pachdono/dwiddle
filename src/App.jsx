@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { MATERIALS, TOPICS, QUIZ, SHEET, SAMPLE_NOTES, DOC, HL_KINDS } from "./mock.js";
+import {
+  MATERIALS, TOPICS, QUIZ, BANK, DECKS, EXAM_SIZES, EXAM_TIMES,
+  SHEET, SAMPLE_NOTES, DOC, HL_KINDS,
+} from "./mock.js";
+import { load, save, KEYS } from "./store.js";
 
 /* ---------- icons ---------- */
 
@@ -20,6 +24,8 @@ const paths = {
   exam: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 11l1.5 1.5L12.5 9",
   bolt: "M11 2.5 4.5 11.5H9l-1 6 6.5-9H10z",
   timer: "M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM10 8v3l2 1.2M8 2.5h4",
+  flag: "M5 17V3.5h9l-1.6 3 1.6 3H5",
+  check: "M4.5 10.5 8 14l7.5-8",
 };
 
 // The gear needs a 24 grid, so it carries its own viewBox.
@@ -58,25 +64,29 @@ const NAV_MATERIAL = [
 
 const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
 
-function readTheme() {
-  try {
-    return localStorage.getItem("dwiddle-theme") || "light";
-  } catch {
-    return "light";
-  }
-}
-
 export default function App() {
   const [page, setPage] = useState("home");
-  const [theme, setTheme] = useState(readTheme);
+  const [theme, setTheme] = useState(() => load(KEYS.theme, "light"));
+  const [pMode, setPMode] = useState("quiz");
+  const [missed, setMissed] = useState(() => load(KEYS.missed, []));
+
+  // A question joins the list when you get it wrong and leaves when you get it right.
+  function grade(id, correct) {
+    setMissed((prev) => {
+      const next = correct ? prev.filter((x) => x !== id) : prev.includes(id) ? prev : [...prev, id];
+      save(KEYS.missed, next);
+      return next;
+    });
+  }
+
+  const go = (p, mode) => {
+    if (mode) setPMode(mode);
+    setPage(p);
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    try {
-      localStorage.setItem("dwiddle-theme", theme);
-    } catch {
-      // private browsing, or site data blocked. The theme still applies for this visit.
-    }
+    save(KEYS.theme, theme);
   }, [theme]);
 
   const Page = {
@@ -111,7 +121,7 @@ export default function App() {
           <div className="nav-label">Study</div>
           {NAV_STUDY.map((n) => (
             <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
-              onClick={() => setPage(n.id)}>
+              onClick={() => go(n.id)}>
               <Icon name={n.icon} />
               {n.label}
             </button>
@@ -120,7 +130,7 @@ export default function App() {
           <div className="nav-label">Material</div>
           {NAV_MATERIAL.map((n) => (
             <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
-              onClick={() => setPage(n.id)}>
+              onClick={() => go(n.id)}>
               <Icon name={n.icon} />
               {n.label}
             </button>
@@ -137,7 +147,7 @@ export default function App() {
           </div>
           <button
             className={"icon-btn" + (page === "settings" ? " on" : "")}
-            onClick={() => setPage("settings")}
+            onClick={() => go("settings")}
             title="Settings"
             aria-label="Settings"
           >
@@ -151,7 +161,17 @@ export default function App() {
           <h1>{title}</h1>
           <span className="crumb small">Cell Biology, Lecture 4</span>
         </header>
-        <Page key={page} go={setPage} theme={theme} setTheme={setTheme} />
+        <Page
+          key={page}
+          go={go}
+          theme={theme}
+          setTheme={setTheme}
+          missed={missed}
+          setMissed={setMissed}
+          grade={grade}
+          pMode={pMode}
+          setPMode={setPMode}
+        />
       </main>
     </div>
   );
@@ -176,6 +196,16 @@ function useFakeRun(ms = 900) {
     setTimeout(() => setState("done"), ms);
   };
   return [state, run, () => setState("idle")];
+}
+
+// Fisher-Yates, so a paper is a different draw each time.
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function Loading({ label }) {
@@ -450,15 +480,16 @@ function Library({ go }) {
 
 const MODES = [
   { id: "quiz", label: "Quiz", icon: "quiz", sub: "Multiple choice, with an explanation after each answer." },
-  { id: "cards", label: "Flashcards", icon: "cards", sub: "Flip through the material and mark what you knew." },
-  { id: "mock", label: "Mock exam", icon: "exam", sub: "A timed run with no feedback until you submit." },
+  { id: "cards", label: "Flashcards", icon: "cards", sub: "Pick a deck. Cards you know are retired and stop appearing." },
+  { id: "mock", label: "Mock exam", icon: "exam", sub: "A full length paper against the clock, marked at the end." },
   { id: "speed", label: "Speed round", icon: "bolt", sub: "Sixty seconds. Answer as many as you can." },
+  { id: "missed", label: "Missed", icon: "flag", sub: "Only the questions you have got wrong." },
 ];
 
-function Practice() {
-  const [mode, setMode] = useState("quiz");
-  const active = MODES.find((m) => m.id === mode);
-  const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound }[mode];
+function Practice(props) {
+  const { pMode, setPMode, missed } = props;
+  const active = MODES.find((m) => m.id === pMode) || MODES[0];
+  const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
 
   return (
     <div className="page fade">
@@ -466,20 +497,21 @@ function Practice() {
 
       <div className="seg modes">
         {MODES.map((m) => (
-          <button key={m.id} className={mode === m.id ? "on" : ""} onClick={() => setMode(m.id)}>
+          <button key={m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
             <Icon name={m.icon} size={14} /> {m.label}
+            {m.id === "missed" && missed.length > 0 && <span className="badge">{missed.length}</span>}
           </button>
         ))}
       </div>
 
-      <Mode key={mode} />
+      <Mode key={active.id} {...props} />
     </div>
   );
 }
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode() {
+function QuizMode({ grade }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
   const [score, setScore] = useState(0);
@@ -490,7 +522,9 @@ function QuizMode() {
   function pick(n) {
     if (picked !== null) return;
     setPicked(n);
-    if (n === q.answer) setScore((s) => s + 1);
+    const ok = n === q.answer;
+    if (ok) setScore((s) => s + 1);
+    grade(q.id, ok);
   }
 
   function next() {
@@ -696,76 +730,125 @@ function Settings({ theme, setTheme }) {
 
 /* ---------- practice: flashcards ---------- */
 
-// One card per question: the prompt on the front, the answer and the why on the back.
-const CARDS = QUIZ.map((q, i) => ({
-  front: q.q,
+// A card per bank question. The front asks, the back answers and explains.
+const CARDS = BANK.map((q) => ({
+  id: q.id,
+  kind: q.kind,
+  topic: q.topic,
+  front: q.kind === "vocab" ? `Define: ${q.q}` : q.q,
   back: q.choices[q.answer],
   note: q.why,
-  topic: TOPICS[i % TOPICS.length].name,
 }));
 
 function Flashcards() {
+  const [deck, setDeck] = useState("all");
+  const [known, setKnown] = useState(() => load(KEYS.known, []));
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [knew, setKnew] = useState(0);
-  const [done, setDone] = useState(false);
+  const [again, setAgain] = useState([]); // cards pushed to the back of the run
 
-  const card = CARDS[i];
+  const inDeck = CARDS.filter((c) => deck === "all" || c.kind === deck);
+  const live = inDeck.filter((c) => !known.includes(c.id));
+  const queue = [...live.filter((c) => !again.includes(c.id)), ...live.filter((c) => again.includes(c.id))];
+  const card = queue[i];
 
-  function mark(got) {
-    if (got) setKnew((n) => n + 1);
-    if (i + 1 >= CARDS.length) return setDone(true);
-    setI(i + 1);
+  function retire(id) {
+    const next = [...known, id];
+    setKnown(next);
+    save(KEYS.known, next);
     setFlipped(false);
+    setI(0);
+    setAgain((a) => a.filter((x) => x !== id));
+  }
+
+  function later(id) {
+    setAgain((a) => (a.includes(id) ? a : [...a, id]));
+    setFlipped(false);
+    setI((n) => (n + 1 >= queue.length ? 0 : n + 1));
   }
 
   function reset() {
-    setI(0); setKnew(0); setDone(false); setFlipped(false);
+    const kept = known.filter((id) => !inDeck.some((c) => c.id === id));
+    setKnown(kept);
+    save(KEYS.known, kept);
+    setAgain([]);
+    setI(0);
+    setFlipped(false);
+  }
+
+  function switchDeck(id) {
+    setDeck(id);
+    setI(0);
+    setFlipped(false);
+    setAgain([]);
   }
 
   // Space flips, 1 and 2 grade. Keeps a run of cards fast to get through.
   useEffect(() => {
-    if (done) return;
+    if (!card) return;
     function onKey(e) {
       const t = e.target;
       if (t && t.closest && t.closest("input, textarea, select")) return;
       if (e.code === "Space") { e.preventDefault(); setFlipped((f) => !f); }
-      if (e.key === "1") mark(false);
-      if (e.key === "2") mark(true);
+      if (e.key === "1") later(card.id);
+      if (e.key === "2") retire(card.id);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (done) {
-    const pct = Math.round((knew / CARDS.length) * 100);
+  const retired = inDeck.length - live.length;
+
+  const decks = (
+    <div className="deck-picker">
+      {DECKS.map((d) => {
+        const all = CARDS.filter((c) => d.id === "all" || c.kind === d.id);
+        const left = all.filter((c) => !known.includes(c.id)).length;
+        return (
+          <button key={d.id} className={"deck-chip" + (deck === d.id ? " on" : "")}
+            onClick={() => switchDeck(d.id)} title={d.hint}>
+            <b>{d.label}</b>
+            <span>{left === 0 ? "all done" : `${left} left`}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (!card) {
     return (
-      <div className="fade card card-pad" style={{ textAlign: "center", padding: 40 }}>
-        <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>{pct}%</div>
-        <div className="muted" style={{ marginBottom: 20 }}>
-          {knew} of {CARDS.length} cards you knew
+      <div className="fade">
+        {decks}
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <span className="speed-mark good-mark"><Icon name="check" size={22} /></span>
+          <h3 style={{ margin: "12px 0 4px", fontSize: 17 }}>Deck clear</h3>
+          <p className="muted small" style={{ margin: "0 0 20px" }}>
+            You retired all {inDeck.length} cards in this deck. They will not come back until you reset it.
+          </p>
+          <button className="btn" onClick={reset}>Bring them back</button>
         </div>
-        <button className="btn" onClick={reset}>Go again</button>
       </div>
     );
   }
 
   return (
     <div className="fade">
+      {decks}
+
       <div className="deck-bar">
-        <span className="small muted">Card {i + 1} of {CARDS.length}</span>
+        <span className="small muted">Card {i + 1} of {queue.length}</span>
         <div className="pips">
-          {CARDS.map((_, n) => (
-            <span key={n} className={"pip" + (n < i ? " past" : n === i ? " now" : "")} />
+          {queue.slice(0, 20).map((c, n) => (
+            <span key={c.id} className={"pip" + (n < i ? " past" : n === i ? " now" : "")} />
           ))}
         </div>
-        <span className="small muted">{knew} known</span>
+        <span className="small muted">{retired} retired</span>
       </div>
 
       <div className="flip-scene" onClick={() => setFlipped((f) => !f)}>
         <div className={"flip-card" + (flipped ? " flipped" : "")}>
           <div className="flip-face front">
-            <span className="flash-tag">Question</span>
+            <span className="flash-tag">{card.kind === "vocab" ? "Term" : "Question"}</span>
             <p className="flash-body">{card.front}</p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
@@ -786,13 +869,19 @@ function Flashcards() {
       </div>
 
       <div className="deck-actions">
-        <button className="btn ghost" onClick={() => mark(false)}>
-          Study again <kbd>1</kbd>
+        <button className="btn ghost" onClick={() => later(card.id)}>
+          Show again <kbd>1</kbd>
         </button>
-        <button className="btn" onClick={() => mark(true)}>
-          I knew it <kbd>2</kbd>
+        <button className="btn" onClick={() => retire(card.id)}>
+          I know this <kbd>2</kbd>
         </button>
       </div>
+
+      {retired > 0 && (
+        <div className="row" style={{ justifyContent: "center", marginTop: 14 }}>
+          <button className="btn quiet" onClick={reset}>Reset this deck</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -800,54 +889,67 @@ function Flashcards() {
 /* ---------- practice: mock exam ---------- */
 
 function fmt(sec) {
-  const m = Math.floor(sec / 60);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-function MockExam() {
+function MockExam({ grade }) {
   const [stage, setStage] = useState("setup"); // setup | sitting | marked
-  const [count, setCount] = useState(5);
-  const [minutes, setMinutes] = useState(5);
+  const [count, setCount] = useState(25);
+  const [minutes, setMinutes] = useState(60);
+  const [paper, setPaper] = useState([]);
   const [left, setLeft] = useState(0);
   const [answers, setAnswers] = useState({});
   const [i, setI] = useState(0);
 
-  const paper = QUIZ.slice(0, count);
-
   useEffect(() => {
     if (stage !== "sitting") return;
-    if (left <= 0) { setStage("marked"); return; }
+    if (left <= 0) { submit(); return; }
     const t = setTimeout(() => setLeft((n) => n - 1), 1000);
     return () => clearTimeout(t);
   }, [stage, left]);
 
   function start() {
+    setPaper(shuffle(BANK).slice(0, count));
     setAnswers({});
     setI(0);
     setLeft(minutes * 60);
     setStage("sitting");
   }
 
+  function submit() {
+    paper.forEach((q, n) => grade(q.id, answers[n] === q.answer));
+    setStage("marked");
+  }
+
   if (stage === "setup") {
     return (
       <div className="fade card">
         <div className="card-head"><h3>Set the paper</h3></div>
-        <SetRow label="Questions">
-          <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
-            <option value={3}>3 questions</option>
-            <option value={5}>5 questions</option>
-          </select>
+        <SetRow label="Questions" hint="A full paper is 40. Shorter runs are for a single topic.">
+          <div className="seg">
+            {EXAM_SIZES.map((n) => (
+              <button key={n} className={count === n ? "on" : ""} onClick={() => setCount(n)}>{n}</button>
+            ))}
+          </div>
         </SetRow>
         <SetRow label="Time limit" hint="The paper submits itself when the clock runs out.">
-          <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-            <option value={2}>2 minutes</option>
-            <option value={5}>5 minutes</option>
-            <option value={10}>10 minutes</option>
-          </select>
+          <div className="seg">
+            {EXAM_TIMES.map((m) => (
+              <button key={m} className={minutes === m ? "on" : ""} onClick={() => setMinutes(m)}>
+                {m >= 60 ? `${m / 60} hr` : `${m} min`}
+              </button>
+            ))}
+          </div>
         </SetRow>
         <div className="set-row">
-          <div className="hint">No feedback until you submit, same as the real thing.</div>
+          <div className="hint">
+            {count} questions in {minutes >= 60 ? `${minutes / 60} hour` : `${minutes} minutes`}, about{" "}
+            {Math.round((minutes * 60) / count)} seconds each. No feedback until you submit.
+          </div>
           <button className="btn" onClick={start}>Start exam</button>
         </div>
       </div>
@@ -856,6 +958,7 @@ function MockExam() {
 
   if (stage === "marked") {
     const right = paper.filter((q, n) => answers[n] === q.answer).length;
+    const wrong = paper.filter((q, n) => answers[n] !== q.answer);
     return (
       <div className="fade stack">
         <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -863,6 +966,11 @@ function MockExam() {
             {Math.round((right / paper.length) * 100)}%
           </div>
           <div className="muted">{right} of {paper.length} correct</div>
+          {wrong.length > 0 && (
+            <div className="small muted" style={{ marginTop: 8 }}>
+              {wrong.length} added to your missed questions.
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -871,7 +979,7 @@ function MockExam() {
             const got = answers[n];
             const ok = got === q.answer;
             return (
-              <div key={n} className="review">
+              <div key={q.id} className="review">
                 <span className={"pill " + (ok ? "good" : "warn")}>{ok ? "Correct" : "Wrong"}</span>
                 <div>
                   <div className="list-title">{q.q}</div>
@@ -898,7 +1006,7 @@ function MockExam() {
     <div className="fade card card-pad">
       <div className="spread" style={{ marginBottom: 8 }}>
         <span className="small muted">Question {i + 1} of {paper.length}, {answered} answered</span>
-        <span className={"clock" + (left <= 30 ? " low" : "")}>
+        <span className={"clock" + (left <= 60 ? " low" : "")}>
           <Icon name="timer" size={14} /> {fmt(left)}
         </span>
       </div>
@@ -921,9 +1029,98 @@ function MockExam() {
 
       <div className="spread" style={{ marginTop: 16 }}>
         <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>Back</button>
+        <span className="small muted">{paper.length - answered} unanswered</span>
         {i + 1 < paper.length
           ? <button className="btn ghost" onClick={() => setI(i + 1)}>Next</button>
-          : <button className="btn" onClick={() => setStage("marked")}>Submit paper</button>}
+          : <button className="btn" onClick={submit}>Submit paper</button>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- practice: missed questions ---------- */
+
+function MissedMode({ missed, setMissed, grade, setPMode }) {
+  const [i, setI] = useState(0);
+  const [picked, setPicked] = useState(null);
+  const [list] = useState(() => BANK.filter((q) => missed.includes(q.id)));
+
+  function clearAll() {
+    setMissed([]);
+    save(KEYS.missed, []);
+  }
+
+  if (list.length === 0) {
+    return (
+      <div className="fade card card-pad" style={{ textAlign: "center", padding: 44 }}>
+        <span className="speed-mark good-mark"><Icon name="check" size={22} /></span>
+        <h3 style={{ margin: "12px 0 4px", fontSize: 17 }}>Nothing missed yet</h3>
+        <p className="muted small" style={{ margin: "0 0 20px" }}>
+          Questions you get wrong in any mode are saved here, and leave the list once you get them right.
+        </p>
+        <button className="btn" onClick={() => setPMode("quiz")}>Take a quiz</button>
+      </div>
+    );
+  }
+
+  const q = list[i];
+  const cleared = list.filter((x) => !missed.includes(x.id)).length;
+
+  function pick(n) {
+    if (picked !== null) return;
+    setPicked(n);
+    grade(q.id, n === q.answer);
+  }
+
+  function next() {
+    setPicked(null);
+    setI((n) => (n + 1 >= list.length ? 0 : n + 1));
+  }
+
+  return (
+    <div className="fade">
+      <div className="spread" style={{ marginBottom: 12 }}>
+        <span className="small muted">
+          {missed.length} still on the list, {cleared} cleared this run
+        </span>
+        <button className="btn quiet" onClick={clearAll}>Clear the list</button>
+      </div>
+
+      <div className="card card-pad">
+        <div className="spread" style={{ marginBottom: 16 }}>
+          <span className="small muted">Question {i + 1} of {list.length}</span>
+          <span className="pill">{q.topic}</span>
+        </div>
+
+        <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          {q.q}
+        </h3>
+
+        {q.choices.map((c, n) => {
+          let cls = "choice";
+          if (picked !== null && n === q.answer) cls += " right";
+          else if (picked === n) cls += " wrong";
+          return (
+            <button key={n} className={cls} onClick={() => pick(n)} disabled={picked !== null}>
+              <span className="key">{"ABCD"[n]}</span>
+              {c}
+            </button>
+          );
+        })}
+
+        {picked !== null && (
+          <div className="fade" style={{ marginTop: 16 }}>
+            <div className="card card-pad" style={{ background: "var(--panel)" }}>
+              <span className={"pill " + (picked === q.answer ? "good" : "warn")}>
+                {picked === q.answer ? "Cleared from your list" : "Still on the list"}
+              </span>
+              <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
+            </div>
+            <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
+              <button className="btn" onClick={next}>Next <Icon name="arrow" /></button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -933,7 +1130,7 @@ function MockExam() {
 
 const ROUND = 60;
 
-function SpeedRound() {
+function SpeedRound({ grade }) {
   const [stage, setStage] = useState("ready"); // ready | running | over
   const [left, setLeft] = useState(ROUND);
   const [n, setN] = useState(0);
@@ -942,7 +1139,7 @@ function SpeedRound() {
   const [best, setBest] = useState(0);
   const [flash, setFlash] = useState(null); // "hit" | "miss"
 
-  const q = QUIZ[n % QUIZ.length];
+  const q = BANK[n % BANK.length];
 
   useEffect(() => {
     if (stage !== "running") return;
@@ -953,6 +1150,7 @@ function SpeedRound() {
 
   function answer(pick) {
     const ok = pick === q.answer;
+    grade(q.id, ok);
     setFlash(ok ? "hit" : "miss");
     setTimeout(() => setFlash(null), 180);
     if (ok) {
