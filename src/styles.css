@@ -350,3 +350,100 @@ textarea:focus, input[type="text"]:focus, select:focus {
   .page, .topbar { padding-left: 20px; padding-right: 20px; }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
 }
+
+/* ---------- upgrade card ---------- */
+
+.upgrade {
+  margin: 0 4px 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.upgrade p { margin: 0; line-height: 1.45; }
+.upgrade b { line-height: 1.2; }
+.upgrade .pill { align-self: flex-start; }
+
+.pill.soon { background: var(--accent-soft); color: var(--accent); }
+
+.btn.full { width: 100%; }
+.btn.ghost:disabled { background: #fff; opacity: 0.5; }
+
+/* ---------- topics ---------- */
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.topic {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+  transition: border-color 0.12s ease;
+}
+
+.topic:hover { border-color: #dedede; }
+.topic-main { flex: 1; min-width: 0; }
+.topic .btn { flex: 0 0 auto; }
+
+/* ---------- drop zone ---------- */
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 36px 20px;
+  border: 1px dashed #d9d9d5;
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.drop:hover { border-color: #c4c4bf; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop.has { border-style: solid; border-color: #cfe3d8; background: var(--good-soft); }
+
+.drop-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: #fff;
+  border: 1px solid var(--line);
+  display: grid; place-items: center;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.drop.has .drop-icon { color: var(--good); border-color: #cfe3d8; }
+
+.or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.or::before, .or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.good-text { color: var(--good); }

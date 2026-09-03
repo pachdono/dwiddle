@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { MATERIALS, PLAN, QUIZ, SHEET, SAMPLE_NOTES } from "./mock.js";
+import { MATERIALS, TOPICS, QUIZ, SHEET, SAMPLE_NOTES } from "./mock.js";
 
 /* ---------- icons ---------- */
 
 const paths = {
   home: "M3 9.5 10 4l7 5.5V16a1 1 0 0 1-1 1h-3.5v-4.5h-5V17H4a1 1 0 0 1-1-1V9.5Z",
-  plan: "M4 4h12v12H4zM7 2v3M13 2v3M4 8h12M8 11.5h4",
+  topics: "M4 5.5h12M4 10h12M4 14.5h8",
   quiz: "M7 7a3 3 0 1 1 3 3v2M10 15.5v.5",
   sheet: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 10h5M7.5 13h5",
   library: "M4 4h4v12H4zM10 4h3v12h-3zM15 5l2 11",
+  upload: "M10 13V4M6.5 7.5 10 4l3.5 3.5M4 13v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2",
   spark: "M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z",
   arrow: "M4 10h11M11 6l4 4-4 4",
+  file: "M5 3h7l3 3v11H5zM12 3v3h3",
 };
 
 function Icon({ name, size = 16 }) {
@@ -24,18 +26,33 @@ function Icon({ name, size = 16 }) {
 
 /* ---------- shell ---------- */
 
-const NAV = [
+const NAV_STUDY = [
   { id: "home", label: "Dashboard", icon: "home" },
-  { id: "plan", label: "Study plan", icon: "plan" },
+  { id: "topics", label: "Topics", icon: "topics" },
   { id: "quiz", label: "Practice", icon: "quiz" },
   { id: "sheet", label: "Study sheet", icon: "sheet" },
 ];
 
+const NAV_MATERIAL = [
+  { id: "upload", label: "Add material", icon: "upload" },
+  { id: "library", label: "Library", icon: "library" },
+];
+
+const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL];
+
 export default function App() {
   const [page, setPage] = useState("home");
 
-  const Page = { home: Dashboard, plan: StudyPlan, quiz: Practice, sheet: StudySheet }[page];
-  const title = NAV.find((n) => n.id === page).label;
+  const Page = {
+    home: Dashboard,
+    topics: Topics,
+    quiz: Practice,
+    sheet: StudySheet,
+    upload: AddMaterial,
+    library: Library,
+  }[page];
+
+  const title = ALL_NAV.find((n) => n.id === page).label;
 
   return (
     <div className="app">
@@ -45,9 +62,16 @@ export default function App() {
           Dwiddle
         </div>
 
+        <div className="upgrade">
+          <span className="pill soon">Coming soon</span>
+          <b className="small">Upgrade to Pro</b>
+          <p className="small muted">Unlimited materials, longer PDFs, and exam mode.</p>
+          <button className="btn ghost full" disabled>Notify me</button>
+        </div>
+
         <nav className="nav">
           <div className="nav-label">Study</div>
-          {NAV.map((n) => (
+          {NAV_STUDY.map((n) => (
             <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
               onClick={() => setPage(n.id)}>
               <Icon name={n.icon} />
@@ -56,10 +80,13 @@ export default function App() {
           ))}
 
           <div className="nav-label">Material</div>
-          <button className="nav-item" onClick={() => setPage("home")}>
-            <Icon name="library" />
-            Library
-          </button>
+          {NAV_MATERIAL.map((n) => (
+            <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
+              onClick={() => setPage(n.id)}>
+              <Icon name={n.icon} />
+              {n.label}
+            </button>
+          ))}
         </nav>
 
         <div className="sidebar-foot">
@@ -76,7 +103,7 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <h1>{title}</h1>
-          <span className="crumb small">Cell Biology — Lecture 4</span>
+          <span className="crumb small">Cell Biology, Lecture 4</span>
         </header>
         <Page key={page} go={setPage} />
       </main>
@@ -117,6 +144,8 @@ function Loading({ label }) {
 /* ---------- dashboard ---------- */
 
 function Dashboard({ go }) {
+  const focus = TOPICS.filter((t) => t.priority === "focus").slice(0, 3);
+
   return (
     <div className="page wide fade">
       <PageHead title="Good afternoon, Pacharapol" sub="Three days until your Cell Biology midterm." />
@@ -139,16 +168,17 @@ function Dashboard({ go }) {
 
         <div className="card">
           <div className="card-head">
-            <h3>Today's plan</h3>
-            <span className="pill accent">Day 2 of 3</span>
+            <h3>Recommended topics</h3>
+            <button className="btn quiet" onClick={() => go("topics")}>See all</button>
           </div>
           <div className="list">
-            {PLAN[1].tasks.map((t) => (
-              <div key={t.id} className="list-item" onClick={() => go("plan")}>
+            {focus.map((t) => (
+              <div key={t.id} className="list-item" onClick={() => go("topics")}>
                 <div style={{ flex: 1 }}>
-                  <div className="list-title">{t.title}</div>
-                  <div className="small muted">{t.sub}</div>
+                  <div className="list-title">{t.name}</div>
+                  <div className="small muted">{t.reason}</div>
                 </div>
+                <span className="small muted">{t.mastery}%</span>
                 <span className="muted"><Icon name="arrow" /></span>
               </div>
             ))}
@@ -159,12 +189,14 @@ function Dashboard({ go }) {
           <div className="card card-pad">
             <div className="spread" style={{ marginBottom: 12 }}>
               <b>Practice quiz</b>
-              <span className="pill">5 questions</span>
+              <span className="pill">From your material</span>
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Pick up where you left off on membrane transport.
+              Add a PDF or paste your notes, and we turn them into questions.
             </p>
-            <button className="btn" onClick={() => go("quiz")}>Start practice</button>
+            <button className="btn" onClick={() => go("upload")}>
+              <Icon name="upload" /> Add material
+            </button>
           </div>
 
           <div className="card card-pad">
@@ -173,7 +205,7 @@ function Dashboard({ go }) {
               <span className="pill">4 min read</span>
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              A one-page condensation of the chapter, ready to review.
+              A one page condensation of the chapter, ready to review.
             </p>
             <button className="btn ghost" onClick={() => go("sheet")}>Open sheet</button>
           </div>
@@ -182,14 +214,14 @@ function Dashboard({ go }) {
         <div className="card">
           <div className="card-head">
             <h3>Your material</h3>
-            <button className="btn quiet">Upload</button>
+            <button className="btn quiet" onClick={() => go("upload")}>Upload</button>
           </div>
           <div className="list">
             {MATERIALS.map((m) => (
-              <div key={m.id} className="list-item">
+              <div key={m.id} className="list-item" onClick={() => go("library")}>
                 <div style={{ flex: 1 }}>
                   <div className="list-title">{m.title}</div>
-                  <div className="small muted">{m.kind} · {m.pages} pages · added {m.added}</div>
+                  <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
                 </div>
                 <span className="pill">{m.kind}</span>
               </div>
@@ -201,86 +233,155 @@ function Dashboard({ go }) {
   );
 }
 
-/* ---------- study plan ---------- */
+/* ---------- recommended topics ---------- */
 
-function StudyPlan() {
-  const [notes, setNotes] = useState("");
-  const [days, setDays] = useState(3);
-  const [state, run, reset] = useFakeRun(1000);
-  const [done, setDone] = useState({});
-
-  if (state === "done") {
-    const plan = PLAN.slice(0, days);
-    const total = plan.reduce((n, d) => n + d.tasks.length, 0);
-    const finished = Object.values(done).filter(Boolean).length;
-
-    return (
-      <div className="page fade">
-        <PageHead title="Your study plan" sub={`${days} days · ${total} tasks · generated from your notes`} />
-
-        <div className="card card-pad" style={{ marginBottom: 16 }}>
-          <div className="spread" style={{ marginBottom: 10 }}>
-            <b className="small">Progress</b>
-            <span className="small muted">{finished} of {total} done</span>
-          </div>
-          <div className="bar"><i style={{ width: `${(finished / total) * 100}%` }} /></div>
+function TopicRow({ t, go }) {
+  return (
+    <div className="topic">
+      <div className="topic-main">
+        <div className="spread">
+          <div className="list-title">{t.name}</div>
+          <span className={"pill " + (t.mastery < 50 ? "warn" : t.mastery < 75 ? "" : "good")}>
+            {t.mastery}% mastered
+          </span>
         </div>
-
-        <div className="stack">
-          {plan.map((d) => (
-            <div key={d.day} className="day">
-              <div className="day-head">
-                <h4>Day {d.day} — {d.focus}</h4>
-                <span className="pill">{d.minutes} min</span>
-              </div>
-              {d.tasks.map((t) => (
-                <label key={t.id} className={"task" + (done[t.id] ? " done" : "")}>
-                  <input type="checkbox" checked={!!done[t.id]}
-                    onChange={() => setDone((p) => ({ ...p, [t.id]: !p[t.id] }))} />
-                  <div>
-                    <div className="task-title">{t.title}</div>
-                    <div className="task-sub">{t.sub}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div className="row" style={{ marginTop: 20 }}>
-          <button className="btn ghost" onClick={reset}>Start over</button>
+        <div className="small muted" style={{ margin: "2px 0 10px" }}>{t.reason}</div>
+        <div className="bar"><i style={{ width: `${t.mastery}%` }} /></div>
+        <div className="small muted" style={{ marginTop: 8 }}>
+          {t.source}, {t.questions} questions available
         </div>
       </div>
-    );
+      <button className="btn ghost" onClick={() => go("quiz")}>Practice</button>
+    </div>
+  );
+}
+
+function Topics({ go }) {
+  const focus = TOPICS.filter((t) => t.priority === "focus");
+  const warm = TOPICS.filter((t) => t.priority === "warm");
+
+  return (
+    <div className="page fade">
+      <PageHead
+        title="Recommended topics"
+        sub="Ranked by what you have been getting wrong, and what you have not seen in a while."
+      />
+
+      <div className="stack">
+        <div>
+          <div className="section-label">Focus first</div>
+          <div className="stack" style={{ gap: 10 }}>
+            {focus.map((t) => <TopicRow key={t.id} t={t} go={go} />)}
+          </div>
+        </div>
+
+        <div>
+          <div className="section-label">Keep warm</div>
+          <div className="stack" style={{ gap: 10 }}>
+            {warm.map((t) => <TopicRow key={t.id} t={t} go={go} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- add material ---------- */
+
+function AddMaterial({ go }) {
+  const [file, setFile] = useState(null);
+  const [notes, setNotes] = useState("");
+  const [over, setOver] = useState(false);
+  const [state, run] = useFakeRun(1100);
+
+  const ready = !!file || notes.trim().length > 0;
+
+  function onDrop(e) {
+    e.preventDefault();
+    setOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
   }
 
   return (
     <div className="page fade">
-      <PageHead title="Study plan" sub="Paste your notes and we'll split them into daily sessions." />
+      <PageHead title="Add material" sub="Drop in a PDF or paste your notes, and we build the questions." />
 
-      <div className="card card-pad stack">
-        <label className="field">
-          <span>Your notes</span>
-          <textarea placeholder="Paste lecture notes, a chapter, or a syllabus…"
-            value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <div className="stack">
+        <label
+          className={"drop" + (over ? " over" : "") + (file ? " has" : "")}
+          onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+          onDragLeave={() => setOver(false)}
+          onDrop={onDrop}
+        >
+          <input type="file" accept=".pdf,.txt,.md" hidden
+            onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          <span className="drop-icon"><Icon name={file ? "file" : "upload"} size={20} /></span>
+          {file ? (
+            <>
+              <b>{file.name}</b>
+              <span className="small muted">{(file.size / 1024).toFixed(0)} KB, ready to process</span>
+            </>
+          ) : (
+            <>
+              <b>Drop a PDF here, or click to browse</b>
+              <span className="small muted">PDF, TXT or Markdown, up to 20 MB</span>
+            </>
+          )}
         </label>
 
-        <div className="spread">
-          <label className="field" style={{ width: 160 }}>
-            <span>Days until the exam</span>
-            <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-              <option value={1}>1 day</option>
-              <option value={2}>2 days</option>
-              <option value={3}>3 days</option>
-            </select>
-          </label>
+        <div className="or"><span>or</span></div>
 
-          <div className="row">
+        <div className="card card-pad">
+          <label className="field">
+            <span>Paste your notes</span>
+            <textarea placeholder="Paste lecture notes, a chapter, or a syllabus..."
+              value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </label>
+          <div className="row" style={{ marginTop: 12, justifyContent: "flex-end" }}>
             <button className="btn ghost" onClick={() => setNotes(SAMPLE_NOTES)}>Use sample</button>
-            <button className="btn" disabled={!notes.trim() || state === "loading"} onClick={run}>
-              {state === "loading" ? <Loading label="Building plan" /> : <><Icon name="spark" /> Generate plan</>}
+            <button className="btn" disabled={!ready || state === "loading"}
+              onClick={state === "done" ? () => go("quiz") : run}>
+              {state === "loading"
+                ? <Loading label="Reading material" />
+                : state === "done"
+                  ? <>Start practice <Icon name="arrow" /></>
+                  : <><Icon name="spark" /> Generate questions</>}
             </button>
           </div>
+          {state === "done" && (
+            <p className="small good-text fade" style={{ margin: "10px 0 0", textAlign: "right" }}>
+              Ready. 12 questions across 5 topics.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- library ---------- */
+
+function Library({ go }) {
+  return (
+    <div className="page fade">
+      <PageHead title="Library" sub="Everything you have added so far." />
+      <div className="card">
+        <div className="card-head">
+          <h3>{MATERIALS.length} items</h3>
+          <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
+        </div>
+        <div className="list">
+          {MATERIALS.map((m) => (
+            <div key={m.id} className="list-item">
+              <span className="muted"><Icon name="file" /></span>
+              <div style={{ flex: 1 }}>
+                <div className="list-title">{m.title}</div>
+                <div className="small muted">{m.kind}, {m.pages} pages, added {m.added}</div>
+              </div>
+              <button className="btn ghost" onClick={() => go("quiz")}>Practice</button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -317,7 +418,7 @@ function Practice() {
     const pct = Math.round((score / QUIZ.length) * 100);
     return (
       <div className="page fade">
-        <PageHead title="Quiz complete" sub="Here's how that went." />
+        <PageHead title="Quiz complete" sub="Here is how that went." />
         <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
           <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>{pct}%</div>
           <div className="muted" style={{ marginBottom: 20 }}>{score} of {QUIZ.length} correct</div>
@@ -332,7 +433,7 @@ function Practice() {
 
   return (
     <div className="page fade">
-      <PageHead title="Practice" sub="Membrane transport · multiple choice" />
+      <PageHead title="Practice" sub="Membrane transport, multiple choice" />
 
       <div className="card card-pad">
         <div className="spread" style={{ marginBottom: 8 }}>
@@ -384,7 +485,7 @@ function Practice() {
 function StudySheet() {
   return (
     <div className="page fade">
-      <PageHead title={SHEET.title} sub={`Condensed from Cell Biology — Lecture 4 · ${SHEET.readTime}`} />
+      <PageHead title={SHEET.title} sub={`Condensed from Cell Biology, Lecture 4. ${SHEET.readTime}.`} />
 
       <div className="card card-pad sheet">
         <h4>The big idea</h4>
