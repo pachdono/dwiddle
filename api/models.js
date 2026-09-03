@@ -5,7 +5,7 @@
 // and a model that is listed, accepts the request and then never replies looks
 // identical from the outside until you measure it.
 
-import { listModels, candidates, fail } from "./_nvidia.js";
+import { listModels, candidates, provider, fail } from "./_llm.js";
 
 export const config = { maxDuration: 60 };
 
@@ -14,12 +14,14 @@ async function probe(model, tokens = 40) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
   try {
-    const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const p = provider();
+    const res = await fetch(`${p.base}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+        Authorization: `Bearer ${process.env[p.env]}`,
+        ...p.extraHeaders,
       },
       body: JSON.stringify({
         model,
@@ -66,15 +68,16 @@ export default async function handler(req, res) {
         tried: results,
         fastestWorking: working[0]?.model ?? null,
         advice: working.length
-          ? `Set NVIDIA_MODEL to ${working[0].model} to skip the search.`
+          ? `Set ${provider().modelEnv} to ${working[0].model} to skip the search.`
           : "None of the top candidates answered. Try again, since this can be transient load.",
       });
     }
 
     const models = await listModels();
     res.status(200).json({
+      provider: provider().id,
       count: models.length,
-      pinned: process.env.NVIDIA_MODEL || null,
+      pinned: process.env[provider().modelEnv] || null,
       willTry: order.slice(0, 8),
       hint: "Add ?probe=1 to test which of these actually answer.",
       models,

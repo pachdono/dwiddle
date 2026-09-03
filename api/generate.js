@@ -2,7 +2,7 @@
 // questions with their explanations already written, and a study sheet with
 // the important passages marked.
 
-import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_nvidia.js";
+import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_llm.js";
 
 // Generating takes real time on a 70B model, and the platform default cuts a
 // function off long before it finishes.

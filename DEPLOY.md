@@ -7,35 +7,27 @@ The whole thing runs on free tiers.
 
 ---
 
-## 1. NVIDIA API key
+## 1. Model provider key
 
 The key that generates questions and marks writing.
 
-1. Go to https://build.nvidia.com and sign in.
-2. Open any model, then click **Get API Key** and **Generate Key**.
-   The key works across the whole catalogue, so it does not matter which model
-   page you happen to be on when you generate it.
-3. Copy it. It starts with `nvapi-`. You will paste it into Vercel in step 3.
+**OpenRouter is the one to use.** Go to https://openrouter.ai/keys, sign in,
+**Create key**, and copy it. It starts with `sk-or-`.
 
-**You do not need to choose a model.** The catalogue changes and models get
-retired, so the server asks your key what it can run and picks the best
-instruct model itself. If you want to check before deploying:
+The app also supports a free NVIDIA key from https://build.nvidia.com as a
+fallback, but that tier limits an account to a couple of models and they are
+often overloaded, so generation fails with "the free model service is busy".
+If both keys are set, OpenRouter is used.
 
-```bash
-NVIDIA_API_KEY=nvapi-your-key-here node scripts/list-models.mjs
-```
-
-That prints every model the key can use. After deploying you can see the same
-list, plus which one the server chose, at `/api/models` on your site.
-
-To pin a specific one, set `NVIDIA_MODEL` in Vercel to an id exactly as it
-appears in that list. Leave it blank otherwise.
+**You do not need to choose a model.** The server asks the provider which
+models the key can use and works down a preference list until one answers.
+After deploying you can see the list, and which one it settled on, at
+`/api/models`. Add `?probe=1` to actually call the top few and see which
+respond and how fast.
 
 **Do not put this key anywhere in the code, and do not paste it into a chat.**
 It only ever goes in Vercel's environment variables, where the browser cannot
 reach it.
-
----
 
 ## 2. Supabase
 
@@ -86,9 +78,8 @@ grant access. The SQL from step 4 is what actually protects the data.
 
    | Name | Value | Notes |
    |---|---|---|
-   | `NVIDIA_API_KEY` | your `nvapi-...` key | server only |
-   | `NVIDIA_MODEL` | leave blank | only to pin one model |
-   | `VITE_SUPABASE_URL` | Project URL from step 2.5 | |
+   | `OPENROUTER_API_KEY` | your `sk-or-...` key | server only |
+   | `VITE_SUPABASE_URL` | Project URL from step 2.5 | must be `https://<ref>.supabase.co` |
    | `VITE_SUPABASE_ANON_KEY` | anon public key from step 2.5 | |
 
    Tick all three environments (Production, Preview, Development) for each.
@@ -138,9 +129,9 @@ gitignored. Never commit it.
 | Symptom | Cause |
 |---|---|
 | "The AI endpoints are not running" | You are on `npm run dev`. Use `vercel dev`, or test on the deployed site. |
-| "The NVIDIA key was rejected" | `NVIDIA_API_KEY` is wrong or missing in Vercel. Redeploy after adding it. |
+| "The API key was rejected" | The provider key is wrong or missing in Vercel. Redeploy after adding it. |
 | "The model X is not available to your key" | You pinned `NVIDIA_MODEL` to an id that does not exist. Clear it, or copy an exact id from `/api/models`. |
-| "Rate limited by NVIDIA" | Free tier limit. Wait a minute. |
+| "The free model service is busy" | Provider capacity, not configuration. On the NVIDIA free tier this is common; switch to OpenRouter. |
 | Sign in link goes to the wrong place | Supabase **Site URL** is not set to your Vercel URL. |
 | Signed in but nothing syncs | The SQL from step 2.4 did not run. Check the `progress` table exists. |
 | "Accounts are not switched on" | The two `VITE_SUPABASE_` variables are missing. They must be set at build time, so redeploy after adding them. |

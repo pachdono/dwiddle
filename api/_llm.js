@@ -1,61 +1,113 @@
-// Shared helper for the NVIDIA NIM API.
+// Talking to a language model, whichever provider is configured.
 //
-// The key lives only here, in a Vercel environment variable. Anything shipped
-// to the browser can be read by anyone who opens the developer tools, so the
-// browser talks to this function and this function talks to NVIDIA.
+// The key lives only here, in a serverless environment variable. Anything
+// shipped to the browser can be read by anyone who opens the developer tools,
+// so the browser talks to this function and this function talks to the model.
 //
-//   Browser --POST /api/*--> this function --with key--> NVIDIA --> JSON back
+//   Browser --POST /api/*--> this function --with key--> provider --> JSON back
+//
+// Two providers are supported and both speak the OpenAI chat format, so the
+// only differences are the host, the auth header and which models exist.
+// OpenRouter is preferred when its key is present, because the NVIDIA free
+// tier limits an account to a couple of models and is frequently saturated.
 //
 // Files in /api beginning with an underscore are not routed, so this is a
 // module rather than an endpoint.
 
-const BASE = "https://integrate.api.nvidia.com/v1";
-const ENDPOINT = `${BASE}/chat/completions`;
-const MODELS = `${BASE}/models`;
+const PROVIDERS = [
+  {
+    id: "openrouter",
+    env: "OPENROUTER_API_KEY",
+    modelEnv: "OPENROUTER_MODEL",
+    base: "https://openrouter.ai/api/v1",
+    // OpenRouter asks for these so usage is attributed to your app.
+    extraHeaders: {
+      "HTTP-Referer": process.env.PUBLIC_SITE_URL || "https://dwiddle.vercel.app",
+      "X-Title": "Dwiddle",
+    },
+    preferences: [
+      /^google\/gemini-2\.\d+-flash/i,
+      /^openai\/gpt-4o-mini/i,
+      /^anthropic\/claude-3\.5-haiku/i,
+      /^meta-llama\/llama-3\.3-70b-instruct/i,
+      /^deepseek\/deepseek-chat/i,
+      /^mistralai\/mistral-small/i,
+      /flash/i,
+      /instruct/i,
+    ],
+  },
+  {
+    id: "nvidia",
+    env: "NVIDIA_API_KEY",
+    modelEnv: "NVIDIA_MODEL",
+    base: "https://integrate.api.nvidia.com/v1",
+    extraHeaders: {},
+    preferences: [
+      /deepseek-v[0-9]+.*flash/i,
+      /deepseek-v[0-9]/i,
+      /flash/i,
+      /mistral-nemo-12b-instruct/i,
+      /phi-3\.5-moe-instruct/i,
+      /granite-3\.0-8b-instruct/i,
+      /mistral-7b-instruct/i,
+      /nemotron-51b-instruct/i,
+      /llama-3\.3-70b-instruct/i,
+      /instruct/i,
+    ],
+  },
+];
 
-// NVIDIA's catalogue changes, and being listed is not the same as being
-// callable: the models endpoint happily returns models that answer a chat
-// request with 400. So we build an ordered list of candidates and work down it
-// until one actually replies, remembering both the winner and the failures.
+export function provider() {
+  const found = PROVIDERS.find((p) => process.env[p.env]);
+  if (!found) {
+    throw Object.assign(
+      new Error("No model provider is configured. Set OPENROUTER_API_KEY or NVIDIA_API_KEY."),
+      { status: 500 },
+    );
+  }
+  return found;
+}
+
+function authHeaders(p) {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env[p.env]}`,
+    ...p.extraHeaders,
+  };
+}
 
 // Models that exist but are wrong for this job.
-const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva/i;
-
-// Access varies by account: the catalogue lists everything, but a given key
-// gets "Not found for account" for most of it. Refusals come back in about 40
-// milliseconds, so walking the list is cheap and the order is a preference
-// rather than a bet.
-const PREFERENCES = [
-  /deepseek-v[0-9]+.*flash/i,
-  /deepseek-v[0-9]/i,
-  /flash/i,
-  /mistral-nemo-12b-instruct/i,
-  /phi-3\.5-moe-instruct/i,
-  /granite-3\.0-8b-instruct/i,
-  /mistral-7b-instruct/i,
-  /nemotron-51b-instruct/i,
-  /llama-3\.3-70b-instruct/i,
-  /llama-3\.1-nemotron-70b-instruct/i,
-  /mistral-large-2-instruct/i,
-  /jamba-1\.5-large-instruct/i,
-  /dbrx-instruct/i,
-  /instruct/i,
-];
+const UNSUITABLE = /vision|translate|embed|rerank|guard|reward|coder|-code-|ocr|speech|riva|image|tts|whisper/i;
 
 let cachedModel = null;
 const rejected = new Set();
 
+export async function listModels() {
+  const p = provider();
+  const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p) });
+  if (!reply.ok) {
+    throw Object.assign(
+      new Error(reply.status === 401 ? "The API key was rejected" : `Listing models returned ${reply.status}`),
+      { status: reply.status === 401 ? 500 : 502 },
+    );
+  }
+  const data = await reply.json();
+  return (data?.data || []).map((m) => m.id).filter(Boolean);
+}
+
 // Ordered best first, with anything already known to fail removed.
 // includeRejected is for the probe endpoint, which wants the full picture.
 export async function candidates({ includeRejected = false } = {}) {
-  if (process.env.NVIDIA_MODEL && !includeRejected) return [process.env.NVIDIA_MODEL];
+  const p = provider();
+  const pinned = process.env[p.modelEnv];
+  if (pinned && !includeRejected) return [pinned];
 
   const all = (await listModels()).filter(
     (id) => !UNSUITABLE.test(id) && (includeRejected || !rejected.has(id)),
   );
   const ordered = [];
 
-  for (const pattern of PREFERENCES) {
+  for (const pattern of p.preferences) {
     for (const id of all) {
       if (pattern.test(id) && !ordered.includes(id)) ordered.push(id);
     }
@@ -66,30 +118,14 @@ export async function candidates({ includeRejected = false } = {}) {
 }
 
 export async function resolveModel() {
-  if (process.env.NVIDIA_MODEL) return process.env.NVIDIA_MODEL;
+  const p = provider();
+  if (process.env[p.modelEnv]) return process.env[p.modelEnv];
   if (cachedModel) return cachedModel;
   const list = await candidates();
   if (list.length === 0) {
-    throw Object.assign(new Error("Your NVIDIA key has no usable models"), { status: 502 });
+    throw Object.assign(new Error("No usable models for this key"), { status: 502 });
   }
   return list[0];
-}
-
-export async function listModels() {
-  if (!process.env.NVIDIA_API_KEY) {
-    throw Object.assign(new Error("NVIDIA_API_KEY is not set on the server"), { status: 500 });
-  }
-  const reply = await fetch(MODELS, {
-    headers: { Authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
-  });
-  if (!reply.ok) {
-    throw Object.assign(
-      new Error(reply.status === 401 ? "The NVIDIA key was rejected" : `Listing models returned ${reply.status}`),
-      { status: reply.status === 401 ? 500 : 502 },
-    );
-  }
-  const data = await reply.json();
-  return (data?.data || []).map((m) => m.id).filter(Boolean).sort();
 }
 
 export const MAX_INPUT = 24000; // characters of user text we will accept
@@ -136,9 +172,7 @@ export function safeParse(text) {
 }
 
 export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 }) {
-  if (!process.env.NVIDIA_API_KEY) {
-    throw Object.assign(new Error("NVIDIA_API_KEY is not set on the server"), { status: 500 });
-  }
+  const p = provider();
 
   // Try the cached winner first, then the rest in preference order.
   const list = cachedModel ? [cachedModel, ...(await candidates()).filter((m) => m !== cachedModel)] : await candidates();
@@ -165,13 +199,10 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
 
     let reply;
     try {
-      reply = await fetch(ENDPOINT, {
+      reply = await fetch(`${p.base}/chat/completions`, {
         method: "POST",
         signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
-        },
+        headers: authHeaders(p),
         body: JSON.stringify({
           model,
           temperature,
@@ -219,7 +250,7 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4 })
     const body = await reply.text().catch(() => "");
 
     if (reply.status === 401) {
-      throw Object.assign(new Error("The NVIDIA key was rejected"), { status: 500, detail: body.slice(0, 300) });
+      throw Object.assign(new Error("The API key was rejected"), { status: 500, detail: body.slice(0, 300) });
     }
 
     // Listed but not callable with this key. Remember it and move on.
