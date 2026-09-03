@@ -6,6 +6,7 @@ import {
 import { load, save, KEYS } from "./store.js";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
 import { BUILDERS } from "./generate.js";
+import { TASKS, RUBRICS } from "./tasks.js";
 import { estimate } from "./scoring.js";
 
 /* ---------- icons ---------- */
@@ -27,6 +28,9 @@ const paths = {
   cards: "M6.5 6.5h9v9h-9zM4.5 13V4.5h8.5",
   exam: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 11l1.5 1.5L12.5 9",
   bolt: "M11 2.5 4.5 11.5H9l-1 6 6.5-9H10z",
+  pen: "M4 16h3l8.5-8.5a2.1 2.1 0 0 0-3-3L4 13z",
+  mic: "M10 12.5a2.5 2.5 0 0 0 2.5-2.5V5a2.5 2.5 0 0 0-5 0v5a2.5 2.5 0 0 0 2.5 2.5ZM5 9.5a5 5 0 0 0 10 0M10 15v2.5",
+  build: "M3 16.5h14M5.5 16.5v-5h3v5M11.5 16.5V6h3v10.5",
   timer: "M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM10 8v3l2 1.2M8 2.5h4",
   flag: "M5 17V3.5h9l-1.6 3 1.6 3H5",
   check: "M4.5 10.5 8 14l7.5-8",
@@ -1380,11 +1384,17 @@ function TestPrep({ grade }) {
   const secs = test ? SECTIONS[test.id] : [];
 
   if (test && paper) {
+    if (paper.sec.kind === "writing") {
+      return <WritingRun test={test} sec={paper.sec} cfg={paper.cfg} onExit={() => setPaper(null)} />;
+    }
+    if (paper.sec.kind === "speaking") {
+      return <SpeakingRun test={test} sec={paper.sec} cfg={paper.cfg} onExit={() => setPaper(null)} />;
+    }
     return <TestRun {...paper} test={test} grade={grade} onExit={() => setPaper(null)} />;
   }
 
   if (test) {
-    const sittable = secs.filter((x) => !x.essay);
+    const sittable = secs.filter((x) => !x.soon && !x.kind);
     return (
       <div className="page fade">
         <div className="page-head">
@@ -1409,28 +1419,41 @@ function TestPrep({ grade }) {
             </div>
 
             {secs.map((sec) => {
-              const built = sec.essay ? null : buildPaper(test, sec);
+              const cfg = sec.kind ? TASKS[test.id]?.[sec.kind] : null;
+              const ready = cfg ? cfg.tasks.filter((t) => !t.soon).length : 0;
+              const built = sec.kind || sec.soon ? null : buildPaper(test, sec);
               const have = built ? built.qs.length : 0;
+
               return (
                 <div key={sec.id} className="sec-row">
                   <div className="sec-main">
                     <div className="row">
                       <span className="list-title">{sec.name}</span>
-                      {sec.essay
-                        ? <span className="pill">Not machine marked</span>
-                        : built.full
-                          ? <span className="pill good">Full length</span>
-                          : <span className="pill warn">Short form, {have} of {sec.real}</span>}
+                      {sec.soon
+                        ? <span className="pill soon">In development</span>
+                        : sec.kind
+                          ? <span className="pill accent">{ready} task{ready === 1 ? "" : "s"} ready</span>
+                          : built.full
+                            ? <span className="pill good">Full length</span>
+                            : <span className="pill warn">Short form, {have} of {sec.real}</span>}
                     </div>
                     <div className="small muted">
-                      {sec.real} {sec.essay ? "tasks" : "questions"}, {sec.minutes} min
-                      {sec.note ? `. ${sec.note}` : ""}
+                      {sec.soon
+                        ? "Being built now. It needs audio playback, which is the next thing on the list."
+                        : `${sec.real} ${sec.kind ? (sec.real === 1 ? "task" : "tasks") : "questions"}, ${sec.minutes} min${sec.note ? `. ${sec.note}` : ""}`}
                     </div>
                   </div>
-                  {sec.essay ? (
-                    <span className="small muted" style={{ maxWidth: 190, textAlign: "right" }}>
-                      Needs a human or an examiner to score
-                    </span>
+
+                  {sec.soon ? (
+                    <button className="btn ghost" disabled>
+                      <Icon name="build" size={14} /> Coming soon
+                    </button>
+                  ) : sec.kind ? (
+                    <button className="btn ghost" disabled={ready === 0}
+                      onClick={() => setPaper({ sec, cfg })}>
+                      <Icon name={sec.kind === "speaking" ? "mic" : "pen"} size={14} />
+                      {sec.kind === "speaking" ? "Practise speaking" : "Practise writing"}
+                    </button>
                   ) : (
                     <button className="btn ghost" disabled={have === 0}
                       onClick={() => setPaper({ sec, qs: built.qs, full: built.full })}>
@@ -1640,6 +1663,286 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
             ? <button className="btn ghost" onClick={() => setI(i + 1)}>Next</button>
             : <button className="btn" onClick={finish}>Submit section</button>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- writing and speaking ---------- */
+
+// Shared: rate your own answer against the test's published criteria.
+function Rubric({ rubric, scores, setScores }) {
+  const r = RUBRICS[rubric];
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Score it against the {r.name}</h3>
+        <span className="small muted">You are the marker</span>
+      </div>
+      {r.criteria.map((c, i) => (
+        <div key={c.n} className="crit-row">
+          <div className="sec-main">
+            <div className="list-title">{c.n}</div>
+            <div className="small muted">{c.hint}</div>
+          </div>
+          <div className="seg tight">
+            {r.scale.map((v) => (
+              <button key={v} className={scores[i] === v ? "on" : ""}
+                onClick={() => setScores((p) => p.map((x, n) => (n === i ? v : x)))}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RubricResult({ rubric, scores }) {
+  const r = RUBRICS[rubric];
+  const filled = scores.every((s) => s !== null);
+  if (!filled) {
+    return (
+      <div className="card card-pad note-card">
+        <b className="small">Rate every criterion to see the score</b>
+        <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
+          {scores.filter((s) => s !== null).length} of {scores.length} rated. Be honest rather than
+          kind, since the point is to find where the marks are going.
+        </p>
+      </div>
+    );
+  }
+  const value = r.combine(scores);
+  return (
+    <div className="card card-pad score-card">
+      <div className="score-main">
+        <span className="score-value">{String(r.format(value)).split(" ")[0]}</span>
+        <span className="score-unit">{r.unit}</span>
+      </div>
+      <div className="score-side">
+        <b className="small">{r.format(value)}</b>
+        <p className="small muted" style={{ margin: "8px 0 0" }}>
+          This is your own assessment against the published criteria, not a machine score. It is worth
+          rating the same piece again a day later, since first marking is usually generous.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WritingRun({ test, sec, cfg, onExit }) {
+  const ready = cfg.tasks.filter((t) => !t.soon);
+  const [task, setTask] = useState(ready[0]);
+  const [text, setText] = useState("");
+  const [left, setLeft] = useState(ready[0].minutes * 60);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+  const [scores, setScores] = useState(() => RUBRICS[cfg.rubric].criteria.map(() => null));
+
+  useEffect(() => {
+    if (!running || done) return;
+    if (left <= 0) { setDone(true); return; }
+    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [running, left, done]);
+
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const short = words < task.minWords;
+
+  function choose(t) {
+    setTask(t); setText(""); setLeft(t.minutes * 60); setRunning(false); setDone(false);
+    setScores(RUBRICS[cfg.rubric].criteria.map(() => null));
+  }
+
+  return (
+    <div className="page fade">
+      <div className="page-head">
+        <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
+        <div className="spread">
+          <div>
+            <h2>{test.name}, {sec.name}</h2>
+            <p>{task.name}, {task.minutes} minutes, at least {task.minWords} words</p>
+          </div>
+          {running && !done && (
+            <span className={"clock big" + (left <= 120 ? " low" : "")}>
+              <Icon name="timer" size={15} /> {fmt(left)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="stack">
+        {ready.length > 1 && (
+          <div className="seg modes">
+            {ready.map((t) => (
+              <button key={t.id} className={task.id === t.id ? "on" : ""} onClick={() => choose(t)}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="card card-pad">
+          <div className="prompt-label">Prompt</div>
+          <div className="prompt">{task.prompt}</div>
+        </div>
+
+        {!running && !done && (
+          <div className="card card-pad spread">
+            <div>
+              <b className="small">Ready?</b>
+              <div className="small muted">
+                The clock starts when you begin and does not pause, the same as the real thing.
+              </div>
+            </div>
+            <button className="btn" onClick={() => setRunning(true)}>Start writing</button>
+          </div>
+        )}
+
+        {running && (
+          <div className="notes">
+            <div className="notes-head">
+              <div className="row">
+                <span className="notes-icon"><Icon name="pen" size={14} /></span>
+                <b className="small">{task.name}</b>
+              </div>
+              <span className={"small " + (short ? "muted" : "good-text")}>
+                {words} words, {short ? `${task.minWords - words} short of the minimum` : "over the minimum"}
+              </span>
+            </div>
+            <textarea className="notes-area" style={{ minHeight: 260 }} value={text} disabled={done}
+              placeholder="Write your answer here." onChange={(e) => setText(e.target.value)} />
+            <div className="notes-foot">
+              <span className="small muted">
+                {done ? "Time is up." : "The word count is live. Under the minimum is penalised."}
+              </span>
+              {!done && <button className="btn" onClick={() => setDone(true)}>Finish and mark it</button>}
+            </div>
+          </div>
+        )}
+
+        {done && (
+          <>
+            <div className="card card-pad note-card">
+              <b className="small">What the examiner is looking for</b>
+              <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{task.tip}</p>
+            </div>
+            <Rubric rubric={cfg.rubric} scores={scores} setScores={setScores} />
+            <RubricResult rubric={cfg.rubric} scores={scores} />
+            <div className="row">
+              <button className="btn ghost" onClick={() => choose(task)}>Write it again</button>
+              <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SpeakingRun({ test, sec, cfg, onExit }) {
+  const ready = cfg.tasks.filter((t) => !t.soon);
+  const [task, setTask] = useState(ready[0]);
+  const [stage, setStage] = useState("idle"); // idle | prep | speaking | done
+  const [left, setLeft] = useState(0);
+  const [scores, setScores] = useState(() => RUBRICS[cfg.rubric].criteria.map(() => null));
+
+  useEffect(() => {
+    if (stage !== "prep" && stage !== "speaking") return;
+    if (left <= 0) {
+      if (stage === "prep") { setStage("speaking"); setLeft(task.respond); }
+      else setStage("done");
+      return;
+    }
+    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [stage, left, task]);
+
+  function begin() {
+    if (task.prep > 0) { setStage("prep"); setLeft(task.prep); }
+    else { setStage("speaking"); setLeft(task.respond); }
+  }
+
+  function choose(t) {
+    setTask(t); setStage("idle"); setLeft(0);
+    setScores(RUBRICS[cfg.rubric].criteria.map(() => null));
+  }
+
+  return (
+    <div className="page fade">
+      <div className="page-head">
+        <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
+        <h2>{test.name}, {sec.name}</h2>
+        <p>
+          {task.name}
+          {task.prep > 0 ? `, ${task.prep} seconds to prepare` : ""}
+          {`, ${task.respond >= 60 ? `${Math.round(task.respond / 60)} minute` : `${task.respond} second`} response`}
+        </p>
+      </div>
+
+      <div className="stack">
+        {ready.length > 1 && (
+          <div className="seg modes">
+            {ready.map((t) => (
+              <button key={t.id} className={task.id === t.id ? "on" : ""} onClick={() => choose(t)}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="card card-pad">
+          <div className="prompt-label">Prompt</div>
+          <div className="prompt">{task.prompt}</div>
+        </div>
+
+        {stage === "idle" && (
+          <div className="card card-pad spread">
+            <div>
+              <b className="small">Speak out loud, properly</b>
+              <div className="small muted">
+                Nothing is recorded. The value is in doing it against the real clock rather than in your head.
+              </div>
+            </div>
+            <button className="btn" onClick={begin}>
+              <Icon name="mic" size={14} /> {task.prep > 0 ? "Start preparation" : "Start speaking"}
+            </button>
+          </div>
+        )}
+
+        {(stage === "prep" || stage === "speaking") && (
+          <div className={"card card-pad speak-stage " + stage}>
+            <span className={"pill " + (stage === "prep" ? "accent" : "good")}>
+              {stage === "prep" ? "Preparing" : "Speak now"}
+            </span>
+            <div className="speak-clock">{fmt(left)}</div>
+            <p className="small muted" style={{ margin: 0 }}>
+              {stage === "prep"
+                ? "Make notes. You cannot write a script in this time, so note the structure only."
+                : "Keep going until the clock stops. Stopping early is the most common way to lose marks."}
+            </p>
+            <button className="btn ghost" style={{ marginTop: 14 }}
+              onClick={() => (stage === "prep" ? (setStage("speaking"), setLeft(task.respond)) : setStage("done"))}>
+              {stage === "prep" ? "Skip to speaking" : "I have finished"}
+            </button>
+          </div>
+        )}
+
+        {stage === "done" && (
+          <>
+            <div className="card card-pad note-card">
+              <b className="small">What the examiner is looking for</b>
+              <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{task.tip}</p>
+            </div>
+            <Rubric rubric={cfg.rubric} scores={scores} setScores={setScores} />
+            <RubricResult rubric={cfg.rubric} scores={scores} />
+            <div className="row">
+              <button className="btn ghost" onClick={() => choose(task)}>Try it again</button>
+              <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
