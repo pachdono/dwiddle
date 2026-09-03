@@ -1625,7 +1625,19 @@ kbd {
 .auth-sent { text-align: center; }
 .auth-sent p { margin: 12px 0 0; line-height: 1.55; }
 
-.auth-back { width: 100%; margin-top: 14px; font-size: 12.5px; }
+/* This was a plain text link and read as body copy rather than a control. */
+.auth-back {
+  width: 100%;
+  height: 42px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.auth-back:hover { background: var(--hover); color: var(--ink); border-color: var(--ink-3); }
 
 .auth-page .or { margin: 18px 0; }
 
@@ -1716,8 +1728,18 @@ kbd {
   border-radius: 10px;
 }
 
-.hero-skip { display: block; margin: 12px 0 0; padding: 6px 0; font-size: 13px; }
-.hero-skip:hover { background: transparent; text-decoration: underline; }
+.hero-skip {
+  display: inline-flex;
+  margin: 12px 0 0;
+  padding: 11px 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+.hero-skip:hover { background: var(--hover); color: var(--ink); border-color: var(--ink-3); }
 
 .hero-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-3); }
 

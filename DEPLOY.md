@@ -63,8 +63,10 @@ Gives you sign in and progress that follows you between devices.
    there. Until it is enabled the app hides the button and offers the email
    link only, so nothing is broken by leaving it off.
 
-7. Go to **Authentication**, then **URL Configuration**, and set
-   **Site URL** to your Vercel URL once you have it in step 3. Until then
+7. Go to **Authentication**, then **URL Configuration**. Set **Site URL** to
+   your Vercel URL, and under **Redirect URLs** add `https://your-site.vercel.app/**`.
+   Sign in links are refused with "requested path is invalid" until the site is
+   on that allow list, and the same applies to Google. Until then
    `http://localhost:5180` works for local testing.
 
 The anon key is meant to be public. It identifies the project, it does not
@@ -142,5 +144,6 @@ gitignored. Never commit it.
 | Sign in link goes to the wrong place | Supabase **Site URL** is not set to your Vercel URL. |
 | Signed in but nothing syncs | The SQL from step 2.4 did not run. Check the `progress` table exists. |
 | "Accounts are not switched on" | The two `VITE_SUPABASE_` variables are missing. They must be set at build time, so redeploy after adding them. |
+| `{"error":"requested path is invalid"}` when opening the sign in link, or after Google | The site is not in Supabase's **Redirect URLs** allow list. Authentication, URL Configuration, add `https://your-site.vercel.app/**`. This affects the email link and OAuth equally. |
 | "Unsupported provider: provider is not enabled" | Google is not enabled under Authentication, Providers. The app hides the button once it can see that, so this only appears on an old build. |
 | Sign in does nothing, no error | `VITE_SUPABASE_URL` is probably the dashboard link. It must be `https://<ref>.supabase.co`. Check the browser console for a warning naming the correct value. |

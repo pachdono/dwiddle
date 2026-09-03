@@ -105,7 +105,7 @@ const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settin
 
 export default function App() {
   const [page, setPage] = useState("home");
-  const [theme, setTheme] = useState(() => load(KEYS.theme, "light"));
+  const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
   const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
@@ -218,9 +218,23 @@ export default function App() {
     setMenuOpen(false);
   };
 
+  // "system" means whatever the device is set to, and it keeps following it if
+  // that changes while the app is open. Before this, a first time visitor was
+  // always shown the light theme regardless of their device.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const apply = () => {
+      const resolved = theme === "system" ? (mq.matches ? "dark" : "light") : theme;
+      document.documentElement.dataset.theme = resolved;
+    };
+
+    apply();
     save(KEYS.theme, theme);
+
+    if (theme !== "system") return;
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [theme]);
 
   const Page = {
@@ -1304,8 +1318,11 @@ function Settings({ theme, setTheme, auth }) {
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
-          <SetRow label="Theme" hint="Dark mode applies across every page.">
+          <SetRow label="Theme" hint="System follows whatever your device is set to.">
             <div className="seg">
+              <button className={theme === "system" ? "on" : ""} onClick={() => setTheme("system")}>
+                System
+              </button>
               <button className={theme === "light" ? "on" : ""} onClick={() => setTheme("light")}>
                 <Icon name="sun" size={14} /> Light
               </button>
