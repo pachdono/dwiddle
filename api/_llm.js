@@ -28,12 +28,13 @@ const PROVIDERS = [
     // Free first. Someone running on a free key is the common case, and a
     // paid model that returns 402 costs a round trip to discover.
     preferences: [
-      /^z-ai\/glm.*:free/i,
-      /^minimax\/minimax-m[0-9.]+:free/i,
-      /^google\/gemma-4-\d+b-it:free/i,
+      // Ordered by measured response time on a real key, fastest first.
       /^nvidia\/nemotron-3-super.*:free/i,
-      /^nvidia\/nemotron-3-ultra.*:free/i,
+      /^google\/gemma-4-\d+b-it:free/i,
       /^inclusionai\/ling.*:free/i,
+      /^z-ai\/glm.*:free/i,
+      /^minimax\/minimax-m2[0-9.]*:free/i,
+      /^minimax\/minimax-m[0-9.]+:free/i,
       /:free$/i,
       /^google\/gemini-[0-9.]+-flash-lite$/i,
       /^google\/gemini-[0-9.]+-flash$/i,

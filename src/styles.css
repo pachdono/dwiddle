@@ -1722,26 +1722,37 @@ kbd {
   text-wrap: pretty;
 }
 
+/* The two actions sat flush against one another with no gap and different
+   heights, so they read as one broken control. */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .hero-cta {
-  padding: 14px 26px;
+  height: 48px;
+  padding: 0 26px;
   font-size: 15px;
   border-radius: 10px;
 }
 
 .hero-skip {
   display: inline-flex;
-  margin: 12px 0 0;
-  padding: 11px 22px;
+  align-items: center;
+  height: 48px;
+  padding: 0 22px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
   color: var(--ink-2);
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 .hero-skip:hover { background: var(--hover); color: var(--ink); border-color: var(--ink-3); }
 
-.hero-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.hero-note { margin: 18px 0 0; font-size: 12.5px; color: var(--ink-3); }
 
 /* the product, shown rather than described */
 .hero-art { position: relative; }

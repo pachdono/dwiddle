@@ -27,13 +27,14 @@ export function Landing({ onSignIn, onSkip, people }) {
             explanation for every answer, then puts you through full length timed papers.
           </p>
 
-          <button className="btn hero-cta" onClick={onSignIn}>
-            Start for free <Arrow />
-          </button>
-
-          <button className="btn quiet hero-skip" onClick={onSkip}>
-            Continue without an account
-          </button>
+          <div className="hero-actions">
+            <button className="btn hero-cta" onClick={onSignIn}>
+              Start for free <Arrow />
+            </button>
+            <button className="btn hero-skip" onClick={onSkip}>
+              Continue without an account
+            </button>
+          </div>
 
           <p className="hero-note">
             {people !== null && people > 0
