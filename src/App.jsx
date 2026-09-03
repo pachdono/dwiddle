@@ -78,6 +78,13 @@ export default function App() {
   const [theme, setTheme] = useState(() => load(KEYS.theme, "light"));
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
+  const [topic, setTopicRaw] = useState(() => load(KEYS.topic, null));
+
+  // null means every topic. The choice is remembered between visits.
+  function setTopic(name) {
+    setTopicRaw(name);
+    save(KEYS.topic, name);
+  }
 
   // A question joins the list when you get it wrong and leaves when you get it right.
   function grade(id, correct) {
@@ -187,6 +194,8 @@ export default function App() {
           grade={grade}
           pMode={pMode}
           setPMode={setPMode}
+          topic={topic}
+          setTopic={setTopic}
         />
       </main>
     </div>
@@ -352,12 +361,16 @@ function Dashboard({ go }) {
 
 /* ---------- recommended topics ---------- */
 
-function TopicRow({ t, go }) {
+function TopicRow({ t, go, topic, setTopic }) {
+  const current = topic === t.name;
   return (
-    <div className="topic">
+    <div className={"topic" + (current ? " current" : "")}>
       <div className="topic-main">
         <div className="spread">
-          <div className="list-title">{t.name}</div>
+          <div className="row">
+            <div className="list-title">{t.name}</div>
+            {current && <span className="pill accent">Currently learning</span>}
+          </div>
           <span className={"pill " + (t.mastery < 50 ? "warn" : t.mastery < 75 ? "" : "good")}>
             {t.mastery}% mastered
           </span>
@@ -368,12 +381,15 @@ function TopicRow({ t, go }) {
           {t.source}, {t.questions} questions available
         </div>
       </div>
-      <button className="btn ghost" onClick={() => go("quiz")}>Practice</button>
+      <button className={current ? "btn" : "btn ghost"}
+        onClick={() => { setTopic(t.name); go("quiz"); }}>
+        {current ? "Continue" : "Learn this"}
+      </button>
     </div>
   );
 }
 
-function Topics({ go }) {
+function Topics({ go, topic, setTopic }) {
   const focus = TOPICS.filter((t) => t.priority === "focus");
   const warm = TOPICS.filter((t) => t.priority === "warm");
 
@@ -384,18 +400,26 @@ function Topics({ go }) {
         sub="Ranked by what you have been getting wrong, and what you have not seen in a while."
       />
 
+      <div className="spread learning-bar" style={{ marginBottom: 18 }}>
+        <div>
+          <span className="small muted">Currently learning</span>
+          <div className="list-title">{topic || "All topics"}</div>
+        </div>
+        {topic && <button className="btn quiet" onClick={() => setTopic(null)}>Practise all topics instead</button>}
+      </div>
+
       <div className="stack">
         <div>
           <div className="section-label">Focus first</div>
           <div className="stack" style={{ gap: 10 }}>
-            {focus.map((t) => <TopicRow key={t.id} t={t} go={go} />)}
+            {focus.map((t) => <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} />)}
           </div>
         </div>
 
         <div>
           <div className="section-label">Keep warm</div>
           <div className="stack" style={{ gap: 10 }}>
-            {warm.map((t) => <TopicRow key={t.id} t={t} go={go} />)}
+            {warm.map((t) => <TopicRow key={t.id} t={t} go={go} topic={topic} setTopic={setTopic} />)}
           </div>
         </div>
       </div>
@@ -527,14 +551,39 @@ const MODES = [
   { id: "missed", label: "Missed", icon: "flag", sub: "Only the questions you have got wrong." },
 ];
 
+const ALL_TOPICS = [...new Set(BANK.map((q) => q.topic))];
+
 function Practice(props) {
-  const { pMode, setPMode, missed } = props;
+  const { pMode, setPMode, missed, topic, setTopic, go } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
   const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
+
+  // Every mode draws from here, so changing the topic changes the whole page.
+  const pool = topic ? BANK.filter((q) => q.topic === topic) : BANK;
 
   return (
     <div className="page fade">
       <PageHead title="Practice" sub={active.sub} />
+
+      <div className="learning-bar">
+        <div className="learning-main">
+          <span className="small muted">Currently learning</span>
+          <div className="learning-name">{topic || "All topics"}</div>
+          <div className="small muted">
+            {pool.length} question{pool.length === 1 ? "" : "s"} in this set
+            {topic ? "" : `, across ${ALL_TOPICS.length} topics`}
+          </div>
+        </div>
+        <div className="row">
+          <label className="field topic-pick">
+            <select value={topic || ""} onChange={(e) => setTopic(e.target.value || null)}>
+              <option value="">All topics</option>
+              {ALL_TOPICS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <button className="btn ghost" onClick={() => go("topics")}>Choose in Topics</button>
+        </div>
+      </div>
 
       <div className="seg modes">
         {MODES.map((m) => (
@@ -545,18 +594,19 @@ function Practice(props) {
         ))}
       </div>
 
-      <Mode key={active.id} {...props} />
+      <Mode key={active.id + ":" + (topic || "all")} {...props} pool={pool} />
     </div>
   );
 }
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade }) {
+function QuizMode({ grade, pool }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [QUIZ] = useState(() => shuffle(pool).slice(0, Math.min(5, pool.length)));
 
   const q = QUIZ[i];
 
@@ -802,14 +852,16 @@ const CARDS = BANK.map((q) => ({
   note: q.why,
 }));
 
-function Flashcards() {
+function Flashcards({ pool }) {
   const [deck, setDeck] = useState("all");
   const [known, setKnown] = useState(() => load(KEYS.known, []));
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [again, setAgain] = useState([]); // cards pushed to the back of the run
 
-  const inDeck = CARDS.filter((c) => deck === "all" || c.kind === deck);
+  const ids = new Set(pool.map((q) => q.id));
+  const deckSource = CARDS.filter((c) => ids.has(c.id));
+  const inDeck = deckSource.filter((c) => deck === "all" || c.kind === deck);
   const live = inDeck.filter((c) => !known.includes(c.id));
   const queue = [...live.filter((c) => !again.includes(c.id)), ...live.filter((c) => again.includes(c.id))];
   const card = queue[i];
@@ -864,7 +916,7 @@ function Flashcards() {
   const decks = (
     <div className="deck-picker">
       {DECKS.map((d) => {
-        const all = CARDS.filter((c) => d.id === "all" || c.kind === d.id);
+        const all = deckSource.filter((c) => d.id === "all" || c.kind === d.id);
         const left = all.filter((c) => !known.includes(c.id)).length;
         return (
           <button key={d.id} className={"deck-chip" + (deck === d.id ? " on" : "")}
@@ -958,7 +1010,7 @@ function fmt(sec) {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-function MockExam({ grade }) {
+function MockExam({ grade, pool }) {
   const [stage, setStage] = useState("setup"); // setup | sitting | marked
   const [count, setCount] = useState(25);
   const [minutes, setMinutes] = useState(60);
@@ -975,7 +1027,7 @@ function MockExam({ grade }) {
   }, [stage, left]);
 
   function start() {
-    setPaper(shuffle(BANK).slice(0, count));
+    setPaper(shuffle(pool).slice(0, Math.min(count, pool.length)));
     setAnswers({});
     setI(0);
     setLeft(minutes * 60);
@@ -1009,8 +1061,17 @@ function MockExam({ grade }) {
         </SetRow>
         <div className="set-row">
           <div className="hint">
-            {count} questions in {minutes >= 60 ? `${minutes / 60} hour` : `${minutes} minutes`}, about{" "}
-            {Math.round((minutes * 60) / count)} seconds each. No feedback until you submit.
+            {pool.length < count ? (
+              <>
+                Only {pool.length} questions exist for the topic you are learning, so the paper will
+                run to {pool.length}. Switch to all topics for a full {count} question paper.
+              </>
+            ) : (
+              <>
+                {count} questions in {minutes >= 60 ? `${minutes / 60} hour` : `${minutes} minutes`}, about{" "}
+                {Math.round((minutes * 60) / count)} seconds each. No feedback until you submit.
+              </>
+            )}
           </div>
           <button className="btn" onClick={start}>Start exam</button>
         </div>
@@ -1192,7 +1253,7 @@ function MissedMode({ missed, setMissed, grade, setPMode }) {
 
 const ROUND = 60;
 
-function SpeedRound({ grade }) {
+function SpeedRound({ grade, pool }) {
   const [stage, setStage] = useState("ready"); // ready | running | over
   const [left, setLeft] = useState(ROUND);
   const [n, setN] = useState(0);
@@ -1201,7 +1262,7 @@ function SpeedRound({ grade }) {
   const [best, setBest] = useState(0);
   const [flash, setFlash] = useState(null); // "hit" | "miss"
 
-  const q = BANK[n % BANK.length];
+  const q = pool[n % pool.length];
 
   useEffect(() => {
     if (stage !== "running") return;

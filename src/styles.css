@@ -1290,3 +1290,36 @@ kbd {
   .paper-split { grid-template-columns: 1fr; }
   .paper-passage { position: static; max-height: 340px; }
 }
+
+/* ---------- currently learning ---------- */
+
+.learning-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.learning-main { min-width: 0; }
+
+.learning-name {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 1px 0 2px;
+}
+
+.topic-pick select { width: 200px; }
+
+.topic.current { border-color: var(--accent); }
+.topic.current .list-title { color: var(--ink); }
+
+@media (max-width: 860px) {
+  .learning-bar { flex-direction: column; align-items: stretch; }
+  .topic-pick select { width: 100%; }
+}

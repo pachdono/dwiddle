@@ -23,4 +23,5 @@ export const KEYS = {
   theme: "dwiddle-theme",
   known: "dwiddle-known",   // card ids retired from the deck
   missed: "dwiddle-missed", // question ids answered wrong
+  topic: "dwiddle-topic",   // the topic Practice is currently working on
 };
