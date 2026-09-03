@@ -1508,3 +1508,72 @@ kbd {
   .welcome { flex-direction: row; }
   .welcome-duck { display: none; }
 }
+
+/* ---------- not signed in notice ---------- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 32px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notice-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.notice-text { flex: 1; min-width: 0; }
+.notice-text b { font-weight: 600; }
+.notice .btn { flex: 0 0 auto; padding: 6px 12px; }
+.notice .icon-btn { flex: 0 0 26px; width: 26px; height: 26px; color: var(--ink-2); }
+.notice .icon-btn:hover { background: rgba(0, 0, 0, 0.06); }
+
+.user-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.user-button:hover { background: var(--hover); }
+
+/* ---------- dialog ---------- */
+
+.dialog-scrim {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.4);
+  animation: fade 0.18s ease both;
+}
+
+.dialog h3 { margin: 0 0 6px; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.dialog p { margin: 0 0 16px; line-height: 1.6; }
+.dialog input[type="email"] { width: 100%; }
+
+.warn-text { color: var(--warn); }
+
+@media (max-width: 860px) {
+  .notice { padding: 10px 16px; gap: 10px; }
+  .notice-text { font-size: 12.5px; }
+}

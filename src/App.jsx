@@ -4,7 +4,7 @@ import {
   SHEET, SAMPLE_NOTES, DOC, HL_KINDS,
 } from "./mock.js";
 import { load, save, KEYS } from "./store.js";
-import { useAuth, Account } from "./Account.jsx";
+import { useAuth, Account, SignInDialog } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured } from "./supabase.js";
 import { generateFromNotes, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
@@ -159,7 +159,18 @@ export default function App() {
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [bannerOff, setBannerOffRaw] = useState(() => load(KEYS.bannerOff, false));
+
+  function dismissBanner() {
+    setBannerOffRaw(true);
+    save(KEYS.bannerOff, true);
+  }
+
   const auth = useAuth();
+
+  // Worth saying only when there is an account to be had and none in use.
+  const warnUnsaved = configured && !auth.user && !bannerOff;
   const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
   const [sample, setSampleRaw] = useState(() => load(KEYS.sample, false));
 
@@ -265,13 +276,23 @@ export default function App() {
         </nav>
 
         <div className="sidebar-foot">
-          <div className="user">
-            <span className="avatar">{initialsOf(auth.user)}</span>
-            <div style={{ minWidth: 0 }}>
-              <div className="user-name">{displayName(auth.user)}</div>
-              <div className="user-sub">{auth.user ? "Synced" : "Not signed in"}</div>
+          {auth.user ? (
+            <div className="user">
+              <span className="avatar">{initialsOf(auth.user)}</span>
+              <div style={{ minWidth: 0 }}>
+                <div className="user-name">{displayName(auth.user)}</div>
+                <div className="user-sub">Synced</div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <button className="user user-button" onClick={() => setSignInOpen(true)}>
+              <span className="avatar">{initialsOf(null)}</span>
+              <div style={{ minWidth: 0 }}>
+                <div className="user-name">Sign in</div>
+                <div className="user-sub">{configured ? "To save your progress" : "Not available yet"}</div>
+              </div>
+            </button>
+          )}
           <button
             className={"icon-btn" + (page === "settings" ? " on" : "")}
             onClick={() => go("settings")}
@@ -284,6 +305,20 @@ export default function App() {
       </aside>
 
       <main className="main">
+        {warnUnsaved && (
+          <div className="notice">
+            <span className="notice-dot" />
+            <span className="notice-text">
+              <b>Not signed in.</b> Progress is saved in this browser only, and clearing your
+              browser data will erase it.
+            </span>
+            <button className="btn" onClick={() => setSignInOpen(true)}>Sign in</button>
+            <button className="icon-btn" aria-label="Dismiss" onClick={dismissBanner}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
+
         <header className="topbar">
           <button className="icon-btn menu-btn" aria-label="Open menu"
             onClick={() => setMenuOpen(true)}>
@@ -317,6 +352,8 @@ export default function App() {
           auth={auth}
         />
       </main>
+
+      <SignInDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
     </div>
   );
 }

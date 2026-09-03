@@ -68,29 +68,11 @@ export function useAuth() {
   return { user, ready, syncedAt, setSyncedAt, signOut };
 }
 
-export function Account({ user, syncedAt, signOut }) {
+// The magic link form, used by the Settings page and by the sign in dialog.
+export function SignInForm({ onDone, compact = false }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | sent | error
   const [message, setMessage] = useState("");
-
-  // A fresh link is needed each time, so clear any old message when the signed
-  // in state changes rather than leaving "check your inbox" on screen.
-  useEffect(() => {
-    setState("idle");
-    setMessage("");
-  }, [user]);
-
-  if (!configured) {
-    return (
-      <div className="card card-pad note-card">
-        <b className="small">Accounts are not switched on</b>
-        <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
-          Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY and redeploy to turn on sign in and
-          syncing. Until then your progress is saved in this browser only.
-        </p>
-      </div>
-    );
-  }
 
   async function sendLink(e) {
     e.preventDefault();
@@ -105,8 +87,61 @@ export function Account({ user, syncedAt, signOut }) {
       setMessage(error.message);
     } else {
       setState("sent");
-      setMessage(`Check ${email.trim()} for a sign in link.`);
+      setMessage(`Check ${email.trim()} for a sign in link. It expires in an hour.`);
+      onDone?.();
     }
+  }
+
+  if (state === "sent") {
+    return (
+      <div className={compact ? "" : "set-row"}>
+        <div className="small good-text">{message}</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <form className={compact ? "stack" : "set-row"} onSubmit={sendLink}>
+        {!compact && (
+          <div className="sec-main">
+            <div className="list-title">Sync across devices</div>
+            <div className="small muted">We email a link. No password to choose, remember or lose.</div>
+          </div>
+        )}
+        <div className={compact ? "stack" : "row"} style={compact ? { gap: 10 } : undefined}>
+          <input
+            type="email"
+            required
+            value={email}
+            placeholder="you@example.com"
+            autoComplete="email"
+            style={compact ? undefined : { width: 220 }}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <button className={"btn" + (compact ? " full" : "")} type="submit" disabled={state === "sending"}>
+            {state === "sending" ? "Sending" : "Email me a link"}
+          </button>
+        </div>
+      </form>
+      {state === "error" && (
+        <p className="small warn-text" style={{ margin: compact ? "10px 0 0" : undefined }}>{message}</p>
+      )}
+    </>
+  );
+}
+
+export function Account({ user, syncedAt, signOut }) {
+  if (!configured) {
+    return (
+      <div className="card card-pad note-card">
+        <b className="small">Accounts are not switched on</b>
+        <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
+          Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY and redeploy to turn on sign in and
+          syncing. Until then your progress is saved in this browser only.
+        </p>
+      </div>
+    );
   }
 
   if (user) {
@@ -131,26 +166,36 @@ export function Account({ user, syncedAt, signOut }) {
   return (
     <div className="card">
       <div className="card-head"><h3>Sign in</h3></div>
-      <form className="set-row" onSubmit={sendLink}>
-        <div className="sec-main">
-          <div className="list-title">Sync across devices</div>
-          <div className="small muted">
-            We email a link. No password to choose, remember or lose.
-          </div>
-        </div>
-        <div className="row">
-          <input type="email" required value={email} placeholder="you@example.com"
-            style={{ width: 220 }} onChange={(e) => setEmail(e.target.value)} />
-          <button className="btn" type="submit" disabled={state === "sending"}>
-            {state === "sending" ? "Sending" : "Email me a link"}
-          </button>
-        </div>
-      </form>
-      {message && (
-        <div className="set-row">
-          <div className={"small " + (state === "error" ? "warn-text" : "good-text")}>{message}</div>
-        </div>
-      )}
+      <SignInForm />
+    </div>
+  );
+}
+
+// The dialog opened from the banner and from the sidebar.
+export function SignInDialog({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="scrim dialog-scrim" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <h3>Save your progress</h3>
+        <p className="small muted">
+          {configured
+            ? "Sign in and your topics, missed questions and retired cards follow you to any device. We email a link, so there is no password."
+            : "Accounts are not configured on this deployment yet, so progress stays in this browser."}
+        </p>
+        {configured && <SignInForm compact onDone={() => {}} />}
+        <button className="btn ghost full" style={{ marginTop: 10 }} onClick={onClose}>
+          {configured ? "Not now" : "Close"}
+        </button>
+      </div>
     </div>
   );
 }
