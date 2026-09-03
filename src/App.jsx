@@ -208,6 +208,31 @@ function shuffle(arr) {
   return a;
 }
 
+// Renders a line of segments, highlighting the marked ones that are switched on.
+function Marked({ parts, on }) {
+  return parts.map((seg, i) =>
+    !seg.mark || !on[seg.mark]
+      ? <span key={i}>{seg.t}</span>
+      : <mark key={i} className={"hl " + seg.mark}>{seg.t}</mark>,
+  );
+}
+
+// The filter chips above any highlighted document.
+function HighlightFilters({ on, setOn, counts }) {
+  return (
+    <div className="filters">
+      {Object.entries(HL_KINDS).map(([k, v]) => (
+        <button key={k} className={"filter " + k + (on[k] ? " on" : "")}
+          onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))} title={v.hint}>
+          <span className="swatch" />
+          {v.label}
+          <span className="count">{counts[k]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Loading({ label }) {
   return (
     <span className="row">
@@ -602,27 +627,48 @@ function QuizMode({ grade }) {
 
 /* ---------- study sheet ---------- */
 
+const SHEET_PARTS = [
+  ...SHEET.big,
+  ...SHEET.watch,
+  ...SHEET.terms.map((t) => t.d),
+].flat();
+
 function StudySheet() {
+  const [on, setOn] = useState({ def: true, key: true, exam: true });
+
+  const counts = { def: 0, key: 0, exam: 0 };
+  SHEET_PARTS.forEach((seg) => { if (seg.mark) counts[seg.mark] += 1; });
+  const total = counts.def + counts.key + counts.exam;
+
   return (
     <div className="page fade">
-      <PageHead title={SHEET.title} sub={`Condensed from Cell Biology, Lecture 4. ${SHEET.readTime}.`} />
+      <PageHead
+        title={SHEET.title}
+        sub={`Condensed from Cell Biology, Lecture 4. ${SHEET.readTime}, ${total} highlights.`}
+      />
+
+      <HighlightFilters on={on} setOn={setOn} counts={counts} />
 
       <div className="card card-pad sheet">
         <h4>The big idea</h4>
-        <ul>{SHEET.big.map((b, n) => <li key={n}>{b}</li>)}</ul>
+        <ul>
+          {SHEET.big.map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+        </ul>
 
         <h4>Key terms</h4>
         <div className="terms">
           {SHEET.terms.map((t) => (
             <div key={t.t} className="term">
               <b>{t.t}</b>
-              <span>{t.d}</span>
+              <span><Marked parts={t.d} on={on} /></span>
             </div>
           ))}
         </div>
 
         <h4>Where people lose marks</h4>
-        <ul>{SHEET.watch.map((w, n) => <li key={n}>{w}</li>)}</ul>
+        <ul>
+          {SHEET.watch.map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+        </ul>
       </div>
 
       <div className="row" style={{ marginTop: 16 }}>
@@ -1251,16 +1297,11 @@ function Reader() {
         </div>
       </div>
 
-      <div className="filters">
-        {Object.entries(HL_KINDS).map(([k, v]) => (
-          <button key={k} className={"filter " + k + (on[k] ? " on" : "")}
-            onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))}>
-            <span className="swatch" />
-            {v.label}
-            <span className="count">{HIGHLIGHTS.filter((h) => h.mark === k).length}</span>
-          </button>
-        ))}
-      </div>
+      <HighlightFilters on={on} setOn={setOn} counts={{
+        def: HIGHLIGHTS.filter((h) => h.mark === "def").length,
+        key: HIGHLIGHTS.filter((h) => h.mark === "key").length,
+        exam: HIGHLIGHTS.filter((h) => h.mark === "exam").length,
+      }} />
 
       <div className="reader">
         <article className="doc">

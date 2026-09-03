@@ -114,26 +114,65 @@ export const DECKS = [
 export const EXAM_SIZES = [15, 25, 40];
 export const EXAM_TIMES = [30, 60, 90];
 
+// Same markup shape as DOC: a line is a list of segments, and a segment with
+// `mark` gets highlighted. def = learn it verbatim, key = memorise it,
+// exam = where marks are usually lost.
 export const SHEET = {
   title: "Membrane Transport",
   readTime: "4 min read",
   big: [
-    "Everything crossing a membrane either costs energy or it does not. That single split explains most of the chapter.",
-    "Passive processes always run down a concentration gradient. Active processes always run up it, and always cost ATP.",
-    "Water gets its own name, osmosis, because it moves in response to solute concentration, not its own.",
+    [
+      { t: "Everything crossing a membrane " },
+      { t: "either costs energy or it does not", mark: "key" },
+      { t: ". That single split explains most of the chapter." },
+    ],
+    [
+      { t: "Passive processes always run " },
+      { t: "down a concentration gradient", mark: "def" },
+      { t: ". Active processes always run " },
+      { t: "up it, and always cost ATP", mark: "def" },
+      { t: "." },
+    ],
+    [
+      { t: "Water gets its own name, osmosis, because " },
+      { t: "it moves in response to solute concentration, not its own", mark: "key" },
+      { t: "." },
+    ],
+    [
+      { t: "Using a protein does not make a process active. " },
+      { t: "Facilitated diffusion uses carrier proteins and still spends no energy", mark: "exam" },
+      { t: ", which is the distinction most answers get wrong." },
+    ],
   ],
   terms: [
-    { t: "Passive transport", d: "Movement down a gradient, no energy required." },
-    { t: "Active transport", d: "Movement up a gradient, powered by ATP." },
-    { t: "Osmosis", d: "Diffusion of water across a semi permeable membrane." },
-    { t: "Hypertonic", d: "More solute outside the cell; the cell shrinks." },
-    { t: "Hypotonic", d: "Less solute outside the cell; the cell swells." },
-    { t: "Electrogenic pump", d: "A pump that creates a net charge difference across the membrane." },
+    { t: "Passive transport", d: [{ t: "Movement " }, { t: "down a gradient, no energy required", mark: "def" }, { t: "." }] },
+    { t: "Active transport", d: [{ t: "Movement " }, { t: "up a gradient, powered by ATP", mark: "def" }, { t: "." }] },
+    { t: "Osmosis", d: [{ t: "Diffusion of " }, { t: "water", mark: "key" }, { t: " across a semi permeable membrane." }] },
+    { t: "Hypertonic", d: [{ t: "More solute outside the cell; " }, { t: "the cell shrinks", mark: "exam" }, { t: "." }] },
+    { t: "Hypotonic", d: [{ t: "Less solute outside the cell; " }, { t: "the cell swells", mark: "exam" }, { t: "." }] },
+    { t: "Electrogenic pump", d: [{ t: "A pump that " }, { t: "creates a net charge difference", mark: "def" }, { t: " across the membrane." }] },
   ],
   watch: [
-    "Confusing hypertonic and hypotonic. Anchor on \"hyper = more stuff outside = cell shrinks\".",
-    "Calling facilitated diffusion active. It uses proteins, but no ATP.",
-    "Forgetting the 3:2 ratio of the sodium potassium pump. It is a common one mark question.",
+    [
+      { t: "Confusing hypertonic and hypotonic. Anchor on " },
+      { t: "hyper means more stuff outside, so the cell shrinks", mark: "exam" },
+      { t: "." },
+    ],
+    [
+      { t: "Calling facilitated diffusion active. " },
+      { t: "It uses proteins, but no ATP", mark: "exam" },
+      { t: "." },
+    ],
+    [
+      { t: "Forgetting the " },
+      { t: "3:2 ratio of the sodium potassium pump", mark: "key" },
+      { t: ". It is a common one mark question." },
+    ],
+    [
+      { t: "Writing that osmosis moves solute. " },
+      { t: "Osmosis only ever moves water", mark: "def" },
+      { t: "." },
+    ],
   ],
 };
 
