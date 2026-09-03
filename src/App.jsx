@@ -1520,6 +1520,103 @@ function Reader() {
   );
 }
 
+/* ---------- answer formats ---------- */
+
+// Real papers do not use one answer layout. IELTS mixes True/False/Not Given,
+// Yes/No/Not Given, gap fill typed by hand and roman numbered heading lists.
+// The format is derived from the skill so each question renders the way its
+// own test presents it.
+function formatOf(q) {
+  const sk = (q.skill || "").toLowerCase();
+  if (sk.includes("true, false")) return "tfng";
+  if (sk.includes("yes, no")) return "ynng";
+  if (sk.includes("completion")) return "gap";
+  if (sk.includes("matching headings")) return "headings";
+  return "mcq";
+}
+
+const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"];
+
+// ACT alternates its answer letters between odd and even questions, TOEFL uses
+// no letters at all, and everyone else runs A onwards.
+function lettersFor(testId, index) {
+  if (testId === "act") return index % 2 === 0 ? "ABCD" : "FGHJ";
+  if (testId === "toefl") return null;
+  return "ABCDE";
+}
+
+const norm = (v) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+function isRight(q, given) {
+  if (formatOf(q) === "gap") return given !== undefined && norm(given) === norm(q.choices[q.answer]);
+  return given === q.answer;
+}
+
+const isAnswered = (given) => given !== undefined && given !== "";
+
+// One question's answer control, in whatever shape its test uses.
+function AnswerInput({ q, testId, index, value, onChange, disabled }) {
+  const format = formatOf(q);
+
+  if (format === "gap") {
+    return (
+      <div className="gap-answer">
+        <label className="field">
+          <span>Type your answer</span>
+          <input type="text" value={value ?? ""} disabled={disabled}
+            placeholder="Your answer"
+            onChange={(e) => onChange(e.target.value)} />
+        </label>
+        <div className="small muted" style={{ marginTop: 6 }}>
+          Spelling counts, and answers over the stated word limit score zero.
+        </div>
+      </div>
+    );
+  }
+
+  if (format === "tfng" || format === "ynng") {
+    return (
+      <div className="tf-row">
+        {q.choices.map((c, n) => (
+          <button key={n} className={"tf-btn" + (value === n ? " on" : "")}
+            disabled={disabled} onClick={() => onChange(n)}>
+            {c}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (format === "headings") {
+    return (
+      <ol className="headings">
+        {q.choices.map((c, n) => (
+          <li key={n}>
+            <button className={"heading-opt" + (value === n ? " on" : "")}
+              disabled={disabled} onClick={() => onChange(n)}>
+              <span className="key roman">{ROMAN[n]}</span>
+              {c}
+            </button>
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  const letters = lettersFor(testId, index);
+  return (
+    <>
+      {q.choices.map((c, n) => (
+        <button key={n} className={"choice" + (value === n ? " picked" : "")}
+          disabled={disabled} onClick={() => onChange(n)}>
+          <span className={"key" + (letters ? "" : " blank")}>{letters ? letters[n] : ""}</span>
+          {c}
+        </button>
+      ))}
+    </>
+  );
+}
+
 /* ---------- test prep ---------- */
 
 // Builds one section's paper. Generated sections run at true full length.
@@ -1557,6 +1654,9 @@ function TestPrep({ grade }) {
   const secs = test ? SECTIONS[test.id] : [];
 
   if (test && paper) {
+    if (paper.drill) {
+      return <TestDrill test={test} sec={paper.sec} qs={paper.qs} grade={grade} onExit={() => setPaper(null)} />;
+    }
     if (paper.sec.kind === "writing") {
       return <WritingRun test={test} sec={paper.sec} cfg={paper.cfg} onExit={() => setPaper(null)} />;
     }
@@ -1638,6 +1738,35 @@ function TestPrep({ grade }) {
             })}
           </div>
 
+          <div className="card">
+            <div className="card-head">
+              <h3>Practice, {test.name} only</h3>
+              <span className="small muted">Untimed, with the answer explained each time</span>
+            </div>
+            <div className="drill-note small muted">
+              Sitting a section is the real thing: full length, on the clock, no feedback until the
+              end. A drill is the opposite. Ten questions, no clock, and the reasoning after each one.
+            </div>
+            {sittable.map((sec) => {
+              const built = buildPaper(test, sec);
+              const ten = built.qs.slice(0, 10);
+              return (
+                <div key={sec.id} className="sec-row">
+                  <div className="sec-main">
+                    <span className="list-title">{sec.name}</span>
+                    <div className="small muted">
+                      {ten.length} questions, no time limit
+                    </div>
+                  </div>
+                  <button className="btn ghost" disabled={ten.length === 0}
+                    onClick={() => setPaper({ drill: true, sec, qs: ten })}>
+                    <Icon name="quiz" size={14} /> Drill
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
           {sittable.length > 1 && (
             <div className="card card-pad spread">
               <div>
@@ -1714,15 +1843,15 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
   }, [left, done]);
 
   function finish() {
-    qs.forEach((q, n) => grade(q.id, answers[n] === q.answer));
+    qs.forEach((q, n) => grade(q.id, isRight(q, answers[n])));
     setDone(true);
   }
 
-  const right = qs.filter((q, n) => answers[n] === q.answer).length;
+  const right = qs.filter((q, n) => isRight(q, answers[n])).length;
 
   if (done) {
     const score = estimate(test.scoring, right, qs.length);
-    const wrong = qs.map((q, n) => ({ q, n })).filter(({ q, n }) => answers[n] !== q.answer);
+    const wrong = qs.map((q, n) => ({ q, n })).filter(({ q, n }) => !isRight(q, answers[n]));
     return (
       <div className="page fade">
         <PageHead title={`${test.name}, ${sec.name}`} sub={`${right} of ${qs.length} correct`} />
@@ -1771,7 +1900,9 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
                   {q.passage && <div className="small muted" style={{ marginBottom: 4 }}>{q.passage}</div>}
                   <div className="list-title">{q.q}</div>
                   <div className="small muted">
-                    You put {answers[n] === undefined ? "nothing" : q.choices[answers[n]]}.
+                    You put {!isAnswered(answers[n])
+                      ? "nothing"
+                      : formatOf(q) === "gap" ? `"${answers[n]}"` : q.choices[answers[n]]}.
                     Answer: {q.choices[q.answer]}.
                   </div>
                   <div className="small" style={{ marginTop: 4, color: "var(--ink-2)" }}>{q.why}</div>
@@ -1789,7 +1920,7 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
   }
 
   const q = qs[i];
-  const answered = Object.keys(answers).length;
+  const answered = Object.values(answers).filter(isAnswered).length;
 
   // Consecutive questions on the same passage form one part, the way a real
   // reading paper does. The passage stays on screen while you work through them.
@@ -1813,13 +1944,8 @@ function TestRun({ test, sec, qs, full, grade, onExit }) {
 
       <h3 className="q-text">{q.q}</h3>
 
-      {q.choices.map((c, n) => (
-        <button key={n} className={"choice" + (answers[i] === n ? " picked" : "")}
-          onClick={() => setAnswers((a) => ({ ...a, [i]: n }))}>
-          <span className="key">{"ABCDE"[n]}</span>
-          {c}
-        </button>
-      ))}
+      <AnswerInput q={q} testId={test.id} index={i} value={answers[i]}
+        onChange={(v) => setAnswers((a) => ({ ...a, [i]: v }))} />
 
       <div className="spread" style={{ marginTop: 16 }}>
         <button className="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>Back</button>
@@ -1881,7 +2007,7 @@ function QuestionNav({ qs, parts, answers, current, onGo }) {
       <div className="qnav-head">
         <b className="small">Questions</b>
         <span className="small muted">
-          {Object.keys(answers).length} of {qs.length} answered
+          {Object.values(answers).filter(isAnswered).length} of {qs.length} answered
         </span>
       </div>
       <div className="qnav-grid">
@@ -1893,11 +2019,11 @@ function QuestionNav({ qs, parts, answers, current, onGo }) {
               className={
                 "qnav-btn" +
                 (n === current ? " now" : "") +
-                (answers[n] !== undefined ? " done" : "") +
+                (isAnswered(answers[n]) ? " done" : "") +
                 (startsPart ? " part" : "")
               }
               onClick={() => onGo(n)}
-              title={`Question ${n + 1}${answers[n] !== undefined ? ", answered" : ""}`}
+              title={`Question ${n + 1}${isAnswered(answers[n]) ? ", answered" : ""}`}
             >
               {n + 1}
             </button>
@@ -2275,6 +2401,115 @@ function SpeakingRun({ test, sec, cfg, onExit }) {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- per test drill ---------- */
+
+// The opposite of sitting a section: no clock, and the answer explained after
+// every question. This is where you learn a test's habits before timing yourself.
+function TestDrill({ test, sec, qs, grade, onExit }) {
+  const [i, setI] = useState(0);
+  const [given, setGiven] = useState(undefined);
+  const [locked, setLocked] = useState(false);
+  const [right, setRight] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const q = qs[i];
+
+  function check() {
+    if (locked || !isAnswered(given)) return;
+    const ok = isRight(q, given);
+    if (ok) setRight((v) => v + 1);
+    grade(q.id, ok);
+    setLocked(true);
+  }
+
+  function next() {
+    if (i + 1 >= qs.length) return setDone(true);
+    setI(i + 1);
+    setGiven(undefined);
+    setLocked(false);
+  }
+
+  if (done) {
+    return (
+      <div className="page fade">
+        <PageHead title={`${test.name}, ${sec.name} drill`} sub={`${right} of ${qs.length} correct`} />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>
+            {Math.round((right / qs.length) * 100)}%
+          </div>
+          <div className="muted" style={{ marginBottom: 20 }}>
+            Drills are not scored on the real scale, since ten questions cannot place you on it.
+          </div>
+          <button className="btn ghost" onClick={onExit}>Back to {test.name}</button>
+        </div>
+      </div>
+    );
+  }
+
+  const ok = locked && isRight(q, given);
+
+  return (
+    <div className="page fade">
+      <div className="page-head">
+        <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the drill</button>
+        <div className="spread">
+          <div>
+            <h2>{test.name}, {sec.name} drill</h2>
+            <p>{q.skill || q.section}, no time limit</p>
+          </div>
+          <span className="pill">{right} of {i + (locked ? 1 : 0)} correct</span>
+        </div>
+      </div>
+
+      <div className="spread" style={{ marginBottom: 8 }}>
+        <span className="small muted">Question {i + 1} of {qs.length}</span>
+      </div>
+      <div className="bar" style={{ marginBottom: 16 }}>
+        <i style={{ width: `${((i + (locked ? 1 : 0)) / qs.length) * 100}%` }} />
+      </div>
+
+      <div className={q.passage ? "paper-split" : ""}>
+        {q.passage && (
+          <div className="paper-passage">
+            <div className="prompt-label">Passage</div>
+            <div className="passage-body">{q.passage}</div>
+          </div>
+        )}
+
+        <div className="card card-pad">
+          <h3 className="q-text">{q.q}</h3>
+
+          <AnswerInput q={q} testId={test.id} index={i} value={given}
+            onChange={setGiven} disabled={locked} />
+
+          {locked && (
+            <div className="fade" style={{ marginTop: 16 }}>
+              <div className="card card-pad" style={{ background: "var(--panel)" }}>
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <span className={"pill " + (ok ? "good" : "warn")}>
+                    {ok ? "Correct" : "Not quite"}
+                  </span>
+                  {!ok && <span className="small muted">Answer: {q.choices[q.answer]}</span>}
+                </div>
+                <p className="small" style={{ margin: 0, color: "var(--ink-2)" }}>{q.why}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="spread" style={{ marginTop: 16 }}>
+            <span className="small muted">{q.section}</span>
+            {locked
+              ? <button className="btn" onClick={next}>
+                  {i + 1 >= qs.length ? "See how you did" : "Next question"} <Icon name="arrow" />
+                </button>
+              : <button className="btn" disabled={!isAnswered(given)} onClick={check}>Check answer</button>}
+          </div>
+        </div>
       </div>
     </div>
   );

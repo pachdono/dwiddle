@@ -440,17 +440,31 @@ const ANALOGIES = [
   ["Sceptical is to believe as reluctant is to", "act", ["refuse", "hesitate", "doubt"], "Each pair names a disposition and what it holds you back from doing."],
 ];
 
+// The SSAT offers five answer choices, so a fifth distractor is drawn from a
+// pool of concrete, unrelated words that cannot be read as a near synonym.
+const FILLER = [
+  "harbour", "velocity", "porcelain", "trellis", "almanac", "meridian",
+  "quarry", "lantern", "thicket", "granite", "satchel", "estuary",
+  "cobbler", "plateau", "vellum", "cistern",
+];
+
+function fifth(taken) {
+  return shuffled(FILLER).find((f) => !taken.includes(f)) || "aqueduct";
+}
+
 function synonymSet(section, n) {
-  return shuffled(SYNONYMS).slice(0, n).map(([word, correct, wrong]) =>
-    make({
-      section, skill: "Synonyms", q: word, correct, wrong,
+  return shuffled(SYNONYMS).slice(0, n).map(([word, correct, wrong]) => {
+    const opts = [...wrong, fifth([correct, ...wrong])];
+    return make({
+      section, skill: "Synonyms", q: word, correct, wrong: opts,
       why: `${word[0] + word.slice(1).toLowerCase()} means ${correct}. The opposite is usually offered as a distractor, which is what catches people reading too fast.`,
-    }));
+    });
+  });
 }
 
 function analogySet(section, n) {
   return shuffled(ANALOGIES).slice(0, n).map(([q, correct, wrong, why]) =>
-    make({ section, skill: "Analogies", q, correct, wrong, why }));
+    make({ section, skill: "Analogies", q, correct, wrong: [...wrong, fifth([correct, ...wrong])], why }));
 }
 
 /* ---------- grammar and usage ---------- */

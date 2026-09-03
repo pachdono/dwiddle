@@ -1358,3 +1358,54 @@ kbd {
 @media (max-width: 860px) {
   .topic .icon-btn { opacity: 1; }
 }
+
+/* ---------- answer formats ---------- */
+
+.tf-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.tf-btn {
+  flex: 1 1 auto;
+  min-width: 120px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.tf-btn:hover:not(:disabled) { border-color: var(--ink-3); background: var(--sunken); }
+.tf-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.tf-btn:disabled { cursor: default; }
+
+.headings { margin: 0; padding: 0; list-style: none; }
+.headings li { margin-bottom: 8px; }
+
+.heading-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.heading-opt:hover:not(:disabled) { border-color: var(--ink-3); background: var(--sunken); }
+.heading-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.heading-opt:disabled { cursor: default; }
+
+.key.roman { font-style: italic; text-transform: lowercase; letter-spacing: 0.02em; }
+.key.blank { background: transparent; border: 1px solid var(--line); }
+
+.gap-answer input[type="text"] { max-width: 320px; }
+
+.drill-note { padding: 12px 20px; border-bottom: 1px solid var(--line-soft); }
