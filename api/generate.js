@@ -37,7 +37,7 @@ Shape:
 }
 
 Rules:
-- 3 to 4 topics, 3 to 4 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 12 questions in total.
+- 3 topics, 3 to 4 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 10 questions in total.
 - Only use what is in the notes. Never invent facts that are not there.
 - "why" must teach something, not restate the answer. Two sentences, no more.
 - Mark types: "def" for wording to learn verbatim, "key" for a fact to memorise, "exam" for where marks are lost.
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system,
       user,
-      maxTokens: 5000,
+      maxTokens: 3800,
       json: true,
       temperature: 0.3,
     });

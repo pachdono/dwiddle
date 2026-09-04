@@ -21,6 +21,9 @@ async function post(path, body) {
   }
 
   if (!reply.ok) {
+    if (reply.status === 504 || (reply.status === 502 && !data)) {
+      throw new Error("That took too long and the server gave up. The model was probably slow. Try again, and it usually goes through second time.");
+    }
     if (reply.status === 503) {
       throw new Error(data?.error || "The free model service is busy. Wait a minute and try again.");
     }

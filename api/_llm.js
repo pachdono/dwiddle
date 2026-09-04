@@ -123,7 +123,13 @@ let cachedModel = null; // { provider, model }
 let paidBlocked = false;
 const rejected = new Set();
 
+const modelCache = new Map(); // provider id -> { at, ids }
+const MODEL_TTL = 10 * 60 * 1000;
+
 export async function listModels(p = provider()) {
+  const hit = modelCache.get(p.id);
+  if (hit && Date.now() - hit.at < MODEL_TTL) return hit.ids;
+
   const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p) });
   if (!reply.ok) {
     throw Object.assign(
@@ -132,7 +138,9 @@ export async function listModels(p = provider()) {
     );
   }
   const data = await reply.json();
-  return (data?.data || []).map((m) => m.id).filter(Boolean);
+  const ids = (data?.data || []).map((m) => m.id).filter(Boolean);
+  modelCache.set(p.id, { at: Date.now(), ids });
+  return ids;
 }
 
 // Ordered best first, with anything already known to fail removed.
@@ -284,7 +292,7 @@ export function safeParse(text, requiredKey) {
 
 export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false }) {
   const all = providers();
-  const deadline = Date.now() + 52000;
+  const deadline = Date.now() + 44000;
   let lastError = null;
 
   for (const p of all) {
@@ -304,7 +312,7 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
       if (remaining < 6000) break;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), Math.min(40000, remaining - 3000));
+      const timeout = setTimeout(() => controller.abort(), Math.min(34000, remaining - 2000));
 
       let reply;
       try {
