@@ -1960,16 +1960,45 @@ kbd {
   }
   .print-head span { font-size: 11px; color: #555; }
 
-  /* Highlights survive as a light tint rather than vanishing, which is the
-     whole point of the sheet. */
+  /* Browsers drop background colours when printing unless told not to, which
+     was turning every highlight into plain text. The colours are the point of
+     the sheet, so they are kept, in print weight tints that stay readable on
+     white and still separate in greyscale. */
   .hl {
     box-shadow: none !important;
-    border-bottom: 2px solid #999;
-    background: #f0f0f0 !important;
     color: #000 !important;
+    padding: 1px 3px;
+    border-radius: 2px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
+  .hl.def { background: #cfe0ff !important; border-bottom: 2px solid #6f9be8 !important; }
+  .hl.key { background: #ffe9a8 !important; border-bottom: 2px solid #d9ab35 !important; }
+  .hl.exam { background: #ffd0cd !important; border-bottom: 2px solid #dd8a84 !important; }
+
+  /* The legend has to print too, or the colours mean nothing on paper. */
+  .filters { display: flex !important; gap: 10px; margin-bottom: 14px; }
+  .filter { border-color: #bbb !important; color: #000 !important; background: #fff !important; }
+  .filter .count { display: none; }
+  .filter .swatch {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .filter.def .swatch { background: #cfe0ff !important; }
+  .filter.key .swatch { background: #ffe9a8 !important; }
+  .filter.exam .swatch { background: #ffd0cd !important; }
+
   .sheet h4 { margin-top: 16px; page-break-after: avoid; }
+  /* Each set of material starts cleanly rather than splitting across a break. */
+  .sheet { page-break-inside: auto; }
+  .sheet + .sheet { page-break-before: always; }
+  .sheet-source {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #555;
+  }
   .sheet li, .term { page-break-inside: avoid; }
   .terms { gap: 6px; }
   .term { border-color: #bbb; }
@@ -2110,4 +2139,17 @@ kbd {
 
 @media (max-width: 900px) {
   .landing-reviews { padding: 0 20px 32px; }
+}
+
+/* ---------- more than one set of material ---------- */
+
+.sheet-source {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line-soft);
 }

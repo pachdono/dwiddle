@@ -1371,9 +1371,15 @@ function sheetParts(sheet) {
 
 function StudySheet({ made, go }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
-  const sheet = made?.sheet?.big ? made.sheet : null;
 
-  if (!sheet) {
+  // Every generation keeps its sheet, so the page grows as material is added
+  // rather than only ever showing the most recent one.
+  const sheets = (made?.sheets?.length
+    ? made.sheets
+    : made?.sheet ? [{ title: made.title, sheet: made.sheet }] : []
+  ).filter((entry) => entry?.sheet);
+
+  if (sheets.length === 0) {
     return (
       <div className="page fade">
         <PageHead title="Study sheet" sub="A one page condensation, with the important bits marked." />
@@ -1392,54 +1398,80 @@ function StudySheet({ made, go }) {
   }
 
   const counts = { def: 0, key: 0, exam: 0 };
-  sheetParts(sheet).forEach((seg) => { if (seg?.mark && counts[seg.mark] !== undefined) counts[seg.mark] += 1; });
+  sheets.forEach(({ sheet }) => {
+    sheetParts(sheet).forEach((seg) => {
+      if (seg?.mark && counts[seg.mark] !== undefined) counts[seg.mark] += 1;
+    });
+  });
   const total = counts.def + counts.key + counts.exam;
 
   return (
     <div className="page fade">
       <PageHead
-        title={sheet.title || "Study sheet"}
-        sub={`${made?.title ? `From ${made.title}. ` : ""}${total} highlight${total === 1 ? "" : "s"}.`}
+        title={sheets.length === 1 ? sheets[0].sheet.title || "Study sheet" : "Study sheet"}
+        sub={`${sheets.length === 1
+          ? made?.title ? `From ${made.title}. ` : ""
+          : `${sheets.length} sets of material. `}${total} highlight${total === 1 ? "" : "s"}.`}
       />
 
       <HighlightFilters on={on} setOn={setOn} counts={counts} />
 
-      <div className="card card-pad sheet">
-        <div className="print-only print-head">
-          <b>{sheet.title || "Study sheet"}</b>
-          <span>Dwiddle</span>
-        </div>
-
-        <h4>The big idea</h4>
-        <ul>
-          {(sheet.big || []).filter((l) => toSegments(l).length).map((line, n) => (
-            <li key={n}><Marked parts={line} on={on} /></li>
-          ))}
-        </ul>
-
-        <h4>Key terms</h4>
-        <div className="terms">
-          {(sheet.terms || []).filter((t) => t && t.t).map((t, n) => (
-            <div key={`${t.t}-${n}`} className="term">
-              <b>{t.t}</b>
-              {toSegments(t.d).length > 0 && <span><Marked parts={t.d} on={on} /></span>}
+      <div className="stack">
+        {sheets.map((entry, n) => (
+          <div className="card card-pad sheet" key={`${entry.title}-${n}`}>
+            <div className="print-only print-head">
+              <b>{entry.sheet.title || entry.title || "Study sheet"}</b>
+              <span>Dwiddle</span>
             </div>
-          ))}
-        </div>
 
-        <h4>Where people lose marks</h4>
-        <ul>
-          {(sheet.watch || []).filter((l) => toSegments(l).length).map((line, n) => (
-            <li key={n}><Marked parts={line} on={on} /></li>
-          ))}
-        </ul>
+            {sheets.length > 1 && (
+              <div className="sheet-source">{entry.sheet.title || entry.title}</div>
+            )}
+
+            {(entry.sheet.big || []).filter((l) => toSegments(l).length).length > 0 && (
+              <>
+                <h4>The big idea</h4>
+                <ul>
+                  {(entry.sheet.big || []).filter((l) => toSegments(l).length).map((line, i) => (
+                    <li key={i}><Marked parts={line} on={on} /></li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {(entry.sheet.terms || []).filter((t) => t && t.t).length > 0 && (
+              <>
+                <h4>Key terms</h4>
+                <div className="terms">
+                  {(entry.sheet.terms || []).filter((t) => t && t.t).map((t, i) => (
+                    <div key={`${t.t}-${i}`} className="term">
+                      <b>{t.t}</b>
+                      {toSegments(t.d).length > 0 && <span><Marked parts={t.d} on={on} /></span>}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(entry.sheet.watch || []).filter((l) => toSegments(l).length).length > 0 && (
+              <>
+                <h4>Where people lose marks</h4>
+                <ul>
+                  {(entry.sheet.watch || []).filter((l) => toSegments(l).length).map((line, i) => (
+                    <li key={i}><Marked parts={line} on={on} /></li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        ))}
       </div>
 
       <div className="row no-print" style={{ marginTop: 16 }}>
         <button className="btn ghost" onClick={() => window.print()}>
           <Icon name="sheet" size={14} /> Export as PDF
         </button>
-        <button className="btn ghost" onClick={() => go("upload")}>Regenerate</button>
+        <button className="btn ghost" onClick={() => go("upload")}>Add more material</button>
       </div>
     </div>
   );

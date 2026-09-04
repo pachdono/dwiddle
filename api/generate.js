@@ -42,7 +42,7 @@ Rules:
 - Only use what is in the notes. Never invent facts that are not there.
 - "why" must teach something, not restate the answer. Two sentences, no more.
 - Mark types: "def" for wording to learn verbatim, "key" for a fact to memorise, "exam" for where marks are lost.
-- Keep the sheet to 3 big idea lines, 5 terms and 3 watch out lines.
+- Sheet size: __SHEET_SIZE__.
 - Each line in "big" and "watch" is an array of segments. Segments without "mark" are plain text. Concatenated, the segments must read as one natural sentence.
 - Write in British English. Do not use em dashes or en dashes.`;
 
@@ -77,11 +77,22 @@ export default async function handler(req, res) {
     user = `Build study material from these notes.\n\n${notes}`;
   }
 
+  // More material deserves a fuller sheet. A page of notes and a whole chapter
+  // should not condense to the same three bullets.
+  const size = syllabus
+    ? "3 big idea lines, 5 terms and 3 watch out lines"
+    : notes.length > 9000
+      ? "8 big idea lines, 14 terms and 6 watch out lines"
+      : notes.length > 4000
+        ? "6 big idea lines, 10 terms and 5 watch out lines"
+        : "4 big idea lines, 7 terms and 4 watch out lines";
+  system = system.replace("__SHEET_SIZE__", size);
+
   try {
     const text = await ask({
       system,
       user,
-      maxTokens: 3800,
+      maxTokens: notes.length > 4000 ? 5200 : 3800,
       json: true,
       temperature: 0.3,
     });
