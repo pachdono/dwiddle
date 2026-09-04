@@ -59,4 +59,5 @@ export const KEYS = {
   entered: "dwiddle-entered",  // landing passed, for this tab only
   testBank: "dwiddle-bank",   // questions written for test sections, kept and reused
   seen: "dwiddle-seen",       // question ids already served, so papers do not repeat
+  freeGen: "dwiddle-freegen", // generations used before signing in
 };

@@ -70,8 +70,25 @@ export const supabase = configured
   ? createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true } })
   : null;
 
-// The keys that follow you between devices.
-const SYNCED = [KEYS.known, KEYS.missed, KEYS.topic, KEYS.hidden, KEYS.quizLen];
+// The keys that follow you between devices. Leaving material, stats and the
+// question bank out of this meant signing in on a second device lost your
+// generated topics and reset your streak, which is the opposite of what
+// "save your progress" promises.
+const SYNCED = [
+  KEYS.known,
+  KEYS.missed,
+  KEYS.topic,
+  KEYS.hidden,
+  KEYS.quizLen,
+  KEYS.stats,
+  KEYS.made,
+  KEYS.seen,
+  KEYS.testBank,
+];
+
+// Roughly how much of a row Supabase will take happily. The question bank is
+// the only thing that can approach it.
+const MAX_PAYLOAD = 600 * 1024;
 
 export function localSnapshot() {
   const out = {};
@@ -86,20 +103,69 @@ export function applySnapshot(data) {
   });
 }
 
-// Merge rather than overwrite: signing in on a second device should not throw
-// away what you did on the first. Lists union, single values prefer whichever
-// side actually has one.
+// Merging matters more than it looks. Two devices both hold a full picture, so
+// overwriting either way loses work. Each kind of value merges on its own terms.
+function mergeStats(a, b) {
+  const x = a || {};
+  const y = b || {};
+  const byTopic = { ...(x.byTopic || {}) };
+
+  for (const [name, v] of Object.entries(y.byTopic || {})) {
+    const mine = byTopic[name];
+    // Whichever device has answered more of this topic has the fuller record.
+    byTopic[name] = !mine || v.total > mine.total ? v : mine;
+  }
+
+  return {
+    // Counts are cumulative on each device, so the larger one is the truer one.
+    // Adding them would double count everything already synced.
+    answered: Math.max(x.answered || 0, y.answered || 0),
+    correct: Math.max(x.correct || 0, y.correct || 0),
+    days: [...new Set([...(x.days || []), ...(y.days || [])])].sort().slice(-400),
+    byTopic,
+  };
+}
+
+function mergeMade(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const questions = [...a.questions];
+  const ids = new Set(questions.map((q) => q.id));
+  b.questions.forEach((q) => { if (!ids.has(q.id)) questions.push(q); });
+
+  const topics = [...a.topics];
+  const names = new Set(topics.map((t) => t.name));
+  b.topics.forEach((t) => { if (!names.has(t.name)) topics.push(t); });
+
+  return { ...b, topics, questions, sheet: b.sheet || a.sheet };
+}
+
+function mergeBank(a, b) {
+  const out = { ...(a || {}) };
+  for (const [section, list] of Object.entries(b || {})) {
+    const seen = new Set((out[section] || []).map((q) => q.id));
+    out[section] = [...(out[section] || []), ...list.filter((q) => !seen.has(q.id))].slice(-400);
+  }
+  return out;
+}
+
 export function merge(localData, remoteData) {
-  const out = { ...remoteData };
+  const out = {};
+
   SYNCED.forEach((k) => {
     const a = localData?.[k];
     const b = remoteData?.[k];
-    if (Array.isArray(a) || Array.isArray(b)) {
+
+    if (k === KEYS.stats) out[k] = mergeStats(a, b);
+    else if (k === KEYS.made) out[k] = mergeMade(a, b);
+    else if (k === KEYS.testBank) out[k] = mergeBank(a, b);
+    else if (Array.isArray(a) || Array.isArray(b)) {
       out[k] = [...new Set([...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])])];
     } else {
       out[k] = b ?? a ?? null;
     }
   });
+
   return out;
 }
 
@@ -116,9 +182,18 @@ export async function pullProgress(userId) {
 
 export async function pushProgress(userId, data) {
   if (!supabase) return false;
+
+  // The bank is the only thing that can grow without bound. If a row gets too
+  // big, send everything else rather than failing the whole sync.
+  let payload = data;
+  if (JSON.stringify(data).length > MAX_PAYLOAD) {
+    console.warn("[sync] payload over limit, syncing without the question bank");
+    payload = { ...data, [KEYS.testBank]: undefined };
+  }
+
   const { error } = await supabase
     .from("progress")
-    .upsert({ user_id: userId, data }, { onConflict: "user_id" });
+    .upsert({ user_id: userId, data: payload }, { onConflict: "user_id" });
   if (error) {
     console.warn("[sync] push failed", error.message);
     return false;

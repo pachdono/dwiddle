@@ -1,7 +1,12 @@
 // Calls to our own serverless functions. The NVIDIA key is never here; it
 // lives only on the server, so nothing in this file can leak it.
 
-async function post(path, body) {
+const TRANSIENT = new Set([429, 502, 503, 504]);
+
+// The free models fail intermittently: busy, slow, occasionally malformed. One
+// quiet retry turns most of those into a success rather than an error the
+// person has to act on.
+async function post(path, body, attempt = 0) {
   let reply;
   try {
     reply = await fetch(path, {
@@ -18,6 +23,11 @@ async function post(path, body) {
     data = await reply.json();
   } catch {
     // A non JSON body means the function itself fell over.
+  }
+
+  if (!reply.ok && TRANSIENT.has(reply.status) && attempt === 0) {
+    await new Promise((r) => setTimeout(r, 1200));
+    return post(path, body, 1);
   }
 
   if (!reply.ok) {
@@ -45,5 +55,5 @@ export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
   post("/api/grade", { answer, prompt, rubric, criteria, scale });
 
 // Fresh questions for a test section, written to that section's style.
-export const generateTestQuestions = ({ test, section, skills, count, passage, avoid }) =>
-  post("/api/testgen", { test, section, skills, count, passage, avoid });
+export const generateTestQuestions = ({ test, section, skills, count, passage, audio, avoid }) =>
+  post("/api/testgen", { test, section, skills, count, passage, audio, avoid });

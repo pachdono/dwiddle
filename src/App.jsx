@@ -7,6 +7,7 @@ import { generateFromNotes, generateFromSyllabus, gradeWriting } from "./ai.js";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
+import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
 
 /* ---------- icons ---------- */
@@ -865,6 +866,21 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
 /* ---------- add material ---------- */
 
+// One generation without an account, so nobody has to sign up to find out
+// whether the thing works. After that it asks, which is also what stops an
+// anonymous visitor spending the whole quota.
+const FREE_GENERATIONS = 1;
+
+export function generationsLeft(user) {
+  if (user) return Infinity;
+  return Math.max(0, FREE_GENERATIONS - load(KEYS.freeGen, 0));
+}
+
+function countGeneration(user) {
+  if (user) return;
+  save(KEYS.freeGen, load(KEYS.freeGen, 0) + 1);
+}
+
 // Reads a PDF in the browser. pdf.js is larger than the rest of the app, so it
 // is imported only at the moment someone actually picks a PDF.
 const MAX_FILE = 20 * 1024 * 1024; // the limit the drop zone advertises
@@ -898,7 +914,7 @@ async function readFile(file) {
   return file.text();
 }
 
-function AddMaterial({ go, setMade }) {
+function AddMaterial({ go, setMade, auth }) {
   const [file, setFile] = useState(null);
   const [notes, setNotes] = useState("");
   const [over, setOver] = useState(false);
@@ -928,6 +944,10 @@ function AddMaterial({ go, setMade }) {
   }
 
   async function run() {
+    if (generationsLeft(auth?.user) <= 0) {
+      setState("locked");
+      return;
+    }
     setError("");
     let text = notes;
 
@@ -945,6 +965,7 @@ function AddMaterial({ go, setMade }) {
     setState("working");
     try {
       const data = await generateFromNotes(text);
+      countGeneration(auth?.user);
       setResult(data);
       setMade(data, { replace: true });
       setState("done");
@@ -1025,9 +1046,25 @@ function AddMaterial({ go, setMade }) {
           </div>
         )}
 
+        {state === "locked" && (
+          <div className="card card-pad spread fade">
+            <div>
+              <b className="small">That was your free one</b>
+              <div className="small muted">
+                Sign in to keep generating, and your material follows you to any device. It takes
+                one email, no password.
+              </div>
+            </div>
+            <button className="btn" onClick={() => go("settings")}>Sign in</button>
+          </div>
+        )}
+
         {state === "error" && (
           <div className="card card-pad fade" style={{ borderColor: "var(--warn-line)" }}>
-            <span className="pill warn">Could not generate</span>
+            <div className="spread">
+              <span className="pill warn">Could not generate</span>
+              <button className="btn ghost" onClick={run}>Try again</button>
+            </div>
             <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{error}</p>
           </div>
         )}
@@ -2253,6 +2290,7 @@ function TestPrep({ grade }) {
       authored: built.qs,
       wanted: sec.real,
       passage,
+      audio: Boolean(sec.audio),
       skills,
       onProgress: ({ have, wanted }) => setBuilding({ sec, have, wanted }),
     });
@@ -2660,9 +2698,13 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
         <div className="paper-split">
           <div className="paper-passage">
             <div className="prompt-label">
-              {parts.length > 1 ? `Reading passage ${partNo}` : "Passage"}
+              {sec.audio
+                ? `Recording ${partNo}`
+                : parts.length > 1 ? `Reading passage ${partNo}` : "Passage"}
             </div>
-            <div className="passage-body">{q.passage}</div>
+            {sec.audio
+              ? <Player transcript={q.passage} playsAllowed={sec.plays || 1} />
+              : <div className="passage-body">{q.passage}</div>}
           </div>
           <div className="card card-pad paper-questions">{questionPane}</div>
         </div>
@@ -3173,8 +3215,10 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
       <div className={q.passage ? "paper-split" : ""}>
         {q.passage && (
           <div className="paper-passage">
-            <div className="prompt-label">Passage</div>
-            <div className="passage-body">{q.passage}</div>
+            <div className="prompt-label">{sec.audio ? "Recording" : "Passage"}</div>
+            {sec.audio
+              ? <Player transcript={q.passage} playsAllowed={sec.plays || 2} />
+              : <div className="passage-body">{q.passage}</div>}
           </div>
         )}
 
@@ -3324,11 +3368,12 @@ function AiMark({ task, rubric, answer, onScores }) {
 // The school course equivalent of Test prep: what your course examines, how it is
 // graded, and questions written for a specific syllabus topic without you
 // having to paste anything.
-function Courses({ go, setMade }) {
+function Courses({ go, setMade, auth }) {
   const ready = useHeavy();
   const [courseId, setCourseId] = useState(null);
   const [subjectId, setSubjectId] = useState(null);
   const [busy, setBusy] = useState(null); // the topic currently generating
+  const [lastTopic, setLastTopic] = useState(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState(null);
 
@@ -3338,7 +3383,12 @@ function Courses({ go, setMade }) {
   const subject = course?.subjects.find((s) => s.id === subjectId);
 
   async function build(topic) {
+    if (generationsLeft(auth?.user) <= 0) {
+      setError("locked");
+      return;
+    }
     setBusy(topic);
+    setLastTopic(topic);
     setError("");
     setDone(null);
     try {
@@ -3347,6 +3397,7 @@ function Courses({ go, setMade }) {
         subject: subject.name,
         topic,
       });
+      countGeneration(auth?.user);
       setMade(data);
       setDone({ topic, count: data.questions.length });
     } catch (err) {
@@ -3374,9 +3425,24 @@ function Courses({ go, setMade }) {
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{subject.assessment}</p>
           </div>
 
-          {error && (
+          {error === "locked" && (
+            <div className="card card-pad spread">
+              <div>
+                <b className="small">That was your free one</b>
+                <div className="small muted">
+                  Sign in to keep generating, and your material follows you to any device.
+                </div>
+              </div>
+              <button className="btn" onClick={() => go("settings")}>Sign in</button>
+            </div>
+          )}
+
+          {error && error !== "locked" && (
             <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>
-              <span className="pill warn">Could not generate</span>
+              <div className="spread">
+                <span className="pill warn">Could not generate</span>
+                {lastTopic && <button className="btn ghost" onClick={() => build(lastTopic)}>Try again</button>}
+              </div>
               <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{error}</p>
             </div>
           )}

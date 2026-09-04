@@ -2016,3 +2016,43 @@ kbd {
   color: var(--ink);
   word-break: break-all;
 }
+
+/* ---------- listening ---------- */
+
+.player {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  transition: border-color 0.15s ease;
+}
+
+.player.on { border-color: var(--good-line); }
+
+.player-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.player-state { flex: 1; min-width: 0; }
+
+.player-live { display: inline-flex; align-items: center; gap: 3px; color: var(--good); font-weight: 500; }
+
+.player-live i {
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--good);
+  animation: bars 0.9s ease-in-out infinite;
+}
+.player-live i:nth-child(2) { animation-delay: 0.15s; }
+.player-live i:nth-child(3) { animation-delay: 0.3s; margin-right: 6px; }
+
+@keyframes bars {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-live i { animation: none; transform: scaleY(0.7); }
+}
+
+.player-reveal { margin-top: 12px; padding-left: 0; }
+.player-text { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }

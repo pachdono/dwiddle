@@ -971,14 +971,16 @@ export const SECTIONS = {
       note: "Unscored, but sent to every school you apply to." },
   ],
   ielts: [
-    { id: "listening", name: "Listening", real: 40, minutes: 30, soon: true },
+    { id: "listening", name: "Listening", real: 40, minutes: 30, pool: "Listening", audio: true, plays: 1,
+      note: "Each recording is played once only, as in the real test." },
     { id: "reading", name: "Reading", real: 40, minutes: 60, pool: "Reading" },
     { id: "writing", name: "Writing", real: 2, minutes: 60, kind: "writing" },
     { id: "speaking", name: "Speaking", real: 3, minutes: 14, kind: "speaking" },
   ],
   toefl: [
     { id: "reading", name: "Reading", real: 20, minutes: 35, pool: "Reading" },
-    { id: "listening", name: "Listening", real: 28, minutes: 36, soon: true },
+    { id: "listening", name: "Listening", real: 28, minutes: 36, pool: "Listening", audio: true, plays: 2,
+      note: "You may replay a lecture here, which the real test does not allow, because note taking is the skill it wants." },
     { id: "speaking", name: "Speaking", real: 4, minutes: 16, kind: "speaking" },
     { id: "writing", name: "Writing", real: 2, minutes: 29, kind: "writing" },
   ],

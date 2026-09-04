@@ -70,6 +70,7 @@ export async function buildFresh({
   authored,
   wanted,
   passage = false,
+  audio = false,
   skills = [],
   onProgress,
 }) {
@@ -94,6 +95,7 @@ export async function buildFresh({
         skills,
         count: Math.min(12, wanted - available.length),
         passage,
+        audio,
         // Show a sample of what has been used so the model writes elsewhere.
         avoid: available.slice(-8).map((q) => q.q),
       });

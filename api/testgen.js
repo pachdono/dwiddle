@@ -26,6 +26,24 @@ Rules:
   every time.
 - Write in British English. Do not use em dashes or en dashes.`;
 
+const TRANSCRIPT = `You write practice listening material for standardised tests.
+
+Return ONE JSON object and nothing else:
+{ "passage": "...", "questions": [ { "skill": "...", "q": "...", "choices": ["..."], "answer": 0, "why": "..." } ] }
+
+Rules:
+- "passage" is a TRANSCRIPT of something spoken, and it will be read aloud, so
+  write it to be heard: a lecture, a campus conversation, a booking call, an
+  announcement. Name the speakers where there is more than one.
+- Include the things listening tests actually turn on: a speaker correcting
+  themselves, a number or a spelling given aloud, a detail contradicted later.
+- Questions must be answerable from having listened once, so avoid anything
+  that needs the exact wording to be re read.
+- "answer" is the index of the correct choice, and its position must vary.
+- "why" is two sentences and must point at the moment in the recording that
+  settles it.
+- Write in British English. Do not use em dashes or en dashes.`;
+
 const PASSAGE = `You write practice reading material for standardised tests.
 
 Return ONE JSON object and nothing else:
@@ -48,6 +66,7 @@ export default async function handler(req, res) {
   const skills = (Array.isArray(req.body?.skills) ? req.body.skills : []).slice(0, 8).map(String);
   const count = Math.min(Math.max(Number(req.body?.count) || 8, 1), 12);
   const passage = Boolean(req.body?.passage);
+  const audio = Boolean(req.body?.audio);
   const avoid = (Array.isArray(req.body?.avoid) ? req.body.avoid : []).slice(0, 25).map(String);
 
   if (!test || !section) return userError(res, 400, "Which test and section?");
@@ -64,7 +83,7 @@ export default async function handler(req, res) {
 
   try {
     const text = await ask({
-      system: passage ? PASSAGE : DISCRETE,
+      system: audio ? TRANSCRIPT : passage ? PASSAGE : DISCRETE,
       user: brief,
       maxTokens: 5000,
       temperature: 0.9, // variety matters more than consistency here
