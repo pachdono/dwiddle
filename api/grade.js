@@ -1,11 +1,12 @@
 // Marks a writing task against the published criteria of its test.
 
 import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_llm.js";
+import { allow } from "./_guard.js";
 
 export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
-  if (!guard(req, res)) return;
+  if (!allow(req, res, { limit: 6 })) return;
 
   const answer = String(req.body?.answer || "").trim();
   const prompt = String(req.body?.prompt || "").trim();

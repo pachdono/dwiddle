@@ -6,6 +6,7 @@
 // and difficulty of the section they asked for.
 
 import { ask, safeParse, guard, fail, userError } from "./_llm.js";
+import { allow } from "./_guard.js";
 
 export const config = { maxDuration: 60 };
 
@@ -40,7 +41,7 @@ Rules:
 - Write in British English. Do not use em dashes or en dashes.`;
 
 export default async function handler(req, res) {
-  if (!guard(req, res)) return;
+  if (!allow(req, res, { limit: 10 })) return;
 
   const test = String(req.body?.test || "").slice(0, 60);
   const section = String(req.body?.section || "").slice(0, 60);

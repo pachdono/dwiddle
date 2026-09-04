@@ -815,7 +815,15 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
 // Reads a PDF in the browser. pdf.js is larger than the rest of the app, so it
 // is imported only at the moment someone actually picks a PDF.
+const MAX_FILE = 20 * 1024 * 1024; // the limit the drop zone advertises
+
 async function readFile(file) {
+  if (file.size > MAX_FILE) {
+    throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit. Split it and add a chapter at a time.`);
+  }
+  if (!/\.(pdf|txt|md|markdown)$/i.test(file.name)) {
+    throw new Error("Only PDF, TXT and Markdown files can be read.");
+  }
   if (/\.pdf$/i.test(file.name)) {
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -849,11 +857,22 @@ function AddMaterial({ go, setMade }) {
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
 
+  function accept(f) {
+    if (!f) return;
+    if (f.size > MAX_FILE) {
+      setError(`That file is ${(f.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit.`);
+      setState("error");
+      return;
+    }
+    setError("");
+    setState("idle");
+    setFile(f);
+  }
+
   async function onDrop(e) {
     e.preventDefault();
     setOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
+    accept(e.dataTransfer.files?.[0]);
   }
 
   async function run() {
@@ -895,7 +914,7 @@ function AddMaterial({ go, setMade }) {
           onDrop={onDrop}
         >
           <input type="file" accept=".pdf,.txt,.md" hidden
-            onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            onChange={(e) => accept(e.target.files?.[0])} />
           <span className="drop-icon"><Icon name={file ? "file" : "upload"} size={20} /></span>
           {file ? (
             <>

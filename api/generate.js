@@ -3,6 +3,7 @@
 // the important passages marked.
 
 import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_llm.js";
+import { allow } from "./_guard.js";
 
 // Generating takes real time on a 70B model, and the platform default cuts a
 // function off long before it finishes.
@@ -54,7 +55,7 @@ const SYLLABUS_RULES = `
 - Break the topic into 3 or 4 sub topics and use those as the topic names.`;
 
 export default async function handler(req, res) {
-  if (!guard(req, res)) return;
+  if (!allow(req, res, { limit: 6 })) return;
 
   const syllabus = req.body?.syllabus;
   const notes = String(req.body?.notes || "").trim();
@@ -89,7 +90,7 @@ export default async function handler(req, res) {
     if (!data || !Array.isArray(data.questions) || data.questions.length === 0) {
       // Seeing the reply is the only way to tell a truncation from a model that
       // wrapped its JSON in prose. No key or user content is exposed.
-      if (req.query?.debug) {
+      if (req.query?.debug && process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) {
         return res.status(502).json({
           error: "The model did not return usable material.",
           parsed: data ? Object.keys(data) : null,
