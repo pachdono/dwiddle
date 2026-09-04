@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system,
       user,
-      maxTokens: 3500,
+      maxTokens: 5000,
       json: true,
       temperature: 0.3,
     });

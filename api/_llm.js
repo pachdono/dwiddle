@@ -179,6 +179,48 @@ export function userError(res, status, message) {
 
 // Models wrap JSON in prose or code fences often enough that parsing has to be
 // defensive. Pull out the first balanced object or array and parse that.
+// Close an answer that stopped mid sentence. Walks back to each point where a
+// complete element ended, shuts the brackets that are still open, and returns
+// the first prefix that parses. A truncated set of questions is worth far more
+// than nothing at all.
+function repair(t, requiredKey) {
+  const start = t.search(/[[{]/);
+  if (start === -1) return null;
+
+  const stack = [];
+  const closable = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === "\\") { escaped = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+
+    if (c === "{" || c === "[") stack.push(c === "{" ? "}" : "]");
+    else if (c === "}" || c === "]") {
+      stack.pop();
+      // A complete element just ended here, so this is a place we could stop.
+      closable.push({ index: i, open: [...stack] });
+    }
+  }
+
+  for (let n = closable.length - 1; n >= 0; n--) {
+    const { index, open } = closable[n];
+    let candidate = t.slice(start, index + 1).replace(/,\s*$/, "");
+    candidate += open.reverse().join("");
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!requiredKey || parsed?.[requiredKey] !== undefined) return parsed;
+    } catch {
+      // keep walking back
+    }
+  }
+  return null;
+}
+
 export function safeParse(text, requiredKey) {
   if (!text) return null;
 
@@ -223,12 +265,18 @@ export function safeParse(text, requiredKey) {
     }
   }
 
-  if (found.length === 0) return null;
-
   if (requiredKey) {
     const match = found.filter((f) => f.parsed?.[requiredKey] !== undefined);
     if (match.length) return match.sort((a, b) => b.length - a.length)[0].parsed;
+
+    // Complete objects exist but none is the answer, which is what a reply cut
+    // off mid array looks like: the inner entries closed, the outer one never
+    // did. Try to close it before giving up.
+    const salvaged = repair(t, requiredKey);
+    if (salvaged) return salvaged;
   }
+
+  if (found.length === 0) return repair(t) ?? null;
 
   // Otherwise the largest object is the likeliest to be the answer.
   return found.sort((a, b) => b.length - a.length)[0].parsed;
