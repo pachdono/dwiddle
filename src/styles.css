@@ -216,7 +216,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--line);
 }
 
-.topbar h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.topbar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 
 .crumb { color: var(--ink-3); font-size: 13px; }
 
@@ -224,7 +224,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .page.wide { max-width: 1080px; }
 
 .page-head { margin-bottom: 24px; }
-.page-head h2 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.page-head h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .page-head p { margin: 0; color: var(--ink-3); }
 
 /* ---------- primitives ---------- */
@@ -590,7 +590,7 @@ textarea:focus, input[type="text"]:focus, select:focus {
   }
 
   .topbar { gap: 10px; }
-  .topbar h1 { flex: 1; }
+  .topbar-title { flex: 1; }
   .crumb { display: none; }
 
   .page, .topbar { padding-left: 16px; padding-right: 16px; }
@@ -1940,7 +1940,7 @@ kbd {
   html, body, #root, .app, .main { height: auto; display: block; overflow: visible; }
 
   .page { max-width: none; padding: 0; }
-  .page-head h2 { font-size: 20px; margin-bottom: 4px; }
+  .page-head h1 { font-size: 20px; margin-bottom: 4px; }
 
   .card {
     border: 0;
@@ -1975,4 +1975,44 @@ kbd {
   .term { border-color: #bbb; }
 
   @page { margin: 16mm; }
+}
+
+/* ---------- not found ---------- */
+
+.notfound {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  background:
+    radial-gradient(900px 400px at 50% -10%, var(--accent-soft), transparent 70%),
+    var(--bg);
+}
+
+.notfound h1 {
+  margin: 18px 0 8px;
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.notfound p {
+  margin: 0 0 22px;
+  max-width: 30em;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.notfound code {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--hover);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: var(--ink);
+  word-break: break-all;
 }

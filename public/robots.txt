@@ -1,0 +1,9 @@
+# Only the landing page is public. Everything else is application state behind
+# an entry action and personal to whoever is signed in, so there is nothing
+# under those paths for a crawler to read.
+
+User-agent: *
+Allow: /$
+Disallow: /api/
+
+Sitemap: https://dwiddle.vercel.app/sitemap.xml

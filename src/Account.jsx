@@ -272,7 +272,7 @@ export function Avatar({ user, size = 26, initials }) {
       <img
         className="avatar avatar-img"
         src={src}
-        alt=""
+        alt={user?.email ? `Profile picture for ${user.email}` : "Profile picture"}
         width={size}
         height={size}
         style={{ width: size, height: size }}

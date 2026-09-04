@@ -7,11 +7,7 @@ import { generateFromNotes, generateFromSyllabus, gradeWriting } from "./ai.js";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
-import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
-import { COURSES } from "./courses.js";
-import { BUILDERS } from "./generate.js";
-import { TASKS, RUBRICS } from "./tasks.js";
-import { estimate } from "./scoring.js";
+import { loadHeavy, H } from "./heavy.js";
 
 /* ---------- icons ---------- */
 
@@ -61,6 +57,26 @@ function Icon({ name, size = 16 }) {
       stroke="currentColor" strokeWidth={gear ? 1.8 : 1.5} strokeLinecap="round" strokeLinejoin="round">
       {d.map((p, i) => <path key={i} d={p} />)}
     </svg>
+  );
+}
+
+/* ---------- unknown addresses ---------- */
+
+// The host rewrites every path to this app, so a mistyped or dead link arrives
+// here looking like the home page. These are the addresses that mean something.
+const REAL_PATHS = new Set(["/", "/index.html", ""]);
+
+function NotFound({ onHome }) {
+  return (
+    <div className="notfound">
+      <Duck size={128} />
+      <h1>This page does not exist</h1>
+      <p>
+        There is nothing at <code>{window.location.pathname}</code>. It may have been a typo, or a
+        link that was never real.
+      </p>
+      <button className="btn" onClick={onHome}>Take me back</button>
+    </div>
   );
 }
 
@@ -161,6 +177,7 @@ export default function App() {
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lost, setLost] = useState(() => !REAL_PATHS.has(window.location.pathname));
   const [signInOpen, setSignInOpen] = useState(false);
   const [bannerOff, setBannerOffRaw] = useState(() => load(KEYS.bannerOff, false));
 
@@ -277,6 +294,17 @@ export default function App() {
 
   const title = ALL_NAV.find((n) => n.id === page).label;
 
+  if (lost) {
+    return (
+      <NotFound
+        onHome={() => {
+          window.history.replaceState(null, "", "/");
+          setLost(false);
+        }}
+      />
+    );
+  }
+
   // Someone signed in, or who has been here before, goes straight to the app.
   if (signInOpen && !auth.user) {
     return <SignInPage onClose={() => { setSignInOpen(false); enter(); }} />;
@@ -376,7 +404,7 @@ export default function App() {
             onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={18} />
           </button>
-          <h1>{title}</h1>
+          <span className="topbar-title">{title}</span>
           <span className="crumb small">{made ? made.title : ""}</span>
         </header>
         <Page
@@ -408,10 +436,34 @@ export default function App() {
 
 /* ---------- shared bits ---------- */
 
+// Test prep and Courses need the heavy bundle. It arrives in well under a
+// second on any normal connection, but the page has to cope with not having it.
+function useHeavy() {
+  const [ready, setReady] = useState(() => H() !== null);
+  useEffect(() => {
+    if (ready) return;
+    let live = true;
+    loadHeavy().then(() => live && setReady(true));
+    return () => { live = false; };
+  }, [ready]);
+  return ready;
+}
+
+function LoadingPage({ title }) {
+  return (
+    <div className="page fade">
+      <PageHead title={title} sub="One moment." />
+      <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+        <Loading label="Loading" />
+      </div>
+    </div>
+  );
+}
+
 function PageHead({ title, sub }) {
   return (
     <div className="page-head">
-      <h2>{title}</h2>
+      <h1>{title}</h1>
       <p>{sub}</p>
     </div>
   );
@@ -1762,7 +1814,7 @@ function MockExam({ grade, pool }) {
 function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
-  const [list] = useState(() => [...bank, ...TEST_QUESTIONS].filter((q) => missed.includes(q.id)));
+  const [list] = useState(() => [...bank, ...(H()?.TEST_QUESTIONS ?? [])].filter((q) => missed.includes(q.id)));
 
   function clearAll() {
     setMissed([]);
@@ -2157,7 +2209,7 @@ function Feedback({ qs, answers, secondsAllowed, secondsLeft, onDrill }) {
 // Pool backed sections are capped at however many authored items exist, and
 // the caller shows that as a short form rather than repeating questions.
 function buildPaper(test, sec) {
-  if (sec.build) return { qs: BUILDERS[sec.build](sec.real), full: true };
+  if (sec.build) return { qs: H().BUILDERS[sec.build](sec.real), full: true };
 
   // Passage based sections must keep each passage's questions together and in
   // order, the way a real paper does. Only the order of the passages varies.
@@ -2181,6 +2233,7 @@ function buildPaper(test, sec) {
 }
 
 function TestPrep({ grade }) {
+  const ready = useHeavy();
   const [openId, setOpenId] = useState(null);
   const [paper, setPaper] = useState(null);
   const [building, setBuilding] = useState(null); // { sec, have, wanted }
@@ -2209,8 +2262,10 @@ function TestPrep({ grade }) {
     setPaper({ sec, qs, full: qs.length >= sec.real, wrote });
   }
 
-  const test = TESTS.find((t) => t.id === openId);
-  const secs = test ? SECTIONS[test.id] : [];
+  if (!ready) return <LoadingPage title="Test prep" />;
+
+  const test = H().TESTS.find((t) => t.id === openId);
+  const secs = test ? H().SECTIONS[test.id] : [];
 
   if (test && paper) {
     if (paper.drill) {
@@ -2245,7 +2300,7 @@ function TestPrep({ grade }) {
           <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setOpenId(null)}>
             Back to all tests
           </button>
-          <h2>{test.name}</h2>
+          <h1>{test.name}</h1>
           <p>{test.full}</p>
         </div>
 
@@ -2263,7 +2318,7 @@ function TestPrep({ grade }) {
             </div>
 
             {secs.map((sec) => {
-              const cfg = sec.kind ? TASKS[test.id]?.[sec.kind] : null;
+              const cfg = sec.kind ? H().TASKS[test.id]?.[sec.kind] : null;
               const ready = cfg ? cfg.tasks.filter((t) => !t.soon).length : 0;
               const built = sec.kind || sec.soon ? null : buildPaper(test, sec);
               const have = built ? built.qs.length : 0;
@@ -2415,8 +2470,8 @@ function TestPrep({ grade }) {
       </div>
 
       <div className="test-grid">
-        {TESTS.map((t) => {
-          const secs = SECTIONS[t.id].filter((x) => !x.essay);
+        {H().TESTS.map((t) => {
+          const secs = H().SECTIONS[t.id].filter((x) => !x.essay);
           return (
             <button key={t.id} className="test-card" onClick={() => setOpenId(t.id)}>
               <div className="spread">
@@ -2459,7 +2514,7 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
   const right = qs.filter((q, n) => isRight(q, answers[n])).length;
 
   if (done) {
-    const score = estimate(test.scoring, right, qs.length);
+    const score = H().estimate(test.scoring, right, qs.length);
     const wrong = qs.map((q, n) => ({ q, n })).filter(({ q, n }) => !isRight(q, answers[n]));
     return (
       <div className="page fade">
@@ -2584,7 +2639,7 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
         <div className="spread">
           <div>
-            <h2>{test.name}, {sec.name}</h2>
+            <h1>{test.name}, {sec.name}</h1>
             <p>{q.section}{q.skill ? `, ${q.skill}` : ""}</p>
           </div>
           <span className={"clock big" + (left <= 300 ? " low" : "")}>
@@ -2750,7 +2805,7 @@ function TaskChart({ chart }) {
 
 // Shared: rate your own answer against the test's published criteria.
 function Rubric({ rubric, scores, setScores }) {
-  const r = RUBRICS[rubric];
+  const r = H().RUBRICS[rubric];
   return (
     <div className="card">
       <div className="card-head">
@@ -2778,7 +2833,7 @@ function Rubric({ rubric, scores, setScores }) {
 }
 
 function RubricResult({ rubric, scores }) {
-  const r = RUBRICS[rubric];
+  const r = H().RUBRICS[rubric];
   const filled = scores.every((s) => s !== null);
   if (!filled) {
     return (
@@ -2816,7 +2871,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
   const [left, setLeft] = useState(ready[0].minutes * 60);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
-  const [scores, setScores] = useState(() => RUBRICS[cfg.rubric].criteria.map(() => null));
+  const [scores, setScores] = useState(() => H().RUBRICS[cfg.rubric].criteria.map(() => null));
 
   useEffect(() => {
     if (!running || done) return;
@@ -2830,7 +2885,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
 
   function choose(t) {
     setTask(t); setText(""); setLeft(t.minutes * 60); setRunning(false); setDone(false);
-    setScores(RUBRICS[cfg.rubric].criteria.map(() => null));
+    setScores(H().RUBRICS[cfg.rubric].criteria.map(() => null));
   }
 
   return (
@@ -2839,7 +2894,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
         <div className="spread">
           <div>
-            <h2>{test.name}, {sec.name}</h2>
+            <h1>{test.name}, {sec.name}</h1>
             <p>{task.name}, {task.minutes} minutes, at least {task.minWords} words</p>
           </div>
           {running && !done && (
@@ -2926,7 +2981,7 @@ function SpeakingRun({ test, sec, cfg, onExit }) {
   const [task, setTask] = useState(ready[0]);
   const [stage, setStage] = useState("idle"); // idle | prep | speaking | done
   const [left, setLeft] = useState(0);
-  const [scores, setScores] = useState(() => RUBRICS[cfg.rubric].criteria.map(() => null));
+  const [scores, setScores] = useState(() => H().RUBRICS[cfg.rubric].criteria.map(() => null));
 
   useEffect(() => {
     if (stage !== "prep" && stage !== "speaking") return;
@@ -2946,14 +3001,14 @@ function SpeakingRun({ test, sec, cfg, onExit }) {
 
   function choose(t) {
     setTask(t); setStage("idle"); setLeft(0);
-    setScores(RUBRICS[cfg.rubric].criteria.map(() => null));
+    setScores(H().RUBRICS[cfg.rubric].criteria.map(() => null));
   }
 
   return (
     <div className="page fade">
       <div className="page-head">
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the section</button>
-        <h2>{test.name}, {sec.name}</h2>
+        <h1>{test.name}, {sec.name}</h1>
         <p>
           {task.name}
           {task.prep > 0 ? `, ${task.prep} seconds to prepare` : ""}
@@ -3101,7 +3156,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the drill</button>
         <div className="spread">
           <div>
-            <h2>{test.name}, {sec.name} drill</h2>
+            <h1>{test.name}, {sec.name} drill</h1>
             <p>{q.skill || q.section}, no time limit</p>
           </div>
           <span className="pill">{right} of {i + (locked ? 1 : 0)} correct</span>
@@ -3166,7 +3221,7 @@ function AiMark({ task, rubric, answer, onScores }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
-  const r = RUBRICS[rubric];
+  const r = H().RUBRICS[rubric];
 
   async function run() {
     setState("working");
@@ -3270,13 +3325,16 @@ function AiMark({ task, rubric, answer, onScores }) {
 // graded, and questions written for a specific syllabus topic without you
 // having to paste anything.
 function Courses({ go, setMade }) {
+  const ready = useHeavy();
   const [courseId, setCourseId] = useState(null);
   const [subjectId, setSubjectId] = useState(null);
   const [busy, setBusy] = useState(null); // the topic currently generating
   const [error, setError] = useState("");
   const [done, setDone] = useState(null);
 
-  const course = COURSES.find((c) => c.id === courseId);
+  if (!ready) return <LoadingPage title="Courses" />;
+
+  const course = H().COURSES.find((c) => c.id === courseId);
   const subject = course?.subjects.find((s) => s.id === subjectId);
 
   async function build(topic) {
@@ -3306,7 +3364,7 @@ function Courses({ go, setMade }) {
           <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setSubjectId(null)}>
             Back to {course.name}
           </button>
-          <h2>{subject.name}</h2>
+          <h1>{subject.name}</h1>
           <p>{course.name}{subject.code ? `, ${subject.code}` : ""}</p>
         </div>
 
@@ -3369,7 +3427,7 @@ function Courses({ go, setMade }) {
           <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setCourseId(null)}>
             Back to all courses
           </button>
-          <h2>{course.name}</h2>
+          <h1>{course.name}</h1>
           <p>{course.board}</p>
         </div>
 
@@ -3418,7 +3476,7 @@ function Courses({ go, setMade }) {
       </div>
 
       <div className="test-grid">
-        {COURSES.map((c) => (
+        {H().COURSES.map((c) => (
           <button key={c.id} className="test-card" onClick={() => setCourseId(c.id)}>
             <div className="spread">
               <b className="test-name">{c.name}</b>

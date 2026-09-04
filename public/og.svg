@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="30%" cy="0%" r="75%">
+      <stop offset="0%" stop-color="#5a6eff" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#5a6eff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0f1117"/>
+  <rect width="1200" height="440" fill="url(#glow)"/>
+
+  <text x="84" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="74" font-weight="800"
+        letter-spacing="-2.5" fill="#ffffff">Turn your notes into</text>
+  <text x="84" y="285" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="74" font-weight="800"
+        letter-spacing="-2.5" fill="#8ba0ff">the real exam.</text>
+
+  <text x="84" y="360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#a9b0c4">Questions, explanations and full length timed papers,</text>
+  <text x="84" y="398" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#a9b0c4">written from whatever you are studying.</text>
+
+  
+  <g transform="translate(84 470)">
+    <rect width="73" height="46" rx="23" fill="#171a24" stroke="#2c3040"/>
+    <text x="36.5" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="600" fill="#c9cfe0" text-anchor="middle">SAT</text>
+  </g>
+  <g transform="translate(169 470)">
+    <rect width="73" height="46" rx="23" fill="#171a24" stroke="#2c3040"/>
+    <text x="36.5" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="600" fill="#c9cfe0" text-anchor="middle">ACT</text>
+  </g>
+  <g transform="translate(254 470)">
+    <rect width="88" height="46" rx="23" fill="#171a24" stroke="#2c3040"/>
+    <text x="44" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="600" fill="#c9cfe0" text-anchor="middle">SSAT</text>
+  </g>
+  <g transform="translate(354 470)">
+    <rect width="103" height="46" rx="23" fill="#171a24" stroke="#2c3040"/>
+    <text x="51.5" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="600" fill="#c9cfe0" text-anchor="middle">IELTS</text>
+  </g>
+  <g transform="translate(469 470)">
+    <rect width="103" height="46" rx="23" fill="#171a24" stroke="#2c3040"/>
+    <text x="51.5" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="600" fill="#c9cfe0" text-anchor="middle">TOEFL</text>
+  </g>
+
+  <g transform="translate(880 130) scale(2.4)">
+          <ellipse cx="61" cy="126" rx="38" ry="6" fill="#000" opacity="0.055" />
+
+      
+      <ellipse cx="49" cy="124" rx="11" ry="6" fill="#E8933A" transform="rotate(-8 49 124)" />
+      <ellipse cx="77" cy="124" rx="11" ry="6" fill="#E8933A" transform="rotate(8 77 124)" />
+
+      
+      <ellipse cx="63" cy="90" rx="45" ry="31" fill="#F8DC6E" />
+      <circle cx="63" cy="59" r="29" fill="#F8DC6E" />
+      <ellipse cx="63" cy="74" rx="42" ry="24" fill="#F8DC6E" />
+
+      
+      <ellipse cx="65" cy="97" rx="27" ry="21" fill="#FAE491" />
+
+      
+      <ellipse cx="31" cy="88" rx="12" ry="19" fill="#EFC94E" transform="rotate(-6 31 88)" />
+
+      
+      <ellipse cx="64" cy="63" rx="17" ry="10" fill="#E8963C" />
+      <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill="#C9762A" />
+
+      
+      <rect x="27" y="43" width="14" height="5" rx="2.5" fill="#1A1A1A" />
+      <rect x="87" y="43" width="14" height="5" rx="2.5" fill="#1A1A1A" />
+      <rect x="40" y="39" width="21" height="13" rx="4.5" fill="#1A1A1A" />
+      <rect x="66" y="39" width="21" height="13" rx="4.5" fill="#1A1A1A" />
+      <rect x="59" y="43" width="9" height="4" rx="1.6" fill="#1A1A1A" />
+      <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill="#4A4A4A" />
+      <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill="#4A4A4A" />
+
+      
+      <ellipse cx="64" cy="27" rx="41" ry="8.6" fill="#D9BE7E" />
+      <ellipse cx="64" cy="25" rx="27" ry="6" fill="#E2CB93" />
+      <path d="M47 24.5c4-7 30-7 34 0" stroke="#CDB076" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill="#C0563A" />
+      <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill="#E2CB93" />
+      <path d="M52 17c4-3.5 21-3.5 25 0" stroke="#CDB076" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+  </g>
+</svg>
