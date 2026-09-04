@@ -1904,3 +1904,75 @@ kbd {
   flex: 0 0 auto;
   background: var(--accent-soft);
 }
+
+/* ---------- printing a study sheet ---------- */
+
+.print-only { display: none; }
+
+@media print {
+  /* Everything that frames the app is furniture, not content. */
+  .sidebar,
+  .topbar,
+  .notice,
+  .scrim,
+  .no-print,
+  .filters,
+  .page-head p {
+    display: none !important;
+  }
+
+  /* Print black on white whatever the screen theme is, so it does not come
+     out as a page of dark ink. */
+  :root,
+  :root[data-theme="dark"] {
+    --bg: #fff;
+    --surface: #fff;
+    --panel: #fff;
+    --sunken: #fff;
+    --ink: #000;
+    --ink-2: #222;
+    --ink-3: #555;
+    --line: #ccc;
+    --line-soft: #ddd;
+    --shadow: none;
+  }
+
+  html, body, #root, .app, .main { height: auto; display: block; overflow: visible; }
+
+  .page { max-width: none; padding: 0; }
+  .page-head h2 { font-size: 20px; margin-bottom: 4px; }
+
+  .card {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .print-only { display: flex; }
+
+  .print-head {
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #000;
+    font-size: 15px;
+  }
+  .print-head span { font-size: 11px; color: #555; }
+
+  /* Highlights survive as a light tint rather than vanishing, which is the
+     whole point of the sheet. */
+  .hl {
+    box-shadow: none !important;
+    border-bottom: 2px solid #999;
+    background: #f0f0f0 !important;
+    color: #000 !important;
+  }
+
+  .sheet h4 { margin-top: 16px; page-break-after: avoid; }
+  .sheet li, .term { page-break-inside: avoid; }
+  .terms { gap: 6px; }
+  .term { border-color: #bbb; }
+
+  @page { margin: 16mm; }
+}

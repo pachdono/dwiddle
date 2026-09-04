@@ -1250,6 +1250,11 @@ function StudySheet({ made, go }) {
       <HighlightFilters on={on} setOn={setOn} counts={counts} />
 
       <div className="card card-pad sheet">
+        <div className="print-only print-head">
+          <b>{sheet.title || "Study sheet"}</b>
+          <span>Dwiddle</span>
+        </div>
+
         <h4>The big idea</h4>
         <ul>
           {(sheet.big || []).map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
@@ -1271,9 +1276,11 @@ function StudySheet({ made, go }) {
         </ul>
       </div>
 
-      <div className="row" style={{ marginTop: 16 }}>
-        <button className="btn ghost">Export as PDF</button>
-        <button className="btn ghost">Regenerate</button>
+      <div className="row no-print" style={{ marginTop: 16 }}>
+        <button className="btn ghost" onClick={() => window.print()}>
+          <Icon name="sheet" size={14} /> Export as PDF
+        </button>
+        <button className="btn ghost" onClick={() => go("upload")}>Regenerate</button>
       </div>
     </div>
   );
@@ -1882,6 +1889,218 @@ function SpeedRound({ grade, pool }) {
           {c}
         </button>
       ))}
+    </div>
+  );
+}
+
+/* ---------- answer formats ---------- */
+
+// Real papers do not use one answer layout. IELTS mixes True/False/Not Given,
+// Yes/No/Not Given, gap fill typed by hand and roman numbered heading lists.
+// The format is derived from the skill so each question renders the way its
+// own test presents it.
+function formatOf(q) {
+  const sk = (q.skill || "").toLowerCase();
+  if (sk.includes("true, false")) return "tfng";
+  if (sk.includes("yes, no")) return "ynng";
+  if (sk.includes("completion")) return "gap";
+  if (sk.includes("matching headings")) return "headings";
+  return "mcq";
+}
+
+const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii"];
+
+// ACT alternates its answer letters between odd and even questions, TOEFL uses
+// no letters at all, and everyone else runs A onwards.
+function lettersFor(testId, index) {
+  if (testId === "act") return index % 2 === 0 ? "ABCD" : "FGHJ";
+  if (testId === "toefl") return null;
+  return "ABCDE";
+}
+
+const norm = (v) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+function isRight(q, given) {
+  if (formatOf(q) === "gap") return given !== undefined && norm(given) === norm(q.choices[q.answer]);
+  return given === q.answer;
+}
+
+const isAnswered = (given) => given !== undefined && given !== "";
+
+// One question's answer control, in whatever shape its test uses.
+function AnswerInput({ q, testId, index, value, onChange, disabled }) {
+  const format = formatOf(q);
+
+  if (format === "gap") {
+    return (
+      <div className="gap-answer">
+        <label className="field">
+          <span>Type your answer</span>
+          <input type="text" value={value ?? ""} disabled={disabled}
+            placeholder="Your answer"
+            onChange={(e) => onChange(e.target.value)} />
+        </label>
+        <div className="small muted" style={{ marginTop: 6 }}>
+          Spelling counts, and answers over the stated word limit score zero.
+        </div>
+      </div>
+    );
+  }
+
+  if (format === "tfng" || format === "ynng") {
+    return (
+      <div className="tf-row">
+        {q.choices.map((c, n) => (
+          <button key={n} className={"tf-btn" + (value === n ? " on" : "")}
+            disabled={disabled} onClick={() => onChange(n)}>
+            {c}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (format === "headings") {
+    return (
+      <ol className="headings">
+        {q.choices.map((c, n) => (
+          <li key={n}>
+            <button className={"heading-opt" + (value === n ? " on" : "")}
+              disabled={disabled} onClick={() => onChange(n)}>
+              <span className="key roman">{ROMAN[n]}</span>
+              {c}
+            </button>
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  const letters = lettersFor(testId, index);
+  return (
+    <>
+      {q.choices.map((c, n) => (
+        <button key={n} className={"choice" + (value === n ? " picked" : "")}
+          disabled={disabled} onClick={() => onChange(n)}>
+          <span className={"key" + (letters ? "" : " blank")}>{letters ? letters[n] : ""}</span>
+          {c}
+        </button>
+      ))}
+    </>
+  );
+}
+
+/* ---------- post test feedback ---------- */
+
+// Breaks a finished paper down by skill and by section, works out what the
+// pattern actually says, and points at the next thing to do about it.
+function analyse(qs, answers, secondsAllowed, secondsLeft) {
+  if (!qs || qs.length === 0) {
+    return { rows: [], sections: [], right: 0, unanswered: 0, used: 0, notes: [], weakest: null };
+  }
+  const bySkill = {};
+  const bySection = {};
+
+  qs.forEach((q, n) => {
+    const ok = isRight(q, answers[n]);
+    const skill = q.skill || q.section || "General";
+    const section = q.section || "General";
+    (bySkill[skill] ||= { right: 0, total: 0 }).total += 1;
+    (bySection[section] ||= { right: 0, total: 0 }).total += 1;
+    if (ok) {
+      bySkill[skill].right += 1;
+      bySection[section].right += 1;
+    }
+  });
+
+  const rows = Object.entries(bySkill)
+    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
+    .sort((a, b) => a.pct - b.pct || b.total - a.total);
+
+  const sections = Object.entries(bySection)
+    .map(([name, v]) => ({ name, ...v, pct: v.right / v.total }))
+    .sort((a, b) => a.pct - b.pct);
+
+  const right = qs.filter((q, n) => isRight(q, answers[n])).length;
+  const unanswered = qs.filter((q, n) => !isAnswered(answers[n])).length;
+  const pct = right / qs.length;
+  const used = secondsAllowed - secondsLeft;
+  const notes = [];
+
+  // Pace. Two failure modes, and they need opposite advice.
+  if (unanswered > 0 && secondsLeft <= 0) {
+    notes.push(`You ran out of time with ${unanswered} unanswered. On a real paper those are marks given away for nothing, so put something down for every question before the clock stops.`);
+  } else if (unanswered > 0) {
+    notes.push(`You left ${unanswered} blank with time still on the clock. There is no penalty for a wrong answer here, so a considered guess is always better than a gap.`);
+  } else if (secondsLeft > secondsAllowed * 0.4 && pct < 0.7) {
+    notes.push(`You finished with ${Math.round(secondsLeft / 60)} minutes spare but got ${qs.length - right} wrong. Speed is not your problem. Slow down and use the time you are being given.`);
+  } else if (secondsAllowed > 0 && secondsLeft < secondsAllowed * 0.05) {
+    notes.push("You used almost the whole clock. That is fine on this paper, but it leaves nothing for checking, so any careless error stands.");
+  }
+
+  // Where the marks actually went.
+  const weak = rows.filter((r) => r.pct < 0.6 && r.total >= 2);
+  if (weak.length > 0) {
+    notes.push(`Most of your lost marks sit in ${weak.slice(0, 2).map((w) => w.name.toLowerCase()).join(" and ")}. That is a pattern rather than bad luck, so it is worth drilling on its own before you sit the section again.`);
+  }
+
+  const strong = rows.filter((r) => r.pct >= 0.8 && r.total >= 2);
+  if (strong.length > 0) {
+    notes.push(`${strong[strong.length - 1].name} is solid. Spend less time there and more on the rows above.`);
+  }
+
+  if (pct >= 0.9) notes.push("At this accuracy the useful next step is the full paper under time, not more practice on single sections.");
+  else if (pct < 0.4) notes.push("Accuracy this low usually means a method problem rather than a knowledge one. Drill a section with the explanations on before timing yourself again.");
+
+  return { rows, sections, right, unanswered, used, notes, weakest: sections[0] };
+}
+
+function Feedback({ qs, answers, secondsAllowed, secondsLeft, onDrill }) {
+  const a = analyse(qs, answers, secondsAllowed, secondsLeft);
+
+  return (
+    <div className="stack">
+      <div className="card">
+        <div className="card-head">
+          <h3>What to work on</h3>
+          {secondsAllowed > 0 && (
+            <span className="small muted">
+              {fmt(a.used)} used of {fmt(secondsAllowed)}
+            </span>
+          )}
+        </div>
+
+        <div className="fb-notes">
+          {a.notes.map((n, i) => (
+            <p key={i} className="small">{n}</p>
+          ))}
+        </div>
+
+        <div className="fb-rows">
+          {a.rows.map((r) => (
+            <div key={r.name} className="fb-row">
+              <span className="fb-name">{r.name}</span>
+              <div className="fb-bar">
+                <i className={r.pct < 0.5 ? "low" : r.pct < 0.8 ? "mid" : "high"}
+                  style={{ width: `${Math.max(r.pct * 100, 2)}%` }} />
+              </div>
+              <span className="fb-score small">{r.right}/{r.total}</span>
+            </div>
+          ))}
+        </div>
+
+        {onDrill && a.weakest && a.weakest.pct < 0.8 && (
+          <div className="set-row">
+            <div className="hint">
+              {a.weakest.name} was your weakest section at {a.weakest.right} of {a.weakest.total}.
+              A drill runs ten of them with no clock and the reasoning after each answer.
+            </div>
+            <button className="btn" onClick={() => onDrill(a.weakest.name)}>
+              <Icon name="quiz" size={14} /> Drill {a.weakest.name}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
