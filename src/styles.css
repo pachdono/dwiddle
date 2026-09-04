@@ -2056,3 +2056,58 @@ kbd {
 
 .player-reveal { margin-top: 12px; padding-left: 0; }
 .player-text { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+/* ---------- feedback ---------- */
+
+.stars { display: flex; gap: 4px; margin-top: 8px; }
+
+.star {
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--line);
+  cursor: pointer;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.star:hover { transform: scale(1.12); }
+.star.on { color: #f2b73d; }
+.star svg { fill: currentColor; stroke: none; }
+
+/* ---------- reviews on the landing page ---------- */
+
+.reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+.review-card {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+
+.review-stars { color: #f2b73d; font-size: 13px; letter-spacing: 1px; }
+
+.review-card p {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+@media (max-width: 900px) {
+  .reviews { grid-template-columns: 1fr; }
+}
+
+.landing-reviews {
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 32px 44px;
+}
+
+.landing-reviews .marquee-label { margin-bottom: 14px; }
+
+@media (max-width: 900px) {
+  .landing-reviews { padding: 0 20px 32px; }
+}

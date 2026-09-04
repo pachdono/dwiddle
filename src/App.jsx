@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
-import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, gradeWriting } from "./ai.js";
+import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
+import { generateFromNotes, generateFromSyllabus, gradeWriting, notifyFeedback } from "./ai.js";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
@@ -19,6 +19,8 @@ const paths = {
   sheet: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 10h5M7.5 13h5",
   target: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM10 13.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z",
   cap: "M2.5 7 10 3.5 17.5 7 10 10.5 2.5 7ZM5.5 8.6V13c0 1.4 2 2.5 4.5 2.5s4.5-1.1 4.5-2.5V8.6",
+  chat: "M3.5 5.5a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8l-3.5 3v-3H4.5a1 1 0 0 1-1-1z",
+  star: "M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7z",
   library: "M4 4h4v12H4zM10 4h3v12h-3zM15 5l2 11",
   upload: "M10 13V4M6.5 7.5 10 4l3.5 3.5M4 13v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2",
   spark: "M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z",
@@ -120,6 +122,7 @@ const NAV_STUDY = [
 const NAV_MATERIAL = [
   { id: "upload", label: "Add material", icon: "upload" },
   { id: "library", label: "Library", icon: "library" },
+  { id: "feedback", label: "Feedback", icon: "chat" },
 ];
 
 const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
@@ -291,6 +294,7 @@ export default function App() {
     settings: Settings,
     tests: TestPrep,
     courses: Courses,
+    feedback: FeedbackPage,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -3556,6 +3560,174 @@ function Courses({ go, setMade, auth }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ---------- feedback and reviews ---------- */
+
+function Stars({ value, onPick }) {
+  return (
+    <div className="stars" role="radiogroup" aria-label="Rating">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          role="radio"
+          aria-checked={value === n}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          className={"star" + (n <= value ? " on" : "")}
+          onClick={() => onPick(n)}
+        >
+          <Icon name="star" size={22} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FeedbackPage({ auth }) {
+  const [kind, setKind] = useState("feedback");
+  const [rating, setRating] = useState(0);
+  const [message, setMessage] = useState("");
+  const [contact, setContact] = useState("");
+  const [state, setState] = useState("idle"); // idle | sending | done | error
+  const [note, setNote] = useState("");
+
+  const short = message.trim().length < 3;
+
+  async function send(e) {
+    e.preventDefault();
+    if (short) return;
+    setState("sending");
+
+    // Stored first, because that is the copy that survives. The email is a
+    // convenience on top and its failure must not lose the message.
+    const stored = await submitFeedback({
+      kind,
+      rating: rating || null,
+      message: message.trim(),
+      contact: contact.trim(),
+    });
+
+    let emailed = false;
+    try {
+      const res = await notifyFeedback({
+        kind,
+        rating: rating || null,
+        message: message.trim(),
+        contact: contact.trim(),
+        from: stored.from || auth?.user?.email || "",
+      });
+      emailed = Boolean(res?.emailed);
+    } catch {
+      // the stored copy is what matters
+    }
+
+    if (!stored.stored && !emailed) {
+      setState("error");
+      setNote(stored.reason || "It could not be sent. Try again in a moment.");
+      return;
+    }
+
+    setState("done");
+    setNote(
+      kind === "review"
+        ? "Thank you. Reviews are read before they appear, so it will not show up straight away."
+        : "Thank you. This goes straight to the person who builds it.",
+    );
+  }
+
+  if (state === "done") {
+    return (
+      <div className="page fade">
+        <PageHead title="Thank you" sub="" />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} />
+          <b style={{ display: "block", marginTop: 10 }}>Sent</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>{note}</p>
+          <button className="btn ghost" onClick={() => { setState("idle"); setMessage(""); setRating(0); }}>
+            Say something else
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page fade">
+      <PageHead
+        title="Feedback"
+        sub="Tell me what is broken, what is missing, or what you would want next."
+      />
+
+      <form className="stack" onSubmit={send}>
+        <div className="seg modes">
+          <button type="button" className={kind === "feedback" ? "on" : ""} onClick={() => setKind("feedback")}>
+            <Icon name="chat" size={14} /> Feedback
+          </button>
+          <button type="button" className={kind === "review" ? "on" : ""} onClick={() => setKind("review")}>
+            <Icon name="star" size={14} /> Leave a review
+          </button>
+        </div>
+
+        {kind === "review" && (
+          <div className="card card-pad">
+            <b className="small">How is it?</b>
+            <Stars value={rating} onPick={setRating} />
+            <p className="small muted" style={{ margin: "10px 0 0" }}>
+              Reviews are read before they appear anywhere, so nothing goes public automatically.
+            </p>
+          </div>
+        )}
+
+        <div className="notes">
+          <div className="notes-head">
+            <div className="row">
+              <span className="notes-icon"><Icon name={kind === "review" ? "star" : "chat"} size={14} /></span>
+              <b className="small">{kind === "review" ? "Your review" : "What happened?"}</b>
+            </div>
+          </div>
+          <textarea
+            className="notes-area"
+            style={{ minHeight: 170 }}
+            value={message}
+            maxLength={4000}
+            placeholder={
+              kind === "review"
+                ? "What is it good at, and what would make it better?"
+                : "What were you doing, what did you expect, and what happened instead? Specifics help most."
+            }
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <div className="notes-foot">
+            <span className="small muted">{message.length} of 4000</span>
+            <button className="btn" type="submit" disabled={short || state === "sending"}>
+              {state === "sending" ? <Loading label="Sending" /> : "Send"}
+            </button>
+          </div>
+        </div>
+
+        {!auth?.user && (
+          <label className="field">
+            <span>Your email, if you want a reply</span>
+            <input
+              type="email"
+              value={contact}
+              placeholder="Optional"
+              style={{ maxWidth: 320 }}
+              onChange={(e) => setContact(e.target.value)}
+            />
+          </label>
+        )}
+
+        {state === "error" && (
+          <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>
+            <span className="pill warn">Not sent</span>
+            <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{note}</p>
+          </div>
+        )}
+      </form>
     </div>
   );
 }

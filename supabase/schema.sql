@@ -71,3 +71,42 @@ $$;
 
 revoke all on function public.user_count() from public;
 grant execute on function public.user_count() to anon, authenticated;
+
+-- Feedback and reviews.
+--
+-- Anyone can leave one. Nothing is publicly readable until it is approved, and
+-- approving is not something the app can do: there is no update policy at all,
+-- so it can only be done from the dashboard, by you. A troll can therefore
+-- write whatever they like and nobody but you will ever see it.
+create table if not exists public.feedback (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users on delete set null,
+  kind       text not null default 'feedback' check (kind in ('feedback', 'review')),
+  rating     int check (rating between 1 and 5),
+  message    text not null check (char_length(message) between 1 and 4000),
+  contact    text check (contact is null or char_length(contact) <= 200),
+  approved   boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_approved
+  on public.feedback (approved, created_at desc);
+
+alter table public.feedback enable row level security;
+
+-- Anyone may leave feedback, signed in or not. user_id must be their own if
+-- they are signed in, so nobody can post as somebody else.
+drop policy if exists "anyone may leave feedback" on public.feedback;
+create policy "anyone may leave feedback" on public.feedback
+  for insert
+  to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+
+-- Only approved reviews are readable, and only the parts meant to be shown.
+-- There is deliberately no update or delete policy: moderation happens in the
+-- dashboard under your own credentials, never through the app.
+drop policy if exists "approved reviews are public" on public.feedback;
+create policy "approved reviews are public" on public.feedback
+  for select
+  to anon, authenticated
+  using (approved = true and kind = 'review');

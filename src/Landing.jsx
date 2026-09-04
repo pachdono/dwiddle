@@ -1,11 +1,22 @@
 // The page a new visitor lands on. It exists to answer one question quickly:
 // what does this thing do, and is it for me.
 
+import { useEffect, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
+import { approvedReviews } from "./supabase.js";
 
 const TESTS = ["SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
 
 export function Landing({ onSignIn, onSkip, people }) {
+  // Nothing renders here until a review has been approved, so the section
+  // simply does not exist rather than showing an empty shell.
+  const [reviews, setReviews] = useState([]);
+  useEffect(() => {
+    let live = true;
+    approvedReviews(3).then((r) => live && setReviews(r));
+    return () => { live = false; };
+  }, []);
+
   return (
     <div className="landing">
       <header className="landing-top">
@@ -65,6 +76,25 @@ export function Landing({ onSignIn, onSkip, people }) {
           </div>
         </div>
       </main>
+
+      {reviews.length > 0 && (
+        <section className="landing-reviews">
+          <div className="marquee-label">What people say</div>
+          <div className="reviews">
+            {reviews.map((r) => (
+              <figure className="review-card" key={r.id}>
+                {r.rating ? (
+                  <div className="review-stars" aria-label={`${r.rating} out of 5`}>
+                    {"\u2605".repeat(r.rating)}
+                    <span style={{ color: "var(--line)" }}>{"\u2605".repeat(5 - r.rating)}</span>
+                  </div>
+                ) : null}
+                <p>{r.message}</p>
+              </figure>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="marquee-wrap">
         <div className="marquee-label">Full length practice for</div>

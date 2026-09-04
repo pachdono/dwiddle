@@ -145,3 +145,28 @@ gitignored. Never commit it.
 | `{"error":"requested path is invalid"}` when opening the sign in link, or after Google | The site is not in Supabase's **Redirect URLs** allow list. Authentication, URL Configuration, add `https://your-site.vercel.app/**`. This affects the email link and OAuth equally. |
 | "Unsupported provider: provider is not enabled" | Google is not enabled under Authentication, Providers. The app hides the button once it can see that, so this only appears on an old build. |
 | Sign in does nothing, no error | `VITE_SUPABASE_URL` is probably the dashboard link. It must be `https://<ref>.supabase.co`. Check the browser console for a warning naming the correct value. |
+
+
+---
+
+## Feedback and reviews
+
+Feedback goes to two places: a `feedback` table in Supabase, which is the copy
+that survives, and optionally your inbox.
+
+**To get the emails**, sign up at https://resend.com, create an API key, and add
+it in Vercel as `RESEND_API_KEY`. Without it the app still records everything
+and says so honestly rather than pretending it sent. `FEEDBACK_EMAIL` sets the
+destination and defaults to dwiddle36@gmail.com.
+
+**Reviews are hidden until you approve them.** This is enforced by the database,
+not by the app: the table has an insert policy and a select policy that only
+returns rows where `approved = true`, and there is no update policy at all. So
+nothing anybody writes can be read by anyone else, and the app itself cannot
+approve anything.
+
+To approve one: Supabase, **Table Editor**, `feedback`, find the row, tick
+`approved`, save. It appears on the landing page within a page load. To reject
+one, delete the row or simply leave it unticked forever.
+
+Re-run `supabase/schema.sql` to create the table. It is safe to run again.

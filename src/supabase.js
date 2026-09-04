@@ -242,3 +242,43 @@ export async function userCount() {
   const n = Number(data);
   return Number.isFinite(n) ? n : null;
 }
+
+// Feedback and reviews.
+//
+// Written straight to the table, which is insert only and readable only once
+// approved, so nothing anyone submits can appear anywhere until it is approved
+// in the dashboard.
+export async function submitFeedback({ kind, rating, message, contact }) {
+  if (!supabase) return { stored: false, reason: "Accounts are not configured" };
+
+  const { data: session } = await supabase.auth.getSession();
+  const user = session?.session?.user ?? null;
+
+  const { error } = await supabase.from("feedback").insert({
+    user_id: user?.id ?? null,
+    kind,
+    rating: kind === "review" ? rating : null,
+    message,
+    contact: contact || user?.email || null,
+  });
+
+  if (error) {
+    console.warn("[feedback] insert failed", error.message);
+    return { stored: false, reason: error.message };
+  }
+  return { stored: true, from: user?.email ?? null };
+}
+
+// Only ever returns approved reviews: the policy enforces it, this just asks.
+export async function approvedReviews(limit = 6) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("feedback")
+    .select("id, rating, message, created_at")
+    .eq("kind", "review")
+    .eq("approved", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return data || [];
+}

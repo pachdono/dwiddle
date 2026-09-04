@@ -57,3 +57,6 @@ export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
 // Fresh questions for a test section, written to that section's style.
 export const generateTestQuestions = ({ test, section, skills, count, passage, audio, avoid }) =>
   post("/api/testgen", { test, section, skills, count, passage, audio, avoid });
+
+// Emails a copy of feedback. Storing it is the client's job; this only notifies.
+export const notifyFeedback = (payload) => post("/api/feedback", payload);
