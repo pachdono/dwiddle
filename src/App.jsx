@@ -101,8 +101,11 @@ function initialsOf(user) {
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || n[0].toUpperCase();
 }
 
-function greeting() {
-  const h = new Date().getHours();
+function greeting(now = new Date()) {
+  const h = now.getHours();
+  // Before five is still the night before as far as anyone revising is
+  // concerned. Calling 2am "morning" reads as a machine that cannot tell.
+  if (h < 5) return "Good evening";
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
