@@ -34,5 +34,9 @@ async function post(path, body) {
 
 export const generateFromNotes = (notes) => post("/api/generate", { notes });
 
+// No notes needed: the course, subject and syllabus topic are the brief.
+export const generateFromSyllabus = ({ course, subject, topic }) =>
+  post("/api/generate", { syllabus: { course, subject, topic } });
+
 export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
   post("/api/grade", { answer, prompt, rubric, criteria, scale });

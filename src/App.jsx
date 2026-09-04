@@ -3,10 +3,11 @@ import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
-import { generateFromNotes, gradeWriting } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, gradeWriting } from "./ai.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
+import { COURSES } from "./courses.js";
 import { BUILDERS } from "./generate.js";
 import { TASKS, RUBRICS } from "./tasks.js";
 import { estimate } from "./scoring.js";
@@ -19,6 +20,7 @@ const paths = {
   quiz: "M7 7a3 3 0 1 1 3 3v2M10 15.5v.5",
   sheet: "M5 3h7l3 3v11H5zM12 3v3h3M7.5 10h5M7.5 13h5",
   target: "M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM10 13.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z",
+  cap: "M2.5 7 10 3.5 17.5 7 10 10.5 2.5 7ZM5.5 8.6V13c0 1.4 2 2.5 4.5 2.5s4.5-1.1 4.5-2.5V8.6",
   library: "M4 4h4v12H4zM10 4h3v12h-3zM15 5l2 11",
   upload: "M10 13V4M6.5 7.5 10 4l3.5 3.5M4 13v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2",
   spark: "M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z",
@@ -94,6 +96,7 @@ const NAV_STUDY = [
   { id: "quiz", label: "Practice", icon: "quiz" },
   { id: "sheet", label: "Study sheet", icon: "sheet" },
   { id: "tests", label: "Test prep", icon: "target" },
+  { id: "courses", label: "Courses", icon: "cap" },
 ];
 
 const NAV_MATERIAL = [
@@ -246,6 +249,7 @@ export default function App() {
     library: Library,
     settings: Settings,
     tests: TestPrep,
+    courses: Courses,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -3149,6 +3153,177 @@ function AiMark({ task, rubric, answer, onScores }) {
         <button className="btn ghost" onClick={() => onScores(result.scores)}>
           Use these scores
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- common courses ---------- */
+
+// The school course equivalent of Test prep: what your course examines, how it is
+// graded, and questions written for a specific syllabus topic without you
+// having to paste anything.
+function Courses({ go, setMade }) {
+  const [courseId, setCourseId] = useState(null);
+  const [subjectId, setSubjectId] = useState(null);
+  const [busy, setBusy] = useState(null); // the topic currently generating
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(null);
+
+  const course = COURSES.find((c) => c.id === courseId);
+  const subject = course?.subjects.find((s) => s.id === subjectId);
+
+  async function build(topic) {
+    setBusy(topic);
+    setError("");
+    setDone(null);
+    try {
+      const data = await generateFromSyllabus({
+        course: course.name,
+        subject: subject.name,
+        topic,
+      });
+      setMade(data);
+      setDone({ topic, count: data.questions.length });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // A subject: what it examines, and every topic ready to practise.
+  if (subject) {
+    return (
+      <div className="page fade">
+        <div className="page-head">
+          <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setSubjectId(null)}>
+            Back to {course.name}
+          </button>
+          <h2>{subject.name}</h2>
+          <p>{course.name}{subject.code ? `, ${subject.code}` : ""}</p>
+        </div>
+
+        <div className="stack">
+          <div className="card card-pad note-card">
+            <b className="small">How it is assessed</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{subject.assessment}</p>
+          </div>
+
+          {error && (
+            <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>
+              <span className="pill warn">Could not generate</span>
+              <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{error}</p>
+            </div>
+          )}
+
+          {done && (
+            <div className="card card-pad spread fade">
+              <div>
+                <b className="small good-text">{done.count} questions ready on {done.topic}</b>
+                <div className="small muted">
+                  They are now your material, so Practice, Topics and the study sheet all use them.
+                </div>
+              </div>
+              <button className="btn" onClick={() => go("quiz")}>Start practising</button>
+            </div>
+          )}
+
+          <div className="card">
+            <div className="card-head">
+              <h3>Syllabus topics</h3>
+              <span className="small muted">{subject.topics.length} topics</span>
+            </div>
+            <div className="drill-note small muted">
+              Pick one and questions are written for it, at the level your course examines. No notes
+              needed, though pasting your own always beats a generated set.
+            </div>
+            {subject.topics.map((t) => (
+              <div key={t} className="sec-row">
+                <div className="sec-main">
+                  <span className="list-title">{t}</span>
+                </div>
+                <button className="btn ghost" disabled={busy !== null} onClick={() => build(t)}>
+                  {busy === t ? <Loading label="Writing" /> : <><Icon name="spark" size={14} /> Questions</>}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // A course: its subjects, how it is graded, and what to watch for.
+  if (course) {
+    return (
+      <div className="page fade">
+        <div className="page-head">
+          <button className="btn quiet" style={{ marginBottom: 8 }} onClick={() => setCourseId(null)}>
+            Back to all courses
+          </button>
+          <h2>{course.name}</h2>
+          <p>{course.board}</p>
+        </div>
+
+        <div className="stack">
+          <div className="grid-2">
+            <div className="stat"><div className="k">Grading</div><div className="v small-v">{course.grading}</div></div>
+            <div className="stat"><div className="k">Ages</div><div className="v small-v">{course.ages}</div></div>
+          </div>
+
+          <div className="card card-pad note-card">
+            <b className="small">Worth knowing</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{course.note}</p>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <h3>Subjects</h3>
+              <span className="small muted">{course.subjects.length} available</span>
+            </div>
+            {course.subjects.map((sub) => (
+              <div key={sub.id} className="sec-row">
+                <div className="sec-main">
+                  <span className="list-title">{sub.name}</span>
+                  <div className="small muted">{sub.topics.length} syllabus topics</div>
+                </div>
+                <button className="btn ghost" onClick={() => setSubjectId(sub.id)}>Open</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page wide fade">
+      <PageHead title="Courses" sub="Your school course: what it examines, how it is graded, and questions for any topic on it." />
+
+      <div className="disclaimer">
+        <Icon name="flag" size={14} />
+        <span>
+          Grading scales and assessment shapes are the published ones, and topic lists follow the
+          subject content. Paper counts and timings change between subjects, tiers and series, so
+          check the current specification before relying on the detail.
+        </span>
+      </div>
+
+      <div className="test-grid">
+        {COURSES.map((c) => (
+          <button key={c.id} className="test-card" onClick={() => setCourseId(c.id)}>
+            <div className="spread">
+              <b className="test-name">{c.name}</b>
+              <span className="pill accent">{c.subjects.length} subjects</span>
+            </div>
+            <span className="small muted">{c.board}</span>
+            <div className="test-meta">
+              <span><b>{c.ages}</b></span>
+            </div>
+            <span className="small muted">{c.grading}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

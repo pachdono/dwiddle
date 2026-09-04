@@ -45,17 +45,41 @@ Rules:
 - Each line in "big" and "watch" is an array of segments. Segments without "mark" are plain text. Concatenated, the segments must read as one natural sentence.
 - Write in British English. Do not use em dashes or en dashes.`;
 
+// Working from a syllabus topic rather than pasted notes. The rule about using
+// only what is in the notes has to be lifted, since there are none, and
+// replaced with the course as the boundary instead.
+const SYLLABUS_RULES = `
+- The material must match what that course actually examines at that level, in
+  its usual style and difficulty. Do not go beyond the syllabus.
+- Break the topic into 3 or 4 sub topics and use those as the topic names.`;
+
 export default async function handler(req, res) {
   if (!guard(req, res)) return;
 
+  const syllabus = req.body?.syllabus;
   const notes = String(req.body?.notes || "").trim();
-  if (notes.length < 200) return userError(res, 400, "Give at least a couple of paragraphs of notes to work from");
-  if (notes.length > MAX_INPUT) return userError(res, 413, `That is longer than the ${MAX_INPUT} character limit. Send one chapter at a time.`);
+
+  let system = SYSTEM;
+  let user;
+  let label;
+
+  if (syllabus?.topic && syllabus?.subject && syllabus?.course) {
+    const course = String(syllabus.course).slice(0, 80);
+    const subject = String(syllabus.subject).slice(0, 80);
+    const topic = String(syllabus.topic).slice(0, 120);
+    label = `${subject}: ${topic}`;
+    system = SYSTEM.replace("- Only use what is in the notes. Never invent facts that are not there.", SYLLABUS_RULES.trim());
+    user = `Write study material for ${course} ${subject}, on the syllabus topic "${topic}".`;
+  } else {
+    if (notes.length < 200) return userError(res, 400, "Give at least a couple of paragraphs of notes to work from");
+    if (notes.length > MAX_INPUT) return userError(res, 413, `That is longer than the ${MAX_INPUT} character limit. Send one chapter at a time.`);
+    user = `Build study material from these notes.\n\n${notes}`;
+  }
 
   try {
     const text = await ask({
-      system: SYSTEM,
-      user: `Build study material from these notes.\n\n${notes}`,
+      system,
+      user,
       maxTokens: 3500,
       json: true,
       temperature: 0.3,
@@ -104,7 +128,7 @@ export default async function handler(req, res) {
       }));
 
     res.status(200).json({
-      title: String(data.title || "Your material"),
+      title: label || String(data.title || "Your material"),
       topics: topics.length ? topics : names.map((n, i) => ({
         id: `ait${i}`, name: n, reason: "Generated from your notes.",
         questions: questions.filter((q) => q.topic === n).length,
