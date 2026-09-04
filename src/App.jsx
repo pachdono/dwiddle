@@ -4,6 +4,7 @@ import { load, save, loadSession, saveSession, clearSession, KEYS } from "./stor
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount } from "./supabase.js";
 import { generateFromNotes, generateFromSyllabus, gradeWriting } from "./ai.js";
+import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
 import { TESTS, TEST_QUESTIONS, SECTIONS } from "./tests.js";
@@ -196,9 +197,31 @@ export default function App() {
   }, []);
   const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
 
-  function setMade(data) {
-    setMadeRaw(data);
-    save(KEYS.made, data);
+  // Generated material accumulates. Doing one syllabus topic and then another
+  // used to throw the first away, which made Courses close to useless: you
+  // could only ever hold the last thing you generated.
+  function setMade(data, { replace = false } = {}) {
+    setMadeRaw((prev) => {
+      let next = data;
+
+      if (prev && data && !replace) {
+        const ids = new Set(prev.questions.map((q) => q.id));
+        const names = new Set(prev.topics.map((t) => t.name));
+        next = {
+          title: data.title,
+          topics: [...prev.topics, ...data.topics.filter((t) => !names.has(t.name))],
+          questions: [...prev.questions, ...data.questions.filter((q) => !ids.has(q.id))],
+          // Keep the newest sheet, since the old one is still reachable by
+          // regenerating, and two sheets on one page helps nobody.
+          sheet: data.sheet || prev.sheet,
+          sheets: [...(prev.sheets || (prev.sheet ? [{ title: prev.title, sheet: prev.sheet }] : [])),
+                   ...(data.sheet ? [{ title: data.title, sheet: data.sheet }] : [])].slice(-12),
+        };
+      }
+
+      save(KEYS.made, next);
+      return next;
+    });
   }
 
   // Everything comes from the person's own notes. There is no built in content.
@@ -852,7 +875,7 @@ function AddMaterial({ go, setMade }) {
     try {
       const data = await generateFromNotes(text);
       setResult(data);
-      setMade(data);
+      setMade(data, { replace: true });
       setState("done");
     } catch (err) {
       setState("error");
@@ -2141,6 +2164,31 @@ function buildPaper(test, sec) {
 function TestPrep({ grade }) {
   const [openId, setOpenId] = useState(null);
   const [paper, setPaper] = useState(null);
+  const [building, setBuilding] = useState(null); // { sec, have, wanted }
+
+  // Sitting a section assembles a paper you have not seen. Authored questions
+  // come first, then anything written for you previously, then new ones.
+  async function sit(sec) {
+    const built = buildPaper(test, sec);
+    setBuilding({ sec, have: 0, wanted: sec.real });
+
+    const skills = [...new Set(built.qs.map((q) => q.skill).filter(Boolean))].slice(0, 8);
+    const passage = Boolean(sec.pool) && built.qs.some((q) => q.passage);
+
+    const { qs, wrote } = await buildFresh({
+      test,
+      sec,
+      authored: built.qs,
+      wanted: sec.real,
+      passage,
+      skills,
+      onProgress: ({ have, wanted }) => setBuilding({ sec, have, wanted }),
+    });
+
+    setBuilding(null);
+    if (qs.length === 0) return;
+    setPaper({ sec, qs, full: qs.length >= sec.real, wrote });
+  }
 
   const test = TESTS.find((t) => t.id === openId);
   const secs = test ? SECTIONS[test.id] : [];
@@ -2210,15 +2258,23 @@ function TestPrep({ grade }) {
                         ? <span className="pill soon">In development</span>
                         : sec.kind
                           ? <span className="pill accent">{ready} task{ready === 1 ? "" : "s"} ready</span>
-                          : built.full
-                            ? <span className="pill good">Full length</span>
-                            : <span className="pill warn">Short form, {have} of {sec.real}</span>}
+                          : <span className="pill good">Full length</span>}
                     </div>
                     <div className="small muted">
                       {sec.soon
                         ? "Being built now. It needs audio playback, which is the next thing on the list."
                         : `${sec.real} ${sec.kind ? (sec.real === 1 ? "task" : "tasks") : "questions"}, ${sec.minutes} min${sec.note ? `. ${sec.note}` : ""}`}
                     </div>
+                    {!sec.soon && !sec.kind && (
+                      <div className="small muted">
+                        {(() => {
+                          const unseen = unseenCount(built?.qs || [], test.id, sec.id);
+                          const stored = bankFor(test.id, sec.id).length;
+                          if (unseen >= sec.real) return `${unseen} unseen questions ready${stored ? `, ${stored} written for you so far` : ""}`;
+                          return `${unseen} unseen left, more will be written when you sit it`;
+                        })()}
+                      </div>
+                    )}
                   </div>
 
                   {sec.soon ? (
@@ -2232,15 +2288,31 @@ function TestPrep({ grade }) {
                       {sec.kind === "speaking" ? "Practise speaking" : "Practise writing"}
                     </button>
                   ) : (
-                    <button className="btn ghost" disabled={have === 0}
-                      onClick={() => setPaper({ sec, qs: built.qs, full: built.full })}>
-                      {have === 0 ? "No questions yet" : "Sit this section"}
+                    <button className="btn ghost" disabled={building !== null}
+                      onClick={() => sit(sec)}>
+                      {building?.sec?.id === sec.id ? <Loading label="Building" /> : "Sit this section"}
                     </button>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {building && (
+            <div className="card card-pad fade">
+              <div className="spread" style={{ marginBottom: 10 }}>
+                <b className="small">Writing fresh questions for {building.sec.name}</b>
+                <span className="small muted">{building.have} of {building.wanted}</span>
+              </div>
+              <div className="bar">
+                <i style={{ width: `${Math.round((building.have / building.wanted) * 100)}%` }} />
+              </div>
+              <p className="small muted" style={{ margin: "10px 0 0" }}>
+                You have seen the stored ones, so new material is being written. This takes a few
+                seconds and only happens when the section runs low.
+              </p>
+            </div>
+          )}
 
           <div className="card">
             <div className="card-head">
@@ -2292,6 +2364,20 @@ function TestPrep({ grade }) {
             <b className="small">Worth knowing</b>
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{test.note}</p>
           </div>
+
+          <div className="card card-pad spread">
+            <div>
+              <b className="small">Papers never repeat</b>
+              <div className="small muted">
+                Questions you have been given are remembered and set aside, and new ones are written
+                when a section runs low. If you would rather see the earlier ones again, clear the
+                history.
+              </div>
+            </div>
+            <button className="btn ghost" onClick={() => { clearSeen(); setOpenId(openId); }}>
+              Clear history
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -2332,7 +2418,7 @@ function TestPrep({ grade }) {
   );
 }
 
-function TestRun({ test, sec, qs, full, grade, onExit, onDrill }) {
+function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
   const [i, setI] = useState(0);
   const [answers, setAnswers] = useState({});
   const [left, setLeft] = useState(sec.minutes * 60);
@@ -2389,6 +2475,7 @@ function TestRun({ test, sec, qs, full, grade, onExit, onDrill }) {
               {full
                 ? `This section ran at its real length of ${qs.length} questions.`
                 : `This was a short form of ${qs.length} questions against a real ${sec.real}.`}{" "}
+              {wrote > 0 ? `${wrote} of them were written fresh for you, so this paper has never been sat before. ` : ""}
               Scaled scores are still an estimate: real tests are equated between sittings, so the same
               raw score can move a little either way. Use the band, not the exact number.
             </p>
@@ -3222,7 +3309,8 @@ function Courses({ go, setMade }) {
               <div>
                 <b className="small good-text">{done.count} questions ready on {done.topic}</b>
                 <div className="small muted">
-                  They are now your material, so Practice, Topics and the study sheet all use them.
+                  Added to your material, alongside anything generated before, so Practice, Topics
+                  and the study sheet all use them. Generate as many topics as you like.
                 </div>
               </div>
               <button className="btn" onClick={() => go("quiz")}>Start practising</button>

@@ -57,4 +57,6 @@ export const KEYS = {
   made: "dwiddle-made",       // material generated from your own notes
   bannerOff: "dwiddle-banner", // the not signed in notice was dismissed
   entered: "dwiddle-entered",  // landing passed, for this tab only
+  testBank: "dwiddle-bank",   // questions written for test sections, kept and reused
+  seen: "dwiddle-seen",       // question ids already served, so papers do not repeat
 };

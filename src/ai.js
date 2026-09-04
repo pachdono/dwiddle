@@ -40,3 +40,7 @@ export const generateFromSyllabus = ({ course, subject, topic }) =>
 
 export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
   post("/api/grade", { answer, prompt, rubric, criteria, scale });
+
+// Fresh questions for a test section, written to that section's style.
+export const generateTestQuestions = ({ test, section, skills, count, passage, avoid }) =>
+  post("/api/testgen", { test, section, skills, count, passage, avoid });
