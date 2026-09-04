@@ -498,8 +498,21 @@ function shuffle(arr) {
 }
 
 // Renders a line of segments, highlighting the marked ones that are switched on.
+//
+// A sheet does not always arrive in the shape it should. A model can write a
+// plain string where segments were asked for, and a reply cut off mid answer
+// gets repaired, which can leave a line half written or missing. None of that
+// is worth a blank page, so anything unexpected is coerced or dropped.
+function toSegments(parts) {
+  if (Array.isArray(parts)) {
+    return parts.filter((seg) => seg && typeof seg === "object" && typeof seg.t === "string");
+  }
+  if (typeof parts === "string") return [{ t: parts }];
+  return [];
+}
+
 function Marked({ parts, on }) {
-  return parts.map((seg, i) =>
+  return toSegments(parts).map((seg, i) =>
     !seg.mark || !on[seg.mark]
       ? <span key={i}>{seg.t}</span>
       : <mark key={i} className={"hl " + seg.mark}>{seg.t}</mark>,
@@ -1352,8 +1365,8 @@ function sheetParts(sheet) {
   return [
     ...(sheet.big || []),
     ...(sheet.watch || []),
-    ...(sheet.terms || []).map((t) => t.d),
-  ].flat().filter(Boolean);
+    ...(sheet.terms || []).map((t) => t?.d),
+  ].flatMap(toSegments);
 }
 
 function StudySheet({ made, go }) {
@@ -1386,7 +1399,7 @@ function StudySheet({ made, go }) {
     <div className="page fade">
       <PageHead
         title={sheet.title || "Study sheet"}
-        sub={`Written from your own notes. ${total} highlight${total === 1 ? "" : "s"}.`}
+        sub={`${made?.title ? `From ${made.title}. ` : ""}${total} highlight${total === 1 ? "" : "s"}.`}
       />
 
       <HighlightFilters on={on} setOn={setOn} counts={counts} />
@@ -1399,22 +1412,26 @@ function StudySheet({ made, go }) {
 
         <h4>The big idea</h4>
         <ul>
-          {(sheet.big || []).map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+          {(sheet.big || []).filter((l) => toSegments(l).length).map((line, n) => (
+            <li key={n}><Marked parts={line} on={on} /></li>
+          ))}
         </ul>
 
         <h4>Key terms</h4>
         <div className="terms">
-          {(sheet.terms || []).map((t) => (
-            <div key={t.t} className="term">
+          {(sheet.terms || []).filter((t) => t && t.t).map((t, n) => (
+            <div key={`${t.t}-${n}`} className="term">
               <b>{t.t}</b>
-              <span><Marked parts={t.d} on={on} /></span>
+              {toSegments(t.d).length > 0 && <span><Marked parts={t.d} on={on} /></span>}
             </div>
           ))}
         </div>
 
         <h4>Where people lose marks</h4>
         <ul>
-          {(sheet.watch || []).map((line, n) => <li key={n}><Marked parts={line} on={on} /></li>)}
+          {(sheet.watch || []).filter((l) => toSegments(l).length).map((line, n) => (
+            <li key={n}><Marked parts={line} on={on} /></li>
+          ))}
         </ul>
       </div>
 
