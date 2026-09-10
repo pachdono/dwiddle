@@ -8,7 +8,7 @@ import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
-import Customise from "./Customise.jsx";
+import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
@@ -85,7 +85,6 @@ const PAGE_PATH = {
   feedback: "/feedback",
   settings: "/settings",
   reader: "/material",
-  customise: "/customise",
 };
 
 const PATH_PAGE = Object.fromEntries(
@@ -166,8 +165,7 @@ const NAV_MATERIAL = [
   { id: "feedback", label: "Feedback", icon: "chat" },
 ];
 
-const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" },
-  { id: "reader", label: "Material" }, { id: "customise", label: "Customise" }];
+const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
 
 export default function App() {
   const [page, setPage] = useState(() => routeOf(window.location.pathname).page || "home");
@@ -175,9 +173,17 @@ export default function App() {
   const [custom, setCustomRaw] = useState(() => loadCustom());
   const [customBg, setCustomBg] = useState(() => loadBg());
 
+  const [editing, setEditing] = useState(false);
+
   function setCustom(next) {
     setCustomRaw(next);
     saveCustom(next);
+  }
+
+  // From Settings: go to the dashboard and open the editor on arrival.
+  function openEditor() {
+    setEditing(true);
+    go("home");
   }
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
@@ -328,6 +334,7 @@ export default function App() {
   }, [auth.user, missed, hidden, topic, theme]);
 
   const go = (p, mode) => {
+    if (p !== "home") setEditing(false);
     if (mode) setPMode(mode);
     if (p === page) setSeq((n) => n + 1);
     setPage(p);
@@ -392,7 +399,6 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     feedback: FeedbackPage,
-    customise: CustomisePage,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -427,7 +433,8 @@ export default function App() {
     return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} onLegal={openLegal} />;
   }
 
-  const showPhoto = custom.on && custom.widgets.photo && customBg;
+  const showPhoto = custom.on && customBg && custom.widgets.photo &&
+    (custom.photo.place === "background" || custom.photo.place === "both");
 
   return (
     <div className="app">
@@ -435,8 +442,8 @@ export default function App() {
         <div className="app-photo" aria-hidden="true">
           <img src={customBg} alt="" />
           <div style={{
-            backdropFilter: custom.blur ? `blur(${custom.blur}px)` : undefined,
-            background: `rgba(0,0,0,${custom.dim / 200})`,
+            backdropFilter: custom.photo.blur ? `blur(${custom.photo.blur}px)` : undefined,
+            background: `rgba(0,0,0,${custom.photo.dim / 200})`,
           }} />
         </div>
       )}
@@ -468,14 +475,6 @@ export default function App() {
               {n.label}
             </button>
           ))}
-
-          {custom.on && (
-            <button className={"nav-item" + (page === "customise" ? " on" : "")}
-              onClick={() => go("customise")}>
-              <Icon name="build" />
-              Customise
-            </button>
-          )}
 
           <div className="nav-label">Material</div>
           {NAV_MATERIAL.map((n) => (
@@ -564,8 +563,21 @@ export default function App() {
           setCustom={setCustom}
           customBg={customBg}
           setCustomBg={setCustomBg}
+          editing={editing}
+          setEditing={setEditing}
+          openEditor={openEditor}
         />
       </main>
+
+      {editing && page === "home" && custom.on && (
+        <EditBar
+          cfg={custom}
+          setCfg={setCustom}
+          bg={customBg}
+          setBg={setCustomBg}
+          onDone={() => setEditing(false)}
+        />
+      )}
     </div>
   );
 }
@@ -693,35 +705,55 @@ function streakOf(days) {
   return n;
 }
 
-// Renders the dashboard blocks in the saved order, skipping any that are
-// switched off. With customisation off it falls back to the built in order, so
-// the default dashboard is unchanged.
-function DashWidgets({ custom, customBg, parts }) {
+// Renders the dashboard blocks in the saved order. While editing, every block
+// is shown even if it is switched off, because you cannot bring back something
+// you cannot see.
+function DashWidgets({ custom, customBg, setCustom, editing, parts }) {
   const on = custom?.on;
   const order = on ? custom.order : WIDGETS.map((w) => w.id);
+  const drag = useDragOrder(order, (next) => setCustom({ ...custom, order: next }));
 
+  const asCard = custom?.photo?.place !== "background";
   const extra = {
-    photo: on && custom.widgets.photo && customBg
+    photo: on && customBg && asCard
       ? <div className="card dash-photo" style={{ backgroundImage: `url(${customBg})` }} />
-      : null,
-    quote: on && custom.widgets.quote && custom.quote?.trim()
-      ? <div className="card card-pad dash-quote">{custom.quote}</div>
+      : on && editing
+        ? <div className="card card-pad dash-empty">No photo yet. Open Photo in the bar below.</div>
+        : null,
+    quote: on && (custom.quote?.trim() || editing)
+      ? <div className="card card-pad dash-quote">{custom.quote?.trim() || "Your words go here."}</div>
       : null,
   };
 
   return (
     <>
-      {order.map((id) => {
-        if (on && !custom.widgets[id]) return null;
+      {order.map((id, index) => {
+        const hidden = on && !custom.widgets[id];
+        if (hidden && !editing) return null;
         if (!on && (id === "photo" || id === "quote")) return null;
         const node = id in extra ? extra[id] : parts[id];
-        return node ? <div key={id} className="dash-slot">{node}</div> : null;
+        if (!node) return null;
+        return (
+          <div key={id} className="dash-slot">
+            <EditSlot
+              id={id}
+              index={index}
+              editing={editing}
+              hidden={hidden}
+              drag={drag}
+              onToggle={() => setCustom({ ...custom, widgets: { ...custom.widgets, [id]: hidden } })}
+            >
+              {node}
+            </EditSlot>
+          </div>
+        );
       })}
     </>
   );
 }
 
-function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, customBg }) {
+function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
+  customBg, setCustomBg, editing, setEditing }) {
   // Only shown if the database actually answers. No number is better than an
   // invented one. It refreshes on its own so the figure stays current without
   // a reload: every 30 seconds while the tab is in front, and immediately when
@@ -761,6 +793,15 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, c
 
   return (
     <div className="page wide fade">
+      {custom?.on && (
+        <div className="dash-edit-cta">
+          <button className={"btn small" + (editing ? "" : " ghost")}
+            onClick={() => setEditing(!editing)}>
+            <Icon name="build" size={14} /> {editing ? "Editing" : "Customise"}
+          </button>
+        </div>
+      )}
+
       <PageHead
         title={`${greeting()}, ${displayName(auth?.user)}`}
         sub={started
@@ -771,7 +812,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, c
       />
 
       <div className="stack">
-        <DashWidgets custom={custom} customBg={customBg} parts={{
+        <DashWidgets custom={custom} customBg={customBg} setCustom={setCustom} editing={editing} parts={{
           stats: (
         <div className="grid-3">
           <div className="stat">
@@ -1660,21 +1701,7 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-// A thin wrapper so the panel itself stays free of app plumbing.
-function CustomisePage({ custom, setCustom, customBg, setCustomBg }) {
-  return <Customise cfg={custom} setCfg={setCustom} bg={customBg} setBg={setCustomBg} />;
-}
-
-function Settings({ theme, setTheme, auth, custom, setCustom, go }) {
-  // Hidden the way these things traditionally are. Five taps on the version
-  // number, because a feature you had to find is a feature worth showing off.
-  const [taps, setTaps] = useState(0);
-
-  function tapVersion() {
-    const n = taps + 1;
-    setTaps(n);
-    if (n >= 5 && !custom.on) setCustom({ ...custom, on: true });
-  }
+function Settings({ theme, setTheme, auth, custom, setCustom, openEditor }) {
 
   const [name, setName] = useState(() => displayName(auth?.user));
   const [goal, setGoal] = useState("20");
@@ -1757,32 +1784,25 @@ function Settings({ theme, setTheme, auth, custom, setCustom, go }) {
           <SetRow label="Terms" hint="How the service may be used.">
             <a className="btn ghost small" href="/terms">Read</a>
           </SetRow>
-          <SetRow
-            label="Version"
-            hint={custom?.on
-              ? "Customisation is unlocked."
-              : taps >= 2 && taps < 5
-                ? `${5 - taps} more`
-                : "Dwiddle for the web."}
-          >
-            <button className="btn ghost small" onClick={tapVersion}>1.0</button>
+          <SetRow label="Version" hint="Dwiddle for the web.">
+            <span className="small muted">1.0</span>
           </SetRow>
         </div>
 
-        {custom?.on && (
-          <div className="card">
-            <div className="card-head"><h3>Customisation</h3></div>
-            <SetRow label="Customise" hint="Palettes, your own photo, and what the dashboard shows.">
-              <button className="btn small" onClick={() => go("customise")}>Open</button>
+        <div className="card">
+          <div className="card-head"><h3>Developer tools</h3></div>
+          <SetRow
+            label="Developer tools"
+            hint="Adds a Customise button to the dashboard, for colours, your own photo and the layout."
+          >
+            <Switch on={!!custom?.on} onClick={() => setCustom({ ...custom, on: !custom.on })} />
+          </SetRow>
+          {custom?.on && (
+            <SetRow label="Open the editor" hint="Or press Customise on the dashboard.">
+              <button className="btn small" onClick={openEditor}>Open</button>
             </SetRow>
-            <SetRow label="Turn it off" hint="Puts everything back to the standard look.">
-              <button className="btn ghost small"
-                onClick={() => setCustom({ ...custom, on: false })}>
-                Turn off
-              </button>
-            </SetRow>
-          </div>
-        )}
+          )}
+        </div>
 
 
       </div>

@@ -74,6 +74,8 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   background: var(--bg);
+  background-image: var(--bg-grad, none);
+  background-attachment: fixed;
   color: var(--ink);
   font-size: 14px;
   line-height: 1.55;
@@ -2410,34 +2412,26 @@ kbd {
 
 /* ---------- customisation ---------- */
 
-/* The photo sits behind the whole app, fixed, so scrolling does not drag it. */
-.app-photo {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-.app-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.app-photo > div { position: absolute; inset: 0; }
+/* A gradient page needs the app shell to be transparent, or the flat colour
+   underneath it covers the gradient up. */
+:root[style*="--bg-grad"] .app,
+:root[style*="--bg-grad"] main { background: transparent; }
 
-/* With a photo behind, panels need a little opacity to stay legible. */
-.app-photo ~ .sidebar,
-.app-photo ~ main .topbar { background: color-mix(in srgb, var(--panel) 88%, transparent); }
-.app-photo ~ main, .app-photo ~ .sidebar { position: relative; z-index: 1; }
+.app-photo { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.app-photo img { width: 100%; height: 100%; object-fit: cover; }
+.app-photo > div { position: absolute; inset: 0; }
+.app-photo ~ .sidebar, .app-photo ~ main { position: relative; z-index: 1; }
+.app-photo ~ .sidebar { background: color-mix(in srgb, var(--panel) 86%, transparent); }
 
 .dash-slot { display: contents; }
+.dash-edit-cta { display: flex; justify-content: flex-end; margin-bottom: -8px; }
 
 .dash-photo {
-  height: 210px;
+  height: 220px;
   background-size: cover;
   background-position: center;
   border: 1px solid var(--line);
 }
-
 .dash-quote {
   font-size: 17px;
   line-height: 1.5;
@@ -2445,114 +2439,164 @@ kbd {
   text-align: center;
   padding: 26px 24px;
 }
+.dash-empty { color: var(--ink-3); text-align: center; }
 
-.cz-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 14px 0;
-  border-top: 1px solid var(--line-soft);
-  flex-wrap: wrap;
-}
-.cz-row:first-of-type { border-top: 0; }
-.cz-label b { display: block; font-size: 14px; color: var(--ink); }
-.cz-label span { font-size: 12.5px; color: var(--ink-3); }
-.cz-control { display: flex; align-items: center; gap: 8px; }
+/* ---- edit mode ---- */
 
-.cz-note { margin: 0 0 14px; }
-.cz-err { color: var(--warn); font-size: 13px; margin: 10px 0 0; }
-.cz-actions { display: flex; gap: 8px; margin-top: 14px; }
-
-.cz-presets { display: flex; flex-wrap: wrap; gap: 10px; }
-.cz-preset {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.cz-preset:hover { background: var(--hover); }
-.cz-preset-dots { display: flex; }
-.cz-preset-dots i {
-  width: 12px; height: 12px; border-radius: 50%;
-  display: block; border: 2px solid var(--surface);
-}
-.cz-preset-dots i + i { margin-left: -5px; }
-
-.cz-swatches { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.cz-swatch {
-  display: flex; align-items: center; gap: 7px;
-  padding: 7px 12px 7px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-  font: inherit; font-size: 13px; cursor: pointer;
-}
-.cz-swatch i { width: 14px; height: 14px; border-radius: 50%; display: block; }
-.cz-swatch.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
-.cz-swatch:hover { background: var(--hover); }
-
-.cz-accent input[type="color"] {
-  width: 46px; height: 34px; padding: 0;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: none; cursor: pointer;
-}
-
-.cz-preview {
-  height: 170px;
-  border-radius: var(--radius);
-  background-size: cover;
-  background-position: center;
+.ed-slot {
   position: relative;
-  overflow: hidden;
-  margin-bottom: 6px;
-  border: 1px solid var(--line);
+  border: 2px dashed var(--line);
+  border-radius: calc(var(--radius) + 6px);
+  padding: 34px 8px 8px;
+  transition: border-color 0.12s ease, transform 0.12s ease;
 }
-.cz-preview-veil { position: absolute; inset: 0; }
+.ed-slot.off { opacity: 0.45; }
+.ed-slot.over { border-color: var(--accent); background: var(--accent-soft); }
+.ed-slot.lifting { transform: scale(0.985); opacity: 0.7; }
 
-.cz-widgets { list-style: none; margin: 0; padding: 0; }
-.cz-widgets li {
+.ed-slot-bar {
+  position: absolute;
+  top: 6px; left: 8px; right: 8px;
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line-soft);
+  height: 24px;
 }
-.cz-widgets li:first-child { border-top: 0; }
-.cz-widgets li.off .cz-wname { color: var(--ink-3); }
-.cz-wname { flex: 1; font-size: 14px; color: var(--ink); }
+.ed-slot-name { flex: 1; font-size: 12px; color: var(--ink-3); font-weight: 600; }
 
-.cz-move {
-  width: 30px; height: 30px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
+.ed-handle {
+  cursor: grab;
+  touch-action: none;
+  border: 0; background: none;
+  color: var(--ink-3);
+  font-size: 15px; line-height: 1;
+  padding: 2px 4px;
 }
-.cz-move:hover:not(:disabled) { background: var(--hover); }
-.cz-move:disabled { opacity: 0.35; cursor: default; }
+.ed-handle:active { cursor: grabbing; }
 
-.cz-toggle {
-  padding: 6px 14px;
-  border-radius: 999px;
+.ed-eye {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink-3);
-  font: inherit; font-size: 12.5px; font-weight: 600;
+  border-radius: 999px;
+  font: inherit; font-size: 11px; font-weight: 600;
+  padding: 3px 10px;
   cursor: pointer;
 }
-.cz-toggle.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.ed-slot:not(.off) .ed-eye { color: var(--accent); border-color: var(--accent); }
+
+.ed-bar {
+  position: fixed;
+  left: 50%; bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
+}
+.ed-tabs { display: flex; gap: 2px; }
+.ed-tabs button {
+  border: 0; background: none;
+  color: var(--ink-2);
+  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer;
+}
+.ed-tabs button:hover { background: var(--hover); }
+.ed-tabs button.on { background: var(--accent); color: var(--btn-ink); }
+
+.ed-panel {
+  position: fixed;
+  left: 50%; bottom: 76px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(560px, calc(100vw - 32px));
+  max-height: 54vh;
+  overflow-y: auto;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.ed-grid { display: flex; flex-direction: column; gap: 12px; }
+.ed-field { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.ed-field > span { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.ed-field-c { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ed-field input[type="range"] { width: 180px; }
+.ed-num { font-size: 12px; color: var(--ink-3); width: 30px; text-align: right; }
+.ed-hint { font-size: 12.5px; color: var(--ink-3); margin: 0; }
+.ed-err { font-size: 12.5px; color: var(--warn); margin: 0; }
+
+.ed-colour {
+  width: 40px; height: 30px; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: none; cursor: pointer;
+}
+.ed-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; cursor: pointer;
+}
+.ed-chip:hover { background: var(--hover); }
+
+.ed-swatches { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ed-sw {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: pointer; padding: 0;
+}
+.ed-sw.on { box-shadow: 0 0 0 2px var(--accent); }
+
+.ed-grads { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ed-grad {
+  width: 44px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--line); cursor: pointer; padding: 0;
+}
+
+.ed-looks { display: flex; gap: 10px; flex-wrap: wrap; }
+.ed-look {
+  display: flex; align-items: center; gap: 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 15px 7px 7px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.ed-look:hover { background: var(--hover); }
+.ed-look-art { width: 26px; height: 26px; border-radius: 50%; display: block; }
+
+.ed-dropzone {
+  height: 140px;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-3); font-size: 13px;
+  cursor: pointer;
+  background-size: cover; background-position: center;
+}
+.ed-dropzone:hover { border-color: var(--accent); }
+.ed-dropzone.has { border-style: solid; }
+
+.ed-drop {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff; font-size: 20px;
+  pointer-events: none;
+}
 
 @media (max-width: 700px) {
-  .cz-row { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .cz-swatches { justify-content: flex-start; }
+  .ed-bar { left: 12px; right: 12px; transform: none; justify-content: space-between; }
+  .ed-panel { left: 12px; right: 12px; transform: none; width: auto; }
+  .ed-field { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ed-field-c { justify-content: flex-start; }
+  .ed-field input[type="range"] { width: 100%; }
 }
