@@ -7,6 +7,7 @@ import { generateFromNotes, generateFromSyllabus, gradeWriting, notifyFeedback }
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
+import Legal from "./Legal.jsx";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
 
@@ -67,7 +68,7 @@ function Icon({ name, size = 16 }) {
 
 // The host rewrites every path to this app, so a mistyped or dead link arrives
 // here looking like the home page. These are the addresses that mean something.
-const REAL_PATHS = new Set(["/", "/index.html", ""]);
+const REAL_PATHS = new Set(["/", "/index.html", "", "/privacy", "/terms"]);
 
 function NotFound({ onHome }) {
   return (
@@ -185,6 +186,23 @@ export default function App() {
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lost, setLost] = useState(() => !REAL_PATHS.has(window.location.pathname));
+  // Privacy and terms are real URLs so they can be linked to from outside the
+  // app, but there is no router, so the path is read once and kept in state.
+  const [legal, setLegal] = useState(() => {
+    const p = window.location.pathname;
+    return p === "/privacy" ? "privacy" : p === "/terms" ? "terms" : null;
+  });
+
+  function openLegal(which) {
+    window.history.pushState(null, "", "/" + which);
+    setLegal(which);
+    window.scrollTo(0, 0);
+  }
+
+  function closeLegal() {
+    window.history.pushState(null, "", "/");
+    setLegal(null);
+  }
   const [signInOpen, setSignInOpen] = useState(false);
   const [bannerOff, setBannerOffRaw] = useState(() => load(KEYS.bannerOff, false));
 
@@ -302,6 +320,16 @@ export default function App() {
 
   const title = ALL_NAV.find((n) => n.id === page).label;
 
+  if (legal) {
+    return (
+      <Legal
+        which={legal}
+        onHome={closeLegal}
+        onOther={() => openLegal(legal === "privacy" ? "terms" : "privacy")}
+      />
+    );
+  }
+
   if (lost) {
     return (
       <NotFound
@@ -319,7 +347,7 @@ export default function App() {
   }
 
   if (!auth.user && !entered && auth.ready) {
-    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} />;
+    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} onLegal={openLegal} />;
   }
 
   return (
@@ -1571,6 +1599,16 @@ function Settings({ theme, setTheme, auth }) {
           </SetRow>
           <SetRow label="Sound effects" hint="A click on correct and incorrect answers.">
             <Switch on={sound} onClick={() => setSound((v) => !v)} />
+          </SetRow>
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3>About</h3></div>
+          <SetRow label="Privacy" hint="What is collected and who handles it.">
+            <a className="btn ghost small" href="/privacy">Read</a>
+          </SetRow>
+          <SetRow label="Terms" hint="How the service may be used.">
+            <a className="btn ghost small" href="/terms">Read</a>
           </SetRow>
         </div>
 

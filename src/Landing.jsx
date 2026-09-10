@@ -7,7 +7,7 @@ import { approvedReviews } from "./supabase.js";
 
 const TESTS = ["SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
 
-export function Landing({ onSignIn, onSkip, people }) {
+export function Landing({ onSignIn, onSkip, people, onLegal }) {
   // Nothing renders here until a review has been approved, so the section
   // simply does not exist rather than showing an empty shell.
   const [reviews, setReviews] = useState([]);
@@ -109,6 +109,14 @@ export function Landing({ onSignIn, onSkip, people }) {
           ))}
         </div>
       </section>
+
+      <footer className="landing-foot">
+        <span>&copy; {new Date().getFullYear()} Dwiddle</span>
+        <button className="linkish" onClick={() => onLegal("privacy")}>Privacy</button>
+        <button className="linkish" onClick={() => onLegal("terms")}>Terms</button>
+        <a className="linkish" href="mailto:dwiddle36@gmail.com">Contact</a>
+        <span>Not affiliated with any exam board.</span>
+      </footer>
     </div>
   );
 }
