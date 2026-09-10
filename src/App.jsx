@@ -68,7 +68,41 @@ function Icon({ name, size = 16 }) {
 
 // The host rewrites every path to this app, so a mistyped or dead link arrives
 // here looking like the home page. These are the addresses that mean something.
-const REAL_PATHS = new Set(["/", "/index.html", "", "/privacy", "/terms"]);
+// Every page gets a real URL. Without this the back button leaves the site
+// from wherever you happen to be, which is the one thing a browser user always
+// expects to work.
+const PAGE_PATH = {
+  home: "/",
+  topics: "/topics",
+  quiz: "/practice",
+  sheet: "/study-sheet",
+  tests: "/test-prep",
+  courses: "/courses",
+  upload: "/add-material",
+  library: "/library",
+  feedback: "/feedback",
+  settings: "/settings",
+  reader: "/material",
+};
+
+const PATH_PAGE = Object.fromEntries(
+  Object.entries(PAGE_PATH).map(([id, path]) => [path, id])
+);
+
+const REAL_PATHS = new Set([
+  "/", "/index.html", "", "/privacy", "/terms",
+  ...Object.values(PAGE_PATH),
+]);
+
+// One place that turns a URL into what should be on screen, so the first load
+// and a later back button cannot disagree about it.
+function routeOf(pathname) {
+  if (pathname === "/privacy") return { legal: "privacy", page: null };
+  if (pathname === "/terms") return { legal: "terms", page: null };
+  const page = PATH_PAGE[pathname];
+  if (page) return { legal: null, page };
+  return { legal: null, page: null };
+}
 
 function NotFound({ onHome }) {
   return (
@@ -132,7 +166,7 @@ const NAV_MATERIAL = [
 const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
 
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(() => routeOf(window.location.pathname).page || "home");
   const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
@@ -186,12 +220,7 @@ export default function App() {
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lost, setLost] = useState(() => !REAL_PATHS.has(window.location.pathname));
-  // Privacy and terms are real URLs so they can be linked to from outside the
-  // app, but there is no router, so the path is read once and kept in state.
-  const [legal, setLegal] = useState(() => {
-    const p = window.location.pathname;
-    return p === "/privacy" ? "privacy" : p === "/terms" ? "terms" : null;
-  });
+  const [legal, setLegal] = useState(() => routeOf(window.location.pathname).legal);
 
   function openLegal(which) {
     window.history.pushState(null, "", "/" + which);
@@ -199,8 +228,10 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
+  // Returning from a legal page goes back to the page you left, not to the
+  // dashboard, so reading the terms does not lose your place.
   function closeLegal() {
-    window.history.pushState(null, "", "/");
+    window.history.pushState(null, "", PAGE_PATH[page] || "/");
     setLegal(null);
   }
   const [signInOpen, setSignInOpen] = useState(false);
@@ -220,7 +251,13 @@ export default function App() {
 
   // Session storage, so closing the tab brings the landing page back. Anyone
   // signed in skips it entirely, because their work is already safe.
-  const [entered, setEnteredRaw] = useState(() => loadSession(KEYS.entered, false));
+  // Arriving straight at /topics means you want the app, so the landing page is
+  // skipped. Plain "/" still shows it.
+  const [entered, setEnteredRaw] = useState(() => {
+    if (loadSession(KEYS.entered, false)) return true;
+    const r = routeOf(window.location.pathname);
+    return !!(r.page && r.page !== "home");
+  });
   const [people, setPeople] = useState(null);
 
   function enter() {
@@ -283,8 +320,33 @@ export default function App() {
     if (mode) setPMode(mode);
     if (p === page) setSeq((n) => n + 1);
     setPage(p);
+    setLegal(null);
     setMenuOpen(false);
+
+    // Same page, same URL: pushing again would make the back button do nothing
+    // visible, which feels more broken than not working at all.
+    const path = PAGE_PATH[p] || "/";
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, "", path);
+    }
   };
+
+  // The browser back and forward buttons, and the swipe gesture that maps to
+  // them, all arrive here. State is rebuilt from the URL rather than tracked
+  // separately, so the two cannot drift apart.
+  useEffect(() => {
+    const onPop = () => {
+      const path = window.location.pathname;
+      const r = routeOf(path);
+      setLegal(r.legal);
+      setLost(!REAL_PATHS.has(path));
+      if (r.page) setPage(r.page);
+      else if (!r.legal) setPage("home");
+      setMenuOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // "system" means whatever the device is set to, and it keeps following it if
   // that changes while the app is open. Before this, a first time visitor was
