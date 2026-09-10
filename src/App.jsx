@@ -88,7 +88,7 @@ function NotFound({ onHome }) {
 // Everything shown about the person comes from their account. Signed out, the
 // app stays anonymous rather than greeting somebody else's name.
 function displayName(user) {
-  if (!user) return "Guest";
+  if (!user) return "User";
   const name = user.user_metadata?.name || user.user_metadata?.full_name;
   if (name) return String(name).split(" ")[0];
   return String(user.email || "You").split("@")[0];
@@ -96,7 +96,7 @@ function displayName(user) {
 
 function initialsOf(user) {
   const n = displayName(user);
-  if (n === "Guest") return "?";
+  if (!user) return "?";
   const parts = n.replace(/[^a-zA-Z ]/g, " ").trim().split(/\s+/);
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || n[0].toUpperCase();
 }
@@ -606,7 +606,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
   return (
     <div className="page wide fade">
       <PageHead
-        title={`${greeting()}${auth?.user ? `, ${displayName(auth.user)}` : ""}`}
+        title={`${greeting()}, ${displayName(auth?.user)}`}
         sub={started
           ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
           : topics.length > 0
@@ -805,7 +805,7 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
     .filter((g) => g.topics.length > 0);
 
   return (
-    <div className="page fade">
+    <div className="page wide fade">
       <PageHead
         title="Topics"
         sub="Grouped by the material they came from. Your score on each appears once you have answered some."
@@ -1406,7 +1406,7 @@ function StudySheet({ made, go }) {
   const total = counts.def + counts.key + counts.exam;
 
   return (
-    <div className="page fade">
+    <div className="page wide fade">
       <PageHead
         title={sheets.length === 1 ? sheets[0].sheet.title || "Study sheet" : "Study sheet"}
         sub={`${sheets.length === 1

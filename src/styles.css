@@ -223,6 +223,36 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .page { max-width: 880px; padding: 32px; }
 .page.wide { max-width: 1080px; }
 
+/* On a wide monitor the content used to sit in a narrow column against the
+   left edge with most of the screen empty. It now widens in steps and centres
+   itself, and past a point the whole interface scales up, because at 2560 CSS
+   pixels and beyond a 14px font is genuinely small rather than just narrow. */
+@media (min-width: 1500px) {
+  .page { max-width: 1060px; padding: 36px 40px; margin: 0 auto; }
+  .page.wide { max-width: 1380px; }
+  .topbar { padding: 0 40px; }
+  .notice { padding: 10px 40px; }
+}
+
+@media (min-width: 2000px) {
+  .page { max-width: 1240px; padding: 40px 48px; }
+  .page.wide { max-width: 1640px; }
+  .topbar { padding: 0 48px; }
+  .notice { padding: 12px 48px; }
+  .sidebar { width: 264px; flex: 0 0 264px; }
+  .landing-hero, .landing-top, .landing-reviews { max-width: 1440px; }
+}
+
+@media (min-width: 2560px) {
+  /* Scaling the root rather than every size individually, because the layout
+     is built in pixels and this keeps every proportion intact. */
+  body { zoom: 1.2; }
+}
+
+@media (min-width: 3400px) {
+  body { zoom: 1.45; }
+}
+
 .page-head { margin-bottom: 24px; }
 .page-head h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .page-head p { margin: 0; color: var(--ink-3); }
