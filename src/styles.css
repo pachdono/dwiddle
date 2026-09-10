@@ -28,8 +28,10 @@
   --radius: 10px;
   --shadow: 0 1px 2px rgba(20, 20, 30, 0.04);
 
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
   color-scheme: light;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--font);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
@@ -2404,4 +2406,153 @@ kbd {
 
 @media (min-width: 1500px) {
   .legal, .legal-top { max-width: 800px; }
+}
+
+/* ---------- customisation ---------- */
+
+/* The photo sits behind the whole app, fixed, so scrolling does not drag it. */
+.app-photo {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.app-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.app-photo > div { position: absolute; inset: 0; }
+
+/* With a photo behind, panels need a little opacity to stay legible. */
+.app-photo ~ .sidebar,
+.app-photo ~ main .topbar { background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.app-photo ~ main, .app-photo ~ .sidebar { position: relative; z-index: 1; }
+
+.dash-slot { display: contents; }
+
+.dash-photo {
+  height: 210px;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--line);
+}
+
+.dash-quote {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+  text-align: center;
+  padding: 26px 24px;
+}
+
+.cz-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+}
+.cz-row:first-of-type { border-top: 0; }
+.cz-label b { display: block; font-size: 14px; color: var(--ink); }
+.cz-label span { font-size: 12.5px; color: var(--ink-3); }
+.cz-control { display: flex; align-items: center; gap: 8px; }
+
+.cz-note { margin: 0 0 14px; }
+.cz-err { color: var(--warn); font-size: 13px; margin: 10px 0 0; }
+.cz-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+.cz-presets { display: flex; flex-wrap: wrap; gap: 10px; }
+.cz-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cz-preset:hover { background: var(--hover); }
+.cz-preset-dots { display: flex; }
+.cz-preset-dots i {
+  width: 12px; height: 12px; border-radius: 50%;
+  display: block; border: 2px solid var(--surface);
+}
+.cz-preset-dots i + i { margin-left: -5px; }
+
+.cz-swatches { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.cz-swatch {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.cz-swatch i { width: 14px; height: 14px; border-radius: 50%; display: block; }
+.cz-swatch.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
+.cz-swatch:hover { background: var(--hover); }
+
+.cz-accent input[type="color"] {
+  width: 46px; height: 34px; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: none; cursor: pointer;
+}
+
+.cz-preview {
+  height: 170px;
+  border-radius: var(--radius);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+}
+.cz-preview-veil { position: absolute; inset: 0; }
+
+.cz-widgets { list-style: none; margin: 0; padding: 0; }
+.cz-widgets li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.cz-widgets li:first-child { border-top: 0; }
+.cz-widgets li.off .cz-wname { color: var(--ink-3); }
+.cz-wname { flex: 1; font-size: 14px; color: var(--ink); }
+
+.cz-move {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.cz-move:hover:not(:disabled) { background: var(--hover); }
+.cz-move:disabled { opacity: 0.35; cursor: default; }
+
+.cz-toggle {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-3);
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+}
+.cz-toggle.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+@media (max-width: 700px) {
+  .cz-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .cz-swatches { justify-content: flex-start; }
 }

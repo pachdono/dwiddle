@@ -8,6 +8,8 @@ import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
+import Customise from "./Customise.jsx";
+import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
 
@@ -83,6 +85,7 @@ const PAGE_PATH = {
   feedback: "/feedback",
   settings: "/settings",
   reader: "/material",
+  customise: "/customise",
 };
 
 const PATH_PAGE = Object.fromEntries(
@@ -163,11 +166,19 @@ const NAV_MATERIAL = [
   { id: "feedback", label: "Feedback", icon: "chat" },
 ];
 
-const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
+const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" },
+  { id: "reader", label: "Material" }, { id: "customise", label: "Customise" }];
 
 export default function App() {
   const [page, setPage] = useState(() => routeOf(window.location.pathname).page || "home");
   const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
+  const [custom, setCustomRaw] = useState(() => loadCustom());
+  const [customBg, setCustomBg] = useState(() => loadBg());
+
+  function setCustom(next) {
+    setCustomRaw(next);
+    saveCustom(next);
+  }
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
   const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
@@ -357,6 +368,9 @@ export default function App() {
     const apply = () => {
       const resolved = theme === "system" ? (mq.matches ? "dark" : "light") : theme;
       document.documentElement.dataset.theme = resolved;
+      // A palette has a light and a dark form, so it is reapplied whenever the
+      // resolved theme changes rather than only when the palette does.
+      applyCustom(custom, resolved);
     };
 
     apply();
@@ -365,7 +379,7 @@ export default function App() {
     if (theme !== "system") return;
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
-  }, [theme]);
+  }, [theme, custom]);
 
   const Page = {
     home: Dashboard,
@@ -378,6 +392,7 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     feedback: FeedbackPage,
+    customise: CustomisePage,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -412,8 +427,19 @@ export default function App() {
     return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} onLegal={openLegal} />;
   }
 
+  const showPhoto = custom.on && custom.widgets.photo && customBg;
+
   return (
     <div className="app">
+      {showPhoto && (
+        <div className="app-photo" aria-hidden="true">
+          <img src={customBg} alt="" />
+          <div style={{
+            backdropFilter: custom.blur ? `blur(${custom.blur}px)` : undefined,
+            background: `rgba(0,0,0,${custom.dim / 200})`,
+          }} />
+        </div>
+      )}
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
 
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
@@ -442,6 +468,14 @@ export default function App() {
               {n.label}
             </button>
           ))}
+
+          {custom.on && (
+            <button className={"nav-item" + (page === "customise" ? " on" : "")}
+              onClick={() => go("customise")}>
+              <Icon name="build" />
+              Customise
+            </button>
+          )}
 
           <div className="nav-label">Material</div>
           {NAV_MATERIAL.map((n) => (
@@ -526,6 +560,10 @@ export default function App() {
           topics={topics}
           materials={materials}
           auth={auth}
+          custom={custom}
+          setCustom={setCustom}
+          customBg={customBg}
+          setCustomBg={setCustomBg}
         />
       </main>
     </div>
@@ -655,7 +693,35 @@ function streakOf(days) {
   return n;
 }
 
-function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
+// Renders the dashboard blocks in the saved order, skipping any that are
+// switched off. With customisation off it falls back to the built in order, so
+// the default dashboard is unchanged.
+function DashWidgets({ custom, customBg, parts }) {
+  const on = custom?.on;
+  const order = on ? custom.order : WIDGETS.map((w) => w.id);
+
+  const extra = {
+    photo: on && custom.widgets.photo && customBg
+      ? <div className="card dash-photo" style={{ backgroundImage: `url(${customBg})` }} />
+      : null,
+    quote: on && custom.widgets.quote && custom.quote?.trim()
+      ? <div className="card card-pad dash-quote">{custom.quote}</div>
+      : null,
+  };
+
+  return (
+    <>
+      {order.map((id) => {
+        if (on && !custom.widgets[id]) return null;
+        if (!on && (id === "photo" || id === "quote")) return null;
+        const node = id in extra ? extra[id] : parts[id];
+        return node ? <div key={id} className="dash-slot">{node}</div> : null;
+      })}
+    </>
+  );
+}
+
+function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, customBg }) {
   // Only shown if the database actually answers. No number is better than an
   // invented one. It refreshes on its own so the figure stays current without
   // a reload: every 30 seconds while the tab is in front, and immediately when
@@ -705,6 +771,8 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
       />
 
       <div className="stack">
+        <DashWidgets custom={custom} customBg={customBg} parts={{
+          stats: (
         <div className="grid-3">
           <div className="stat">
             <div className="k">Study streak</div>
@@ -721,6 +789,60 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
             <div className="v">{started ? `${accuracy}%` : "Not yet"}</div>
           </div>
         </div>
+          ),
+          upnext: topics.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <h3>{attempted.length > 0 ? "Weakest topics" : "Your topics"}</h3>
+            <button className="btn quiet" onClick={() => go("topics")}>See all</button>
+          </div>
+          <div className="list">
+            {upNext.map(({ t, seen }) => (
+              <div key={t.id} className="list-item" onClick={() => go("topics")}>
+                <div style={{ flex: 1 }}>
+                  <div className="list-title">{t.name}</div>
+                  <div className="small muted">{t.reason}</div>
+                </div>
+                <span className="small muted">
+                  {seen ? `${Math.round((seen.right / seen.total) * 100)}%` : "Not started"}
+                </span>
+                <span className="muted"><Icon name="arrow" /></span>
+              </div>
+            ))}
+          </div>
+        </div>
+          ),
+          actions: (
+        <div className="grid-2">
+          <div className="card card-pad">
+            <div className="spread" style={{ marginBottom: 12 }}>
+              <b>Practice quiz</b>
+              <span className="pill">From your material</span>
+            </div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Add a PDF or paste your notes, and we turn them into questions.
+            </p>
+            <button className="btn" onClick={() => go("upload")}>
+              <Icon name="upload" /> Add material
+            </button>
+          </div>
+
+          <div className="card card-pad">
+            <div className="spread" style={{ marginBottom: 12 }}>
+              <b>Study sheet</b>
+              {made?.sheet && <span className="pill accent">Yours</span>}
+            </div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              {made?.sheet
+                ? "A one page condensation with the important bits marked."
+                : "Add material and a study sheet is written along with the questions."}
+            </p>
+            <button className="btn ghost" disabled={!made?.sheet}
+              onClick={() => go("sheet")}>Open sheet</button>
+          </div>
+        </div>
+          ),
+        }} />
 
         {topics.length === 0 && (
           <div className="card card-pad welcome">
@@ -756,58 +878,6 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made }) {
           <button className="btn ghost" onClick={() => go("tests")}>
             <Icon name="target" size={14} /> Test prep
           </button>
-        </div>
-
-        {topics.length > 0 && (
-          <div className="card">
-            <div className="card-head">
-              <h3>{attempted.length > 0 ? "Weakest topics" : "Your topics"}</h3>
-              <button className="btn quiet" onClick={() => go("topics")}>See all</button>
-            </div>
-            <div className="list">
-              {upNext.map(({ t, seen }) => (
-                <div key={t.id} className="list-item" onClick={() => go("topics")}>
-                  <div style={{ flex: 1 }}>
-                    <div className="list-title">{t.name}</div>
-                    <div className="small muted">{t.reason}</div>
-                  </div>
-                  <span className="small muted">
-                    {seen ? `${Math.round((seen.right / seen.total) * 100)}%` : "Not started"}
-                  </span>
-                  <span className="muted"><Icon name="arrow" /></span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="grid-2">
-          <div className="card card-pad">
-            <div className="spread" style={{ marginBottom: 12 }}>
-              <b>Practice quiz</b>
-              <span className="pill">From your material</span>
-            </div>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              Add a PDF or paste your notes, and we turn them into questions.
-            </p>
-            <button className="btn" onClick={() => go("upload")}>
-              <Icon name="upload" /> Add material
-            </button>
-          </div>
-
-          <div className="card card-pad">
-            <div className="spread" style={{ marginBottom: 12 }}>
-              <b>Study sheet</b>
-              {made?.sheet && <span className="pill accent">Yours</span>}
-            </div>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              {made?.sheet
-                ? "A one page condensation with the important bits marked."
-                : "Add material and a study sheet is written along with the questions."}
-            </p>
-            <button className="btn ghost" disabled={!made?.sheet}
-              onClick={() => go("sheet")}>Open sheet</button>
-          </div>
         </div>
 
         {materials.length > 0 && (
@@ -1590,7 +1660,22 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-function Settings({ theme, setTheme, auth }) {
+// A thin wrapper so the panel itself stays free of app plumbing.
+function CustomisePage({ custom, setCustom, customBg, setCustomBg }) {
+  return <Customise cfg={custom} setCfg={setCustom} bg={customBg} setBg={setCustomBg} />;
+}
+
+function Settings({ theme, setTheme, auth, custom, setCustom, go }) {
+  // Hidden the way these things traditionally are. Five taps on the version
+  // number, because a feature you had to find is a feature worth showing off.
+  const [taps, setTaps] = useState(0);
+
+  function tapVersion() {
+    const n = taps + 1;
+    setTaps(n);
+    if (n >= 5 && !custom.on) setCustom({ ...custom, on: true });
+  }
+
   const [name, setName] = useState(() => displayName(auth?.user));
   const [goal, setGoal] = useState("20");
   const [style, setStyle] = useState("mixed");
@@ -1672,7 +1757,32 @@ function Settings({ theme, setTheme, auth }) {
           <SetRow label="Terms" hint="How the service may be used.">
             <a className="btn ghost small" href="/terms">Read</a>
           </SetRow>
+          <SetRow
+            label="Version"
+            hint={custom?.on
+              ? "Customisation is unlocked."
+              : taps >= 2 && taps < 5
+                ? `${5 - taps} more`
+                : "Dwiddle for the web."}
+          >
+            <button className="btn ghost small" onClick={tapVersion}>1.0</button>
+          </SetRow>
         </div>
+
+        {custom?.on && (
+          <div className="card">
+            <div className="card-head"><h3>Customisation</h3></div>
+            <SetRow label="Customise" hint="Palettes, your own photo, and what the dashboard shows.">
+              <button className="btn small" onClick={() => go("customise")}>Open</button>
+            </SetRow>
+            <SetRow label="Turn it off" hint="Puts everything back to the standard look.">
+              <button className="btn ghost small"
+                onClick={() => setCustom({ ...custom, on: false })}>
+                Turn off
+              </button>
+            </SetRow>
+          </div>
+        )}
 
 
       </div>
