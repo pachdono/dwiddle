@@ -1278,7 +1278,7 @@ function AddMaterial({ go, setMade, auth }) {
               {state === "reading" ? <Loading label="Reading file" />
                 : state === "working" ? <Loading label="Building questions" />
                 : state === "done" ? <>Start practice <Icon name="arrow" /></>
-                : <><Icon name="spark" /> Generate questions</>}
+                : "Generate questions"}
             </button>
           </div>
         </div>
