@@ -184,8 +184,8 @@ export default function Install({ go }) {
       <div className="page-head">
         <h1>Get the app</h1>
         <p>
-          Dwiddle installs from the browser. There is nothing to download, no store, no account
-          needed, and it updates itself.
+          Download it for your computer, or add it from the browser on a phone. Either way there is
+          no store, no account needed, and nothing to keep up to date.
         </p>
       </div>
 
