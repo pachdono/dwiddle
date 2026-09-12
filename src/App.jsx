@@ -47,6 +47,9 @@ const paths = {
   timer: "M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM10 8v3l2 1.2M8 2.5h4",
   flag: "M5 17V3.5h9l-1.6 3 1.6 3H5",
   check: "M4.5 10.5 8 14l7.5-8",
+  // A phone, for the install page. An arrow would read as a file download,
+  // and there is no file to download.
+  download: "M6.5 2.5h7a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V4a1.5 1.5 0 0 1 1.5-1.5ZM8.5 15h3",
 };
 
 // The gear needs a 24 grid, so it carries its own viewBox.
@@ -443,6 +446,8 @@ export default function App() {
         onLegal={openLegal} onInstall={() => { enter(); go("install"); }} />;
   }
 
+  // Someone already running it installed does not need to be sold it.
+  const installed = isInstalled();
   const showPhoto = custom.on && customBg && custom.widgets.photo &&
     (custom.photo.place === "background" || custom.photo.place === "both");
 
@@ -494,6 +499,17 @@ export default function App() {
               {n.label}
             </button>
           ))}
+
+          {!installed && (
+            <>
+              <div className="nav-label">App</div>
+              <button className={"nav-item" + (page === "install" ? " on" : "")}
+                onClick={() => go("install")}>
+                <Icon name="download" />
+                Get the app
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-foot">
