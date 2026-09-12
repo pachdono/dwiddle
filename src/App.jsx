@@ -3,9 +3,10 @@ import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, gradeWriting, notifyFeedback } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, gradeWriting, notifyFeedback, readImage } from "./ai.js";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
+import { shrink } from "./custom.js";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
@@ -861,7 +862,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
               <span className="pill">From your material</span>
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Add a PDF or paste your notes, and we turn them into questions.
+              Add a PDF, a Word file or a photo, and we turn it into questions.
             </p>
             <button className="btn" onClick={() => go("upload")}>
               <Icon name="upload" /> Add material
@@ -1102,16 +1103,38 @@ function countGeneration(user) {
   save(KEYS.freeGen, load(KEYS.freeGen, 0) + 1);
 }
 
-// Reads a PDF in the browser. pdf.js is larger than the rest of the app, so it
-// is imported only at the moment someone actually picks a PDF.
+// Turns whatever was dropped in into plain text.
+//
+// PDF and Word are read here in the browser and are exact, because both store
+// their text. A photograph has no text to read, so it goes to the server to be
+// transcribed by a model that reads images. Nothing is trained: the accuracy
+// comes from the format in the first two cases and from an existing model in
+// the third.
 const MAX_FILE = 20 * 1024 * 1024; // the limit the drop zone advertises
+const IMAGE = /\.(png|jpe?g|webp|heic|heif|gif|bmp)$/i;
 
 async function readFile(file) {
   if (file.size > MAX_FILE) {
     throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit. Split it and add a chapter at a time.`);
   }
-  if (!/\.(pdf|txt|md|markdown)$/i.test(file.name)) {
-    throw new Error("Only PDF, TXT and Markdown files can be read.");
+  if (!/\.(pdf|docx|txt|md|markdown)$/i.test(file.name) && !IMAGE.test(file.name)) {
+    throw new Error("That file type cannot be read. Use a PDF, a Word document, a photo, or plain text.");
+  }
+
+  if (/\.docx$/i.test(file.name)) {
+    const { readDocx } = await import("./docx.js");
+    return readDocx(file);
+  }
+
+  if (IMAGE.test(file.name)) {
+    if (/\.(heic|heif)$/i.test(file.name)) {
+      throw new Error("iPhone HEIC photos cannot be read by the browser. In Settings, Camera, Formats, choose Most Compatible, or send the photo to yourself first, which converts it to JPEG.");
+    }
+    // Resized before sending: a phone photo is several megabytes and the
+    // server rejects a body that size, while the text stays legible at 1600px.
+    const data = await shrink(file, 1600, 0.85);
+    const { text } = await readImage(data);
+    return text;
   }
   if (/\.pdf$/i.test(file.name)) {
     const pdfjs = await import("pdfjs-dist");
@@ -1198,7 +1221,7 @@ function AddMaterial({ go, setMade, auth }) {
 
   return (
     <div className="page fade">
-      <PageHead title="Add material" sub="Drop in a PDF or paste your notes, and we build the questions." />
+      <PageHead title="Add material" sub="Drop in a PDF, a Word file or a photo of your notes, and we build the questions." />
 
       <div className="stack">
         <label
@@ -1207,7 +1230,7 @@ function AddMaterial({ go, setMade, auth }) {
           onDragLeave={() => setOver(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept=".pdf,.txt,.md" hidden
+          <input type="file" accept=".pdf,.docx,.txt,.md,image/*" hidden
             onChange={(e) => accept(e.target.files?.[0])} />
           <span className="drop-icon"><Icon name={file ? "file" : "upload"} size={20} /></span>
           {file ? (
@@ -1217,8 +1240,8 @@ function AddMaterial({ go, setMade, auth }) {
             </>
           ) : (
             <>
-              <b>Drop a PDF here, or click to browse</b>
-              <span className="small muted">PDF, TXT or Markdown, up to 20 MB</span>
+              <b>Drop a file here, or click to browse</b>
+              <span className="small muted">PDF, Word, a photo, or plain text, up to 20 MB</span>
             </>
           )}
         </label>

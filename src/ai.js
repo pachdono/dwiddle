@@ -60,3 +60,7 @@ export const generateTestQuestions = ({ test, section, skills, count, passage, a
 
 // Emails a copy of feedback. Storing it is the client's job; this only notifies.
 export const notifyFeedback = (payload) => post("/api/feedback", payload);
+
+// A photograph or scan is transcribed on the server by a model that reads
+// images, and the text then goes through generateFromNotes like anything else.
+export const readImage = (image) => post("/api/read", { image });

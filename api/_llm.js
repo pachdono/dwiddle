@@ -26,6 +26,18 @@ const PROVIDERS = [
       "X-Title": "Dwiddle",
     },
     supportsReasoningFlag: true,
+    // Reading a page is a different job from writing JSON, so it gets its own
+    // order. Instruction tuned families that are known to be steady at
+    // transcription come first; reasoning and omni variants last, because they
+    // narrate what they see instead of just writing it out.
+    visionPreferences: [
+      /^google\/gemma-4-\d+b(-a\d+b)?-it:free/i,
+      /^google\/gemma-3-\d+b-it/i,
+      /^inclusionai\/ling.*-vl:free/i,
+      /^qwen\/qwen[\d.]*-vl/i,
+      /^google\/gemini-[\d.]+-flash/i,
+      /^mistralai\/pixtral/i,
+    ],
     // Free first. Someone running on a free key is the common case, and a
     // paid model that returns 402 costs a round trip to discover.
     preferences: [
@@ -115,20 +127,27 @@ function authHeaders(p) {
   };
 }
 
-// Models that exist but are wrong for this job.
+// Models that exist but are wrong for writing questions. Note that this rules
+// out vision, image and ocr on purpose: they are poor at long structured JSON.
 const UNSUITABLE =
   /vision|translate|embed|rerank|guard|reward|coder|-code-|-code:|ocr|speech|riva|image|tts|whisper|content-safety|:batch|:online|:extended|:thinking|moderation/i;
+
+// The same list minus the terms that describe exactly what a transcription job
+// needs, since asking for a vision model and then excluding every model with
+// "vision" in its name would leave nothing at all.
+const UNSUITABLE_FOR_READING =
+  /translate|embed|rerank|guard|reward|coder|-code-|-code:|speech|riva|tts|whisper|content-safety|:batch|:online|moderation/i;
 
 let cachedModel = null; // { provider, model }
 let paidBlocked = false;
 const rejected = new Set();
 
-const modelCache = new Map(); // provider id -> { at, ids }
+const modelCache = new Map(); // provider id -> { at, info: [{ id, vision }] }
 const MODEL_TTL = 10 * 60 * 1000;
 
 export async function listModels(p = provider()) {
   const hit = modelCache.get(p.id);
-  if (hit && Date.now() - hit.at < MODEL_TTL) return hit.ids;
+  if (hit && Date.now() - hit.at < MODEL_TTL) return hit.info.map((m) => m.id);
 
   const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p) });
   if (!reply.ok) {
@@ -138,27 +157,50 @@ export async function listModels(p = provider()) {
     );
   }
   const data = await reply.json();
-  const ids = (data?.data || []).map((m) => m.id).filter(Boolean);
-  modelCache.set(p.id, { at: Date.now(), ids });
-  return ids;
+  // Whether a model can read an image is metadata the provider already gives
+  // us, so it is kept rather than guessed at from the name. OpenRouter reports
+  // it two different ways depending on how old the entry is; anything else
+  // falls back to the naming conventions the vision families all follow.
+  const info = (data?.data || [])
+    .filter((m) => m?.id)
+    .map((m) => ({
+      id: m.id,
+      vision:
+        (m.architecture?.input_modalities || []).includes("image") ||
+        /image/.test(m.architecture?.modality || "") ||
+        VISION_NAME.test(m.id),
+    }));
+  modelCache.set(p.id, { at: Date.now(), info });
+  return info.map((m) => m.id);
+}
+
+// For providers that report no modality metadata at all.
+const VISION_NAME = /vision|vl[-:]|[-/]vl|llava|pixtral|gemini|gemma-3|internvl|qwen2?\.?5?-vl/i;
+
+export async function listVisionModels(p = provider()) {
+  await listModels(p);
+  return (modelCache.get(p.id)?.info || []).filter((m) => m.vision).map((m) => m.id);
 }
 
 // Ordered best first, with anything already known to fail removed.
 // includeRejected is for the probe endpoint, which wants the full picture.
-export async function candidates({ includeRejected = false, p = provider() } = {}) {
+export async function candidates({ includeRejected = false, vision = false, p = provider() } = {}) {
   const pinned = process.env[p.modelEnv];
-  if (pinned && !includeRejected) return [pinned];
+  if (pinned && !includeRejected && !vision) return [pinned];
 
+  const seeing = vision ? new Set(await listVisionModels(p)) : null;
   const all = (await listModels(p)).filter(
     (id) =>
-      !UNSUITABLE.test(id) &&
+      !(vision ? UNSUITABLE_FOR_READING : UNSUITABLE).test(id) &&
+      (!seeing || seeing.has(id)) &&
       (includeRejected || !rejected.has(id)) &&
       // Once a paid model has refused for want of credit, the rest will too.
       (includeRejected || !paidBlocked || id.endsWith(":free")),
   );
   const ordered = [];
 
-  for (const pattern of p.preferences) {
+  const order = vision ? (p.visionPreferences || p.preferences) : p.preferences;
+  for (const pattern of order) {
     for (const id of all) {
       if (pattern.test(id) && !ordered.includes(id)) ordered.push(id);
     }
@@ -290,7 +332,7 @@ export function safeParse(text, requiredKey) {
   return found.sort((a, b) => b.length - a.length)[0].parsed;
 }
 
-export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false }) {
+export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false, vision = false }) {
   const all = providers();
   const deadline = Date.now() + 44000;
   let lastError = null;
