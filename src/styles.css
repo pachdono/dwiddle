@@ -3220,12 +3220,54 @@ kbd {
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
 }
+.num-grid { perspective: 900px; }
+
 .num {
+  position: relative;
   padding: 26px 24px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
   box-shadow: var(--shadow);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s ease, border-color 0.32s ease;
+}
+
+/* Leaning toward the pointer and lifting off the page. A flat panel that only
+   changes colour on hover reads as a link; this reads as an object. */
+.num.lifted {
+  transform:
+    perspective(900px)
+    rotateY(calc(var(--tx, 0) * 7deg))
+    rotateX(calc(var(--ty, 0) * -7deg))
+    translateZ(24px);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  box-shadow:
+    0 18px 44px rgba(20, 20, 40, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.num-sheen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    220px circle at calc(50% + var(--tx, 0) * 50%) calc(50% + var(--ty, 0) * 50%),
+    color-mix(in srgb, var(--accent) 15%, transparent), transparent 70%);
+  transition: opacity 0.3s ease;
+}
+.num.lifted .num-sheen { opacity: 1; }
+
+/* The contents stand off the face, so the lean has depth inside it too. */
+.num-v, .num-k { transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+.num.lifted .num-v { transform: translateZ(30px); }
+.num.lifted .num-k { transform: translateZ(18px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .num.lifted, .num.lifted .num-v, .num.lifted .num-k { transform: none; }
 }
 .num-v {
   font-size: 40px; font-weight: 660; letter-spacing: -0.035em;
@@ -3393,162 +3435,171 @@ kbd {
 
 /* ---------- the scrolling deck ---------- */
 
-.deck-wrap {
+/* Three screens of scroll, with the stage pinned to the viewport through all
+   of it. The height is what gives the sequence room; the sticky child is what
+   keeps it on screen while that height passes. */
+.deck-stage {
   position: relative;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 60px 24px 96px;
-  /* One vanishing point on the parent, so the cards read as objects sharing a
-     space rather than three separate tricks. */
-  perspective: 1200px;
-  perspective-origin: calc(50% + var(--tx, 0) * 6%) calc(34% + var(--ty, 0) * 6%);
+  height: 300vh;
 }
 
-/* Layers behind the cards, moving less than they do. Parallax is what tells
-   the eye there is distance rather than just tilt. */
-.deck-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 32px; }
+.deck-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  overflow: hidden;
+  perspective: 1300px;
+  perspective-origin: calc(50% + var(--tx, 0) * 6%) calc(42% + var(--ty, 0) * 5%);
+}
+
+.deck-bg { position: absolute; inset: 0; pointer-events: none; }
 
 .deck-glow {
   position: absolute;
-  left: 50%; top: 40%;
-  width: 780px; height: 520px;
+  left: 50%; top: 46%;
+  width: 900px; height: 620px;
   transform:
     translate(-50%, -50%)
-    translate3d(calc(var(--tx, 0) * 14px), calc(var(--ty, 0) * 10px + (1 - var(--p)) * 30px), 0);
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 26%, transparent), transparent);
-  opacity: calc(0.35 + var(--p) * 0.5);
-  filter: blur(6px);
+    translate3d(calc(var(--tx, 0) * 16px), calc(var(--ty, 0) * 12px), 0);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 24%, transparent), transparent);
+  filter: blur(8px);
 }
 
 .deck-grid {
   position: absolute;
-  inset: -20% -10% 0;
+  inset: 40% -20% -10%;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px);
-  background-size: 46px 46px;
-  transform:
-    perspective(700px)
-    rotateX(58deg)
-    translate3d(calc(var(--tx, 0) * -10px), calc((1 - var(--p)) * 60px), 0);
-  transform-origin: 50% 100%;
-  mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 88%);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 88%);
-  opacity: calc(0.5 + var(--p) * 0.5);
+    linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px);
+  background-size: 54px 54px;
+  /* The floor slides as the scene advances, which is what sells the movement
+     as travel rather than as the cards simply changing shape. */
+  background-position: 0 calc(var(--p, 0) * -160px);
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: 50% 0;
+  mask-image: linear-gradient(180deg, #000, transparent 70%);
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%);
 }
+
+.deck-head { position: relative; text-align: center; padding: 0 24px; }
+.deck-head h2 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 2vw + 16px, 34px);
+  letter-spacing: -0.03em;
+}
+.deck-head p { margin: 0; color: var(--ink-3); font-size: 15px; }
 
 .deck {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
+  grid-template-columns: repeat(3, minmax(0, 300px));
+  gap: 24px;
   transform-style: preserve-3d;
-  transform: rotateY(calc(var(--tx, 0) * 3.2deg)) rotateX(calc(var(--ty, 0) * -2.4deg));
+  transform: rotateY(calc(var(--tx, 0) * 3deg)) rotateX(calc(var(--ty, 0) * -2deg));
   transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 0 24px;
 }
 
 .deck-card {
   position: relative;
-  /* Each card runs its own progress, offset by its index, so they arrive one
-     after another instead of as a block. */
-  --own: clamp(0, calc((var(--p) - var(--i) * 0.13) * 1.5), 1);
+  /* Each card owns a third of the scroll: it rises, holds while it is the one
+     being read, then eases back as the next comes forward. */
+  --own: clamp(0, calc((var(--at, 0) - var(--i)) * 1.6 + 0.55), 1);
   --lift: calc(1 - var(--own));
   transform-style: preserve-3d;
-  transform-origin: 50% 90%;
+  transform-origin: 50% 85%;
   transform:
-    translateY(calc(var(--lift) * 70px))
-    translateZ(calc(var(--lift) * -260px))
-    rotateX(calc(var(--lift) * 34deg))
-    rotateZ(calc(var(--lift) * (var(--i) - 1) * 3deg));
-  opacity: calc(0.12 + var(--own) * 0.88);
-  transition: transform 0.18s linear, opacity 0.18s linear;
+    translateY(calc(var(--lift) * 90px))
+    translateZ(calc(var(--lift) * -300px))
+    rotateX(calc(var(--lift) * 36deg));
+  opacity: calc(0.1 + var(--own) * 0.9);
+  transition: transform 0.22s linear, opacity 0.22s linear;
   will-change: transform;
 }
 
+/* The card currently being read comes a little further forward than the two
+   beside it, so the eye is told where to look. */
+.deck-card.front { transform: translateZ(40px) scale(1.02); }
+
 .deck-face {
   position: relative;
+  height: 100%;
   padding: 32px 28px 34px;
-  border-radius: 20px;
+  border-radius: 22px;
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--surface) 97%, transparent),
-      color-mix(in srgb, var(--surface) 86%, transparent));
-  backdrop-filter: blur(16px) saturate(170%);
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
+      color-mix(in srgb, var(--surface) 84%, transparent));
+  backdrop-filter: blur(18px) saturate(175%);
+  -webkit-backdrop-filter: blur(18px) saturate(175%);
   border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
   box-shadow:
-    0 calc(10px + var(--lift) * 30px) calc(28px + var(--lift) * 60px)
+    0 calc(12px + var(--lift) * 34px) calc(32px + var(--lift) * 66px)
       rgba(20, 20, 40, calc(0.08 + var(--lift) * 0.14)),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
   overflow: hidden;
 }
 
-/* A highlight that travels with the pointer, so the surface looks lit rather
-   than printed. */
 .deck-shine {
   position: absolute;
   inset: 0;
-  border-radius: 20px;
+  border-radius: 22px;
   background: radial-gradient(
-    260px circle at calc(50% + var(--tx, 0) * 45%) calc(30% + var(--ty, 0) * 40%),
-    color-mix(in srgb, var(--accent) 16%, transparent),
-    transparent 70%);
+    280px circle at calc(50% + var(--tx, 0) * 45%) calc(30% + var(--ty, 0) * 40%),
+    color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
   opacity: calc(var(--own) * 0.9);
   pointer-events: none;
 }
 
 .deck-tag {
-  position: absolute;
-  top: 18px; right: 20px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  position: absolute; top: 18px; right: 20px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-3);
 }
 
 .deck-step {
-  display: grid;
-  place-items: center;
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 18px;
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 14px; font-weight: 700; margin-bottom: 18px;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
-  transform: translateZ(26px);
+  transform: translateZ(30px);
 }
 
 .deck-card b {
-  display: block;
-  font-size: 19px;
-  letter-spacing: -0.025em;
-  margin-bottom: 9px;
-  color: var(--ink);
-  transform: translateZ(16px);
+  display: block; font-size: 19px; letter-spacing: -0.025em;
+  margin-bottom: 9px; color: var(--ink); transform: translateZ(18px);
 }
-
 .deck-card p {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 14.5px;
-  line-height: 1.62;
-  transform: translateZ(8px);
+  margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.62;
+  transform: translateZ(10px);
 }
 
-@media (max-width: 860px) {
+/* How far through the sequence you are. */
+.deck-rail { position: relative; display: flex; gap: 10px; align-items: center; }
+.rail-pip {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--line); transition: background 0.3s ease, transform 0.3s ease;
+}
+.rail-pip.on { background: var(--accent); transform: scale(1.3); }
+.rail-fill { display: none; }
+
+@media (max-width: 900px) {
+  .deck-stage { height: auto; }
+  .deck-sticky { position: static; height: auto; padding: 60px 0 72px; gap: 26px; }
   .deck { grid-template-columns: 1fr; gap: 16px; transform: none; }
-  .deck-wrap { padding: 28px 20px 56px; perspective: 900px; }
+  .deck-card { transform: none; opacity: 1; }
+  .deck-card.front { transform: none; }
   .deck-grid { display: none; }
 }
 
-/* Everything settles where it would have finished, and nothing follows the
-   pointer, for anyone who asked for less movement. */
 @media (prefers-reduced-motion: reduce) {
-  .deck-card { transform: none; opacity: 1; transition: none; }
-  .deck { transform: none; }
-  .deck-glow, .deck-grid { transform: translate(-50%, -50%); }
+  .deck-stage { height: auto; }
+  .deck-sticky { position: static; height: auto; padding: 60px 0; }
+  .deck-card, .deck-card.front, .deck { transform: none; opacity: 1; transition: none; }
 }
-

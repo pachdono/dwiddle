@@ -38,31 +38,24 @@ const FAQ = [
   },
 ];
 
-// A scene rather than three cards with a transform on them.
+// A scene you scroll through rather than past.
 //
-// Depth here comes from several things acting together: a shared vanishing
-// point, layers that move at different rates as the section passes, cards that
-// each carry their own progress so they arrive in sequence, and a tilt that
-// follows the pointer so the whole thing has a fixed position in space you can
-// look around. All of it is measured in one requestAnimationFrame per frame.
-function Deck() {
-  const ref = useRef(null);
+// The section is three screens tall and the stage is pinned to the viewport
+// while you move through it, so the scroll drives the sequence instead of
+// merely passing it. Each card owns a third of that range: it rises from the
+// depth, holds, and then settles back to make room for the next.
+function useScrollRange(ref) {
   const [p, setP] = useState(0);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const still = useRef(false);
-
   useEffect(() => {
-    still.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (still.current) { setP(1); return; }
-
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setP(1); return; }
     let frame = 0;
     const measure = () => {
       frame = 0;
       const el = ref.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const t = 1 - (r.top - innerHeight * 0.15) / (innerHeight * 0.8);
-      setP(Math.max(0, Math.min(1, t)));
+      const travel = r.height - innerHeight;
+      setP(travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel)));
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
     measure();
@@ -73,9 +66,84 @@ function Deck() {
       removeEventListener("resize", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
+  }, [ref]);
+  return p;
+}
+
+const DECK = [
+  { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page. It reads Word and PowerPoint too.", tag: "In" },
+  { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer and the trap in the wrong ones.", tag: "Then" },
+  { k: "The real paper", t: "Full length, timed, marked, and converted to the exam's own scale with feedback on what to fix.", tag: "Out" },
+];
+
+// A tile that leans toward the pointer and counts itself up the first time it
+// is seen. The lean is the whole point: a flat panel that only changes colour
+// on hover reads as a link, not as an object.
+function Tile({ value, label, note }) {
+  const ref = useRef(null);
+  const [tilt, setTilt] = useState(null);
+  const [shown, setShown] = useState(0);
+  const target = Number(String(value).replace(/[^0-9]/g, ""));
+  const numeric = Number.isFinite(target) && target > 0 && /^[0-9,]+$/.test(String(value));
+
+  useEffect(() => {
+    if (!numeric) return;
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setShown(target); return; }
+
+    const io = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+      io.disconnect();
+      const start = performance.now();
+      const run = (now) => {
+        // Eased so it slows into the real figure instead of stopping dead.
+        const t = Math.min(1, (now - start) / 900);
+        setShown(Math.round(target * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) requestAnimationFrame(run);
+      };
+      requestAnimationFrame(run);
+    }, { threshold: 0.4 });
+
+    io.observe(el);
+    return () => io.disconnect();
+  }, [numeric, target]);
+
+  function onMove(e) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setTilt({
+      x: ((e.clientX - r.left) / r.width - 0.5) * 2,
+      y: ((e.clientY - r.top) / r.height - 0.5) * 2,
+    });
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={"num" + (tilt ? " lifted" : "")}
+      onPointerMove={onMove}
+      onPointerLeave={() => setTilt(null)}
+      style={tilt ? { "--tx": tilt.x, "--ty": tilt.y } : undefined}
+    >
+      <span className="num-sheen" aria-hidden="true" />
+      <div className="num-v">{numeric ? shown.toLocaleString() : value}</div>
+      <div className="num-k">{label}</div>
+      <p className="num-note">{note}</p>
+    </div>
+  );
+}
+
+function Deck() {
+  const ref = useRef(null);
+  const p = useScrollRange(ref);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const still = useRef(false);
+
+  useEffect(() => {
+    still.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  // The pointer moves the camera, not the cards, so they stay a solid group.
   function onMove(e) {
     if (still.current) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -85,39 +153,53 @@ function Deck() {
     });
   }
 
-  const cards = [
-    { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page.", tag: "In" },
-    { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer.", tag: "Then" },
-    { k: "The real paper", t: "Full length, timed, and converted to the exam's own scale.", tag: "Out" },
-  ];
+  // Which card is in front, as a fraction, so the rail can move continuously
+  // rather than snapping between three states.
+  const at = p * DECK.length;
+  const active = Math.min(DECK.length - 1, Math.floor(at));
 
   return (
-    <section
-      className="deck-wrap"
-      ref={ref}
-      onPointerMove={onMove}
-      onPointerLeave={() => setTilt({ x: 0, y: 0 })}
-      style={{ "--p": p, "--tx": tilt.x, "--ty": tilt.y }}
-    >
-      {/* Behind everything, moving slowest, so the cards have something to be
-          in front of. */}
-      <div className="deck-bg" aria-hidden="true">
-        <span className="deck-glow" />
-        <span className="deck-grid" />
-      </div>
+    <section className="deck-stage" ref={ref} id="how">
+      <div
+        className="deck-sticky"
+        onPointerMove={onMove}
+        onPointerLeave={() => setTilt({ x: 0, y: 0 })}
+        style={{ "--p": p, "--tx": tilt.x, "--ty": tilt.y, "--at": at }}
+      >
+        <div className="deck-bg" aria-hidden="true">
+          <span className="deck-glow" />
+          <span className="deck-grid" />
+        </div>
 
-      <div className="deck">
-        {cards.map((c, i) => (
-          <article className="deck-card" key={c.k} style={{ "--i": i }}>
-            <div className="deck-face">
-              <span className="deck-tag">{c.tag}</span>
-              <span className="deck-step">{i + 1}</span>
-              <b>{c.k}</b>
-              <p>{c.t}</p>
-            </div>
-            <span className="deck-shine" aria-hidden="true" />
-          </article>
-        ))}
+        <header className="deck-head">
+          <h2>How it works</h2>
+          <p>Three steps, and the middle one is the part nobody else does properly.</p>
+        </header>
+
+        <div className="deck">
+          {DECK.map((c, i) => (
+            <article
+              className={"deck-card" + (active === i ? " front" : "")}
+              key={c.k}
+              style={{ "--i": i }}
+            >
+              <div className="deck-face">
+                <span className="deck-tag">{c.tag}</span>
+                <span className="deck-step">{i + 1}</span>
+                <b>{c.k}</b>
+                <p>{c.t}</p>
+              </div>
+              <span className="deck-shine" aria-hidden="true" />
+            </article>
+          ))}
+        </div>
+
+        <div className="deck-rail" aria-hidden="true">
+          {DECK.map((c, i) => (
+            <span key={c.k} className={"rail-pip" + (active >= i ? " on" : "")} />
+          ))}
+          <span className="rail-fill" />
+        </div>
       </div>
     </section>
   );
@@ -238,11 +320,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
             ["6", "question generators", "Fresh numbers each sitting, so no two papers match."],
             ["\u221e", "from your own notes", "Paste anything and it writes questions about it."],
           ].map(([n, label, note]) => (
-            <div className="num" key={label}>
-              <div className="num-v">{n}</div>
-              <div className="num-k">{label}</div>
-              <p className="num-note">{note}</p>
-            </div>
+            <Tile key={label} value={n} label={label} note={note} />
           ))}
         </div>
       </section>
