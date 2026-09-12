@@ -1,7 +1,7 @@
 // The page a new visitor lands on. It exists to answer one question quickly:
 // what does this thing do, and is it for me.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { approvedReviews } from "./supabase.js";
 
@@ -38,6 +38,58 @@ const FAQ = [
   },
 ];
 
+// Three cards standing in perspective that turn flat as they scroll into
+// place. Driven by the element's own position rather than by a timer, so the
+// movement belongs to the scroll and reverses when you go back up.
+function Deck() {
+  const ref = useRef(null);
+  const [p, setP] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setP(1); return; }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      // 0 while the section is still below the fold, 1 once it has risen to
+      // the middle of the window.
+      const t = 1 - (r.top - innerHeight * 0.25) / (innerHeight * 0.75);
+      setP(Math.max(0, Math.min(1, t)));
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    measure();
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
+    return () => {
+      removeEventListener("scroll", onScroll);
+      removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const cards = [
+    { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page." },
+    { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer." },
+    { k: "The real paper", t: "Full length, timed, and converted to the exam's own scale." },
+  ];
+
+  return (
+    <section className="deck-wrap" ref={ref}>
+      <div className="deck" style={{ "--p": p }}>
+        {cards.map((c, i) => (
+          <article className="deck-card" key={c.k} style={{ "--i": i }}>
+            <span className="deck-step">{i + 1}</span>
+            <b>{c.k}</b>
+            <p>{c.t}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
@@ -59,7 +111,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           <span>Dwiddle</span>
         </button>
         <nav className="glass-nav">
-          <button onClick={() => jump("numbers")}>Numbers</button>
+          <button onClick={() => jump("analytics")}>Analytics</button>
           <button onClick={() => jump("faq")}>FAQ</button>
           <button onClick={onInstall}>Get the app</button>
         </nav>
@@ -135,10 +187,12 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         </section>
       )}
 
-      <section className="landing-numbers" id="numbers">
-        <h2>What is actually in it</h2>
+      <Deck />
+
+      <section className="landing-numbers" id="analytics">
+        <h2>Analytics</h2>
         <p className="lp-lead">
-          Counted from the app itself, not rounded up for the page.
+          Counted from the app itself, live, and not rounded up for the page.
         </p>
         <div className="num-grid">
           {[

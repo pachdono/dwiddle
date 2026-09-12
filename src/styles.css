@@ -3184,36 +3184,62 @@ kbd {
 .num-k { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .num-note { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-3); }
 
-.faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 760px; margin: 32px auto 0; }
-.faq-item {
+/* One panel with hairline dividers, rather than six separate boxes stacked up.
+   Grouping reads as a considered list; repeated borders read as a form. */
+.faq-list {
+  max-width: 780px;
+  margin: 40px auto 0;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--surface);
-  padding: 0 20px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
+
+.faq-item { border-top: 1px solid var(--line-soft); padding: 0 26px; }
+.faq-item:first-child { border-top: 0; }
+.faq-item[open] { background: var(--sunken); }
+
 .faq-item summary {
   list-style: none;
   cursor: pointer;
-  padding: 18px 0;
-  font-size: 15.5px;
+  padding: 22px 0;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ink);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
 }
 .faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:hover { color: var(--accent); }
+
+/* A drawn chevron rather than a plus sign made of text, which never sits on
+   the baseline properly and gives the size away. */
 .faq-item summary::after {
-  content: "+";
-  font-size: 20px;
-  font-weight: 400;
-  color: var(--ink-3);
-  line-height: 1;
-  transition: transform 0.18s ease;
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--ink-3);
+  border-bottom: 2px solid var(--ink-3);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.2s ease;
 }
-.faq-item[open] summary::after { transform: rotate(45deg); }
-.faq-item p { margin: 0 0 18px; color: var(--ink-2); line-height: 1.65; font-size: 14.5px; max-width: 64ch; }
+.faq-item[open] summary::after {
+  transform: rotate(-135deg) translate(-3px, -3px);
+  border-color: var(--accent);
+}
+
+.faq-item p {
+  margin: -4px 0 22px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  font-size: 15px;
+  max-width: 62ch;
+}
 
 @media (max-width: 900px) {
   .num-grid { grid-template-columns: repeat(2, 1fr); }
@@ -3225,4 +3251,141 @@ kbd {
   .num-grid { grid-template-columns: 1fr; }
   .landing-numbers, .landing-faq { padding: 56px 20px; }
   .landing-hero { padding-top: 88px; }
+}
+
+/* The mark doubles as the way back to the front page, which is where people
+   already try to click. The label only appears on hover, so the sidebar is not
+   carrying a permanent instruction. */
+.brand-home {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  border-radius: 10px;
+  padding: 4px 6px;
+  position: relative;
+}
+.brand-home:hover { background: var(--hover); }
+.brand-hint {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.brand-home:hover .brand-hint { opacity: 1; }
+
+/* The reply address sits in the form it belongs to, as a quiet row rather than
+   a labelled box floating underneath the card. */
+.fb-reply {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 20px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-3);
+}
+.fb-reply input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+.fb-reply input:focus { outline: none; }
+.fb-reply input::placeholder { color: var(--ink-3); }
+.fb-reply:focus-within { background: var(--sunken); }
+.fb-optional {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  flex: 0 0 auto;
+}
+
+/* ---------- the scrolling deck ---------- */
+
+.deck-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+  /* The perspective lives on the parent, so all three cards share one vanishing
+     point and read as objects in the same space rather than three separate
+     tricks. */
+  perspective: 1400px;
+  perspective-origin: 50% 30%;
+}
+
+.deck {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  transform-style: preserve-3d;
+}
+
+.deck-card {
+  --lift: calc((1 - var(--p)) * 1);
+  padding: 30px 28px 32px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transform-origin: 50% 100%;
+  /* Standing away from the reader, then turning flat and rising into place.
+     The stagger comes from the index, so they settle in reading order. */
+  transform:
+    translateY(calc(var(--lift) * (40px + var(--i) * 22px)))
+    translateZ(calc(var(--lift) * -160px))
+    rotateX(calc(var(--lift) * 26deg));
+  opacity: calc(0.25 + var(--p) * 0.75);
+  box-shadow: 0 calc(6px + var(--lift) * 26px) calc(18px + var(--lift) * 44px)
+    rgba(20, 20, 40, calc(0.06 + var(--lift) * 0.12));
+  transition: transform 0.12s linear, opacity 0.12s linear, box-shadow 0.12s linear;
+  will-change: transform;
+}
+
+.deck-step {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.deck-card b {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+
+.deck-card p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .deck { grid-template-columns: 1fr; gap: 14px; }
+  .deck-wrap { padding: 24px 20px 48px; perspective: 900px; }
+}
+
+/* Nothing moves for anyone who has asked for less of it: the cards simply
+   start where they would have finished. */
+@media (prefers-reduced-motion: reduce) {
+  .deck-card { transform: none; opacity: 1; transition: none; }
 }

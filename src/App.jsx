@@ -191,6 +191,7 @@ export default function App() {
   const [customBg, setCustomBg] = useState(() => loadBg());
 
   const [editing, setEditing] = useState(false);
+  const [atLanding, setAtLanding] = useState(false);
 
   function setCustom(next) {
     setCustomRaw(next);
@@ -449,11 +450,13 @@ export default function App() {
     return <SignInPage onClose={() => { setSignInOpen(false); enter(); }} />;
   }
 
-  if (!auth.user && !entered && auth.ready) {
+  if (atLanding || (!auth.user && !entered && auth.ready)) {
     return isDesktop
-      ? <DesktopWelcome onSkip={enter} />
-      : <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter}
-          onLegal={openLegal} onInstall={() => { enter(); go("install"); }} />;
+      ? <DesktopWelcome onSkip={() => { setAtLanding(false); enter(); }} />
+      : <Landing people={people} onSignIn={() => setSignInOpen(true)}
+          onSkip={() => { setAtLanding(false); enter(); }}
+          onLegal={openLegal}
+          onInstall={() => { setAtLanding(false); enter(); go("install"); }} />;
   }
 
   // Someone already running it installed does not need to be sold it.
@@ -479,10 +482,15 @@ export default function App() {
           onClick={() => setMenuOpen(false)}>
           <Icon name="close" size={16} />
         </button>
-        <div className="brand">
+        <button
+          className="brand brand-home"
+          onClick={() => { setAtLanding(true); setMenuOpen(false); }}
+          title="Back to the front page"
+        >
           <DuckMark size={26} className="brand-mark-duck" />
           Dwiddle
-        </div>
+          <span className="brand-hint">Home</span>
+        </button>
 
         <div className="upgrade">
           <span className="pill soon">Coming soon</span>
@@ -4053,26 +4061,26 @@ function FeedbackPage({ auth }) {
             }
             onChange={(e) => setMessage(e.target.value)}
           />
+          {!auth?.user && (
+            <label className="fb-reply">
+              <Icon name="chat" size={15} />
+              <input
+                type="email"
+                value={contact}
+                placeholder="Your email, if you want a reply"
+                onChange={(e) => setContact(e.target.value)}
+              />
+              <span className="fb-optional">optional</span>
+            </label>
+          )}
+
           <div className="notes-foot">
             <span className="small muted">{message.length} of 4000</span>
-            <button className="btn" type="submit" disabled={short || state === "sending"}>
+            <button className="btn cta" type="submit" disabled={short || state === "sending"}>
               {state === "sending" ? <Loading label="Sending" /> : "Send"}
             </button>
           </div>
         </div>
-
-        {!auth?.user && (
-          <label className="field">
-            <span>Your email, if you want a reply</span>
-            <input
-              type="email"
-              value={contact}
-              placeholder="Optional"
-              style={{ maxWidth: 320 }}
-              onChange={(e) => setContact(e.target.value)}
-            />
-          </label>
-        )}
 
         {state === "error" && (
           <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>
