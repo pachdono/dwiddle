@@ -5,7 +5,8 @@
 // questions still calls the deployment, because that is where the model key
 // lives and it must never be shipped to a user's machine.
 
-const { app, BrowserWindow, shell, Menu, session, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, Menu, session, ipcMain, screen } = require("electron");
+const fs = require("node:fs");
 const updates = require("./update.cjs");
 const path = require("node:path");
 
@@ -31,15 +32,47 @@ function handleAuth(url) {
   }
 }
 
+// Where the window was last time. Reopening at the default size in the middle
+// of the screen every launch is the clearest sign an app is a web page.
+const boundsFile = () => path.join(app.getPath("userData"), "window.json");
+
+function lastBounds() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(boundsFile(), "utf8"));
+    // A monitor that has since been unplugged would put the window off screen.
+    const area = screen.getDisplayMatching(saved).workArea;
+    if (saved.x + saved.width < area.x || saved.x > area.x + area.width) return null;
+    if (saved.y + saved.height < area.y || saved.y > area.y + area.height) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+function rememberBounds() {
+  if (!win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
+  try {
+    fs.writeFileSync(boundsFile(), JSON.stringify(win.getNormalBounds()));
+  } catch {
+    // Not being able to remember the size is not worth interrupting anyone for.
+  }
+}
+
 function create() {
+  const mac = process.platform === "darwin";
+  const saved = lastBounds();
+
   win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    ...(saved || { width: 1280, height: 860 }),
     minWidth: 380,
     minHeight: 560,
     show: false,
     title: "Dwiddle",
-    backgroundColor: "#ffffff",
+    // On a Mac the window is translucent and the desktop shows through the
+    // sidebar, the way Mail and Notes look. Everywhere else it stays solid.
+    ...(mac
+      ? { vibrancy: "sidebar", visualEffectState: "active", backgroundColor: "#00000000" }
+      : { backgroundColor: "#ffffff" }),
     // A title bar that blends into the app rather than sitting on top of it.
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
@@ -53,6 +86,15 @@ function create() {
   });
 
   win.once("ready-to-show", () => win.show());
+
+  let saveTimer = null;
+  const scheduleSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(rememberBounds, 400);
+  };
+  win.on("resize", scheduleSave);
+  win.on("move", scheduleSave);
+  win.on("close", rememberBounds);
 
   if (dev && !process.env.DWIDDLE_FORCE_FILE) {
     win.loadURL(process.env.DWIDDLE_DEV_URL || "http://localhost:5180");

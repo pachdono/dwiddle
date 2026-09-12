@@ -3603,3 +3603,26 @@ kbd {
   .deck-sticky { position: static; height: auto; padding: 60px 0; }
   .deck-card, .deck-card.front, .deck { transform: none; opacity: 1; transition: none; }
 }
+
+/* ---------- the desktop window ---------- */
+
+/* The window itself is translucent on a Mac, so the sidebar lets the desktop
+   through the way a native app does. The content area stays solid, because
+   reading through a wallpaper is not a feature. */
+.is-mac .app { background: transparent; }
+.is-mac .sidebar {
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  border-right-color: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.is-mac main { background: var(--bg); }
+
+/* Rows in a translucent sidebar need a little more weight, or they disappear
+   against whatever happens to be behind the window. */
+.is-mac .nav-item.on {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.is-mac .upgrade {
+  background: color-mix(in srgb, var(--sunken) 70%, transparent);
+}
