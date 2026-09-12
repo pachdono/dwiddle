@@ -75,20 +75,20 @@ export function platform() {
 //
 // ready stays false until that page exists, and the download card simply does
 // not appear, rather than offering a link that 404s.
-const RELEASE = "https://github.com/pachdono/dwiddle-releases/releases/download/v1.0.1/";
+const RELEASE = "https://github.com/pachdono/dwiddle-releases/releases/download/v1.0.2/";
 
 export const DOWNLOADS = {
   ready: true,
   // The environment variable still wins, so a new build can be pointed
   // somewhere else without a code change.
   base: import.meta.env.VITE_DOWNLOAD_BASE || RELEASE,
-  version: "1.0.1",
+  version: "1.0.2",
   page: "https://github.com/pachdono/dwiddle-releases/releases/latest",
 };
 
-const MAC_ARM = { file: "Dwiddle-1.0.1-arm64.dmg", label: "Download for Mac (Apple Silicon)", primary: true };
-const MAC_X64 = { file: "Dwiddle-1.0.1-x64.dmg", label: "Intel Mac", primary: false };
-const WINDOWS = { file: "Dwiddle-Setup-1.0.1.exe", label: "Download for Windows", primary: true };
+const MAC_ARM = { file: "Dwiddle-1.0.2-arm64.dmg", label: "Download for Mac (Apple Silicon)", primary: true };
+const MAC_X64 = { file: "Dwiddle-1.0.2-x64.dmg", label: "Intel Mac", primary: false };
+const WINDOWS = { file: "Dwiddle-Setup-1.0.2.exe", label: "Download for Windows", primary: true };
 
 export function downloadFor(id) {
   if (id === "windows") return [WINDOWS, { ...MAC_ARM, label: "Mac", primary: false }];
