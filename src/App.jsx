@@ -10,6 +10,8 @@ import { shrink } from "./custom.js";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
+import Install, { InstallAll } from "./Install.jsx";
+import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
@@ -86,6 +88,8 @@ const PAGE_PATH = {
   feedback: "/feedback",
   settings: "/settings",
   reader: "/material",
+  install: "/install",
+  "install-all": "/install/all",
 };
 
 const PATH_PAGE = Object.fromEntries(
@@ -166,7 +170,9 @@ const NAV_MATERIAL = [
   { id: "feedback", label: "Feedback", icon: "chat" },
 ];
 
-const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" }, { id: "reader", label: "Material" }];
+const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" },
+  { id: "reader", label: "Material" }, { id: "install", label: "Get the app" },
+  { id: "install-all", label: "Every platform" }];
 
 export default function App() {
   const [page, setPage] = useState(() => routeOf(window.location.pathname).page || "home");
@@ -400,6 +406,8 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     feedback: FeedbackPage,
+    install: Install,
+    "install-all": InstallAll,
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
@@ -431,7 +439,8 @@ export default function App() {
   }
 
   if (!auth.user && !entered && auth.ready) {
-    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter} onLegal={openLegal} />;
+    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter}
+        onLegal={openLegal} onInstall={() => { enter(); go("install"); }} />;
   }
 
   const showPhoto = custom.on && customBg && custom.widgets.photo &&
@@ -1727,7 +1736,7 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-function Settings({ theme, setTheme, auth, custom, setCustom, openEditor }) {
+function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) {
 
   const [name, setName] = useState(() => displayName(auth?.user));
   const [goal, setGoal] = useState("20");
@@ -1812,6 +1821,16 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor }) {
           </SetRow>
           <SetRow label="Version" hint="Dwiddle for the web.">
             <span className="small muted">1.0</span>
+          </SetRow>
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3>Get the app</h3></div>
+          <SetRow
+            label="Install Dwiddle"
+            hint="Run it full screen from your home screen, Dock or taskbar."
+          >
+            <button className="btn small" onClick={() => go("install")}>How</button>
           </SetRow>
         </div>
 
