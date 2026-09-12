@@ -1273,7 +1273,7 @@ function AddMaterial({ go, setMade, auth }) {
                 : words === 0 ? "Plain text works best"
                 : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
-            <button className="btn" disabled={!ready || state === "reading" || state === "working"}
+            <button className="btn cta" disabled={!ready || state === "reading" || state === "working"}
               onClick={state === "done" ? () => go("quiz") : run}>
               {state === "reading" ? <Loading label="Reading file" />
                 : state === "working" ? <Loading label="Building questions" />
@@ -3607,7 +3607,7 @@ function AiMark({ task, rubric, answer, onScores }) {
             An examiner's read against the {r.name}, before you mark it yourself.
           </div>
         </div>
-        <button className="btn" onClick={run} disabled={answer.trim().length < 80}>
+        <button className="btn cta" onClick={run} disabled={answer.trim().length < 80}>
           <Icon name="spark" size={14} /> Mark my answer
         </button>
       </div>

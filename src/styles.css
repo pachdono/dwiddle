@@ -13,6 +13,7 @@
   --ink-3: #8a8a94;
   --accent: #3b5bfd;
   --accent-soft: #eef1ff;
+  --accent-ink: #ffffff;
   --good: #12805c;
   --good-soft: #e7f5ef;
   --good-line: #b7e0ce;
@@ -49,6 +50,7 @@
   --ink-2: #a6a6b0;
   --ink-3: #74747e;
   --accent: #8ba0ff;
+  --accent-ink: #101014;
   --accent-soft: #1d2140;
   --good: #55cb9d;
   --good-soft: #13322a;
@@ -343,6 +345,54 @@ textarea:focus, input[type="text"]:focus, select:focus {
 .btn.quiet { background: transparent; color: var(--ink-3); padding: 6px 8px; }
 .btn.quiet:hover { color: var(--ink); background: var(--hover); opacity: 1; }
 .btn.full { width: 100%; }
+
+/* The one action a page exists for. Everything else on the screen is a .btn,
+   so the primary action has to be told apart by weight and colour rather than
+   by position alone. */
+.btn.cta {
+  padding: 12px 22px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 6px 18px color-mix(in srgb, var(--accent) 26%, transparent);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.btn.cta svg { width: 16px; height: 16px; }
+
+.btn.cta:hover:not(:disabled) {
+  opacity: 1;
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 10px 26px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.btn.cta:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.96);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Disabled has to read as "not yet", not as a second style of button. */
+.btn.cta:disabled {
+  background: var(--sunken);
+  color: var(--ink-3);
+  border-color: var(--line);
+  box-shadow: none;
+  transform: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn.cta, .btn.cta:hover:not(:disabled), .btn.cta:active:not(:disabled) { transform: none; }
+}
 
 .pill {
   display: inline-flex;

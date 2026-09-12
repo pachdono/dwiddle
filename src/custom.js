@@ -43,6 +43,9 @@ function scheme(bg, ink, accent) {
     "--ink-2": mix(ink, bg, 0.32),
     "--ink-3": mix(ink, bg, 0.55),
     "--accent": accent,
+    // Text sitting on the accent. A user can pick anything from near black to
+    // near white, so this is measured rather than assumed.
+    "--accent-ink": isDark(accent) ? "#FFFFFF" : "#101014",
     "--accent-soft": mix(bg, accent, 0.13),
     "--btn": ink,
     "--btn-ink": bg,
