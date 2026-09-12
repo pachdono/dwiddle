@@ -2009,7 +2009,14 @@ kbd {
     text-align: left;
   }
   .landing-top { padding: 16px 20px; }
-  .hero-duck { top: -44px; left: -8px; }
+  /* The duck peeks over the corner of the preview on a wide screen. Once the
+     card goes full width there is no corner to peek over, and it landed on
+     the card's own heading, so on a phone it stands above the card instead. */
+  .hero-duck {
+    position: static;
+    display: block;
+    margin: 0 0 -6px 2px;
+  }
   .marquee-item { font-size: 20px; padding: 0 22px; }
 }
 
@@ -2720,4 +2727,41 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .test-card:hover, .course-card:hover { transform: none; }
+}
+
+/* ---------- touch ---------- */
+
+/* Measured across 320 to 768: switches came out at 22px, the quiz length
+   chips at 27, icon buttons at 30. Apple asks for 44 and Android for 48,
+   because a fingertip is about 9mm and a cursor is one pixel. These grow only
+   where the pointer is coarse, so a mouse driven layout stays compact. */
+@media (pointer: coarse) {
+  .icon-btn,
+  .nav-item,
+  .btn,
+  .seg button {
+    min-height: 44px;
+  }
+
+  .btn.quiet { min-height: 40px; }
+
+  .nav-item { padding: 11px 12px; }
+
+  /* A switch is small on purpose, so it gets its hit area from a pseudo
+     element rather than by growing and unbalancing the row. */
+  .switch {
+    position: relative;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Rows in a list are the main way around on a phone. */
+  .list-item { min-height: 52px; }
 }
