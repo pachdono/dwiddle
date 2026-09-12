@@ -862,7 +862,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
               <span className="pill">From your material</span>
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Add a PDF, a Word file or a photo, and we turn it into questions.
+              Add a PDF, slides or a photo, and we turn it into questions.
             </p>
             <button className="btn" onClick={() => go("upload")}>
               <Icon name="upload" /> Add material
@@ -1105,8 +1105,8 @@ function countGeneration(user) {
 
 // Turns whatever was dropped in into plain text.
 //
-// PDF and Word are read here in the browser and are exact, because both store
-// their text. A photograph has no text to read, so it goes to the server to be
+// PDF, Word and PowerPoint are read here in the browser and are exact,
+// because all three store their text. A photograph has no text to read, so it goes to the server to be
 // transcribed by a model that reads images. Nothing is trained: the accuracy
 // comes from the format in the first two cases and from an existing model in
 // the third.
@@ -1117,13 +1117,16 @@ async function readFile(file) {
   if (file.size > MAX_FILE) {
     throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit. Split it and add a chapter at a time.`);
   }
-  if (!/\.(pdf|docx|txt|md|markdown)$/i.test(file.name) && !IMAGE.test(file.name)) {
-    throw new Error("That file type cannot be read. Use a PDF, a Word document, a photo, or plain text.");
+  if (!/\.(pdf|docx|pptx|txt|md|markdown)$/i.test(file.name) && !IMAGE.test(file.name)) {
+    if (/\.(doc|ppt)$/i.test(file.name)) {
+      throw new Error("That is the older Office format. Open it and save it as .docx or .pptx first.");
+    }
+    throw new Error("That file type cannot be read. Use a PDF, Word, PowerPoint, a photo, or plain text.");
   }
 
-  if (/\.docx$/i.test(file.name)) {
-    const { readDocx } = await import("./docx.js");
-    return readDocx(file);
+  if (/\.(docx|pptx)$/i.test(file.name)) {
+    const { readOffice } = await import("./office.js");
+    return readOffice(file);
   }
 
   if (IMAGE.test(file.name)) {
@@ -1221,7 +1224,7 @@ function AddMaterial({ go, setMade, auth }) {
 
   return (
     <div className="page fade">
-      <PageHead title="Add material" sub="Drop in a PDF, a Word file or a photo of your notes, and we build the questions." />
+      <PageHead title="Add material" sub="Drop in a PDF, Word, PowerPoint or a photo of your notes, and we build the questions." />
 
       <div className="stack">
         <label
@@ -1230,7 +1233,7 @@ function AddMaterial({ go, setMade, auth }) {
           onDragLeave={() => setOver(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept=".pdf,.docx,.txt,.md,image/*" hidden
+          <input type="file" accept=".pdf,.docx,.pptx,.txt,.md,image/*" hidden
             onChange={(e) => accept(e.target.files?.[0])} />
           <span className="drop-icon"><Icon name={file ? "file" : "upload"} size={20} /></span>
           {file ? (
@@ -1241,7 +1244,7 @@ function AddMaterial({ go, setMade, auth }) {
           ) : (
             <>
               <b>Drop a file here, or click to browse</b>
-              <span className="small muted">PDF, Word, a photo, or plain text, up to 20 MB</span>
+              <span className="small muted">PDF, Word, PowerPoint, a photo, or plain text, up to 20 MB</span>
             </>
           )}
         </label>

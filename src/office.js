@@ -1,9 +1,10 @@
-// Reading a .docx without a library.
+// Reading Word and PowerPoint files without a library.
 //
-// A .docx is a ZIP archive. The text lives in word/document.xml as a stream of
-// <w:t> runs inside <w:p> paragraphs. So this unzips the one entry it needs
-// and pulls the runs out. No AI is involved and nothing is sent anywhere: the
-// result is exact, not a transcription.
+// Both are ZIP archives of XML. Word keeps its text in word/document.xml as
+// <w:t> runs inside <w:p> paragraphs; PowerPoint keeps one file per slide in
+// ppt/slides/ with <a:t> runs inside <a:p> paragraphs. So this unzips the
+// entries it needs and pulls the runs out. No AI is involved and nothing is
+// sent anywhere: the result is exact, not a transcription.
 //
 // The browser can inflate on its own through DecompressionStream, so this
 // costs a couple of kilobytes rather than the hundred a ZIP library would.
@@ -66,9 +67,15 @@ function textOf(xml) {
   return xml
     .replace(/<w:tab\b[^>]*\/>/g, "\t")
     .replace(/<w:br\b[^>]*\/>/g, "\n")
-    .replace(/<\/w:p>/g, "\n")
-    .replace(/<\/w:tr>/g, "\n")
+    .replace(/<a:br\b[^>]*\/>/g, "\n")
+    .replace(/<\/a:p>/g, "\n")
+    // A table cell holds its own paragraph, so the paragraph break inside one
+    // is swallowed and the cell boundary becomes the tab. Otherwise every
+    // column lands on its own line and the table stops reading as a table.
+    .replace(/<\/w:p>\s*<\/w:tc>/g, "\t")
     .replace(/<\/w:tc>/g, "\t")
+    .replace(/<\/w:tr>/g, "\n")
+    .replace(/<\/w:p>/g, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
@@ -101,4 +108,52 @@ export async function readDocx(file) {
   const text = parts.join("\n\n").trim();
   if (!text) throw new Error("That Word document has no text in it.");
   return text;
+}
+
+/* ---------- PowerPoint ---------- */
+
+// slide10 must not sort between slide1 and slide2.
+const slideNo = (name) => Number((name.match(/(\d+)\.xml$/) || [])[1] || 0);
+
+export async function readPptx(file) {
+  const buf = await file.arrayBuffer();
+  const list = entries(buf);
+
+  const slides = list
+    .filter((e) => /^ppt\/slides\/slide\d+\.xml$/.test(e.name))
+    .sort((a, b) => slideNo(a.name) - slideNo(b.name));
+
+  if (slides.length === 0) {
+    throw new Error("That looks like an older .ppt file. Open it in PowerPoint and save it as .pptx first.");
+  }
+
+  // Speaker notes are often where the actual explanation lives, so they are
+  // kept and labelled rather than dropped.
+  const notes = new Map();
+  for (const e of list) {
+    if (/^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(e.name)) {
+      notes.set(slideNo(e.name), textOf(await read(buf, e)));
+    }
+  }
+
+  const out = [];
+  for (const s of slides) {
+    const n = slideNo(s.name);
+    const body = textOf(await read(buf, s));
+    if (!body && !notes.get(n)) continue;
+
+    const block = [`Slide ${n}`, body].filter(Boolean);
+    const note = (notes.get(n) || "").replace(new RegExp(`^\\s*${n}\\s*`), "").trim();
+    if (note.length > 10) block.push(`Notes: ${note}`);
+    out.push(block.join("\n"));
+  }
+
+  const text = out.join("\n\n").trim();
+  if (!text) throw new Error("That presentation has no text in it.");
+  return text;
+}
+
+// Picks the reader from the extension, so callers do not have to.
+export function readOffice(file) {
+  return /\.pptx$/i.test(file.name) ? readPptx(file) : readDocx(file);
 }
