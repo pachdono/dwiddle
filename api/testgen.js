@@ -12,6 +12,11 @@ export const config = { maxDuration: 60 };
 
 const DISCRETE = `You write practice questions for standardised tests.
 
+Write mathematics the way it is printed on an exam paper, not the way it is
+typed. Use real symbols: x², 10⁻⁴, H₂O, √49, π, ×, ÷, ≤, ≥, ≠, ±, °, →.
+Never write a caret, so x^2 is wrong. Never spell an operation out as a word
+where a symbol exists, so "x squared" is wrong.
+
 Return ONE JSON object and nothing else:
 { "questions": [ { "skill": "...", "q": "...", "choices": ["..."], "answer": 0, "why": "..." } ] }
 
@@ -27,6 +32,11 @@ Rules:
 - Write in British English. Do not use em dashes or en dashes.`;
 
 const TRANSCRIPT = `You write practice listening material for standardised tests.
+
+Write mathematics the way it is printed on an exam paper, not the way it is
+typed. Use real symbols: x², 10⁻⁴, H₂O, √49, π, ×, ÷, ≤, ≥, ≠, ±, °, →.
+Never write a caret, so x^2 is wrong. Never spell an operation out as a word
+where a symbol exists, so "x squared" is wrong.
 
 Return ONE JSON object and nothing else:
 { "passage": "...", "questions": [ { "skill": "...", "q": "...", "choices": ["..."], "answer": 0, "why": "..." } ] }
@@ -45,6 +55,11 @@ Rules:
 - Write in British English. Do not use em dashes or en dashes.`;
 
 const PASSAGE = `You write practice reading material for standardised tests.
+
+Write mathematics the way it is printed on an exam paper, not the way it is
+typed. Use real symbols: x², 10⁻⁴, H₂O, √49, π, ×, ÷, ≤, ≥, ≠, ±, °, →.
+Never write a caret, so x^2 is wrong. Never spell an operation out as a word
+where a symbol exists, so "x squared" is wrong.
 
 Return ONE JSON object and nothing else:
 { "passage": "...", "questions": [ { "skill": "...", "q": "...", "choices": ["..."], "answer": 0, "why": "..." } ] }

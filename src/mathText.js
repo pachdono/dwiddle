@@ -1,0 +1,113 @@
+// Maths written the way it is printed.
+//
+// Questions arrive with maths in three shapes: caret notation from the model
+// (x^2), words from the authored templates (x squared), and ASCII operators
+// everywhere (<=, *, ->). All three read as workings rather than as an exam
+// paper, and "2^2" is simply wrong on a page that is meant to look like the
+// real thing.
+//
+// This rewrites the string rather than the rendering, which means the result
+// is also right when the sheet is printed, exported to PDF, or copied out.
+
+const SUP = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+  "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+  "+": "⁺", "-": "⁻", "=": "⁼", "(": "⁽", ")": "⁾",
+  n: "ⁿ", i: "ⁱ", x: "ˣ", a: "ᵃ", b: "ᵇ", c: "ᶜ",
+  d: "ᵈ", k: "ᵏ", m: "ᵐ", p: "ᵖ", t: "ᵗ" };
+
+const SUB = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
+  "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+  "+": "₊", "-": "₋", "(": "₍", ")": "₎",
+  n: "ₙ", a: "ₐ", e: "ₑ", i: "ᵢ", o: "ₒ", x: "ₓ" };
+
+// Only convert when every character has a real glyph. A half converted
+// exponent is worse than none at all.
+function lift(run, table) {
+  let out = "";
+  for (const ch of run) {
+    if (!(ch in table)) return null;
+    out += table[ch];
+  }
+  return out;
+}
+
+const WORDS = [
+  // The article goes with it, or the sentence reads "the √144".
+  [/\b(?:the )?square roots? of ([a-z0-9.]+)/gi, "√$1"],
+  // Parentheses round a single value add nothing: √49, not √(49).
+  [/\bsqrt\(\s*([a-z0-9.]{1,8})\s*\)/gi, "√$1"],
+  [/\bsqrt\(([^()]{1,20})\)/gi, "√($1)"],
+  [/\bsqrt ?([a-z0-9.]+)/gi, "√$1"],
+  [/\bpi\b/g, "π"],
+  [/\btheta\b/gi, "θ"],
+  [/\bplus or minus\b/gi, "±"],
+  [/\bis less than or equal to\b/gi, "≤"],
+  [/\bis greater than or equal to\b/gi, "≥"],
+  [/\bis not equal to\b/gi, "≠"],
+];
+
+const OPS = [
+  [/<=>/g, "⇔"],
+  [/<->/g, "↔"],
+  [/->/g, "→"],
+  [/<=/g, "≤"],
+  [/>=/g, "≥"],
+  [/!=/g, "≠"],
+  [/\+\/-|\+-/g, "±"],
+  [/\.\.\./g, "…"],
+  // A multiplication star between two operands, not a stray asterisk.
+  [/([0-9a-zA-Z)\]])\s*\*\s*([0-9a-zA-Z(\[])/g, "$1 × $2"],
+  // Division slash only between bare numbers, so dates and units survive.
+  [/(\d)\s*\/\s*(\d)(?![\d/])/g, "$1/$2"],
+  // A true minus sign between numbers reads level with the digits, where a
+  // hyphen sits low and short.
+  [/(\d)\s-\s(\d)/g, "$1 − $2"],
+  // Not when a scale follows: "30 degrees Celsius" is written out, not "30° Celsius".
+  [/(\d) ?degrees?\b(?! ?(?:c\b|f\b|celsius|fahrenheit|centigrade))/gi, "$1°"],
+];
+
+export function tidyMath(input) {
+  if (typeof input !== "string" || !input) return input;
+  let s = input;
+
+  // x^2, x^{n+1}, x^(2) and 10^-4
+  s = s.replace(/\^\{([^{}]{1,12})\}|\^\(([^()]{1,12})\)|\^(-?[0-9a-zA-Z]{1,4})/g,
+    (whole, braced, parens, bare) => {
+      const run = braced ?? parens ?? bare;
+      return lift(run, SUP) ?? whole;
+    });
+
+  // H_2O, a_1, x_{n}
+  s = s.replace(/_\{([^{}]{1,8})\}|_(\d{1,3}|[a-zA-Z])/g, (whole, braced, bare) => {
+    const run = braced ?? bare;
+    return lift(run, SUB) ?? whole;
+  });
+
+  // "x squared", "the 3rd power of x", "x to the 4"
+  // Only a real algebraic term takes the exponent: a single variable, a
+  // number, or a closing bracket. Matching any word turned the prose "the
+  // radius squared" into "the radius²".
+  s = s.replace(/(\b[a-zA-Z]\b|\b\d+\b|\)) squared\b/g, (whole, base) => base + "²");
+  s = s.replace(/(\b[a-zA-Z]\b|\b\d+\b|\)) cubed\b/g, (whole, base) => base + "³");
+  s = s.replace(/\b([a-zA-Z]) to the (?:power )?(\d{1,2})\b/g, (whole, base, n) => {
+    const up = lift(n, SUP);
+    return up ? base + up : whole;
+  });
+
+  for (const [re, to] of WORDS) s = s.replace(re, to);
+  for (const [re, to] of OPS) s = s.replace(re, to);
+
+  return s;
+}
+
+// Applied to a whole question, including its options and its explanation.
+export function tidyQuestion(q) {
+  if (!q || typeof q !== "object") return q;
+  return {
+    ...q,
+    q: tidyMath(q.q),
+    why: tidyMath(q.why),
+    passage: tidyMath(q.passage),
+    choices: Array.isArray(q.choices) ? q.choices.map(tidyMath) : q.choices,
+  };
+}

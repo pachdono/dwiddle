@@ -8,6 +8,7 @@
 
 import { load, save, KEYS } from "./store.js";
 import { generateTestQuestions } from "./ai.js";
+import { tidyQuestion } from "./mathText.js";
 
 const key = (testId, sectionId) => `${testId}:${sectionId}`;
 
@@ -107,7 +108,9 @@ export async function buildFresh({
     }
   }
 
-  const qs = available.slice(0, wanted);
+  // Applied on the way out rather than on the way in, so questions already
+  // saved in a bank from an earlier version are printed properly too.
+  const qs = available.slice(0, wanted).map(tidyQuestion);
   markSeen(qs.map((q) => q.id));
   return { qs, short: qs.length < wanted, wrote: qs.filter((q) => q.fresh).length };
 }

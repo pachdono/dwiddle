@@ -10,6 +10,8 @@
 // so those draw from authored passage banks and are labelled short form where
 // the bank is smaller than the real paper.
 
+import { tidyMath } from "./mathText.js";
+
 /* ---------- helpers ---------- */
 
 const ri = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
@@ -30,6 +32,13 @@ function shuffled(arr) {
 // worse, two correct ones.
 let uid = 0;
 function make({ section, skill, passage, q, correct, wrong, why }) {
+  // Written as words and carets in the templates above, printed as real
+  // symbols here, so one pass covers every question this file produces.
+  q = tidyMath(q);
+  why = tidyMath(why);
+  passage = tidyMath(passage);
+  correct = tidyMath(correct);
+  wrong = wrong.map(tidyMath);
   const want = wrong.length + 1;
   const unique = [];
   for (const o of [correct, ...wrong]) {
@@ -106,10 +115,10 @@ const MATH = {
     const b = 2 * h, c = h * h + k;
     return make({
       section, skill: "Advanced maths",
-      q: `The function f is defined by f(x) = x squared minus ${b}x + ${c}. What is the minimum value of f(x)?`,
+      q: `The function f is defined by f(x) = x² − ${b}x + ${c}. What is the minimum value of f(x)?`,
       correct: String(k),
       wrong: distinct(String(k), [String(h), String(c), String(-k)], 3),
-      why: `Complete the square: x squared minus ${b}x + ${c} = (x minus ${h}) squared + ${k}. A square is never negative, so the minimum is ${k}, at x = ${h}.`,
+      why: `Complete the square: x² − ${b}x + ${c} = (x − ${h})² + ${k}. A square is never negative, so the minimum is ${k}, at x = ${h}.`,
     });
   },
 
@@ -117,7 +126,7 @@ const MATH = {
     const r = ri(3, 12), a = ri(1, 9), b = ri(1, 9);
     return make({
       section, skill: "Geometry",
-      q: `A circle in the xy plane has equation (x minus ${a}) squared + (y + ${b}) squared = ${r * r}. What is the length of its diameter?`,
+      q: `A circle in the xy plane has equation (x − ${a})² + (y + ${b})² = ${r * r}. What is the length of its diameter?`,
       correct: String(2 * r),
       wrong: distinct(String(2 * r), [String(r), String(r * r), String(r * r * 2)], 3),
       why: `The right hand side is the radius squared, so r = ${r} and the diameter is ${2 * r}. Taking ${r * r} as the radius is the common slip.`,
@@ -186,10 +195,10 @@ const MATH = {
     const a = ri(2, 5), m = ri(2, 5), n = ri(2, 4);
     return make({
       section, skill: "Exponents",
-      q: `Simplify: (x to the ${m}) to the power ${n}, times x to the ${a}.`,
+      q: `Simplify: (x^${m})^${n} × x^${a}.`,
       correct: `x to the ${m * n + a}`,
       wrong: [`x to the ${m + n + a}`, `x to the ${m * n * a}`, `x to the ${m + n * a}`],
-      why: `A power raised to a power multiplies the exponents (${m} x ${n} = ${m * n}), then multiplying adds them (${m * n} + ${a} = ${m * n + a}). Adding at the first step gives ${m + n + a}.`,
+      why: `A power raised to a power multiplies the exponents (${m} × ${n} = ${m * n}), then multiplying adds them (${m * n} + ${a} = ${m * n + a}). Adding at the first step gives ${m + n + a}.`,
     });
   },
 
@@ -233,7 +242,7 @@ const MATH = {
     const b = r1 + r2, c = r1 * r2;
     return make({
       section, skill: "Advanced maths",
-      q: `What is the sum of the solutions to x squared minus ${b}x + ${c} = 0?`,
+      q: `What is the sum of the solutions to x² − ${b}x + ${c} = 0?`,
       correct: String(b),
       wrong: distinct(String(b), [String(c), String(-b), String(b + c)], 3),
       why: `It factors to (x minus ${r1})(x minus ${r2}) = 0, so the roots are ${r1} and ${r2} and they sum to ${b}. The product ${c} is the near miss.`,
@@ -259,7 +268,7 @@ const MATH = {
       q: `A right triangle has legs of ${a} and ${b}. What is the length of the hypotenuse?`,
       correct: String(c),
       wrong: distinct(String(c), [String(a + b), String(c - 1), String(Math.round((a + b) / 2))], 3),
-      why: `${a} squared + ${b} squared = ${a * a} + ${b * b} = ${c * c}, and the square root of ${c * c} is ${c}. Adding the legs to get ${a + b} is the usual error.`,
+      why: `${a}² + ${b}² = ${a * a} + ${b * b} = ${c * c}, and √${c * c} is ${c}. Adding the legs to get ${a + b} is the usual error.`,
     });
   },
 

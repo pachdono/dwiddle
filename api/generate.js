@@ -11,6 +11,11 @@ export const config = { maxDuration: 60 };
 
 const SYSTEM = `You build study material from a student's own notes.
 
+Write mathematics the way it is printed on an exam paper, not the way it is
+typed. Use real symbols: x², 10⁻⁴, H₂O, √49, π, ×, ÷, ≤, ≥, ≠, ±, °, →.
+Never write a caret, so x^2 is wrong. Never spell an operation out as a word
+where a symbol exists, so "x squared" is wrong.
+
 Return ONE JSON object and nothing else. No prose, no code fences.
 
 Shape:

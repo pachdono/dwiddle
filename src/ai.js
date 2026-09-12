@@ -1,6 +1,8 @@
 // Calls to our own serverless functions. The NVIDIA key is never here; it
 // lives only on the server, so nothing in this file can leak it.
 
+import { tidyQuestion, tidyMath } from "./mathText.js";
+
 const TRANSIENT = new Set([429, 502, 503, 504]);
 
 // The free models fail intermittently: busy, slow, occasionally malformed. One
@@ -45,11 +47,32 @@ async function post(path, body, attempt = 0) {
   return data;
 }
 
-export const generateFromNotes = (notes) => post("/api/generate", { notes });
+// However the model chose to write its maths, it is printed the same way
+// as everything else.
+function tidyMaterial(data) {
+  if (!data || typeof data !== "object") return data;
+  const sheet = data.sheet && typeof data.sheet === "object"
+    ? { ...data.sheet, parts: Array.isArray(data.sheet.parts) ? data.sheet.parts.map(tidyPart) : data.sheet.parts }
+    : data.sheet;
+  return {
+    ...data,
+    questions: Array.isArray(data.questions) ? data.questions.map(tidyQuestion) : data.questions,
+    sheet,
+  };
+}
+
+function tidyPart(p) {
+  if (typeof p === "string") return tidyMath(p);
+  if (!p || typeof p !== "object") return p;
+  return { ...p, text: tidyMath(p.text), definition: tidyMath(p.definition) };
+}
+
+export const generateFromNotes = (notes) =>
+  post("/api/generate", { notes }).then(tidyMaterial);
 
 // No notes needed: the course, subject and syllabus topic are the brief.
 export const generateFromSyllabus = ({ course, subject, topic }) =>
-  post("/api/generate", { syllabus: { course, subject, topic } });
+  post("/api/generate", { syllabus: { course, subject, topic } }).then(tidyMaterial);
 
 export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
   post("/api/grade", { answer, prompt, rubric, criteria, scale });
