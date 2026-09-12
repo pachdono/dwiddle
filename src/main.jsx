@@ -8,3 +8,14 @@ createRoot(document.getElementById("root")).render(
     <App />
   </StrictMode>,
 );
+
+// Offline support, and what makes the browser offer "Install". Registered only
+// in a real build: in dev it would cache the dev server's modules and make
+// every later change look like it had not taken.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // An unsupported or blocked worker only costs offline support.
+    });
+  });
+}

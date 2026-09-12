@@ -2765,3 +2765,47 @@ kbd {
   /* Rows in a list are the main way around on a phone. */
   .list-item { min-height: 52px; }
 }
+
+/* ---------- installed on a phone ---------- */
+
+/* Launched from the home screen there is no browser chrome, so the app paints
+   under the notch and over the home indicator. env() is 0px on every device
+   that has neither, so these are safe to apply unconditionally. */
+
+.topbar {
+  padding-top: env(safe-area-inset-top);
+  height: calc(56px + env(safe-area-inset-top));
+  padding-left: max(32px, env(safe-area-inset-left));
+  padding-right: max(32px, env(safe-area-inset-right));
+}
+
+.sidebar {
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: max(14px, env(safe-area-inset-left));
+}
+
+.page {
+  padding-bottom: max(72px, calc(40px + env(safe-area-inset-bottom)));
+}
+
+.ed-bar {
+  bottom: max(18px, calc(10px + env(safe-area-inset-bottom)));
+}
+
+.legal-top, .legal {
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+
+/* A standalone window has no back button, so the tap targets that replace it
+   matter more, and text selection on chrome elements reads as a bug. */
+@media (display-mode: standalone) {
+  .topbar, .sidebar, .nav-item, .brand {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Overscroll bounce exposes the page background behind the app, which looks
+     broken when there is no browser frame around it. */
+  body { overscroll-behavior-y: none; }
+}
