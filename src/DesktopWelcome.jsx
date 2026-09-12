@@ -1,4 +1,4 @@
-import { DuckSitting } from "./Duck.jsx";
+import { DuckCouch } from "./Duck.jsx";
 import { SignInPanel } from "./Account.jsx";
 import { configured } from "./supabase.js";
 
@@ -11,7 +11,7 @@ export default function DesktopWelcome({ onSkip }) {
   return (
     <div className="dw-welcome">
       <div className="dw-inner">
-        <DuckSitting size={168} className="dw-duck" />
+        <DuckCouch size={300} className="dw-duck" />
 
         <h1>Welcome back</h1>
         <p className="dw-sub">

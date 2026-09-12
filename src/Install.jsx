@@ -167,6 +167,7 @@ export default function Install({ go }) {
   const [prompt, setPrompt] = useState(canPrompt());
   const p = platform();
   const installed = isInstalled();
+  const onPhone = ["ios", "ios-other", "android"].includes(p.id);
   const guide = GUIDES[p.id] || GUIDES.other;
 
   useEffect(() => onPromptChange(setPrompt), []);
@@ -174,6 +175,7 @@ export default function Install({ go }) {
   // The walkthrough loops on its own, and stops for anyone who has asked for
   // less movement rather than looping behind their back.
   useEffect(() => {
+    if (!onPhone) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const t = setInterval(() => setStep((n) => (n + 1) % STEPS.length), 2400);
     return () => clearInterval(t);
@@ -235,7 +237,8 @@ export default function Install({ go }) {
             </div>
           )}
 
-          <div className="ins-grid">
+          <div className={"ins-grid" + (onPhone ? "" : " no-demo")}>
+            {onPhone && (
             <div className="ins-demo">
               <Phone step={step} />
               <div className="ins-caption">
@@ -253,6 +256,7 @@ export default function Install({ go }) {
                 ))}
               </div>
             </div>
+            )}
 
             <div className="card card-pad ins-guide">
               <h3>{guide.title}</h3>

@@ -163,3 +163,76 @@ export function DuckSitting({ size = 150, className = "", shadow = true }) {
     </svg>
   );
 }
+
+// The duck on a sofa, for the desktop app's sign in screen.
+//
+// A window has room a browser tab does not, and the app is the version you
+// keep, so it opens with the character at home rather than posed. Same hat,
+// same sunglasses, same beak.
+export function DuckCouch({ size = 300, className = "" }) {
+  const CUSHION = "#7E86C9";
+  const COUCH = "#6A73BC";
+  const COUCH_DARK = "#5A63A8";
+  const COUCH_LIGHT = "#8D95D4";
+
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size * (200 / 300)}
+      viewBox="0 0 300 200"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Dwiddle duck sitting on a sofa"
+    >
+      <ellipse cx="150" cy="186" rx="118" ry="9" fill="#000" opacity="0.06" />
+
+      {/* back of the sofa, then the arms, then the seat, so each overlaps the
+          one behind it the way upholstery does */}
+      <rect x="34" y="52" width="232" height="86" rx="22" fill={COUCH} />
+      <rect x="52" y="64" width="88" height="60" rx="14" fill={CUSHION} />
+      <rect x="160" y="64" width="88" height="60" rx="14" fill={CUSHION} />
+
+      <rect x="18" y="86" width="40" height="80" rx="18" fill={COUCH_LIGHT} />
+      <rect x="242" y="86" width="40" height="80" rx="18" fill={COUCH_LIGHT} />
+
+      <rect x="34" y="126" width="232" height="46" rx="16" fill={COUCH_DARK} />
+      <path d="M150 126v46" stroke={COUCH} strokeWidth="2" opacity="0.5" />
+
+      {/* feet */}
+      <rect x="52" y="168" width="14" height="14" rx="4" fill="#4A5290" />
+      <rect x="234" y="168" width="14" height="14" rx="4" fill="#4A5290" />
+
+      {/* the duck, sunk into the seat rather than standing on it */}
+      <g transform="translate(150 116)">
+        <ellipse cx="-26" cy="46" rx="13" ry="6" fill={FOOT} transform="rotate(-8 -26 46)" />
+        <ellipse cx="26" cy="46" rx="13" ry="6" fill={FOOT} transform="rotate(8 26 46)" />
+
+        <path d="M0 -18c30 0 52 22 52 47 0 8-8 12-52 12s-52-4-52-12c0-25 22-47 52-47Z" fill={YELLOW} />
+        <ellipse cx="2" cy="28" rx="33" ry="20" fill={BELLY} />
+        <ellipse cx="-44" cy="18" rx="12" ry="20" fill={WING} transform="rotate(-18 -44 18)" />
+        <ellipse cx="44" cy="18" rx="12" ry="20" fill={WING} transform="rotate(18 44 18)" />
+
+        <circle cx="0" cy="-24" r="31" fill={YELLOW} />
+        <ellipse cx="1" cy="-19" rx="17" ry="10" fill={BEAK} />
+        <rect x="-16" y="-20.4" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+
+        <rect x="-36" y="-40" width="14" height="5" rx="2.5" fill={BLACK} />
+        <rect x="24" y="-40" width="14" height="5" rx="2.5" fill={BLACK} />
+        <rect x="-23" y="-44" width="21" height="13" rx="4.5" fill={BLACK} />
+        <rect x="3" y="-44" width="21" height="13" rx="4.5" fill={BLACK} />
+        <rect x="-4" y="-40" width="9" height="4" rx="1.6" fill={BLACK} />
+        <rect x="-19" y="-41" width="8" height="3.4" rx="1.7" fill={LENS} />
+        <rect x="7" y="-41" width="8" height="3.4" rx="1.7" fill={LENS} />
+
+        <ellipse cx="1" cy="-56" rx="41" ry="8.6" fill={STRAW} />
+        <ellipse cx="1" cy="-58" rx="27" ry="6" fill={STRAW_LIGHT} />
+        <path d="M-16 -58.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+        <rect x="-17" y="-64" width="37" height="9.5" rx="1.8" fill={BAND} />
+        <ellipse cx="1.5" cy="-64.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+        <path d="M-11 -66c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}

@@ -3093,3 +3093,136 @@ kbd {
 .ins-dl-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .ins-dl-row .btn { text-decoration: none; }
 .ins-dl-note { margin: 14px 0 0; line-height: 1.55; }
+
+/* With no phone beside them the instructions get the full width rather than
+   sitting in a column with empty space where the demo would have been. */
+.ins-grid.no-demo { grid-template-columns: 1fr; }
+
+/* ---------- landing: floating bar, numbers, FAQ ---------- */
+
+.glassbar {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  /* The glass is the blur, not the transparency. Without the blur it is just
+     a pale bar, and text scrolling underneath stays legible through it. */
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  box-shadow: 0 4px 24px rgba(20, 20, 40, 0.1);
+  max-width: calc(100vw - 24px);
+}
+
+/* Where the blur is unsupported, the bar becomes solid rather than a
+   washed out rectangle you cannot read text on. */
+@supports not (backdrop-filter: blur(4px)) {
+  .glassbar { background: var(--surface); }
+}
+
+.glass-brand {
+  display: flex; align-items: center; gap: 8px;
+  border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--ink); font: inherit; font-weight: 650; font-size: 14.5px;
+  letter-spacing: -0.02em;
+}
+
+.glass-nav { display: flex; gap: 2px; }
+.glass-nav button {
+  border: 0; background: none; cursor: pointer;
+  color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 550;
+  padding: 8px 12px; border-radius: 999px;
+}
+.glass-nav button:hover { background: var(--hover); color: var(--ink); }
+
+.glass-cta { border-radius: 999px; }
+
+/* The hero has to clear the floating bar. */
+.landing-hero { padding-top: 96px; }
+
+.landing-numbers, .landing-faq {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 84px 24px;
+  /* Jumping to a section otherwise parks its heading underneath the floating
+     bar, which is sitting over the top of the page. */
+  scroll-margin-top: 88px;
+}
+
+.landing-numbers h2, .landing-faq h2 {
+  margin: 0 0 8px;
+  font-size: clamp(26px, 2vw + 16px, 34px);
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+.lp-lead { margin: 0 auto 40px; color: var(--ink-3); text-align: center; max-width: 52ch; }
+
+.num-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.num {
+  padding: 26px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.num-v {
+  font-size: 40px; font-weight: 660; letter-spacing: -0.035em;
+  line-height: 1; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.num-k { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.num-note { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-3); }
+
+.faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 760px; margin: 32px auto 0; }
+.faq-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 0 20px;
+}
+.faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 18px 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after {
+  content: "+";
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink-3);
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+.faq-item[open] summary::after { transform: rotate(45deg); }
+.faq-item p { margin: 0 0 18px; color: var(--ink-2); line-height: 1.65; font-size: 14.5px; max-width: 64ch; }
+
+@media (max-width: 900px) {
+  .num-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 620px) {
+  .glass-nav { display: none; }
+  .glassbar { left: 12px; right: 12px; transform: none; justify-content: space-between; }
+  .num-grid { grid-template-columns: 1fr; }
+  .landing-numbers, .landing-faq { padding: 56px 20px; }
+  .landing-hero { padding-top: 88px; }
+}

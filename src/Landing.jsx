@@ -7,7 +7,41 @@ import { approvedReviews } from "./supabase.js";
 
 const TESTS = ["SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
 
+// A visitor counter reading "join 4 people" argues against the product. Below
+// this it is left out entirely and the page says something true instead.
+const CROWD = 100;
+
+const FAQ = [
+  {
+    q: "Is it free?",
+    a: "Yes, all of it. There is no card, no trial and no account required to try it. An account only exists so your progress follows you between devices.",
+  },
+  {
+    q: "Where do the questions come from?",
+    a: "Two places. Some are written for this app by hand. The rest are generated, either from the notes you paste in or from a template filled with fresh numbers, which is why the same paper never comes round twice. No past paper is reproduced.",
+  },
+  {
+    q: "Are you affiliated with the exam boards?",
+    a: "No. Dwiddle is independent and is not endorsed by the College Board, ETS, the British Council, Cambridge or anyone else. Practice papers are modelled on the published structure of each exam, which is public information.",
+  },
+  {
+    q: "How accurate is the score it gives me?",
+    a: "Treat it as a rough guide. Raw marks are converted using the published scales, but a band or a scaled score from us carries no official standing and should never be presented as a predicted result.",
+  },
+  {
+    q: "What happens to my notes?",
+    a: "They are sent to an AI provider to have questions written from them, and stored against your account if you have one. They are never sold or used for advertising. The privacy policy sets out exactly which providers and why.",
+  },
+  {
+    q: "Do I have to be online?",
+    a: "Not to revise. Installed, it opens and runs your saved material with no connection. Writing new questions needs one, because that is the part that calls a model.",
+  },
+];
+
 export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
+  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
   // Nothing renders here until a review has been approved, so the section
   // simply does not exist rather than showing an empty shell.
   const [reviews, setReviews] = useState([]);
@@ -19,12 +53,17 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
 
   return (
     <div className="landing">
-      <header className="landing-top">
-        <div className="landing-brand">
-          <DuckMark size={26} />
-          Dwiddle
-        </div>
-        <button className="btn ghost" onClick={onSignIn}>Sign in</button>
+      <header className="glassbar">
+        <button className="glass-brand" onClick={toTop} aria-label="Back to the top">
+          <DuckMark size={22} />
+          <span>Dwiddle</span>
+        </button>
+        <nav className="glass-nav">
+          <button onClick={() => jump("numbers")}>Numbers</button>
+          <button onClick={() => jump("faq")}>FAQ</button>
+          <button onClick={onInstall}>Get the app</button>
+        </nav>
+        <button className="btn small glass-cta" onClick={onSignIn}>Sign in</button>
       </header>
 
       <main className="landing-hero">
@@ -48,8 +87,8 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           </div>
 
           <p className="hero-note">
-            {people !== null && people > 0
-              ? `Join ${people.toLocaleString()} ${people === 1 ? "person" : "people"} studying with Dwiddle`
+            {people !== null && people >= CROWD
+              ? `Join ${people.toLocaleString()} people studying with Dwiddle`
               : "Free to use. No card, no password."}
           </p>
         </div>
@@ -95,6 +134,43 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           </div>
         </section>
       )}
+
+      <section className="landing-numbers" id="numbers">
+        <h2>What is actually in it</h2>
+        <p className="lp-lead">
+          Counted from the app itself, not rounded up for the page.
+        </p>
+        <div className="num-grid">
+          {[
+            ...(people !== null && people >= CROWD
+              ? [[people.toLocaleString(), "people studying", "Live from the database."]]
+              : [["40", "reading passages", "Full length, written for the app, not extracts."]]),
+            ["5", "exams", "SAT, ACT, SSAT, IELTS and TOEFL, across 19 sections."],
+            ["213", "written questions", "Authored for this app, not scraped from a past paper."],
+            ["225", "syllabus topics", "Across 18 subjects and four exam boards."],
+            ["6", "question generators", "Fresh numbers each sitting, so no two papers match."],
+            ["\u221e", "from your own notes", "Paste anything and it writes questions about it."],
+          ].map(([n, label, note]) => (
+            <div className="num" key={label}>
+              <div className="num-v">{n}</div>
+              <div className="num-k">{label}</div>
+              <p className="num-note">{note}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-faq" id="faq">
+        <h2>Questions people ask</h2>
+        <div className="faq-list">
+          {FAQ.map((f) => (
+            <details className="faq-item" key={f.q}>
+              <summary>{f.q}</summary>
+              <p>{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
 
       <section className="marquee-wrap">
         <div className="marquee-label">Full length practice for</div>
