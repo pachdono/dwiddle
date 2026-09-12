@@ -22,3 +22,13 @@ contextBridge.exposeInMainWorld("DWIDDLE_AUTH", {
     return () => ipcRenderer.removeListener("dwiddle:auth", handler);
   },
 });
+
+// Update progress, and the button that restarts into the new version.
+contextBridge.exposeInMainWorld("DWIDDLE_UPDATE", {
+  on: (fn) => {
+    const handler = (_e, payload) => fn(payload);
+    ipcRenderer.on("dwiddle:update", handler);
+    return () => ipcRenderer.removeListener("dwiddle:update", handler);
+  },
+  install: () => ipcRenderer.invoke("dwiddle:install-update"),
+});

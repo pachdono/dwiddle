@@ -723,37 +723,88 @@ textarea:focus, input[type="text"]:focus, select:focus {
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-.notes:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+/* The writing surface is the most used thing on the page, so it gets real
+   depth: a frosted panel that lifts and warms as you type into it, rather
+   than a rectangle that swaps one border colour for another. */
+.notes {
+  position: relative;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface) 96%, transparent),
+      color-mix(in srgb, var(--surface) 88%, transparent));
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    0 1px 2px rgba(17, 17, 26, 0.04),
+    0 8px 26px rgba(17, 17, 26, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
 }
+
+:root[data-theme="dark"] .notes {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 10px 30px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* A hairline of accent along the top edge, which appears only on focus. It
+   reads as the surface coming alive rather than as a border being recoloured. */
+.notes::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.notes:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(17, 17, 26, 0.05),
+    0 16px 44px color-mix(in srgb, var(--accent) 16%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.notes:focus-within::before { opacity: 1; }
 
 .notes-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 10px 9px 14px;
+  padding: 11px 12px 11px 16px;
   border-bottom: 1px solid var(--line-soft);
-  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .notes-icon {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+  transition: transform 0.22s ease;
 }
+.notes:focus-within .notes-icon { transform: scale(1.06); }
 
 .notes-area {
   display: block;
   width: 100%;
   min-height: 190px;
-  padding: 16px;
+  padding: 18px 18px 8px;
+  font-size: 15px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -3199,6 +3250,21 @@ kbd {
 .faq-item { border-top: 1px solid var(--line-soft); padding: 0 26px; }
 .faq-item:first-child { border-top: 0; }
 .faq-item[open] { background: var(--sunken); }
+.faq-item[open] p { opacity: 1; transform: none; }
+
+/* The row lights up from the left as the pointer crosses it. */
+.faq-item { position: relative; }
+.faq-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: 50% 0;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.faq-item:hover::before, .faq-item[open]::before { transform: scaleY(1); }
 
 .faq-item summary {
   list-style: none;
@@ -3233,7 +3299,21 @@ kbd {
   border-color: var(--accent);
 }
 
+/* details does not animate its own height, so the answer is wrapped in a grid
+   row that goes from zero to auto. This is the one way to get a real open and
+   close without measuring anything in JavaScript. */
+.faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.faq-item[open] .faq-answer { grid-template-rows: 1fr; }
+.faq-answer > div { overflow: hidden; }
+
 .faq-item p {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.28s ease 0.06s, transform 0.28s ease 0.06s;
   margin: -4px 0 22px;
   color: var(--ink-2);
   line-height: 1.7;
@@ -3314,78 +3394,161 @@ kbd {
 /* ---------- the scrolling deck ---------- */
 
 .deck-wrap {
-  max-width: 1080px;
+  position: relative;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 40px 24px 72px;
-  /* The perspective lives on the parent, so all three cards share one vanishing
-     point and read as objects in the same space rather than three separate
-     tricks. */
-  perspective: 1400px;
-  perspective-origin: 50% 30%;
+  padding: 60px 24px 96px;
+  /* One vanishing point on the parent, so the cards read as objects sharing a
+     space rather than three separate tricks. */
+  perspective: 1200px;
+  perspective-origin: calc(50% + var(--tx, 0) * 6%) calc(34% + var(--ty, 0) * 6%);
+}
+
+/* Layers behind the cards, moving less than they do. Parallax is what tells
+   the eye there is distance rather than just tilt. */
+.deck-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 32px; }
+
+.deck-glow {
+  position: absolute;
+  left: 50%; top: 40%;
+  width: 780px; height: 520px;
+  transform:
+    translate(-50%, -50%)
+    translate3d(calc(var(--tx, 0) * 14px), calc(var(--ty, 0) * 10px + (1 - var(--p)) * 30px), 0);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 26%, transparent), transparent);
+  opacity: calc(0.35 + var(--p) * 0.5);
+  filter: blur(6px);
+}
+
+.deck-grid {
+  position: absolute;
+  inset: -20% -10% 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px);
+  background-size: 46px 46px;
+  transform:
+    perspective(700px)
+    rotateX(58deg)
+    translate3d(calc(var(--tx, 0) * -10px), calc((1 - var(--p)) * 60px), 0);
+  transform-origin: 50% 100%;
+  mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 88%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 35%, transparent 88%);
+  opacity: calc(0.5 + var(--p) * 0.5);
 }
 
 .deck {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 22px;
   transform-style: preserve-3d;
+  transform: rotateY(calc(var(--tx, 0) * 3.2deg)) rotateX(calc(var(--ty, 0) * -2.4deg));
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .deck-card {
-  --lift: calc((1 - var(--p)) * 1);
-  padding: 30px 28px 32px;
-  border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  transform-origin: 50% 100%;
-  /* Standing away from the reader, then turning flat and rising into place.
-     The stagger comes from the index, so they settle in reading order. */
+  position: relative;
+  /* Each card runs its own progress, offset by its index, so they arrive one
+     after another instead of as a block. */
+  --own: clamp(0, calc((var(--p) - var(--i) * 0.13) * 1.5), 1);
+  --lift: calc(1 - var(--own));
+  transform-style: preserve-3d;
+  transform-origin: 50% 90%;
   transform:
-    translateY(calc(var(--lift) * (40px + var(--i) * 22px)))
-    translateZ(calc(var(--lift) * -160px))
-    rotateX(calc(var(--lift) * 26deg));
-  opacity: calc(0.25 + var(--p) * 0.75);
-  box-shadow: 0 calc(6px + var(--lift) * 26px) calc(18px + var(--lift) * 44px)
-    rgba(20, 20, 40, calc(0.06 + var(--lift) * 0.12));
-  transition: transform 0.12s linear, opacity 0.12s linear, box-shadow 0.12s linear;
+    translateY(calc(var(--lift) * 70px))
+    translateZ(calc(var(--lift) * -260px))
+    rotateX(calc(var(--lift) * 34deg))
+    rotateZ(calc(var(--lift) * (var(--i) - 1) * 3deg));
+  opacity: calc(0.12 + var(--own) * 0.88);
+  transition: transform 0.18s linear, opacity 0.18s linear;
   will-change: transform;
+}
+
+.deck-face {
+  position: relative;
+  padding: 32px 28px 34px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface) 97%, transparent),
+      color-mix(in srgb, var(--surface) 86%, transparent));
+  backdrop-filter: blur(16px) saturate(170%);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  box-shadow:
+    0 calc(10px + var(--lift) * 30px) calc(28px + var(--lift) * 60px)
+      rgba(20, 20, 40, calc(0.08 + var(--lift) * 0.14)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+/* A highlight that travels with the pointer, so the surface looks lit rather
+   than printed. */
+.deck-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: radial-gradient(
+    260px circle at calc(50% + var(--tx, 0) * 45%) calc(30% + var(--ty, 0) * 40%),
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    transparent 70%);
+  opacity: calc(var(--own) * 0.9);
+  pointer-events: none;
+}
+
+.deck-tag {
+  position: absolute;
+  top: 18px; right: 20px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 
 .deck-step {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 34px; height: 34px;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 13px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14px;
   font-weight: 700;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  transform: translateZ(26px);
 }
 
 .deck-card b {
   display: block;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
+  font-size: 19px;
+  letter-spacing: -0.025em;
+  margin-bottom: 9px;
   color: var(--ink);
+  transform: translateZ(16px);
 }
 
 .deck-card p {
   margin: 0;
   color: var(--ink-2);
   font-size: 14.5px;
-  line-height: 1.6;
+  line-height: 1.62;
+  transform: translateZ(8px);
 }
 
 @media (max-width: 860px) {
-  .deck { grid-template-columns: 1fr; gap: 14px; }
-  .deck-wrap { padding: 24px 20px 48px; perspective: 900px; }
+  .deck { grid-template-columns: 1fr; gap: 16px; transform: none; }
+  .deck-wrap { padding: 28px 20px 56px; perspective: 900px; }
+  .deck-grid { display: none; }
 }
 
-/* Nothing moves for anyone who has asked for less of it: the cards simply
-   start where they would have finished. */
+/* Everything settles where it would have finished, and nothing follows the
+   pointer, for anyone who asked for less movement. */
 @media (prefers-reduced-motion: reduce) {
   .deck-card { transform: none; opacity: 1; transition: none; }
+  .deck { transform: none; }
+  .deck-glow, .deck-grid { transform: translate(-50%, -50%); }
 }
+

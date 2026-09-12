@@ -38,24 +38,30 @@ const FAQ = [
   },
 ];
 
-// Three cards standing in perspective that turn flat as they scroll into
-// place. Driven by the element's own position rather than by a timer, so the
-// movement belongs to the scroll and reverses when you go back up.
+// A scene rather than three cards with a transform on them.
+//
+// Depth here comes from several things acting together: a shared vanishing
+// point, layers that move at different rates as the section passes, cards that
+// each carry their own progress so they arrive in sequence, and a tilt that
+// follows the pointer so the whole thing has a fixed position in space you can
+// look around. All of it is measured in one requestAnimationFrame per frame.
 function Deck() {
   const ref = useRef(null);
   const [p, setP] = useState(0);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const still = useRef(false);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setP(1); return; }
+    still.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still.current) { setP(1); return; }
+
     let frame = 0;
     const measure = () => {
       frame = 0;
       const el = ref.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      // 0 while the section is still below the fold, 1 once it has risen to
-      // the middle of the window.
-      const t = 1 - (r.top - innerHeight * 0.25) / (innerHeight * 0.75);
+      const t = 1 - (r.top - innerHeight * 0.15) / (innerHeight * 0.8);
       setP(Math.max(0, Math.min(1, t)));
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
@@ -69,20 +75,47 @@ function Deck() {
     };
   }, []);
 
+  // The pointer moves the camera, not the cards, so they stay a solid group.
+  function onMove(e) {
+    if (still.current) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setTilt({
+      x: ((e.clientX - r.left) / r.width - 0.5) * 2,
+      y: ((e.clientY - r.top) / r.height - 0.5) * 2,
+    });
+  }
+
   const cards = [
-    { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page." },
-    { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer." },
-    { k: "The real paper", t: "Full length, timed, and converted to the exam's own scale." },
+    { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page.", tag: "In" },
+    { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer.", tag: "Then" },
+    { k: "The real paper", t: "Full length, timed, and converted to the exam's own scale.", tag: "Out" },
   ];
 
   return (
-    <section className="deck-wrap" ref={ref}>
-      <div className="deck" style={{ "--p": p }}>
+    <section
+      className="deck-wrap"
+      ref={ref}
+      onPointerMove={onMove}
+      onPointerLeave={() => setTilt({ x: 0, y: 0 })}
+      style={{ "--p": p, "--tx": tilt.x, "--ty": tilt.y }}
+    >
+      {/* Behind everything, moving slowest, so the cards have something to be
+          in front of. */}
+      <div className="deck-bg" aria-hidden="true">
+        <span className="deck-glow" />
+        <span className="deck-grid" />
+      </div>
+
+      <div className="deck">
         {cards.map((c, i) => (
           <article className="deck-card" key={c.k} style={{ "--i": i }}>
-            <span className="deck-step">{i + 1}</span>
-            <b>{c.k}</b>
-            <p>{c.t}</p>
+            <div className="deck-face">
+              <span className="deck-tag">{c.tag}</span>
+              <span className="deck-step">{i + 1}</span>
+              <b>{c.k}</b>
+              <p>{c.t}</p>
+            </div>
+            <span className="deck-shine" aria-hidden="true" />
           </article>
         ))}
       </div>
@@ -220,7 +253,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           {FAQ.map((f) => (
             <details className="faq-item" key={f.q}>
               <summary>{f.q}</summary>
-              <p>{f.a}</p>
+              <div className="faq-answer"><div><p>{f.a}</p></div></div>
             </details>
           ))}
         </div>

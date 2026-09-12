@@ -12,6 +12,7 @@ import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
 import Install, { InstallAll } from "./Install.jsx";
 import DesktopWelcome from "./DesktopWelcome.jsx";
+import UpdateBar from "./UpdateBar.jsx";
 import { isDesktop, onMac } from "./desktop.js";
 import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
@@ -612,6 +613,8 @@ export default function App() {
           openEditor={openEditor}
         />
       </main>
+
+      <UpdateBar />
 
       {editing && page === "home" && custom.on && (
         <EditBar

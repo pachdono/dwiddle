@@ -5,7 +5,8 @@
 // questions still calls the deployment, because that is where the model key
 // lives and it must never be shipped to a user's machine.
 
-const { app, BrowserWindow, shell, Menu, session } = require("electron");
+const { app, BrowserWindow, shell, Menu, session, ipcMain } = require("electron");
+const updates = require("./update.cjs");
 const path = require("node:path");
 
 const SITE = process.env.DWIDDLE_SITE || "https://dwiddle.vercel.app";
@@ -102,6 +103,10 @@ app.whenReady().then(() => {
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu()));
   create();
+
+  // Give the window a moment to settle before doing anything over the network.
+  setTimeout(() => updates.start(), 4000);
+  ipcMain.handle("dwiddle:install-update", () => updates.quitAndInstall());
 
   // On a Mac, closing the last window does not quit, and clicking the dock
   // icon opens a new one.
