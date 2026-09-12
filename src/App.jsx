@@ -99,6 +99,11 @@ const PATH_PAGE = Object.fromEntries(
   Object.entries(PAGE_PATH).map(([id, path]) => [path, id])
 );
 
+// The desktop app is loaded from disk, where changing the path would make
+// an address that cannot be reopened. It keeps the same pages, without the
+// URL.
+const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http");
+
 const REAL_PATHS = new Set([
   "/", "/index.html", "", "/privacy", "/terms",
   ...Object.values(PAGE_PATH),
@@ -178,7 +183,7 @@ const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settin
   { id: "install-all", label: "Every platform" }];
 
 export default function App() {
-  const [page, setPage] = useState(() => routeOf(window.location.pathname).page || "home");
+  const [page, setPage] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).page : null) || "home");
   const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
   const [custom, setCustomRaw] = useState(() => loadCustom());
   const [customBg, setCustomBg] = useState(() => loadBg());
@@ -246,11 +251,11 @@ export default function App() {
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lost, setLost] = useState(() => !REAL_PATHS.has(window.location.pathname));
-  const [legal, setLegal] = useState(() => routeOf(window.location.pathname).legal);
+  const [lost, setLost] = useState(() => ROUTABLE && !REAL_PATHS.has(window.location.pathname));
+  const [legal, setLegal] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).legal : null));
 
   function openLegal(which) {
-    window.history.pushState(null, "", "/" + which);
+    if (ROUTABLE) window.history.pushState(null, "", "/" + which);
     setLegal(which);
     window.scrollTo(0, 0);
   }
@@ -258,7 +263,7 @@ export default function App() {
   // Returning from a legal page goes back to the page you left, not to the
   // dashboard, so reading the terms does not lose your place.
   function closeLegal() {
-    window.history.pushState(null, "", PAGE_PATH[page] || "/");
+    if (ROUTABLE) window.history.pushState(null, "", PAGE_PATH[page] || "/");
     setLegal(null);
   }
   const [signInOpen, setSignInOpen] = useState(false);
@@ -354,7 +359,7 @@ export default function App() {
     // Same page, same URL: pushing again would make the back button do nothing
     // visible, which feels more broken than not working at all.
     const path = PAGE_PATH[p] || "/";
-    if (window.location.pathname !== path) {
+    if (ROUTABLE && window.location.pathname !== path) {
       window.history.pushState(null, "", path);
     }
   };
@@ -363,6 +368,7 @@ export default function App() {
   // them, all arrive here. State is rebuilt from the URL rather than tracked
   // separately, so the two cannot drift apart.
   useEffect(() => {
+    if (!ROUTABLE) return;
     const onPop = () => {
       const path = window.location.pathname;
       const r = routeOf(path);
@@ -429,7 +435,7 @@ export default function App() {
     return (
       <NotFound
         onHome={() => {
-          window.history.replaceState(null, "", "/");
+          if (ROUTABLE) window.history.replaceState(null, "", "/");
           setLost(false);
         }}
       />

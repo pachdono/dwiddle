@@ -8,10 +8,15 @@ const TRANSIENT = new Set([429, 502, 503, 504]);
 // The free models fail intermittently: busy, slow, occasionally malformed. One
 // quiet retry turns most of those into a success rather than an error the
 // person has to act on.
+// On the web these are same origin. Inside the desktop app the pages are
+// loaded from disk, so there is no origin to be relative to and the calls have
+// to name the deployment explicitly.
+const API = (typeof window !== "undefined" && window.DWIDDLE_API) || "";
+
 async function post(path, body, attempt = 0) {
   let reply;
   try {
-    reply = await fetch(path, {
+    reply = await fetch(API + path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

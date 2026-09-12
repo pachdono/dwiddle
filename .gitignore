@@ -5,3 +5,8 @@ dist
 .env
 .env.local
 .vercel
+
+# Desktop builds. The installers are 120 to 150 MB each and belong on a
+# releases page, not in the repository.
+release/
+dist-desktop/
