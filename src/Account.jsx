@@ -14,7 +14,34 @@ export function avatarUrl(user) {
   return m.avatar_url || m.picture || null;
 }
 
+// In the desktop app the provider sends the browser to dwiddle://auth with the
+// session in the fragment. The main process hands that here, and the tokens are
+// installed exactly as the web build installs its own.
+function useDesktopCallback() {
+  useEffect(() => {
+    if (!window.DWIDDLE_AUTH || !supabase) return;
+    return window.DWIDDLE_AUTH.onCallback(async (url) => {
+      try {
+        const hash = new URL(url).hash.replace(/^#/, "");
+        const params = new URLSearchParams(hash);
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token });
+          return;
+        }
+        // The newer flow returns a single use code instead of tokens.
+        const code = params.get("code") || new URL(url).searchParams.get("code");
+        if (code) await supabase.auth.exchangeCodeForSession(code);
+      } catch (err) {
+        console.warn("[auth] could not complete the desktop sign in", err);
+      }
+    });
+  }, []);
+}
+
 export function useAuth(onSignedOut) {
+  useDesktopCallback();
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(!configured);
   const [syncedAt, setSyncedAt] = useState(null);
@@ -89,6 +116,10 @@ export function useAuth(onSignedOut) {
 }
 
 // Google first, then the email link. Both live on the sign in page.
+function returnTo() {
+  return window.DWIDDLE_DESKTOP ? "dwiddle://auth" : window.location.origin;
+}
+
 export function SignInPanel({ onDone }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | sent | error
@@ -106,7 +137,7 @@ export function SignInPanel({ onDone }) {
     setMessage("");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: returnTo() },
     });
     if (error) {
       setState("error");
@@ -122,7 +153,7 @@ export function SignInPanel({ onDone }) {
     setMessage("");
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: returnTo() },
     });
     if (error) {
       setState("error");

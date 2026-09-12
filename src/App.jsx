@@ -11,6 +11,8 @@ import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
 import Install, { InstallAll } from "./Install.jsx";
+import DesktopWelcome from "./DesktopWelcome.jsx";
+import { isDesktop, onMac } from "./desktop.js";
 import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
@@ -448,8 +450,10 @@ export default function App() {
   }
 
   if (!auth.user && !entered && auth.ready) {
-    return <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter}
-        onLegal={openLegal} onInstall={() => { enter(); go("install"); }} />;
+    return isDesktop
+      ? <DesktopWelcome onSkip={enter} />
+      : <Landing people={people} onSignIn={() => setSignInOpen(true)} onSkip={enter}
+          onLegal={openLegal} onInstall={() => { enter(); go("install"); }} />;
   }
 
   // Someone already running it installed does not need to be sold it.
@@ -458,7 +462,7 @@ export default function App() {
     (custom.photo.place === "background" || custom.photo.place === "both");
 
   return (
-    <div className="app">
+    <div className={"app" + (isDesktop ? " is-desktop" : "") + (onMac ? " is-mac" : "")}>
       {showPhoto && (
         <div className="app-photo" aria-hidden="true">
           <img src={customBg} alt="" />
@@ -506,7 +510,7 @@ export default function App() {
             </button>
           ))}
 
-          {!installed && (
+          {!installed && !isDesktop && (
             <>
               <div className="nav-label">App</div>
               <button className={"nav-item" + (page === "install" ? " on" : "")}

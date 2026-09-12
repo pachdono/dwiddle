@@ -58,7 +58,17 @@
       "icon": "build/icon.png",
       "darkModeSupport": true,
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Dwiddle",
+            "CFBundleURLSchemes": [
+              "dwiddle"
+            ]
+          }
+        ]
+      }
     },
     "dmg": {
       "title": "Dwiddle",
@@ -89,6 +99,14 @@
       ],
       "category": "Education",
       "icon": "build/icon.png"
-    }
+    },
+    "protocols": [
+      {
+        "name": "Dwiddle",
+        "schemes": [
+          "dwiddle"
+        ]
+      }
+    ]
   }
 }

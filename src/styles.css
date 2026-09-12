@@ -3003,3 +3003,93 @@ kbd {
   .ins-share.tap { animation: none; }
   .ins-app.real { animation: none; }
 }
+
+/* ---------- the desktop app ---------- */
+
+/* A frameless window has nothing to grab unless the page provides it, so the
+   quiet strips of the interface become the title bar. Anything clickable
+   inside them has to opt back out, or it stops responding. */
+.is-desktop .topbar,
+.is-desktop .sidebar .brand {
+  -webkit-app-region: drag;
+}
+
+.is-desktop .topbar button,
+.is-desktop .topbar a,
+.is-desktop .sidebar .brand * {
+  -webkit-app-region: no-drag;
+}
+
+/* On a Mac the traffic lights are drawn over the top left of the window, so
+   the sidebar has to start below them. */
+.is-mac .sidebar { padding-top: 40px; }
+.is-mac .topbar { padding-left: 20px; }
+
+/* In a window there is no browser chrome above, so the app can sit tighter to
+   the top than a web page has to. */
+.is-desktop .topbar { height: 46px; }
+.is-desktop .page { padding-top: 28px; }
+
+/* A window is not a tab: it never needs a sticky bar to survive scrolling
+   past the browser's own, and the border reads as clutter without one. */
+.is-desktop .topbar { border-bottom-color: transparent; background: transparent; }
+.is-desktop .topbar-title { font-weight: 600; }
+
+/* ---------- desktop welcome ---------- */
+
+.dw-welcome {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px 24px 28px;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, var(--accent-soft), transparent 70%),
+    var(--bg);
+  -webkit-app-region: drag;
+}
+
+.dw-inner {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.dw-duck { margin-bottom: 18px; }
+
+.dw-welcome h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  font-weight: 640;
+  letter-spacing: -0.03em;
+}
+
+.dw-sub {
+  margin: 0 0 26px;
+  color: var(--ink-3);
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-width: 34ch;
+}
+
+.dw-panel { width: 100%; }
+.dw-skip { margin-top: 16px; }
+
+.dw-foot {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+  -webkit-app-region: no-drag;
+}
+
+.ins-dl-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.ins-dl-head b { font-size: 16px; letter-spacing: -0.01em; }
+.ins-dl-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ins-dl-row .btn { text-decoration: none; }
+.ins-dl-note { margin: 14px 0 0; line-height: 1.55; }

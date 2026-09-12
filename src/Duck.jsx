@@ -97,3 +97,69 @@ export function DuckMark({ size = 24, className = "" }) {
     </svg>
   );
 }
+
+// The same duck, sitting down.
+//
+// Drawn for the desktop app's sign in screen, where there is time to look at
+// it. The character is unchanged: same hat, same sunglasses, same beak. Only
+// the posture differs, so it reads as the same duck at rest rather than as a
+// second mascot.
+export function DuckSitting({ size = 150, className = "", shadow = true }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size * (132 / 150)}
+      viewBox="0 0 150 132"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Dwiddle duck, sitting"
+    >
+      {shadow && <ellipse cx="75" cy="120" rx="48" ry="7" fill="#000" opacity="0.06" />}
+
+      {/* The body spreads where it meets the ground, which is what sitting
+          looks like. A circle would read as standing seen from the front. */}
+      <path
+        d="M75 40c26 0 45 20 45 43 0 21-20 32-45 32s-45-11-45-32c0-23 19-43 45-43Z"
+        fill={YELLOW}
+      />
+
+      {/* feet, tucked forward from under the body */}
+      <ellipse cx="58" cy="113" rx="12" ry="5.5" fill={FOOT} transform="rotate(-6 58 113)" />
+      <ellipse cx="92" cy="113" rx="12" ry="5.5" fill={FOOT} transform="rotate(6 92 113)" />
+      {/* redrawn over the feet so they emerge from the body rather than sit beside it */}
+      <path
+        d="M75 44c24 0 43 19 43 39 0 19-19 28-43 28s-43-9-43-28c0-20 19-39 43-39Z"
+        fill={YELLOW}
+      />
+
+      <ellipse cx="76" cy="92" rx="30" ry="21" fill={BELLY} />
+
+      {/* a wing resting against the body, lower than when standing */}
+      <ellipse cx="36" cy="86" rx="12" ry="20" fill={WING} transform="rotate(-14 36 86)" />
+      <ellipse cx="114" cy="86" rx="12" ry="20" fill={WING} transform="rotate(14 114 86)" />
+
+      {/* head set into the shoulders */}
+      <circle cx="75" cy="50" r="30" fill={YELLOW} />
+
+      <ellipse cx="76" cy="55" rx="17" ry="10" fill={BEAK} />
+      <rect x="59" y="53.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+
+      <rect x="39" y="34" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="99" y="34" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="52" y="30" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="78" y="30" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="71" y="34" width="9" height="4" rx="1.6" fill={BLACK} />
+      <rect x="56" y="33" width="8" height="3.4" rx="1.7" fill={LENS} />
+      <rect x="82" y="33" width="8" height="3.4" rx="1.7" fill={LENS} />
+
+      <ellipse cx="76" cy="18" rx="41" ry="8.6" fill={STRAW} />
+      <ellipse cx="76" cy="16" rx="27" ry="6" fill={STRAW_LIGHT} />
+      <path d="M59 15.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      <rect x="58" y="10" width="37" height="9.5" rx="1.8" fill={BAND} />
+      <ellipse cx="76.5" cy="9.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+      <path d="M64 8c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}

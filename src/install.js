@@ -69,3 +69,24 @@ export function platform() {
   if (/Windows/.test(ua)) return { id: "windows", name: "Windows" };
   return { id: "other", name: "this device" };
 }
+
+// Where the installers live. They are 120 to 150 MB, which is far past what a
+// deployment will serve, so they sit on a releases page instead.
+//
+// ready stays false until that page exists, and the download card simply does
+// not appear, rather than offering a link that 404s.
+export const DOWNLOADS = {
+  ready: Boolean(import.meta.env.VITE_DOWNLOAD_BASE),
+  base: import.meta.env.VITE_DOWNLOAD_BASE || "",
+  version: "1.0.0",
+};
+
+const MAC_ARM = { file: "Dwiddle-1.0.0-arm64.dmg", label: "Download for Mac (Apple Silicon)", primary: true };
+const MAC_X64 = { file: "Dwiddle-1.0.0-x64.dmg", label: "Intel Mac", primary: false };
+const WINDOWS = { file: "Dwiddle-Setup-1.0.0.exe", label: "Download for Windows", primary: true };
+
+export function downloadFor(id) {
+  if (id === "windows") return [WINDOWS, { ...MAC_ARM, label: "Mac", primary: false }];
+  if (id === "mac-chromium" || id === "mac-safari") return [MAC_ARM, MAC_X64, { ...WINDOWS, label: "Windows", primary: false }];
+  return [MAC_ARM, WINDOWS];
+}

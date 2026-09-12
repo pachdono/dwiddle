@@ -12,6 +12,23 @@ const SITE = process.env.DWIDDLE_SITE || "https://dwiddle.vercel.app";
 const dev = !app.isPackaged;
 
 let win = null;
+let pendingAuth = null;
+
+// Sign in happens in the real browser, because Google refuses to authenticate
+// inside an embedded window and it is right to. The link back therefore has to
+// reach the app, which it does through a scheme the app owns.
+app.setAsDefaultProtocolClient("dwiddle");
+
+function handleAuth(url) {
+  if (!url || !url.startsWith("dwiddle://")) return;
+  if (win) {
+    win.webContents.send("dwiddle:auth", url);
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  } else {
+    pendingAuth = url; // arrived before there was a window to give it to
+  }
+}
 
 function create() {
   win = new BrowserWindow({
@@ -57,6 +74,10 @@ function create() {
     }
   });
 
+  win.webContents.once("did-finish-load", () => {
+    if (pendingAuth) { win.webContents.send("dwiddle:auth", pendingAuth); pendingAuth = null; }
+  });
+
   win.on("closed", () => { win = null; });
 }
 
@@ -88,6 +109,22 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) create();
   });
 });
+
+// macOS delivers the link as an event. Windows and Linux relaunch the app with
+// it on the command line, which the single instance lock turns into an event.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleAuth(url);
+});
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", (event, argv) => {
+    handleAuth(argv.find((a) => a.startsWith("dwiddle://")));
+    if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+  });
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { platform, isInstalled, canPrompt, onPromptChange, promptInstall } from "./install.js";
+import { platform, isInstalled, canPrompt, onPromptChange, promptInstall, DOWNLOADS, downloadFor } from "./install.js";
 
 /* The install page.
    The walkthrough is drawn rather than recorded. A GIF of an iPhone would be a
@@ -207,6 +207,31 @@ export default function Install({ go }) {
                 </p>
               </div>
               <button className="btn cta" onClick={promptInstall}>Install Dwiddle</button>
+            </div>
+          )}
+
+          {DOWNLOADS.ready && ["mac-chromium", "mac-safari", "windows", "other"].includes(p.id) && (
+            <div className="card card-pad ins-dl">
+              <div className="ins-dl-head">
+                <b>Download the app</b>
+                <span className="small muted">
+                  Installs like any other program. Roughly 130 MB, and it works offline.
+                </span>
+              </div>
+              <div className="ins-dl-row">
+                {downloadFor(p.id).map((d) => (
+                  <a key={d.file} className={"btn" + (d.primary ? " cta" : " ghost")}
+                    href={DOWNLOADS.base + d.file} download>
+                    {d.label}
+                  </a>
+                ))}
+              </div>
+              <p className="small muted ins-dl-note">
+                It is not signed, so the first launch needs one extra step.{" "}
+                {p.id === "windows"
+                  ? "Windows shows a blue box: click More info, then Run anyway."
+                  : "On a Mac, drag it into Applications, then right click it and choose Open."}
+              </p>
             </div>
           )}
 
