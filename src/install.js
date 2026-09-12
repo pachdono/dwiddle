@@ -75,10 +75,15 @@ export function platform() {
 //
 // ready stays false until that page exists, and the download card simply does
 // not appear, rather than offering a link that 404s.
+const RELEASE = "https://github.com/pachdono/dwiddle-releases/releases/download/v1.0.0/";
+
 export const DOWNLOADS = {
-  ready: Boolean(import.meta.env.VITE_DOWNLOAD_BASE),
-  base: import.meta.env.VITE_DOWNLOAD_BASE || "",
+  ready: true,
+  // The environment variable still wins, so a new build can be pointed
+  // somewhere else without a code change.
+  base: import.meta.env.VITE_DOWNLOAD_BASE || RELEASE,
   version: "1.0.0",
+  page: "https://github.com/pachdono/dwiddle-releases/releases/latest",
 };
 
 const MAC_ARM = { file: "Dwiddle-1.0.0-arm64.dmg", label: "Download for Mac (Apple Silicon)", primary: true };
