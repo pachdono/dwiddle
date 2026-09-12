@@ -1,7 +1,7 @@
 // The page a new visitor lands on. It exists to answer one question quickly:
 // what does this thing do, and is it for me.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { approvedReviews } from "./supabase.js";
 
@@ -44,18 +44,27 @@ const FAQ = [
 // while you move through it, so the scroll drives the sequence instead of
 // merely passing it. Each card owns a third of that range: it rises from the
 // depth, holds, and then settles back to make room for the next.
-function useScrollRange(ref) {
-  const [p, setP] = useState(0);
+// Scroll progress, written straight to the element as a CSS variable.
+//
+// The obvious way is React state, and it is the wrong way: a setState on every
+// scroll frame re-renders this whole page, FAQ and tiles and marquee included,
+// sixty times a second. Nothing about the markup changes, only two numbers, so
+// those numbers go directly onto the node and React is left out of it.
+function useScrollVars(stageRef, paintRef, paint) {
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setP(1); return; }
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const el = stageRef.current;
+    const target = paintRef.current;
+    if (!el || !target) return;
+
+    if (still) { paint(target, 1); return; }
+
     let frame = 0;
     const measure = () => {
       frame = 0;
-      const el = ref.current;
-      if (!el) return;
       const r = el.getBoundingClientRect();
       const travel = r.height - innerHeight;
-      setP(travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel)));
+      paint(target, travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel)));
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
     measure();
@@ -66,8 +75,7 @@ function useScrollRange(ref) {
       removeEventListener("resize", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [ref]);
-  return p;
+  }, [stageRef, paintRef, paint]);
 }
 
 const DECK = [
@@ -135,37 +143,48 @@ function Tile({ value, label, note }) {
 }
 
 function Deck() {
-  const ref = useRef(null);
-  const p = useScrollRange(ref);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const still = useRef(false);
+  const stage = useRef(null);
+  const sticky = useRef(null);
 
-  useEffect(() => {
-    still.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // One function, run inside the animation frame, that touches nothing but two
+  // custom properties and one class. No React work happens while you scroll.
+  const paint = useCallback((el, p) => {
+    const at = p * DECK.length;
+    el.style.setProperty("--p", p);
+    el.style.setProperty("--at", at);
+    const active = Math.min(DECK.length - 1, Math.floor(at));
+    const cards = el.querySelectorAll(".deck-card");
+    for (let i = 0; i < cards.length; i++) {
+      cards[i].classList.toggle("front", i === active);
+    }
+    const pips = el.querySelectorAll(".rail-pip");
+    for (let i = 0; i < pips.length; i++) {
+      pips[i].classList.toggle("on", i <= active);
+    }
   }, []);
 
+  useScrollVars(stage, sticky, paint);
+
+  // The pointer is a separate concern and changes rarely, so it can go through
+  // the DOM directly too rather than waking a render.
   function onMove(e) {
-    if (still.current) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    setTilt({
-      x: ((e.clientX - r.left) / r.width - 0.5) * 2,
-      y: ((e.clientY - r.top) / r.height - 0.5) * 2,
-    });
+    const el = sticky.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--tx", ((e.clientX - r.left) / r.width - 0.5) * 2);
+    el.style.setProperty("--ty", ((e.clientY - r.top) / r.height - 0.5) * 2);
   }
 
-  // Which card is in front, as a fraction, so the rail can move continuously
-  // rather than snapping between three states.
-  const at = p * DECK.length;
-  const active = Math.min(DECK.length - 1, Math.floor(at));
+  function onLeave() {
+    const el = sticky.current;
+    if (!el) return;
+    el.style.setProperty("--tx", 0);
+    el.style.setProperty("--ty", 0);
+  }
 
   return (
-    <section className="deck-stage" ref={ref} id="how">
-      <div
-        className="deck-sticky"
-        onPointerMove={onMove}
-        onPointerLeave={() => setTilt({ x: 0, y: 0 })}
-        style={{ "--p": p, "--tx": tilt.x, "--ty": tilt.y, "--at": at }}
-      >
+    <section className="deck-stage" ref={stage} id="how">
+      <div className="deck-sticky" ref={sticky} onPointerMove={onMove} onPointerLeave={onLeave}>
         <div className="deck-bg" aria-hidden="true">
           <span className="deck-glow" />
           <span className="deck-grid" />
@@ -178,11 +197,7 @@ function Deck() {
 
         <div className="deck">
           {DECK.map((c, i) => (
-            <article
-              className={"deck-card" + (active === i ? " front" : "")}
-              key={c.k}
-              style={{ "--i": i }}
-            >
+            <article className="deck-card" key={c.k} style={{ "--i": i }}>
               <div className="deck-face">
                 <span className="deck-tag">{c.tag}</span>
                 <span className="deck-step">{i + 1}</span>
@@ -195,10 +210,95 @@ function Deck() {
         </div>
 
         <div className="deck-rail" aria-hidden="true">
-          {DECK.map((c, i) => (
-            <span key={c.k} className={"rail-pip" + (active >= i ? " on" : "")} />
+          {DECK.map((c) => <span key={c.k} className="rail-pip" />)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// A second pinned scene: one question being built, in the order it happens.
+// The deck above says what the app does; this shows it, which is a different
+// job and worth its own screens.
+const BUILD = [
+  { tag: "Read", note: "Your paragraph goes in as it is." },
+  { tag: "Find", note: "The idea worth testing is picked out." },
+  { tag: "Write", note: "A question, four options, and the reasoning." },
+];
+
+function Build() {
+  const stage = useRef(null);
+  const sticky = useRef(null);
+
+  const paint = useCallback((el, p) => {
+    el.style.setProperty("--p", p);
+    const at = Math.min(BUILD.length - 1, Math.floor(p * BUILD.length));
+    el.style.setProperty("--at", at);
+    const steps = el.querySelectorAll(".bd-step");
+    for (let i = 0; i < steps.length; i++) {
+      steps[i].classList.toggle("on", i <= at);
+      steps[i].classList.toggle("now", i === at);
+    }
+    const layers = el.querySelectorAll("[data-layer]");
+    for (const l of layers) {
+      l.classList.toggle("on", Number(l.dataset.layer) <= at);
+    }
+  }, []);
+
+  useScrollVars(stage, sticky, paint);
+
+  return (
+    <section className="bd-stage" ref={stage}>
+      <div className="bd-sticky" ref={sticky}>
+        <header className="bd-head">
+          <h2>One question, being written</h2>
+          <p>Scroll to watch a paragraph of notes turn into something you can be asked.</p>
+        </header>
+
+        <div className="bd-panel">
+          {/* the notes, always present, dimming as attention moves on */}
+          <div className="bd-layer bd-notes on" data-layer="0">
+            <span className="bd-label">Your notes</span>
+            <p>
+              Active transport moves substances <mark className="bd-mark">against the
+              concentration gradient</mark> and therefore requires energy from{" "}
+              <mark className="bd-mark">ATP</mark>. It uses carrier proteins in the membrane.
+            </p>
+          </div>
+
+          <div className="bd-layer bd-found" data-layer="1">
+            <span className="bd-label">What it is testing</span>
+            <div className="bd-chips">
+              <span>Direction of movement</span>
+              <span>Energy requirement</span>
+              <span>Carrier proteins</span>
+            </div>
+          </div>
+
+          <div className="bd-layer bd-question" data-layer="2">
+            <span className="bd-label">The question</span>
+            <b>Which process moves molecules against their concentration gradient?</b>
+            <ul>
+              <li><i>A</i> Simple diffusion</li>
+              <li><i>B</i> Osmosis</li>
+              <li className="right"><i>C</i> Active transport</li>
+              <li><i>D</i> Facilitated diffusion</li>
+            </ul>
+            <p className="bd-why">
+              <b>Why.</b> Active transport spends ATP to push molecules from low to high
+              concentration. The other three are passive and only ever go down the gradient.
+            </p>
+          </div>
+        </div>
+
+        <div className="bd-rail" aria-hidden="true">
+          {BUILD.map((b, i) => (
+            <span className="bd-step" key={b.tag}>
+              <i>{i + 1}</i>
+              <em>{b.tag}</em>
+              <small>{b.note}</small>
+            </span>
           ))}
-          <span className="rail-fill" />
         </div>
       </div>
     </section>
@@ -303,6 +403,8 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
       )}
 
       <Deck />
+
+      <Build />
 
       <section className="landing-numbers" id="analytics">
         <h2>Analytics</h2>
