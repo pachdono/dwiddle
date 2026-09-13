@@ -38,18 +38,17 @@ const FAQ = [
   },
 ];
 
-// A scene you scroll through rather than past.
-//
-// The section is three screens tall and the stage is pinned to the viewport
-// while you move through it, so the scroll drives the sequence instead of
-// merely passing it. Each card owns a third of that range: it rises from the
-// depth, holds, and then settles back to make room for the next.
 // Scroll progress, written straight to the element as a CSS variable.
 //
 // The obvious way is React state, and it is the wrong way: a setState on every
 // scroll frame re-renders this whole page, FAQ and tiles and marquee included,
-// sixty times a second. Nothing about the markup changes, only two numbers, so
-// those numbers go directly onto the node and React is left out of it.
+// sixty times a second. Nothing about the markup changes, only a few numbers,
+// so those numbers go directly onto the node and React is left out of it.
+//
+// The value is eased toward the scroll position rather than pinned to it. A
+// mouse wheel arrives in coarse jumps, and following those exactly is what
+// reads as stutter; chasing them at a fixed fraction per frame turns each jump
+// into movement, and keeps the scene animating through a dropped frame.
 function useScrollVars(stageRef, paintRef, paint) {
   useEffect(() => {
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -60,14 +59,27 @@ function useScrollVars(stageRef, paintRef, paint) {
     if (still) { paint(target, 1); return; }
 
     let frame = 0;
+    let at = null;
+
     const measure = () => {
-      frame = 0;
       const r = el.getBoundingClientRect();
       const travel = r.height - innerHeight;
-      paint(target, travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel)));
+      return travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel));
     };
-    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
-    measure();
+
+    const tick = () => {
+      frame = 0;
+      const want = measure();
+      if (at === null) at = want;
+      at += (want - at) * 0.26;
+      if (Math.abs(want - at) < 0.0006) at = want;
+      paint(target, at);
+      if (at !== want) frame = requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(tick); };
+
+    tick();
     addEventListener("scroll", onScroll, { passive: true });
     addEventListener("resize", onScroll);
     return () => {
@@ -78,76 +90,59 @@ function useScrollVars(stageRef, paintRef, paint) {
   }, [stageRef, paintRef, paint]);
 }
 
+// True once the element has been on screen. Used for the things that should
+// arrive when you reach them rather than be waiting there already.
+function useSeen(ref, threshold = 0.2) {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setSeen(true); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+      setSeen(true);
+      io.disconnect();
+    }, { threshold });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, threshold]);
+  return seen;
+}
+
+// Leans the element toward the pointer by writing two numbers onto it. Nothing
+// re-renders, so this is safe to leave on large panels.
+function leanTo(el, e) {
+  if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--tx", ((e.clientX - r.left) / r.width - 0.5) * 2);
+  el.style.setProperty("--ty", ((e.clientY - r.top) / r.height - 0.5) * 2);
+}
+
+function leanOff(el) {
+  if (!el) return;
+  el.style.setProperty("--tx", 0);
+  el.style.setProperty("--ty", 0);
+}
+
+// A scene you scroll through rather than past.
+//
+// The section is several screens tall and the stage is pinned to the viewport
+// while you move through it, so the scroll drives the sequence instead of
+// merely passing it. Each card owns a share of that range: it rises from the
+// depth, holds, and then settles back to make room for the next.
 const DECK = [
   { k: "Your notes", t: "Paste a chapter, drop a PDF, or photograph the page. It reads Word and PowerPoint too.", tag: "In" },
   { k: "Its questions", t: "Written from what you gave it, with the reasoning for every answer and the trap in the wrong ones.", tag: "Then" },
   { k: "The real paper", t: "Full length, timed, marked, and converted to the exam's own scale with feedback on what to fix.", tag: "Out" },
 ];
 
-// A tile that leans toward the pointer and counts itself up the first time it
-// is seen. The lean is the whole point: a flat panel that only changes colour
-// on hover reads as a link, not as an object.
-function Tile({ value, label, note }) {
-  const ref = useRef(null);
-  const [tilt, setTilt] = useState(null);
-  const [shown, setShown] = useState(0);
-  const target = Number(String(value).replace(/[^0-9]/g, ""));
-  const numeric = Number.isFinite(target) && target > 0 && /^[0-9,]+$/.test(String(value));
-
-  useEffect(() => {
-    if (!numeric) return;
-    const el = ref.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setShown(target); return; }
-
-    const io = new IntersectionObserver((entries) => {
-      if (!entries[0].isIntersecting) return;
-      io.disconnect();
-      const start = performance.now();
-      const run = (now) => {
-        // Eased so it slows into the real figure instead of stopping dead.
-        const t = Math.min(1, (now - start) / 900);
-        setShown(Math.round(target * (1 - Math.pow(1 - t, 3))));
-        if (t < 1) requestAnimationFrame(run);
-      };
-      requestAnimationFrame(run);
-    }, { threshold: 0.4 });
-
-    io.observe(el);
-    return () => io.disconnect();
-  }, [numeric, target]);
-
-  function onMove(e) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    setTilt({
-      x: ((e.clientX - r.left) / r.width - 0.5) * 2,
-      y: ((e.clientY - r.top) / r.height - 0.5) * 2,
-    });
-  }
-
-  return (
-    <div
-      ref={ref}
-      className={"num" + (tilt ? " lifted" : "")}
-      onPointerMove={onMove}
-      onPointerLeave={() => setTilt(null)}
-      style={tilt ? { "--tx": tilt.x, "--ty": tilt.y } : undefined}
-    >
-      <span className="num-sheen" aria-hidden="true" />
-      <div className="num-v">{numeric ? shown.toLocaleString() : value}</div>
-      <div className="num-k">{label}</div>
-      <p className="num-note">{note}</p>
-    </div>
-  );
-}
-
 function Deck() {
   const stage = useRef(null);
   const sticky = useRef(null);
 
-  // One function, run inside the animation frame, that touches nothing but two
-  // custom properties and one class. No React work happens while you scroll.
+  // One function, run inside the animation frame, that touches nothing but a
+  // few custom properties and one class. No React work happens while you
+  // scroll, and nothing here can force a layout.
   const paint = useCallback((el, p) => {
     const at = p * DECK.length;
     el.style.setProperty("--p", p);
@@ -165,29 +160,18 @@ function Deck() {
 
   useScrollVars(stage, sticky, paint);
 
-  // The pointer is a separate concern and changes rarely, so it can go through
-  // the DOM directly too rather than waking a render.
-  function onMove(e) {
-    const el = sticky.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty("--tx", ((e.clientX - r.left) / r.width - 0.5) * 2);
-    el.style.setProperty("--ty", ((e.clientY - r.top) / r.height - 0.5) * 2);
-  }
-
-  function onLeave() {
-    const el = sticky.current;
-    if (!el) return;
-    el.style.setProperty("--tx", 0);
-    el.style.setProperty("--ty", 0);
-  }
-
   return (
     <section className="deck-stage" ref={stage} id="how">
-      <div className="deck-sticky" ref={sticky} onPointerMove={onMove} onPointerLeave={onLeave}>
+      <div
+        className="deck-sticky"
+        ref={sticky}
+        onPointerMove={(e) => leanTo(sticky.current, e)}
+        onPointerLeave={() => leanOff(sticky.current)}
+      >
         <div className="deck-bg" aria-hidden="true">
           <span className="deck-glow" />
           <span className="deck-grid" />
+          <span className="deck-beam" />
         </div>
 
         <header className="deck-head">
@@ -220,6 +204,11 @@ function Deck() {
 // A second pinned scene: one question being built, in the order it happens.
 // The deck above says what the app does; this shows it, which is a different
 // job and worth its own screens.
+//
+// The three cards share one box and are stacked in depth rather than laid out
+// down the page. That is deliberate: a column of cards grows with its content
+// and will eventually push the heading out of a pinned viewport, whereas a
+// stack is the same height whatever is in it.
 const BUILD = [
   { tag: "Read", note: "Your paragraph goes in as it is." },
   { tag: "Find", note: "The idea worth testing is picked out." },
@@ -231,17 +220,17 @@ function Build() {
   const sticky = useRef(null);
 
   const paint = useCallback((el, p) => {
+    const at = p * BUILD.length;
     el.style.setProperty("--p", p);
-    const at = Math.min(BUILD.length - 1, Math.floor(p * BUILD.length));
     el.style.setProperty("--at", at);
+    // The highlight sweeps across the phrases as the second step arrives,
+    // which is the moment the app is deciding what is worth asking about.
+    el.style.setProperty("--lit", Math.max(0, Math.min(1, (at - 0.72) * 1.7)));
+    const step = Math.min(BUILD.length - 1, Math.floor(at));
     const steps = el.querySelectorAll(".bd-step");
     for (let i = 0; i < steps.length; i++) {
-      steps[i].classList.toggle("on", i <= at);
-      steps[i].classList.toggle("now", i === at);
-    }
-    const layers = el.querySelectorAll("[data-layer]");
-    for (const l of layers) {
-      l.classList.toggle("on", Number(l.dataset.layer) <= at);
+      steps[i].classList.toggle("on", i <= step);
+      steps[i].classList.toggle("now", i === step);
     }
   }, []);
 
@@ -249,33 +238,43 @@ function Build() {
 
   return (
     <section className="bd-stage" ref={stage}>
-      <div className="bd-sticky" ref={sticky}>
+      <div
+        className="bd-sticky"
+        ref={sticky}
+        onPointerMove={(e) => leanTo(sticky.current, e)}
+        onPointerLeave={() => leanOff(sticky.current)}
+      >
+        <span className="bd-halo" aria-hidden="true" />
+
         <header className="bd-head">
           <h2>One question, being written</h2>
           <p>Scroll to watch a paragraph of notes turn into something you can be asked.</p>
         </header>
 
         <div className="bd-panel">
-          {/* the notes, always present, dimming as attention moves on */}
-          <div className="bd-layer bd-notes on" data-layer="0">
+          <article className="bd-layer bd-notes" style={{ "--i": 0 }}>
             <span className="bd-label">Your notes</span>
             <p>
               Active transport moves substances <mark className="bd-mark">against the
               concentration gradient</mark> and therefore requires energy from{" "}
               <mark className="bd-mark">ATP</mark>. It uses carrier proteins in the membrane.
             </p>
-          </div>
+          </article>
 
-          <div className="bd-layer bd-found" data-layer="1">
+          <article className="bd-layer bd-found" style={{ "--i": 1 }}>
             <span className="bd-label">What it is testing</span>
             <div className="bd-chips">
-              <span>Direction of movement</span>
-              <span>Energy requirement</span>
-              <span>Carrier proteins</span>
+              <span style={{ "--i": 0 }}>Direction of movement</span>
+              <span style={{ "--i": 1 }}>Energy requirement</span>
+              <span style={{ "--i": 2 }}>Carrier proteins</span>
             </div>
-          </div>
+            <p className="bd-aside">
+              Three testable ideas in one sentence. The first is the one with a wrong
+              answer worth writing.
+            </p>
+          </article>
 
-          <div className="bd-layer bd-question" data-layer="2">
+          <article className="bd-layer bd-question" style={{ "--i": 2 }}>
             <span className="bd-label">The question</span>
             <b>Which process moves molecules against their concentration gradient?</b>
             <ul>
@@ -286,9 +285,9 @@ function Build() {
             </ul>
             <p className="bd-why">
               <b>Why.</b> Active transport spends ATP to push molecules from low to high
-              concentration. The other three are passive and only ever go down the gradient.
+              concentration. The other three are passive and only go down the gradient.
             </p>
-          </div>
+          </article>
         </div>
 
         <div className="bd-rail" aria-hidden="true">
@@ -302,6 +301,151 @@ function Build() {
         </div>
       </div>
     </section>
+  );
+}
+
+// A tile that leans toward the pointer and counts itself up the first time it
+// is seen. The lean is the whole point: a flat panel that only changes colour
+// on hover reads as a link, not as an object.
+function Tile({ value, label, note, i }) {
+  const ref = useRef(null);
+  const seen = useSeen(ref, 0.35);
+  const [shown, setShown] = useState(0);
+  const target = Number(String(value).replace(/[^0-9]/g, ""));
+  const numeric = Number.isFinite(target) && target > 0 && /^[0-9,]+$/.test(String(value));
+
+  useEffect(() => {
+    if (!numeric || !seen) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setShown(target); return; }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function run(now) {
+      // Eased so it slows into the real figure instead of stopping dead.
+      const t = Math.min(1, (now - start) / 900);
+      setShown(Math.round(target * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) frame = requestAnimationFrame(run);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [numeric, target, seen]);
+
+  return (
+    <div
+      ref={ref}
+      className={"num" + (seen ? " seen" : "")}
+      style={{ "--i": i }}
+      onPointerMove={(e) => { ref.current?.classList.add("lifted"); leanTo(ref.current, e); }}
+      onPointerLeave={() => { ref.current?.classList.remove("lifted"); leanOff(ref.current); }}
+    >
+      <span className="num-sheen" aria-hidden="true" />
+      <div className="num-v">{numeric ? shown.toLocaleString() : value}</div>
+      <div className="num-k">{label}</div>
+      <p className="num-note">{note}</p>
+    </div>
+  );
+}
+
+// Two things worth drawing rather than listing. Both are counted off the data
+// the app ships with, and both add up to a figure stated in the tiles above,
+// so a wrong number here would contradict the page rather than hide in it.
+const SERIES = [
+  {
+    id: "topics",
+    tab: "Topics per board",
+    unit: "syllabus topics",
+    note: "Every topic on the specification, taken from the board's own syllabus.",
+    bars: [["Cambridge IGCSE", 64], ["Edexcel IGCSE", 46], ["IB Diploma", 45], ["A Levels", 70]],
+  },
+  {
+    id: "sections",
+    tab: "Sections per exam",
+    unit: "sections",
+    note: "The parts of each paper you can sit here, timed and marked to its own scale.",
+    bars: [["SAT", 2], ["ACT", 5], ["SSAT", 4], ["IELTS", 4], ["TOEFL", 4]],
+  },
+];
+
+function Chart() {
+  const box = useRef(null);
+  const seen = useSeen(box, 0.3);
+  const [tab, setTab] = useState(0);
+  const [hot, setHot] = useState(-1);
+  const s = SERIES[tab];
+  const top = Math.max(...s.bars.map((b) => b[1]));
+  const total = s.bars.reduce((a, b) => a + b[1], 0);
+
+  return (
+    <div
+      className={"lchart" + (seen ? " seen" : "")}
+      ref={box}
+      onPointerMove={(e) => leanTo(box.current, e)}
+      onPointerLeave={() => { leanOff(box.current); setHot(-1); }}
+    >
+      <div className="lchart-head">
+        <div className="lchart-title">
+          <b>{s.tab}</b>
+          <p>{s.note}</p>
+        </div>
+        <div className="lchart-tabs" role="tablist">
+          {SERIES.map((x, i) => (
+            <button
+              key={x.id}
+              role="tab"
+              aria-selected={i === tab}
+              className={i === tab ? "on" : ""}
+              onClick={() => { setTab(i); setHot(-1); }}
+            >
+              {x.tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="lchart-plot">
+        <span className="lchart-floor" aria-hidden="true" />
+        {s.bars.map(([k, v], i) => (
+          <div
+            className={"cbar" + (hot === i ? " hot" : "") + (hot > -1 && hot !== i ? " cold" : "")}
+            key={s.id + k}
+            style={{ "--h": seen ? v / top : 0, "--i": i }}
+            onPointerEnter={() => setHot(i)}
+            onFocus={() => setHot(i)}
+            onBlur={() => setHot(-1)}
+            tabIndex={0}
+          >
+            <span className="cbar-v">{v}</span>
+            <span className="cbar-col">
+              <span className="cbar-top" />
+              <span className="cbar-side" />
+            </span>
+            <span className="cbar-k">{k}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="lchart-foot">
+        <span><b>{total}</b> {s.unit} in total.</span>
+        <span className="lchart-read">
+          {hot > -1 ? `${s.bars[hot][0]}: ${s.bars[hot][1]}` : "Point at a column."}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function Faq() {
+  const list = useRef(null);
+  const seen = useSeen(list, 0.15);
+  return (
+    <div className={"faq-list" + (seen ? " seen" : "")} ref={list}>
+      {FAQ.map((f, i) => (
+        <details className="faq-item" key={f.q} style={{ "--i": i }}>
+          <summary>
+            <span className="faq-q">{f.q}</span>
+            <span className="faq-mark" aria-hidden="true"><i /><i /></span>
+          </summary>
+          <div className="faq-answer"><div><p>{f.a}</p></div></div>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -391,8 +535,8 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
               <figure className="review-card" key={r.id}>
                 {r.rating ? (
                   <div className="review-stars" aria-label={`${r.rating} out of 5`}>
-                    {"\u2605".repeat(r.rating)}
-                    <span style={{ color: "var(--line)" }}>{"\u2605".repeat(5 - r.rating)}</span>
+                    {"★".repeat(r.rating)}
+                    <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
                   </div>
                 ) : null}
                 <p>{r.message}</p>
@@ -411,6 +555,9 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         <p className="lp-lead">
           Counted from the app itself, live, and not rounded up for the page.
         </p>
+
+        <Chart />
+
         <div className="num-grid">
           {[
             ...(people !== null && people >= CROWD
@@ -420,23 +567,16 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
             ["213", "written questions", "Authored for this app, not scraped from a past paper."],
             ["225", "syllabus topics", "Across 18 subjects and four exam boards."],
             ["6", "question generators", "Fresh numbers each sitting, so no two papers match."],
-            ["\u221e", "from your own notes", "Paste anything and it writes questions about it."],
-          ].map(([n, label, note]) => (
-            <Tile key={label} value={n} label={label} note={note} />
+            ["∞", "from your own notes", "Paste anything and it writes questions about it."],
+          ].map(([n, label, note], i) => (
+            <Tile key={label} value={n} label={label} note={note} i={i} />
           ))}
         </div>
       </section>
 
       <section className="landing-faq" id="faq">
         <h2>Questions people ask</h2>
-        <div className="faq-list">
-          {FAQ.map((f) => (
-            <details className="faq-item" key={f.q}>
-              <summary>{f.q}</summary>
-              <div className="faq-answer"><div><p>{f.a}</p></div></div>
-            </details>
-          ))}
-        </div>
+        <Faq />
       </section>
 
       <section className="marquee-wrap">

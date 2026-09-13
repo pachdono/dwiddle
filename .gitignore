@@ -10,3 +10,6 @@ dist
 # releases page, not in the repository.
 release/
 dist-desktop/
+
+# Local dev-server config for the editor, not part of the app.
+.claude/

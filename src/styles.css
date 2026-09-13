@@ -2010,6 +2010,9 @@ kbd {
   border-top: 1px solid var(--line);
   padding: 22px 0 26px;
   background: var(--panel);
+  /* The run inside is wider than the screen by design. Without this the page
+     itself becomes wider than the screen, and on a phone it drags sideways. */
+  overflow: hidden;
 }
 
 .marquee-label {
@@ -3057,6 +3060,12 @@ kbd {
 
 /* ---------- the desktop app ---------- */
 
+/* A window is not a tab, and the interface should stop pretending otherwise.
+   Everything below applies only inside the installed app: a translucent rail
+   on the left that lets the desktop through, and the content on a sheet inset
+   from the window edge, which is how a Mac application is laid out and which a
+   web page can never be. */
+
 /* A frameless window has nothing to grab unless the page provides it, so the
    quiet strips of the interface become the title bar. Anything clickable
    inside them has to opt back out, or it stops responding. */
@@ -3071,20 +3080,170 @@ kbd {
   -webkit-app-region: no-drag;
 }
 
+/* The gutter the sheet floats on. On a Mac the window itself is translucent,
+   so this stays out of the way and the desktop shows through instead. */
+.is-desktop .app { background: var(--panel); }
+.is-mac .app { background: transparent; }
+
+.is-desktop .sidebar {
+  width: 236px;
+  flex: 0 0 236px;
+  padding: 16px 12px 12px;
+  border-right: 0;
+  background: transparent;
+}
+
 /* On a Mac the traffic lights are drawn over the top left of the window, so
    the sidebar has to start below them. */
 .is-mac .sidebar { padding-top: 40px; }
 .is-mac .topbar { padding-left: 20px; }
 
+.is-desktop .brand { padding: 0 8px 14px; font-size: 14.5px; }
+
+/* Navigation first and the upsell last. In a window the sidebar is permanent
+   furniture, and permanent furniture should lead with what is actually used
+   rather than with a card whose button does nothing yet. */
+.is-desktop .brand { order: 1; }
+.is-desktop .nav { order: 2; }
+.is-desktop .upgrade { order: 3; margin-top: auto; }
+.is-desktop .sidebar-foot { order: 4; margin-top: 12px; }
+
+/* The list of pages is the part that gives way when the window is short: it
+   scrolls, and the card underneath it stands down entirely rather than
+   pushing the account row off the bottom. */
+.is-desktop .nav { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.is-desktop .nav::-webkit-scrollbar { width: 0; }
+
+@media (max-height: 700px) {
+  .is-desktop .upgrade { display: none; }
+}
+
+.is-desktop .nav-label {
+  padding: 14px 10px 5px;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+}
+
+.is-desktop .nav-item {
+  position: relative;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  gap: 10px;
+}
+
+/* The row that is open is marked by a bar in the margin rather than by a white
+   rectangle, which on a translucent sidebar reads as a hole in it. */
+.is-desktop .nav-item.on {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--ink);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.is-desktop .nav-item.on::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+.is-desktop .nav-item:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.is-desktop .nav-item.on:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+.is-desktop .upgrade {
+  background: color-mix(in srgb, var(--sunken) 70%, transparent);
+  border-radius: 12px;
+}
+
+.is-desktop .sidebar-foot { border-top-color: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+/* The sheet. Inset on three sides, so the window has a document in it rather
+   than being one. */
+.is-desktop .main {
+  margin: 8px 8px 8px 0;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.06), 0 10px 30px rgba(20, 20, 40, 0.05);
+  overflow: hidden auto;
+}
+.is-mac .main { background: var(--bg); }
+
 /* In a window there is no browser chrome above, so the app can sit tighter to
    the top than a web page has to. */
-.is-desktop .topbar { height: 46px; }
-.is-desktop .page { padding-top: 28px; }
+.is-desktop .topbar {
+  height: 44px;
+  padding: 0 24px;
+  background: transparent;
+  border-bottom-color: transparent;
+}
+.is-desktop .topbar-title { font-weight: 600; font-size: 13.5px; color: var(--ink-2); }
 
-/* A window is not a tab: it never needs a sticky bar to survive scrolling
-   past the browser's own, and the border reads as clutter without one. */
-.is-desktop .topbar { border-bottom-color: transparent; background: transparent; }
-.is-desktop .topbar-title { font-weight: 600; }
+/* A Mac window puts its title in the middle of the title bar, and this strip
+   is the title bar. */
+.is-mac .topbar { position: relative; }
+.is-mac .topbar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.is-mac .crumb { margin-left: auto; }
+.is-desktop .page { padding-top: 20px; }
+
+/* Overlay scrollbars, which is what every other window on the machine has. */
+.is-desktop .main::-webkit-scrollbar { width: 11px; }
+.is-desktop .main::-webkit-scrollbar-track { background: transparent; }
+.is-desktop .main::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+.is-desktop .main::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+  background-clip: content-box;
+}
+
+/* A notice inside the sheet has to keep away from its rounded top corners. */
+.is-desktop .notice { border-radius: 12px 12px 0 0; }
+
+/* Rows in a translucent sidebar need a little more weight, or they disappear
+   against whatever happens to be behind the window. */
+.is-mac .sidebar {
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+}
+
+/* Narrow enough and the sidebar becomes a drawer that floats over the content.
+   A drawer cannot be translucent against the page it is covering, and the
+   sheet has nothing left to be inset from. */
+@media (max-width: 860px) {
+  .is-desktop .sidebar {
+    width: 264px;
+    flex-basis: 264px;
+    padding: 16px 14px 14px;
+    background: var(--panel);
+  }
+  .is-mac .sidebar {
+    padding-top: 40px;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+  .is-desktop .main {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .is-desktop .notice { border-radius: 0; }
+  .is-mac .topbar-title { position: static; transform: none; }
+}
 
 /* ---------- desktop welcome ---------- */
 
@@ -3219,8 +3378,8 @@ kbd {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
+  perspective: 1000px;
 }
-.num-grid { perspective: 900px; }
 
 .num {
   position: relative;
@@ -3231,13 +3390,23 @@ kbd {
   box-shadow: var(--shadow);
   overflow: hidden;
   transform-style: preserve-3d;
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 55ms),
+    opacity 0.42s ease calc(var(--i, 0) * 55ms),
     box-shadow 0.32s ease, border-color 0.32s ease;
+  /* Arrives as you reach it rather than sitting there waiting. */
+  opacity: 0;
+  transform: translateY(22px);
 }
+.num.seen { opacity: 1; transform: none; }
 
 /* Leaning toward the pointer and lifting off the page. A flat panel that only
-   changes colour on hover reads as a link; this reads as an object. */
+   changes colour on hover reads as a link; this reads as an object. The delay
+   is dropped here, or the lean would wait for it. */
 .num.lifted {
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s ease, border-color 0.32s ease;
   transform:
     perspective(900px)
     rotateY(calc(var(--tx, 0) * 7deg))
@@ -3266,9 +3435,6 @@ kbd {
 .num.lifted .num-v { transform: translateZ(30px); }
 .num.lifted .num-k { transform: translateZ(18px); }
 
-@media (prefers-reduced-motion: reduce) {
-  .num.lifted, .num.lifted .num-v, .num.lifted .num-k { transform: none; }
-}
 .num-v {
   font-size: 40px; font-weight: 660; letter-spacing: -0.035em;
   line-height: 1; color: var(--ink);
@@ -3276,6 +3442,226 @@ kbd {
 }
 .num-k { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .num-note { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-3); }
+
+/* ---------- the chart ---------- */
+
+/* Solid blocks standing on a floor, not a picture of blocks. Each column is a
+   real box with a top and a side, so turning the plot shows its thickness and
+   pointing at one brings it forward out of the row. */
+.lchart {
+  position: relative;
+  margin: 0 0 26px;
+  padding: 22px 24px 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 3%, var(--surface)),
+      var(--surface) 55%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lchart.seen { opacity: 1; transform: none; }
+
+.lchart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.lchart-title b { display: block; font-size: 15.5px; letter-spacing: -0.02em; }
+.lchart-title p { margin: 3px 0 0; font-size: 13px; color: var(--ink-3); max-width: 46ch; }
+
+/* A segmented control, which is what a two way switch should look like. */
+.lchart-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.lchart-tabs button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 6px 13px;
+  border-radius: 999px;
+  transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+}
+.lchart-tabs button:hover { color: var(--ink); }
+.lchart-tabs button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.lchart-plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: clamp(10px, 3vw, 34px);
+  height: 230px;
+  margin: 22px 12px 6px;
+  padding-bottom: 26px;
+  perspective: 1000px;
+  perspective-origin: calc(50% + var(--tx, 0) * 12%) calc(50% + var(--ty, 0) * 10%);
+  transform-style: preserve-3d;
+}
+
+/* The floor the columns stand on, hinged along the line their bases sit on
+   and folded away from the viewer. The perspective comes from the plot, so
+   there is no second one written here. */
+.lchart-floor {
+  position: absolute;
+  left: -10%; right: -10%;
+  bottom: 26px;
+  height: 190px;
+  transform: rotateX(74deg);
+  transform-origin: 50% 100%;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to top, #000, transparent 88%);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent 88%);
+  pointer-events: none;
+}
+
+.cbar {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 108px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  transform-style: preserve-3d;
+  /* Pivoting on the base, not the middle. Turned about their centres, columns
+     of different heights land their bases in different places and the row
+     stops standing on one line. */
+  transform-origin: 50% 100%;
+  transform: rotateX(13deg) rotateY(-18deg);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+  cursor: default;
+  outline: none;
+}
+.cbar.hot { transform: rotateX(6deg) rotateY(-9deg) translateZ(60px); }
+.cbar.cold { opacity: 0.42; }
+
+/* The column's thickness is a registered property, so it can be animated. An
+   unregistered custom property is a string as far as transitions go and would
+   snap between the two depths instead of growing. */
+@property --d {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 30px;
+}
+
+.cbar-col {
+  position: relative;
+  width: 100%;
+  /* The figure above the column is reserved for here rather than left to flex,
+     which would shrink the tallest column more than the others and quietly
+     make the chart misreport its own numbers. */
+  flex: 0 0 auto;
+  height: calc(var(--h, 0) * (100% - 34px));
+  border-radius: 4px 4px 0 0;
+  transform-style: preserve-3d;
+  --d: 30px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 88%, white),
+    var(--accent));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition:
+    height 0.85s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms),
+    background 0.3s ease, box-shadow 0.3s ease, --d 0.34s ease;
+}
+.cbar.hot .cbar-col { --d: 46px; box-shadow: 0 26px 48px color-mix(in srgb, var(--accent) 34%, transparent); }
+.cbar.cold .cbar-col { background: var(--line); box-shadow: none; }
+
+/* The two faces that make the column a solid. Each is hinged on an edge of the
+   front face and folded backward, so the thickness is real geometry rather
+   than a drawn shadow. */
+.cbar-top, .cbar-side { position: absolute; pointer-events: none; }
+.cbar-top {
+  left: 0; right: 0; top: 0;
+  height: var(--d);
+  transform-origin: 50% 0;
+  transform: rotateX(90deg);
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--accent) 72%, white);
+}
+.cbar-side {
+  top: 0; bottom: 0; right: 0;
+  width: var(--d);
+  transform-origin: 100% 50%;
+  transform: rotateY(-90deg);
+  background: color-mix(in srgb, var(--accent) 76%, black);
+}
+.cbar.cold .cbar-top, .cbar.cold .cbar-side { background: var(--active); }
+
+.cbar-v {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  margin-bottom: 9px;
+  transform: translateZ(30px);
+  transition: color 0.25s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cbar.hot .cbar-v { color: var(--accent); transform: translateZ(70px) scale(1.18); }
+
+.cbar-k {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  width: 130%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  transition: color 0.25s ease;
+  line-height: 1.3;
+}
+.cbar.hot .cbar-k { color: var(--ink); }
+
+.lchart-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 26px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.lchart-foot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.lchart-read { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .num, .num.seen, .num.lifted, .num.lifted .num-v, .num.lifted .num-k,
+  .lchart, .cbar, .cbar.hot { transform: none; opacity: 1; }
+  .cbar-col { transition: none; }
+}
+
+/* ---------- the questions people ask ---------- */
 
 /* One panel with hairline dividers, rather than six separate boxes stacked up.
    Grouping reads as a considered list; repeated borders read as a form. */
@@ -3287,28 +3673,56 @@ kbd {
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: hidden;
+  perspective: 1200px;
 }
 
-.faq-item { border-top: 1px solid var(--line-soft); padding: 0 26px; }
+.faq-item {
+  position: relative;
+  border-top: 1px solid var(--line-soft);
+  padding: 0 26px;
+  /* Each row drops into place a beat after the one above it. */
+  opacity: 0;
+  transform: translateY(14px) rotateX(-7deg);
+  transform-origin: 50% 0;
+  transition:
+    opacity 0.5s ease calc(var(--i, 0) * 70ms),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 70ms),
+    background 0.3s ease;
+}
+.faq-list.seen .faq-item { opacity: 1; transform: none; }
 .faq-item:first-child { border-top: 0; }
+.faq-item:hover { background: color-mix(in srgb, var(--hover) 55%, transparent); }
 .faq-item[open] { background: var(--sunken); }
-.faq-item[open] p { opacity: 1; transform: none; }
 
 /* The row lights up from the left as the pointer crosses it. */
-.faq-item { position: relative; }
 .faq-item::before {
   content: "";
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--accent);
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent));
   transform: scaleY(0);
   transform-origin: 50% 0;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .faq-item:hover::before, .faq-item[open]::before { transform: scaleY(1); }
 
+/* A wash that follows the row open, so the panel does not simply change
+   colour in one step. */
+.faq-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.faq-item[open]::after { opacity: 1; }
+
 .faq-item summary {
+  position: relative;
   list-style: none;
   cursor: pointer;
   padding: 22px 0;
@@ -3322,24 +3736,45 @@ kbd {
   gap: 20px;
 }
 .faq-item summary::-webkit-details-marker { display: none; }
-.faq-item summary:hover { color: var(--accent); }
 
-/* A drawn chevron rather than a plus sign made of text, which never sits on
-   the baseline properly and gives the size away. */
-.faq-item summary::after {
-  content: "";
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-right: 2px solid var(--ink-3);
-  border-bottom: 2px solid var(--ink-3);
-  transform: rotate(45deg) translate(-2px, -2px);
-  transition: transform 0.2s ease;
+.faq-q {
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
 }
-.faq-item[open] summary::after {
-  transform: rotate(-135deg) translate(-3px, -3px);
+.faq-item:hover .faq-q { color: var(--accent); }
+.faq-item[open] .faq-q { transform: translateX(6px); }
+
+/* A plus that becomes a minus. Drawn, because a typed plus never sits on the
+   baseline properly and gives the size away. */
+.faq-mark {
+  position: relative;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.3s ease, border-color 0.3s ease;
+}
+.faq-mark i {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 10px; height: 1.8px;
+  margin: -0.9px 0 0 -5px;
+  border-radius: 2px;
+  background: var(--ink-3);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease;
+}
+.faq-mark i:last-child { transform: rotate(90deg); }
+.faq-item:hover .faq-mark { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.faq-item[open] .faq-mark {
+  transform: rotate(180deg);
+  background: var(--accent);
   border-color: var(--accent);
 }
+.faq-item[open] .faq-mark i { background: var(--accent-ink); }
+.faq-item[open] .faq-mark i:last-child { transform: rotate(0deg); }
 
 /* details does not animate its own height, so the answer is wrapped in a grid
    row that goes from zero to auto. This is the one way to get a real open and
@@ -3347,24 +3782,35 @@ kbd {
 .faq-answer {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .faq-item[open] .faq-answer { grid-template-rows: 1fr; }
 .faq-answer > div { overflow: hidden; }
 
 .faq-item p {
   opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 0.28s ease 0.06s, transform 0.28s ease 0.06s;
+  transform: translateY(-6px);
+  filter: blur(3px);
+  transition:
+    opacity 0.34s ease 0.08s,
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1) 0.08s,
+    filter 0.34s ease 0.08s;
   margin: -4px 0 22px;
   color: var(--ink-2);
   line-height: 1.7;
   font-size: 15px;
   max-width: 62ch;
 }
+.faq-item[open] p { opacity: 1; transform: none; filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-item, .faq-list.seen .faq-item { opacity: 1; transform: none; }
+  .faq-item p { filter: none; }
+}
 
 @media (max-width: 900px) {
   .num-grid { grid-template-columns: repeat(2, 1fr); }
+  .lchart-plot { height: 200px; gap: 10px; }
 }
 
 @media (max-width: 620px) {
@@ -3373,7 +3819,13 @@ kbd {
   .num-grid { grid-template-columns: 1fr; }
   .landing-numbers, .landing-faq { padding: 56px 20px; }
   .landing-hero { padding-top: 88px; }
+  .lchart { padding: 18px 14px 14px; }
+  .lchart-plot { height: 178px; margin: 18px 4px 6px; }
+  .lchart-tabs button { padding: 6px 10px; font-size: 12px; }
+  .cbar-k { font-size: 10.5px; width: 150%; }
+  .faq-item { padding: 0 18px; }
 }
+
 
 /* The mark doubles as the way back to the front page, which is where people
    already try to click. The label only appears on hover, so the sidebar is not
@@ -3435,12 +3887,17 @@ kbd {
 
 /* ---------- the scrolling deck ---------- */
 
-/* Three screens of scroll, with the stage pinned to the viewport through all
+/* Several screens of scroll, with the stage pinned to the viewport through all
    of it. The height is what gives the sequence room; the sticky child is what
-   keeps it on screen while that height passes. */
+   keeps it on screen while that height passes.
+   
+   Nothing the scroll drives may be expensive to paint. A blur, a shadow whose
+   size changes, or a background position that moves all force real work on
+   every frame; transforms and opacity do not, because the compositor already
+   holds the pixels. That constraint decides most of what follows. */
 .deck-stage {
   position: relative;
-  height: 300vh;
+  height: 360vh;
 }
 
 .deck-sticky {
@@ -3451,7 +3908,7 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 34px;
+  gap: clamp(20px, 4vh, 34px);
   overflow: hidden;
   perspective: 1300px;
   perspective-origin: calc(50% + var(--tx, 0) * 6%) calc(42% + var(--ty, 0) * 5%);
@@ -3465,25 +3922,47 @@ kbd {
   width: 900px; height: 620px;
   transform:
     translate(-50%, -50%)
-    translate3d(calc(var(--tx, 0) * 16px), calc(var(--ty, 0) * 12px), 0);
+    translate3d(calc(var(--tx, 0) * 16px), calc(var(--ty, 0) * 12px), 0)
+    scale(calc(0.86 + var(--p, 0) * 0.22));
   background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 24%, transparent), transparent);
-  filter: blur(8px);
+  opacity: calc(0.55 + var(--p, 0) * 0.45);
+}
+
+/* A shaft of light that swings across the scene as you move through it. It is
+   one gradient on one transform, so it costs a composite and nothing else. */
+.deck-beam {
+  position: absolute;
+  left: 50%; top: -30%;
+  width: 46vw; height: 160%;
+  transform:
+    translateX(-50%)
+    rotate(calc(-22deg + var(--p, 0) * 44deg));
+  transform-origin: 50% 10%;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 10%, transparent) 45%,
+    transparent);
+  opacity: 0.7;
 }
 
 .deck-grid {
   position: absolute;
-  inset: 40% -20% -10%;
+  inset: 40% -20% -40%;
   background-image:
     linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px);
   background-size: 54px 54px;
   /* The floor slides as the scene advances, which is what sells the movement
-     as travel rather than as the cards simply changing shape. */
-  background-position: 0 calc(var(--p, 0) * -160px);
-  transform: perspective(600px) rotateX(62deg);
+     as travel rather than as the cards simply changing shape. It moves by
+     transform rather than by background-position, because a background that
+     moves is repainted every frame and a transform is not. */
+  transform:
+    perspective(600px)
+    rotateX(62deg)
+    translate3d(0, calc(var(--p, 0) * -220px), 0);
   transform-origin: 50% 0;
-  mask-image: linear-gradient(180deg, #000, transparent 70%);
-  -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%);
+  mask-image: linear-gradient(180deg, #000, transparent 62%);
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 62%);
 }
 
 .deck-head { position: relative; text-align: center; padding: 0 24px; }
@@ -3507,7 +3986,7 @@ kbd {
 
 .deck-card {
   position: relative;
-  /* Each card owns a third of the scroll: it rises, holds while it is the one
+  /* Each card owns a share of the scroll: it rises, holds while it is the one
      being read, then eases back as the next comes forward. */
   --own: clamp(0, calc((var(--at, 0) - var(--i)) * 1.6 + 0.55), 1);
   --lift: calc(1 - var(--own));
@@ -3537,17 +4016,17 @@ kbd {
   height: 100%;
   padding: 32px 28px 34px;
   border-radius: 22px;
+  /* Opaque, not frosted. Three blurred surfaces moving in three dimensions is
+     the single most expensive thing this page could ask for, and on a laptop
+     it is the difference between sixty frames and thirty. */
   background:
     linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 97%, transparent),
-      color-mix(in srgb, var(--surface) 84%, transparent));
-  backdrop-filter: blur(18px) saturate(175%);
-  -webkit-backdrop-filter: blur(18px) saturate(175%);
+      color-mix(in srgb, var(--accent) 4%, var(--surface)),
+      var(--surface) 60%);
   border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
-  box-shadow:
-    0 calc(12px + var(--lift) * 34px) calc(32px + var(--lift) * 66px)
-      rgba(20, 20, 40, calc(0.08 + var(--lift) * 0.14)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  /* A fixed shadow. One whose blur radius follows the scroll has to be redrawn
+     on every frame, which is exactly the sort of work that is being avoided. */
+  box-shadow: var(--shadow-lift);
   overflow: hidden;
 }
 
@@ -3560,6 +4039,7 @@ kbd {
     color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
   opacity: calc(var(--own) * 0.9);
   pointer-events: none;
+  will-change: opacity;
 }
 
 .deck-tag {
@@ -3601,41 +4081,21 @@ kbd {
   .deck { grid-template-columns: 1fr; gap: 16px; transform: none; }
   .deck-card { transform: none; opacity: 1; }
   .deck-card.front { transform: none; }
-  .deck-grid { display: none; }
+  .deck-grid, .deck-beam { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .deck-stage { height: auto; }
   .deck-sticky { position: static; height: auto; padding: 60px 0; }
   .deck-card, .deck-card.front, .deck { transform: none; opacity: 1; transition: none; }
-}
-
-/* ---------- the desktop window ---------- */
-
-/* The window itself is translucent on a Mac, so the sidebar lets the desktop
-   through the way a native app does. The content area stays solid, because
-   reading through a wallpaper is not a feature. */
-.is-mac .app { background: transparent; }
-.is-mac .sidebar {
-  background: color-mix(in srgb, var(--panel) 55%, transparent);
-  border-right-color: color-mix(in srgb, var(--ink) 10%, transparent);
-}
-.is-mac main { background: var(--bg); }
-
-/* Rows in a translucent sidebar need a little more weight, or they disappear
-   against whatever happens to be behind the window. */
-.is-mac .nav-item.on {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.is-mac .upgrade {
-  background: color-mix(in srgb, var(--sunken) 70%, transparent);
+  .deck-beam { display: none; }
 }
 
 /* ---------- the question being built ---------- */
 
-.bd-stage { position: relative; height: 300vh; }
+/* Four screens, so the three steps each get long enough to be read rather
+   than glimpsed. */
+.bd-stage { position: relative; height: 420vh; }
 
 .bd-sticky {
   position: sticky;
@@ -3645,41 +4105,75 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: clamp(16px, 3.5vh, 30px);
   padding: 0 24px;
   overflow: hidden;
+  perspective: 1200px;
+  perspective-origin: calc(50% + var(--tx, 0) * 8%) 50%;
 }
 
-.bd-head { text-align: center; max-width: 56ch; }
+.bd-halo {
+  position: absolute;
+  left: 50%; top: 52%;
+  width: 860px; height: 560px;
+  transform:
+    translate(-50%, -50%)
+    translate3d(calc(var(--tx, 0) * 14px), calc(var(--ty, 0) * 10px), 0)
+    scale(calc(0.8 + var(--p, 0) * 0.35));
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--accent) 17%, transparent), transparent);
+  opacity: calc(0.35 + var(--p, 0) * 0.5);
+  pointer-events: none;
+}
+
+.bd-head { position: relative; text-align: center; max-width: 56ch; }
 .bd-head h2 { margin: 0 0 8px; font-size: clamp(24px, 1.8vw + 16px, 32px); letter-spacing: -0.03em; }
 .bd-head p { margin: 0; color: var(--ink-3); font-size: 15px; }
 
+/* The three cards share one box and are stacked in depth. A column of cards
+   would grow with its content and eventually push the heading off a pinned
+   screen; a stack is the same height whatever is in it, which is why the
+   heading above can no longer be covered. */
+/* All three share one grid cell, so the panel is exactly as tall as the
+   tallest card and no taller. A fixed height would have to guess, and a guess
+   that comes up short is what puts a card over the heading. */
 .bd-panel {
-  width: min(760px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  position: relative;
+  width: min(720px, 100%);
+  display: grid;
+  transform-style: preserve-3d;
 }
 
-/* Each layer arrives as the scroll reaches it. Transitions are allowed here
-   because a class flips once per step, rather than on every frame. */
 .bd-layer {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 20px 22px;
-  opacity: 0;
-  transform: translateY(18px) scale(0.985);
-  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, opacity;
-}
-.bd-layer.on { opacity: 1; transform: none; }
+  grid-area: 1 / 1;
+  align-self: center;
+  border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 4%, var(--surface)),
+      var(--surface) 65%);
+  box-shadow: var(--shadow-lift);
+  padding: 22px 24px;
 
-/* The notes step back once they have been read, so attention moves forward. */
-.bd-notes { transition-delay: 0s; }
-.bd-found.on ~ .bd-question:not(.on) { opacity: 0; }
+  /* How far the scroll has reached this card, and how far past it. Both are
+     continuous, so the movement follows the scroll rather than jumping at a
+     threshold, and neither needs a transition to look smooth. */
+  --own: clamp(0, calc((var(--at, 0) - var(--i)) * 2.1 + 0.85), 1);
+  --gone: clamp(0, calc((var(--at, 0) - var(--i) - 0.75) * 2), 1);
+  /* Uncapped, so a card that was superseded two steps ago sits further back
+     than one superseded on the last step, and the three read as a stack of
+     paper rather than as two cards in the same place. */
+  --back: clamp(0, calc(var(--at, 0) - var(--i) - 0.75), 2);
+
+  transform:
+    translateY(calc((1 - var(--own)) * 60px + var(--back) * -76px))
+    translateZ(calc((1 - var(--own)) * -240px + var(--back) * -132px))
+    rotateX(calc((1 - var(--own)) * 14deg + var(--back) * 5deg));
+  opacity: calc(var(--own) * (1 - var(--gone) * 0.62));
+  will-change: transform, opacity;
+  contain: layout paint;
+}
 
 .bd-label {
   display: block;
@@ -3691,18 +4185,24 @@ kbd {
   margin-bottom: 10px;
 }
 
-.bd-notes p { margin: 0; line-height: 1.7; color: var(--ink-2); font-size: 15px; }
+.bd-notes p { margin: 0; line-height: 1.75; color: var(--ink-2); font-size: clamp(14px, 1.1vw + 8px, 16px); }
 
-/* The phrases the question will be built from, lighting up in place. */
+/* The phrases the question will be built from. The highlight is painted as a
+   background that widens from nothing, so it sweeps across the words as the
+   second step arrives instead of switching on. Writing the background in full
+   also clears what a browser draws behind a mark by default, which is a flat
+   yellow belonging to no part of this palette. The sweep is the page's own
+   accent for the same reason. */
 .bd-mark {
-  background: transparent;
-  color: inherit;
+  --sweep: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: linear-gradient(var(--sweep), var(--sweep)) no-repeat left center;
+  background-size: calc(var(--lit, 0) * 100%) 100%;
+  color: var(--ink);
   border-radius: 4px;
-  padding: 1px 3px;
-  transition: background 0.5s ease, color 0.5s ease;
+  padding: 2px 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
-.bd-found.on ~ .bd-question,
-.bd-layer.on .bd-mark { background: var(--hl-key); color: var(--ink); }
 
 .bd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .bd-chips span {
@@ -3712,13 +4212,18 @@ kbd {
   color: var(--accent);
   font-size: 13px;
   font-weight: 600;
+  /* Each chip lands a moment after the one before it. */
+  opacity: calc(clamp(0, calc((var(--own) - 0.25) * 3 - var(--i) * 0.5), 1));
+  transform: translateY(calc((1 - clamp(0, calc((var(--own) - 0.25) * 3 - var(--i) * 0.5), 1)) * 10px));
 }
 
-.bd-question b { display: block; font-size: 16.5px; letter-spacing: -0.015em; margin-bottom: 12px; }
-.bd-question ul { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 7px; }
+.bd-aside { margin: 14px 0 0; font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+
+.bd-question b { display: block; font-size: clamp(15px, 1.2vw + 9px, 17px); letter-spacing: -0.015em; margin-bottom: 12px; }
+.bd-question ul { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
 .bd-question li {
   display: flex; align-items: center; gap: 11px;
-  padding: 10px 13px;
+  padding: 9px 13px;
   border: 1px solid var(--line);
   border-radius: 11px;
   font-size: 14px;
@@ -3737,10 +4242,10 @@ kbd {
   font-weight: 600;
 }
 .bd-question li.right i { background: var(--good); color: #fff; }
-.bd-why { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink-3); }
+.bd-why { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink-3); }
 .bd-why b { color: var(--ink-2); }
 
-.bd-rail { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.bd-rail { position: relative; display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
 .bd-step {
   display: flex; align-items: center; gap: 9px;
   opacity: 0.35;
@@ -3760,15 +4265,35 @@ kbd {
 .bd-step small { display: none; color: var(--ink-3); font-size: 12.5px; }
 .bd-step.now small { display: inline; }
 
+@media (max-height: 760px) {
+  .bd-layer { padding: 16px 20px; }
+  .bd-head h2 { font-size: 25px; }
+  .bd-head p { font-size: 13.5px; }
+  .bd-question ul { gap: 5px; margin-bottom: 11px; }
+  .bd-question li { padding: 7px 11px; font-size: 13px; }
+  .bd-question li i { width: 18px; height: 18px; }
+  .bd-why { font-size: 12.5px; }
+  .bd-notes p { line-height: 1.65; }
+}
+
+/* Below this the stack cannot be told apart from a single card, so the three
+   go back to being a list you scroll past normally. */
 @media (max-width: 900px) {
   .bd-stage { height: auto; }
   .bd-sticky { position: static; height: auto; padding: 56px 20px 64px; }
-  .bd-layer { opacity: 1; transform: none; }
+  .bd-panel { display: flex; flex-direction: column; gap: 14px; }
+  .bd-layer { transform: none; opacity: 1; }
+  .bd-mark { background-size: 100% 100%; }
+  .bd-chips span { opacity: 1; transform: none; }
+  .bd-halo { display: none; }
   .bd-step small { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bd-stage { height: auto; }
   .bd-sticky { position: static; height: auto; padding: 56px 20px; }
-  .bd-layer { opacity: 1; transform: none; transition: none; }
+  .bd-panel { display: flex; flex-direction: column; gap: 14px; }
+  .bd-layer { opacity: 1; transform: none; }
+  .bd-mark { background-size: 100% 100%; }
+  .bd-chips span { opacity: 1; transform: none; }
 }
