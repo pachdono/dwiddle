@@ -3512,22 +3512,19 @@ kbd {
   align-items: flex-end;
   justify-content: space-around;
   gap: clamp(10px, 3vw, 34px);
-  height: 230px;
+  height: 240px;
   margin: 22px 12px 6px;
   padding-bottom: 26px;
-  perspective: 1000px;
-  perspective-origin: calc(50% + var(--tx, 0) * 12%) calc(50% + var(--ty, 0) * 10%);
-  transform-style: preserve-3d;
 }
 
 /* The floor the columns stand on, hinged along the line their bases sit on
-   and folded away from the viewer. The perspective comes from the plot, so
-   there is no second one written here. */
+   and folded away from the viewer. */
 .lchart-floor {
   position: absolute;
   left: -10%; right: -10%;
   bottom: 26px;
   height: 190px;
+  perspective: 900px;
   transform: rotateX(74deg);
   transform-origin: 50% 100%;
   background-image:
@@ -3539,79 +3536,23 @@ kbd {
   pointer-events: none;
 }
 
+/* The figure above the column and the name below it are deliberately outside
+   the 3D part. Text inside a rotated box is rendered at an angle and goes
+   soft, and it would lean with the column for no reason. */
 .cbar {
   position: relative;
   flex: 1 1 0;
-  max-width: 108px;
+  max-width: 104px;
   height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  transform-style: preserve-3d;
-  /* Pivoting on the base, not the middle. Turned about their centres, columns
-     of different heights land their bases in different places and the row
-     stops standing on one line. */
-  transform-origin: 50% 100%;
-  transform: rotateX(13deg) rotateY(-18deg);
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   cursor: default;
   outline: none;
 }
-.cbar.hot { transform: rotateX(6deg) rotateY(-9deg) translateZ(60px); }
-.cbar.cold { opacity: 0.42; }
-
-/* The column's thickness is a registered property, so it can be animated. An
-   unregistered custom property is a string as far as transitions go and would
-   snap between the two depths instead of growing. */
-@property --d {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 30px;
-}
-
-.cbar-col {
-  position: relative;
-  width: 100%;
-  /* The figure above the column is reserved for here rather than left to flex,
-     which would shrink the tallest column more than the others and quietly
-     make the chart misreport its own numbers. */
-  flex: 0 0 auto;
-  height: calc(var(--h, 0) * (100% - 34px));
-  border-radius: 4px 4px 0 0;
-  transform-style: preserve-3d;
-  --d: 30px;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent) 88%, white),
-    var(--accent));
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 22%, transparent);
-  transition:
-    height 0.85s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms),
-    background 0.3s ease, box-shadow 0.3s ease, --d 0.34s ease;
-}
-.cbar.hot .cbar-col { --d: 46px; box-shadow: 0 26px 48px color-mix(in srgb, var(--accent) 34%, transparent); }
-.cbar.cold .cbar-col { background: var(--line); box-shadow: none; }
-
-/* The two faces that make the column a solid. Each is hinged on an edge of the
-   front face and folded backward, so the thickness is real geometry rather
-   than a drawn shadow. */
-.cbar-top, .cbar-side { position: absolute; pointer-events: none; }
-.cbar-top {
-  left: 0; right: 0; top: 0;
-  height: var(--d);
-  transform-origin: 50% 0;
-  transform: rotateX(90deg);
-  border-radius: 4px 4px 0 0;
-  background: color-mix(in srgb, var(--accent) 72%, white);
-}
-.cbar-side {
-  top: 0; bottom: 0; right: 0;
-  width: var(--d);
-  transform-origin: 100% 50%;
-  transform: rotateY(-90deg);
-  background: color-mix(in srgb, var(--accent) 76%, black);
-}
-.cbar.cold .cbar-top, .cbar.cold .cbar-side { background: var(--active); }
+.cbar.hot { transform: translateY(-10px); }
 
 .cbar-v {
   flex: 0 0 auto;
@@ -3621,10 +3562,68 @@ kbd {
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
   margin-bottom: 9px;
-  transform: translateZ(30px);
-  transition: color 0.25s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.cbar.hot .cbar-v { color: var(--accent); transform: translateZ(70px) scale(1.18); }
+/* Lifted clear as well as enlarged. The column comes forward on hover, which
+   magnifies it, and the figure was landing on its top corner. */
+.cbar.hot .cbar-v { color: var(--accent); transform: translateY(-10px) scale(1.25); }
+.cbar.cold .cbar-v { color: color-mix(in srgb, var(--ink-3) 55%, transparent); }
+
+/* The column's own height, and its own little window onto the third
+   dimension. Giving each column its perspective rather than the row keeps
+   every block drawn the same way instead of fanning out from the middle. */
+.cbar-stack {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: calc(var(--h, 0) * (100% - 34px));
+  perspective: 1100px;
+  transition: height 0.85s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 80ms);
+}
+
+/* Nothing from here down may carry opacity, a filter, paint containment or a
+   hidden overflow. Every one of those quietly forces the browser to flatten
+   the box back into a picture of a box, which is what it had been doing. */
+.cbar-box {
+  position: absolute;
+  inset: 0;
+  --d: 40px;
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transform: rotateX(12deg) rotateY(-26deg);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 86%, white),
+    var(--accent));
+}
+.cbar.hot .cbar-box { transform: rotateX(8deg) rotateY(-17deg) translateZ(38px); }
+.cbar.cold .cbar-box { background: var(--line); }
+
+/* The two faces that make the column a solid: each hinged on an edge of the
+   front and folded backward, so the thickness is geometry rather than a
+   drawn shadow. Neither moves on hover, because animating the size of a face
+   relaid out both of them on every frame, and that was the lag. */
+.cbar-top, .cbar-side { position: absolute; pointer-events: none; }
+.cbar-top {
+  left: 0; right: 0; top: 0;
+  height: var(--d);
+  transform-origin: 50% 0;
+  transform: rotateX(90deg);
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--accent) 58%, white);
+  transition: background 0.3s ease;
+}
+.cbar-side {
+  top: 0; bottom: 0; right: 0;
+  width: var(--d);
+  transform-origin: 100% 50%;
+  transform: rotateY(-90deg);
+  background: color-mix(in srgb, var(--accent) 70%, black);
+  transition: background 0.3s ease;
+}
+.cbar.cold .cbar-top { background: var(--hover); }
+.cbar.cold .cbar-side { background: var(--active); }
 
 .cbar-k {
   position: absolute;
@@ -3640,6 +3639,8 @@ kbd {
   line-height: 1.3;
 }
 .cbar.hot .cbar-k { color: var(--ink); }
+.cbar.cold .cbar-k { color: color-mix(in srgb, var(--ink-3) 55%, transparent); }
+
 
 .lchart-foot {
   display: flex;
@@ -3657,8 +3658,9 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .num, .num.seen, .num.lifted, .num.lifted .num-v, .num.lifted .num-k,
-  .lchart, .cbar, .cbar.hot { transform: none; opacity: 1; }
-  .cbar-col { transition: none; }
+  .lchart { transform: none; opacity: 1; }
+  .cbar, .cbar.hot { transform: none; }
+  .cbar-stack, .cbar-box { transition: none; }
 }
 
 /* ---------- the questions people ask ---------- */
@@ -3911,7 +3913,11 @@ kbd {
   gap: clamp(20px, 4vh, 34px);
   overflow: hidden;
   perspective: 1300px;
-  perspective-origin: calc(50% + var(--tx, 0) * 6%) calc(42% + var(--ty, 0) * 5%);
+  /* Fixed. A perspective origin that follows the pointer forces the browser to
+     re-project and re-raster the whole scene on every mouse move, which is one
+     of the two things that was making this feel heavy. The lean is a transform
+     on the deck itself, which the compositor can do by itself. */
+  perspective-origin: 50% 42%;
 }
 
 .deck-bg { position: absolute; inset: 0; pointer-events: none; }
@@ -3942,6 +3948,11 @@ kbd {
     transparent,
     color-mix(in srgb, var(--accent) 10%, transparent) 45%,
     transparent);
+  /* Faded at both ends as well as both sides. It only faded sideways before,
+     so where the section clipped it the beam stopped along a hard straight
+     line across the page. */
+  mask-image: linear-gradient(180deg, transparent, #000 22%, #000 68%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 68%, transparent);
   opacity: 0.7;
 }
 
@@ -4000,8 +4011,9 @@ kbd {
   /* No transition on anything the scroll drives. A transition means every
      frame starts a new one, so the card permanently trails the scroll, which
      is exactly what reads as lag. The scroll position is the animation. */
-  will-change: transform, opacity;
-  contain: layout paint;
+  /* No paint containment: it would flatten the card's own depth, so the
+     number and the heading could not stand off its face. */
+  will-change: transform;
 }
 
 /* The card currently being read comes a little further forward than the two
@@ -4027,15 +4039,21 @@ kbd {
   /* A fixed shadow. One whose blur radius follows the scroll has to be redrawn
      on every frame, which is exactly the sort of work that is being avoided. */
   box-shadow: var(--shadow-lift);
-  overflow: hidden;
+  /* The face passes the third dimension through to its contents rather than
+     flattening them, so the step, the heading and the text genuinely stand off
+     it. A hidden overflow here would flatten all of that, and there is nothing
+     left inside that needs clipping. */
+  transform-style: preserve-3d;
 }
 
 .deck-shine {
   position: absolute;
   inset: 0;
   border-radius: 22px;
+  /* Fixed rather than following the pointer. A moving radial gradient is a
+     repaint of the whole card face, three times over, on every mouse move. */
   background: radial-gradient(
-    280px circle at calc(50% + var(--tx, 0) * 45%) calc(30% + var(--ty, 0) * 40%),
+    280px circle at 50% 26%,
     color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
   opacity: calc(var(--own) * 0.9);
   pointer-events: none;
@@ -4109,7 +4127,7 @@ kbd {
   padding: 0 24px;
   overflow: hidden;
   perspective: 1200px;
-  perspective-origin: calc(50% + var(--tx, 0) * 8%) 50%;
+  perspective-origin: 50% 50%;
 }
 
 .bd-halo {

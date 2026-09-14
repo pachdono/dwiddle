@@ -60,6 +60,7 @@ function useScrollVars(stageRef, paintRef, paint) {
 
     let frame = 0;
     let at = null;
+    let prev = 0;
 
     const measure = () => {
       const r = el.getBoundingClientRect();
@@ -67,11 +68,35 @@ function useScrollVars(stageRef, paintRef, paint) {
       return travel <= 0 ? 1 : Math.max(0, Math.min(1, -r.top / travel));
     };
 
-    const tick = () => {
+    // The scene moves at its own pace, and there is a limit on that pace.
+    //
+    // Following the scroll exactly means a flick of the wheel throws the scene
+    // through a third of itself in one frame, and a jump is not an animation
+    // however few milliseconds it took. So the scene chases the scroll, and it
+    // may not cover more than CAP of itself per frame however far behind it
+    // is. Scroll faster than that and the scene simply keeps its own speed and
+    // catches up when you stop.
+    //
+    // Both numbers are per millisecond rather than per frame, or the whole
+    // thing would run at double speed on a 120Hz screen.
+    const CAP = 0.0013;   // about 2% of the scene per frame at 60Hz
+    const EASE = 0.78;    // what fraction of the remaining gap survives a frame
+
+    const tick = (now) => {
       frame = 0;
+      const dt = prev ? Math.min(50, now - prev) : 16.7;
+      prev = now;
+
       const want = measure();
       if (at === null) at = want;
-      at += (want - at) * 0.26;
+
+      const k = 1 - Math.pow(EASE, dt / 16.7);
+      const cap = CAP * dt;
+      let step = (want - at) * k;
+      if (step > cap) step = cap;
+      else if (step < -cap) step = -cap;
+      at += step;
+
       if (Math.abs(want - at) < 0.0006) at = want;
       paint(target, at);
       if (at !== want) frame = requestAnimationFrame(tick);
@@ -79,7 +104,7 @@ function useScrollVars(stageRef, paintRef, paint) {
 
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(tick); };
 
-    tick();
+    tick(performance.now());
     addEventListener("scroll", onScroll, { passive: true });
     addEventListener("resize", onScroll);
     return () => {
@@ -376,8 +401,7 @@ function Chart() {
     <div
       className={"lchart" + (seen ? " seen" : "")}
       ref={box}
-      onPointerMove={(e) => leanTo(box.current, e)}
-      onPointerLeave={() => { leanOff(box.current); setHot(-1); }}
+      onPointerLeave={() => setHot(-1)}
     >
       <div className="lchart-head">
         <div className="lchart-title">
@@ -412,9 +436,11 @@ function Chart() {
             tabIndex={0}
           >
             <span className="cbar-v">{v}</span>
-            <span className="cbar-col">
-              <span className="cbar-top" />
-              <span className="cbar-side" />
+            <span className="cbar-stack">
+              <span className="cbar-box">
+                <span className="cbar-top" />
+                <span className="cbar-side" />
+              </span>
             </span>
             <span className="cbar-k">{k}</span>
           </div>
