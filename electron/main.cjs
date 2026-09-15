@@ -150,16 +150,28 @@ const CSP = [
 // there, which is the one step people forget after dragging it out.
 //
 // Saying no is remembered. Being asked on every launch is worse than never.
-// Quitting while the question is still on screen is not an answer to it. The
-// dialog is dismissed on the way out and resolves as if Not Now had been
-// pressed, which would otherwise mean never being asked again.
+// Not Now is remembered for a fortnight rather than for ever.
+//
+// A quit that arrives while the question is on screen, from a logout say,
+// makes macOS abort the alert, and to the app that is indistinguishable from
+// someone dismissing it. Testing showed no reliable way to tell the two
+// apart. So instead of trying, a wrong answer is made cheap: it expires, and
+// the question comes back. The answer is also only written down once the app
+// has kept running for a moment afterwards, which rules out the commonest
+// case, an app that was on its way out anyway.
+const ASK_AGAIN_AFTER = 14 * 24 * 60 * 60 * 1000;
 let quitting = false;
 app.on("before-quit", () => { quitting = true; });
 
 async function offerToMoveMac() {
   if (process.platform !== "darwin" || !app.isPackaged || app.isInApplicationsFolder()) return;
   const declined = path.join(app.getPath("userData"), "move-declined");
-  if (fs.existsSync(declined)) return;
+  try {
+    const when = Number(fs.readFileSync(declined, "utf8"));
+    if (when && Date.now() - when < ASK_AGAIN_AFTER) return;
+  } catch {
+    // Never declined, or the note is unreadable: either way, ask.
+  }
 
   const { response } = await dialog.showMessageBox({
     type: "question",
@@ -172,7 +184,10 @@ async function offerToMoveMac() {
 
   if (quitting) return;
   if (response !== 0) {
-    try { fs.mkdirSync(path.dirname(declined), { recursive: true }); fs.writeFileSync(declined, ""); } catch {}
+    setTimeout(() => {
+      if (quitting) return;
+      try { fs.mkdirSync(path.dirname(declined), { recursive: true }); fs.writeFileSync(declined, String(Date.now())); } catch {}
+    }, 2000);
     return;
   }
 
@@ -203,6 +218,7 @@ async function offerToMoveMac() {
 
 app.whenReady().then(async () => {
   await offerToMoveMac();
+  if (quitting) { app.exit(0); return; }
 
   session.defaultSession.webRequest.onHeadersReceived((details, done) => {
     done({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [CSP] } });
