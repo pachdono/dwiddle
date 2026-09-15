@@ -5,9 +5,10 @@
 // questions still calls the deployment, because that is where the model key
 // lives and it must never be shipped to a user's machine.
 
-const { app, BrowserWindow, shell, Menu, session, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, shell, Menu, session, ipcMain, screen, dialog } = require("electron");
 const fs = require("node:fs");
 const updates = require("./update.cjs");
+const uninstall = require("./uninstall.cjs");
 const path = require("node:path");
 
 const SITE = process.env.DWIDDLE_SITE || "https://dwiddle.vercel.app";
@@ -50,6 +51,8 @@ function lastBounds() {
 }
 
 function rememberBounds() {
+  // Nothing is written back into a folder that is in the middle of being removed.
+  if (uninstall.inProgress()) return;
   if (!win || win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return;
   try {
     fs.writeFileSync(boundsFile(), JSON.stringify(win.getNormalBounds()));
@@ -82,6 +85,9 @@ function create() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // A sandboxed preload cannot ask the app its version, so it is handed
+      // over on the command line instead.
+      additionalArguments: [`--dwiddle-version=${app.getVersion()}`],
     },
   });
 
@@ -138,7 +144,66 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-app.whenReady().then(() => {
+// A Mac app run from the disk image or the Downloads folder is not installed:
+// it vanishes when the image is ejected and cannot update itself. So the first
+// time it is opened from anywhere but Applications it offers to move itself
+// there, which is the one step people forget after dragging it out.
+//
+// Saying no is remembered. Being asked on every launch is worse than never.
+// Quitting while the question is still on screen is not an answer to it. The
+// dialog is dismissed on the way out and resolves as if Not Now had been
+// pressed, which would otherwise mean never being asked again.
+let quitting = false;
+app.on("before-quit", () => { quitting = true; });
+
+async function offerToMoveMac() {
+  if (process.platform !== "darwin" || !app.isPackaged || app.isInApplicationsFolder()) return;
+  const declined = path.join(app.getPath("userData"), "move-declined");
+  if (fs.existsSync(declined)) return;
+
+  const { response } = await dialog.showMessageBox({
+    type: "question",
+    message: "Move Dwiddle to Applications?",
+    detail: "It is running from where it was downloaded. In Applications it stays put when the download is cleared, and it can keep itself up to date.",
+    buttons: ["Move to Applications", "Not Now"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+
+  if (quitting) return;
+  if (response !== 0) {
+    try { fs.mkdirSync(path.dirname(declined), { recursive: true }); fs.writeFileSync(declined, ""); } catch {}
+    return;
+  }
+
+  try {
+    // Replaces an older copy already in Applications. If that copy is open
+    // right now it is left alone, and the person is told why.
+    app.moveToApplicationsFolder({
+      conflictHandler: (kind) => {
+        if (kind === "existsAndRunning") {
+          dialog.showMessageBoxSync({
+            type: "warning",
+            message: "Dwiddle is already open from Applications",
+            detail: "Quit that copy, then open this one again to move it.",
+          });
+          return false;
+        }
+        return true;
+      },
+    });
+  } catch (err) {
+    dialog.showMessageBoxSync({
+      type: "warning",
+      message: "Dwiddle could not move itself",
+      detail: "Drag it into the Applications folder in Finder instead.",
+    });
+  }
+}
+
+app.whenReady().then(async () => {
+  await offerToMoveMac();
+
   session.defaultSession.webRequest.onHeadersReceived((details, done) => {
     done({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [CSP] } });
   });
@@ -149,6 +214,9 @@ app.whenReady().then(() => {
   // Give the window a moment to settle before doing anything over the network.
   setTimeout(() => updates.start(), 4000);
   ipcMain.handle("dwiddle:install-update", () => updates.quitAndInstall());
+  ipcMain.handle("dwiddle:uninstall-plan", () => uninstall.plan());
+  ipcMain.handle("dwiddle:uninstall", (event, phrase) =>
+    uninstall.run(BrowserWindow.fromWebContents(event.sender), phrase));
 
   // On a Mac, closing the last window does not quit, and clicking the dock
   // icon opens a new one.

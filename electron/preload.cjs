@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld(
 // So the interface can lay itself out for a window rather than a tab.
 contextBridge.exposeInMainWorld("DWIDDLE_DESKTOP", {
   platform: process.platform,
+  version: (process.argv.find((a) => a.startsWith("--dwiddle-version=")) || "").split("=")[1] || "",
 });
 
 // The sign in link comes back through the app's own scheme, and the page is
@@ -31,4 +32,12 @@ contextBridge.exposeInMainWorld("DWIDDLE_UPDATE", {
     return () => ipcRenderer.removeListener("dwiddle:update", handler);
   },
   install: () => ipcRenderer.invoke("dwiddle:install-update"),
+});
+
+// Removing the app. The page can ask what would be removed, and can ask for it
+// to happen, but only by passing the phrase the person typed, which the main
+// process checks again for itself.
+contextBridge.exposeInMainWorld("DWIDDLE_UNINSTALL", {
+  plan: () => ipcRenderer.invoke("dwiddle:uninstall-plan"),
+  run: (phrase) => ipcRenderer.invoke("dwiddle:uninstall", phrase),
 });

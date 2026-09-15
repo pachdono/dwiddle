@@ -4315,3 +4315,179 @@ kbd {
   .bd-mark { background-size: 100% 100%; }
   .bd-chips span { opacity: 1; transform: none; }
 }
+
+/* ---------- removing the app ---------- */
+
+/* The section it lives in stays shut until someone opens it, and looks like
+   every other card when they do. */
+.un-advanced > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.un-advanced > summary::-webkit-details-marker { display: none; }
+.un-advanced > summary::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+.un-advanced[open] > summary::before { transform: rotate(45deg); }
+.un-advanced > summary:hover { color: var(--ink); }
+
+.un-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 10, 16, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade 0.18s ease both;
+  -webkit-app-region: no-drag;
+}
+
+.un-dialog {
+  width: min(460px, 100%);
+  padding: 26px 26px 22px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+  animation: un-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes un-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.un-steps { display: flex; gap: 6px; margin-bottom: 18px; }
+.un-pip {
+  height: 3px; flex: 1;
+  border-radius: 3px;
+  background: var(--line);
+  transition: background 0.3s ease;
+}
+.un-pip.on { background: var(--warn); }
+
+.un-dialog h2 { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.02em; }
+.un-sub { margin: 0 0 16px; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
+
+.un-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 1px solid var(--line-soft);
+  display: grid;
+  gap: 5px;
+  max-height: 150px;
+  overflow: auto;
+}
+.un-list code {
+  font-size: 12px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+
+.un-note {
+  margin: 0 0 18px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  background: var(--accent-soft);
+}
+.un-note b { color: var(--ink); }
+
+.un-phrase {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.un-input {
+  width: 100%;
+  padding: 11px 13px;
+  margin: 0 0 18px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.un-input:focus { outline: none; border-color: var(--ink-3); }
+.un-input.ok { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+
+/* Keeping the app is the button with weight. Going on is the quiet one. */
+.un-actions {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+.un-quiet { color: var(--ink-3); }
+.un-quiet:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.un-error {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.un-hold {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  margin: 0 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--warn-line);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font: inherit;
+  font-weight: 650;
+  font-size: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.un-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--warn);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  /* Letting go runs the fill back out quickly, rather than snapping. */
+  transition: transform 0.35s ease;
+}
+.un-hold.held .un-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold) linear;
+}
+.un-hold.busy .un-fill { transform: scaleX(1); transition: none; }
+.un-label { position: relative; transition: color 0.2s ease; }
+.un-hold.held .un-label, .un-hold.busy .un-label { color: #fff; }
+.un-hold:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }

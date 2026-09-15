@@ -13,7 +13,8 @@ import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
 import Install, { InstallAll } from "./Install.jsx";
 import DesktopWelcome from "./DesktopWelcome.jsx";
 import UpdateBar from "./UpdateBar.jsx";
-import { isDesktop, onMac } from "./desktop.js";
+import { isDesktop, onMac, appVersion, uninstaller } from "./desktop.js";
+import { UninstallDialog } from "./Uninstall.jsx";
 import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
@@ -1780,6 +1781,7 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
   const [style, setStyle] = useState("mixed");
   const [reminders, setReminders] = useState(true);
   const [sound, setSound] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   return (
     <div className="page fade">
@@ -1856,12 +1858,12 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
           <SetRow label="Terms" hint="How the service may be used.">
             <a className="btn ghost small" href="/terms">Read</a>
           </SetRow>
-          <SetRow label="Version" hint="Dwiddle for the web.">
-            <span className="small muted">1.0</span>
+          <SetRow label="Version" hint={isDesktop ? `Dwiddle for ${onMac ? "Mac" : "Windows"}.` : "Dwiddle for the web."}>
+            <span className="small muted">{isDesktop && appVersion ? appVersion : "1.0"}</span>
           </SetRow>
         </div>
 
-        <div className="card">
+        {!isDesktop && <div className="card">
           <div className="card-head"><h3>Get the app</h3></div>
           <SetRow
             label="Install Dwiddle"
@@ -1869,7 +1871,7 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
           >
             <button className="btn small" onClick={() => go("install")}>How</button>
           </SetRow>
-        </div>
+        </div>}
 
         <div className="card">
           <div className="card-head"><h3>Developer tools</h3></div>
@@ -1886,6 +1888,24 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
           )}
         </div>
 
+        {/* Folded away at the very bottom, and only in the installed app. It is
+            findable by anyone looking for it and passed over by anyone who is
+            not. */}
+        {isDesktop && uninstaller && (
+          <details className="card un-advanced">
+            <summary>Advanced</summary>
+            <SetRow
+              label="Remove Dwiddle from this computer"
+              hint="Uninstalls the app and deletes what it saved here. Your account is not affected."
+            >
+              <button className="btn ghost small" onClick={() => setRemoving(true)}>Remove</button>
+            </SetRow>
+          </details>
+        )}
+
+        {removing && (
+          <UninstallDialog signedIn={!!auth?.user} onClose={() => setRemoving(false)} />
+        )}
 
       </div>
     </div>

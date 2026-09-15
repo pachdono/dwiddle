@@ -1,7 +1,7 @@
 {
   "name": "dwiddle",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,16 +14,16 @@
     "dist:all": "npm run build:desktop && electron-builder --mac --win"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.114.0",
-    "electron-updater": "^6.8.9",
-    "pdfjs-dist": "^6.3.289",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.114.0",
     "@vitejs/plugin-react": "^6.0.3",
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "sharp": "^0.35.4",
     "vite": "^8.1.1"
   },
@@ -73,26 +73,53 @@
     },
     "dmg": {
       "title": "Dwiddle",
-      "artifactName": "Dwiddle-${version}-${arch}.dmg"
+      "artifactName": "Dwiddle-${version}-${arch}.dmg",
+      "format": "ULFO",
+      "background": "build/dmg-background.tiff",
+      "iconSize": 96,
+      "iconTextSize": 13,
+      "window": {
+        "width": 620,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 170,
+          "y": 196,
+          "type": "file"
+        },
+        {
+          "x": 450,
+          "y": 196,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "nsis-web",
           "arch": [
             "x64"
           ]
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "Dwiddle-Setup-${version}.exe"
+      "artifactName": "Dwiddle-Setup-${version}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Dwiddle"
+      "createStartMenuShortcut": true,
+      "shortcutName": "Dwiddle",
+      "uninstallDisplayName": "Dwiddle",
+      "deleteAppDataOnUninstall": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "linux": {
       "target": [
@@ -117,6 +144,15 @@
         "releaseType": "release"
       }
     ],
-    "afterPack": "./electron/afterPack.cjs"
+    "afterPack": "./electron/afterPack.cjs",
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US",
+      "en-GB",
+      "en_GB"
+    ],
+    "nsisWeb": {
+      "artifactName": "Dwiddle-Setup-${version}.${ext}"
+    }
   }
 }
