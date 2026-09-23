@@ -6,10 +6,10 @@
 // button looked broken. This cannot be missed and cannot be mistaken for
 // nothing happening.
 //
-// The tone matters as much as the placement. Nobody is being told off, so the
-// duck holds the sign and the sentence says what an account gives rather than
-// what has been taken away. Closing it is always available, and the notes
-// they typed are still there afterwards.
+// The tone matters as much as the placement. It states the limit plainly and
+// then what an account gives, rather than announcing that something has run
+// out. Closing it is always available, and the notes they typed are still
+// there afterwards.
 
 import { useEffect, useRef } from "react";
 import { DuckSign } from "./Duck.jsx";
@@ -43,8 +43,8 @@ export function FreeGate({ onClose, onSignIn }) {
 
         <h2 id="gate-title">Create an account for unlimited access</h2>
         <p className="gate-sub">
-          That was your free one. With an account there is no limit, and everything you make
-          follows you to any device you sign in on. It takes one email and no password.
+          Without an account, Dwiddle is limited to one generation. Create one to generate
+          without limits, and everything you make follows you to any device you sign in on.
         </p>
 
         <div className="gate-actions">
@@ -54,7 +54,7 @@ export function FreeGate({ onClose, onSignIn }) {
           <button className="btn ghost" onClick={onClose}>Not now</button>
         </div>
 
-        <p className="gate-foot">Free. No card, and your notes stay yours.</p>
+        <p className="gate-foot">Free, and it takes one email. No card and no password.</p>
       </div>
     </div>
   );
