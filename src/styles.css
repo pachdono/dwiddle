@@ -4491,3 +4491,86 @@ kbd {
 .un-label { position: relative; transition: color 0.2s ease; }
 .un-hold.held .un-label, .un-hold.busy .un-label { color: #fff; }
 .un-hold:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
+
+/* ---------- the free generation popup ---------- */
+
+.gate-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 10, 16, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade 0.18s ease both;
+}
+
+.gate {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 8px 30px 26px;
+  border-radius: 20px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+  animation: gate-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes gate-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The duck arrives a beat after the card, so it reads as turning up with the
+   sign rather than being part of the furniture. */
+.gate-art { margin: 0 auto 2px; animation: gate-duck 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+@keyframes gate-duck {
+  from { opacity: 0; transform: translateY(16px) rotate(-4deg); }
+  to { opacity: 1; transform: none; }
+}
+.gate-art svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+.gate h2 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+.gate-sub {
+  margin: 0 auto 22px;
+  max-width: 34ch;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.gate-actions { display: flex; flex-direction: column; gap: 8px; }
+.gate-go { justify-content: center; }
+.gate-actions .btn { width: 100%; justify-content: center; }
+
+.gate-foot { margin: 16px 0 0; font-size: 12px; color: var(--ink-3); }
+
+.gate-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.gate-close:hover { background: var(--hover); color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate, .gate-art { animation: none; }
+}
+
+@media (max-width: 480px) {
+  .gate { padding: 6px 20px 22px; }
+  .gate h2 { font-size: 19px; }
+}

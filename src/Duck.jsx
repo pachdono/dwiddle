@@ -236,3 +236,72 @@ export function DuckCouch({ size = 300, className = "" }) {
     </svg>
   );
 }
+
+// The same duck, holding up a sign.
+//
+// Drawn for the moment the free generation runs out, where it has to carry
+// the news without sounding like a penalty. Same hat, same sunglasses, same
+// beak: only a raised wing and a placard are new. The board is left mostly
+// empty on purpose, because the sentence beside it does the talking and a
+// second copy of it painted into a drawing would be one too many.
+export function DuckSign({ size = 190, className = "" }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size * (150 / 200)}
+      viewBox="0 0 200 150"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Dwiddle duck holding a sign"
+    >
+      <ellipse cx="61" cy="136" rx="38" ry="6" fill="#000" opacity="0.055" />
+
+      {/* the post, behind the duck so the wing reads as gripping it */}
+      <rect x="132" y="44" width="6" height="58" rx="3" fill={STRAW_LINE} />
+
+      {/* feet */}
+      <ellipse cx="49" cy="134" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 134)" />
+      <ellipse cx="77" cy="134" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 134)" />
+
+      {/* body and head, as one silhouette */}
+      <ellipse cx="63" cy="100" rx="45" ry="31" fill={YELLOW} />
+      <circle cx="63" cy="69" r="29" fill={YELLOW} />
+      <ellipse cx="63" cy="84" rx="42" ry="24" fill={YELLOW} />
+      <ellipse cx="65" cy="107" rx="27" ry="21" fill={BELLY} />
+
+      {/* the far wing, tucked, and the near one raised to the post */}
+      <ellipse cx="31" cy="98" rx="12" ry="19" fill={WING} transform="rotate(-6 31 98)" />
+      <ellipse cx="113" cy="88" rx="11" ry="20" fill={WING} transform="rotate(-52 113 88)" />
+
+      {/* beak */}
+      <ellipse cx="64" cy="73" rx="17" ry="10" fill={BEAK} />
+      <rect x="47" y="71.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+
+      {/* sunglasses */}
+      <rect x="27" y="53" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="87" y="53" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="40" y="49" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="66" y="49" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="59" y="53" width="9" height="4" rx="1.6" fill={BLACK} />
+      <rect x="44" y="52" width="8" height="3.4" rx="1.7" fill={LENS} />
+      <rect x="70" y="52" width="8" height="3.4" rx="1.7" fill={LENS} />
+
+      {/* straw hat */}
+      <ellipse cx="64" cy="37" rx="41" ry="8.6" fill={STRAW} />
+      <ellipse cx="64" cy="35" rx="27" ry="6" fill={STRAW_LIGHT} />
+      <path d="M47 34.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      <rect x="46" y="29" width="37" height="9.5" rx="1.8" fill={BAND} />
+      <ellipse cx="64.5" cy="28.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+      <path d="M52 27c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+      {/* the board, tilted so it reads as held rather than mounted */}
+      <g transform="rotate(-7 148 30)">
+        <rect x="106" y="8" width="84" height="46" rx="7" fill="#fff" stroke="#E3E3DF" strokeWidth="2" />
+        <text x="148" y="40" textAnchor="middle" fontSize="30" fontWeight="700"
+          fill={BAND} fontFamily="Inter, system-ui, sans-serif">&#8734;</text>
+      </g>
+    </svg>
+  );
+}

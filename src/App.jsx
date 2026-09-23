@@ -15,6 +15,7 @@ import DesktopWelcome from "./DesktopWelcome.jsx";
 import UpdateBar from "./UpdateBar.jsx";
 import { isDesktop, onMac, appVersion, uninstaller } from "./desktop.js";
 import { UninstallDialog } from "./Uninstall.jsx";
+import { FreeGate } from "./FreeGate.jsx";
 import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
@@ -1219,8 +1220,7 @@ function AddMaterial({ go, setMade, auth }) {
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
 
-  // Out of free generations, and not signed in. Worth knowing before typing a
-  // page of notes rather than after pressing the button.
+  // Out of free generations, and not signed in.
   const locked = generationsLeft(auth?.user) <= 0;
 
   function accept(f) {
@@ -1242,11 +1242,8 @@ function AddMaterial({ go, setMade, auth }) {
   }
 
   async function run() {
-    // Reachable only if the count ran out between the page loading and the
-    // press. Sending them where they can do something about it beats a state
-    // that shows nothing.
     if (generationsLeft(auth?.user) <= 0) {
-      go("settings");
+      setState("locked");
       return;
     }
     setError("");
@@ -1303,19 +1300,6 @@ function AddMaterial({ go, setMade, auth }) {
           )}
         </label>
 
-        {locked && state !== "working" && state !== "done" && (
-          <div className="card card-pad spread fade">
-            <div>
-              <b className="small">That was your free one</b>
-              <div className="small muted">
-                Sign in to keep generating, and your material follows you to any device. It takes
-                one email, no password.
-              </div>
-            </div>
-            <button className="btn" onClick={() => go("settings")}>Sign in</button>
-          </div>
-        )}
-
         <div className="or"><span>or</span></div>
 
         <div className="notes">
@@ -1341,11 +1325,10 @@ function AddMaterial({ go, setMade, auth }) {
                 : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
             <button className="btn cta" disabled={!ready || state === "reading" || state === "working"}
-              onClick={state === "done" ? () => go("quiz") : locked ? () => go("settings") : run}>
+              onClick={state === "done" ? () => go("quiz") : run}>
               {state === "reading" ? <Loading label="Reading file" />
                 : state === "working" ? <Loading label="Building questions" />
                 : state === "done" ? <>Start practice <Icon name="arrow" /></>
-                : locked ? "Sign in to generate"
                 : "Generate questions"}
             </button>
           </div>
@@ -1362,6 +1345,10 @@ function AddMaterial({ go, setMade, auth }) {
         )}
 
 
+
+        {state === "locked" && (
+          <FreeGate onClose={() => setState("idle")} onSignIn={() => go("settings")} />
+        )}
 
         {state === "error" && (
           <div className="card card-pad fade" style={{ borderColor: "var(--warn-line)" }}>
@@ -3824,15 +3811,7 @@ function Courses({ go, setMade, auth }) {
           </div>
 
           {error === "locked" && (
-            <div className="card card-pad spread">
-              <div>
-                <b className="small">That was your free one</b>
-                <div className="small muted">
-                  Sign in to keep generating, and your material follows you to any device.
-                </div>
-              </div>
-              <button className="btn" onClick={() => go("settings")}>Sign in</button>
-            </div>
+            <FreeGate onClose={() => setError("")} onSignIn={() => go("settings")} />
           )}
 
           {error && error !== "locked" && (
