@@ -92,3 +92,25 @@ export const notifyFeedback = (payload) => post("/api/feedback", payload);
 // A photograph or scan is transcribed on the server by a model that reads
 // images, and the text then goes through generateFromNotes like anything else.
 export const readImage = (image) => post("/api/read", { image });
+
+// One question, worked through. Everything that comes back is prose or
+// working, so all of it goes through the maths tidier rather than a chosen
+// field or two.
+export const solveProblem = (problem) =>
+  post("/api/solve", { problem }).then((d) => ({
+    ...d,
+    title: tidyMath(d.title),
+    asked: tidyMath(d.asked),
+    answer: tidyMath(d.answer),
+    idea: tidyMath(d.idea),
+    check: tidyMath(d.check),
+    watch: (d.watch || []).map(tidyMath),
+    steps: (d.steps || []).map((st) => ({
+      do: tidyMath(st.do),
+      work: tidyMath(st.work),
+      why: tidyMath(st.why),
+    })),
+    similar: d.similar
+      ? { q: tidyQuestion(d.similar.q), answer: tidyMath(d.similar.answer) }
+      : null,
+  }));

@@ -4574,3 +4574,125 @@ kbd {
   .gate { padding: 6px 20px 22px; }
   .gate h2 { font-size: 19px; }
 }
+
+/* ---------- a question worked through ---------- */
+
+.sv { display: grid; gap: 14px; }
+
+.sv-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.sv-head h2 { margin: 8px 0 0; font-size: 22px; letter-spacing: -0.025em; }
+.sv-asked { margin: 6px 0 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.6; max-width: 62ch; }
+
+.sv-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+/* The answer is stated plainly and then left behind. It is the least useful
+   part of this page and it gets the least room. */
+.sv-answer {
+  padding: 18px 22px;
+  border-radius: 14px;
+  border: 1px solid var(--good-line);
+  background: var(--good-soft);
+}
+.sv-answer b {
+  display: block;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--good);
+  line-height: 1.35;
+}
+
+/* The steps, down a rule, numbered in the margin. */
+.sv-steps {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.sv-steps li {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  padding: 0 0 22px 0;
+}
+.sv-steps li::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 0;
+  width: 2px;
+  background: var(--line);
+}
+.sv-steps li:last-child { padding-bottom: 0; }
+.sv-steps li:last-child::before { display: none; }
+
+.sv-n {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+}
+
+.sv-body { flex: 1; min-width: 0; padding-top: 3px; }
+.sv-body > b { display: block; font-size: 15.5px; letter-spacing: -0.015em; }
+
+/* Working is set apart from the prose, because it is read differently. */
+.sv-work {
+  margin: 10px 0 0;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 1px solid var(--line-soft);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink);
+  overflow-x: auto;
+}
+.sv-why { margin: 9px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.65; max-width: 68ch; }
+
+.sv-idea { border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.sv-idea p { margin: 0; color: var(--ink-2); line-height: 1.65; font-size: 14.5px; }
+
+.sv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sv-grid p { margin: 0; color: var(--ink-2); line-height: 1.6; }
+.sv-watch { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.sv-watch li { color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+
+.sv-similar p { margin: 0 0 12px; color: var(--ink); line-height: 1.65; }
+.sv-reveal {
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--good-soft);
+  border: 1px solid var(--good-line);
+  color: var(--good);
+}
+
+.sv-area { min-height: 120px; }
+
+@media (max-width: 720px) {
+  .sv-grid { grid-template-columns: 1fr; }
+}
