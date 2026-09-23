@@ -1219,6 +1219,10 @@ function AddMaterial({ go, setMade, auth }) {
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
 
+  // Out of free generations, and not signed in. Worth knowing before typing a
+  // page of notes rather than after pressing the button.
+  const locked = generationsLeft(auth?.user) <= 0;
+
   function accept(f) {
     if (!f) return;
     if (f.size > MAX_FILE) {
@@ -1238,8 +1242,11 @@ function AddMaterial({ go, setMade, auth }) {
   }
 
   async function run() {
+    // Reachable only if the count ran out between the page loading and the
+    // press. Sending them where they can do something about it beats a state
+    // that shows nothing.
     if (generationsLeft(auth?.user) <= 0) {
-      setState("locked");
+      go("settings");
       return;
     }
     setError("");
@@ -1296,6 +1303,19 @@ function AddMaterial({ go, setMade, auth }) {
           )}
         </label>
 
+        {locked && state !== "working" && state !== "done" && (
+          <div className="card card-pad spread fade">
+            <div>
+              <b className="small">That was your free one</b>
+              <div className="small muted">
+                Sign in to keep generating, and your material follows you to any device. It takes
+                one email, no password.
+              </div>
+            </div>
+            <button className="btn" onClick={() => go("settings")}>Sign in</button>
+          </div>
+        )}
+
         <div className="or"><span>or</span></div>
 
         <div className="notes">
@@ -1321,10 +1341,11 @@ function AddMaterial({ go, setMade, auth }) {
                 : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
             <button className="btn cta" disabled={!ready || state === "reading" || state === "working"}
-              onClick={state === "done" ? () => go("quiz") : run}>
+              onClick={state === "done" ? () => go("quiz") : locked ? () => go("settings") : run}>
               {state === "reading" ? <Loading label="Reading file" />
                 : state === "working" ? <Loading label="Building questions" />
                 : state === "done" ? <>Start practice <Icon name="arrow" /></>
+                : locked ? "Sign in to generate"
                 : "Generate questions"}
             </button>
           </div>
@@ -1332,7 +1353,7 @@ function AddMaterial({ go, setMade, auth }) {
 
         {state === "working" && (
           <div className="card card-pad note-card fade">
-            <b className="small">This takes a few seconds</b>
+            <b className="small">This takes up to a minute</b>
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
               The model is reading your notes and writing the topics, the questions, the explanation
               for each answer, and the study sheet in one pass.
@@ -1340,18 +1361,7 @@ function AddMaterial({ go, setMade, auth }) {
           </div>
         )}
 
-        {state === "locked" && (
-          <div className="card card-pad spread fade">
-            <div>
-              <b className="small">That was your free one</b>
-              <div className="small muted">
-                Sign in to keep generating, and your material follows you to any device. It takes
-                one email, no password.
-              </div>
-            </div>
-            <button className="btn" onClick={() => go("settings")}>Sign in</button>
-          </div>
-        )}
+
 
         {state === "error" && (
           <div className="card card-pad fade" style={{ borderColor: "var(--warn-line)" }}>
