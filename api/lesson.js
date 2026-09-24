@@ -43,11 +43,26 @@ Shape:
   ]
 }
 
+This is the standard to write to. Match its quality, not its subject:
+{
+  "heading": "Why cells cannot just keep growing",
+  "body": "As a cell grows, its volume rises faster than its surface, so its **surface area to volume ratio** (how much outside there is for each unit of inside) falls. With less surface for its size, the cell cannot take in food and oxygen fast enough to keep up.",
+  "points": [
+    { "lead": "Small cell", "text": "a 1 cm cube has a ratio of 6 to 1, plenty of surface for its size." },
+    { "lead": "Large cell", "text": "a 3 cm cube falls to 2 to 1, so much of it is far from the outside." }
+  ],
+  "example": "It is why a single celled amoeba manages on diffusion alone, while an elephant needs lungs and a heart."
+}
+
 How to write it:
 - Between 4 and 7 cards, depending on how much there genuinely is to teach. Never pad.
 - The first card sets the idea up. Each card after it adds exactly one new idea, in the order a teacher would introduce them. The last card pulls the topic together.
-- "points" has 0 to 4 entries. Use them when the idea has parts, types or cases worth separating. Leave the array empty when a paragraph says it better.
-- Write to the student, plainly, in short sentences. Explain why things are the way they are, not just what they are.
+- Headings are specific and vivid, naming the idea in plain words the way a good textbook subheading does. Never "Definition of", "Introduction to", "Overview" or "Summary".
+- Explain in your own words, as a good teacher would say it out loud. Never copy sentences from the source.
+- Every card puts at least one key term in **double asterisks** the first time it appears, followed straight away by what it means in brackets.
+- At least half the cards have "points", 2 to 4 of them, breaking the idea into its parts, types or cases, each with a concrete example where one fits. Leave "points" empty only where a paragraph genuinely says it better.
+- At least two cards have an "example": a real, specific case a student would recognise.
+- Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
 - Exactly 2 checks, testing understanding rather than recall of a single word. Each "q" is a full question, never a bare term.
 - Write in British English. Do not use em dashes or en dashes; use commas, colons or full stops.`;
@@ -102,7 +117,7 @@ export default async function handler(req, res) {
       system: SYSTEM + rules,
       user,
       maxTokens: 2600,
-      temperature: 0.35,
+      temperature: 0.5,
       json: true,
     });
 
