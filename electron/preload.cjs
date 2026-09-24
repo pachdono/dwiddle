@@ -24,13 +24,17 @@ contextBridge.exposeInMainWorld("DWIDDLE_AUTH", {
   },
 });
 
-// Update progress, and the button that restarts into the new version.
+// Updates: what is happening now, whether to do it automatically, and the
+// buttons that check and install.
 contextBridge.exposeInMainWorld("DWIDDLE_UPDATE", {
   on: (fn) => {
     const handler = (_e, payload) => fn(payload);
     ipcRenderer.on("dwiddle:update", handler);
     return () => ipcRenderer.removeListener("dwiddle:update", handler);
   },
+  state: () => ipcRenderer.invoke("dwiddle:update-state"),
+  setAuto: (on) => ipcRenderer.invoke("dwiddle:update-set-auto", on),
+  check: () => ipcRenderer.invoke("dwiddle:update-check"),
   install: () => ipcRenderer.invoke("dwiddle:install-update"),
 });
 

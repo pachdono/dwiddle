@@ -227,9 +227,9 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu()));
   create();
 
-  // Give the window a moment to settle before doing anything over the network.
-  setTimeout(() => updates.start(), 4000);
-  ipcMain.handle("dwiddle:install-update", () => updates.quitAndInstall());
+  // Registers what the page can ask about updates straight away, and checks
+  // for one itself once the window has had a moment to settle.
+  updates.start();
   ipcMain.handle("dwiddle:uninstall-plan", () => uninstall.plan());
   ipcMain.handle("dwiddle:uninstall", (event, phrase) =>
     uninstall.run(BrowserWindow.fromWebContents(event.sender), phrase));

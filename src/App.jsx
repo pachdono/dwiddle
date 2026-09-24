@@ -21,7 +21,7 @@ import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
 import Install, { InstallAll, DownloadPage } from "./Install.jsx";
 import DesktopWelcome from "./DesktopWelcome.jsx";
-import UpdateBar from "./UpdateBar.jsx";
+import UpdateBar, { useUpdate } from "./UpdateBar.jsx";
 import { isDesktop, onMac, appVersion, uninstaller } from "./desktop.js";
 import { UninstallDialog } from "./Uninstall.jsx";
 import { FreeGate } from "./FreeGate.jsx";
@@ -569,8 +569,10 @@ export default function App() {
   }
 
   if (atLanding || (!auth.user && !entered && auth.ready)) {
+    // The update card shows here too: someone who is not signed in sees this
+    // screen first, and would otherwise never hear about a new version.
     return isDesktop
-      ? <DesktopWelcome onSkip={() => { setAtLanding(false); enter(); }} />
+      ? <><DesktopWelcome onSkip={() => { setAtLanding(false); enter(); }} /><UpdateBar /></>
       : <Landing people={people} onSignIn={() => setSignInOpen(true)}
           onSkip={() => { setAtLanding(false); enter(); }}
           onLegal={openLegal}
@@ -2067,6 +2069,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
           </SetRow>
         </div>
 
+        {isDesktop && <UpdateSettings />}
+
         <div className="card">
           <div className="card-head"><h3>About</h3></div>
           <SetRow label="Privacy" hint="What is collected and who handles it.">
@@ -2110,6 +2114,60 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         )}
 
       </div>
+    </div>
+  );
+}
+
+// Only in the installed app, which is the only place that updates itself.
+function UpdateSettings() {
+  const info = useUpdate();
+  const [auto, setAuto] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => { if (info && auto === null) setAuto(info.auto !== false); }, [info, auto]);
+
+  async function flip() {
+    const next = !auto;
+    setAuto(next);
+    try { await window.DWIDDLE_UPDATE?.setAuto(next); } catch {}
+  }
+
+  async function check() {
+    setChecking(true);
+    try { await window.DWIDDLE_UPDATE?.check(); } catch {}
+    setChecking(false);
+    setChecked(true);
+  }
+
+  const status = !info ? "" :
+    info.state === "available" ? `Version ${info.version} is out.` :
+    info.state === "downloading" ? `Downloading ${info.version}${info.percent ? `, ${info.percent}%` : ""}.` :
+    info.state === "ready" ? `Version ${info.version} goes in when you close Dwiddle.` :
+    checked ? "You have the newest version." : "";
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Updates</h3></div>
+      <SetRow
+        label="Update automatically"
+        hint={auto === false
+          ? "New versions are announced when Dwiddle opens, and only installed if you say so."
+          : "New versions download in the background and go in when you close Dwiddle."}
+      >
+        <Switch on={auto !== false} onClick={flip} />
+      </SetRow>
+      <SetRow label="Check for updates" hint={status || `You are on version ${appVersion || "unknown"}.`}>
+        {info?.state === "available" || info?.state === "ready" ? (
+          <button className="btn small" onClick={() => window.DWIDDLE_UPDATE?.install()}>
+            {info.state === "ready" ? "Restart now" : "Update now"}
+          </button>
+        ) : (
+          <button className="btn ghost small" onClick={check} disabled={checking || info?.state === "downloading"}>
+            {checking ? "Checking" : "Check now"}
+          </button>
+        )}
+      </SetRow>
     </div>
   );
 }
