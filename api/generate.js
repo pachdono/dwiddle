@@ -244,7 +244,8 @@ Plain text only, no JSON and no markdown symbols. Put each heading on its own li
 
 Include every definition a student at that level must know, the key facts and figures, how and why things happen, formulae with what each symbol means, one or two concrete examples per section, and the mistakes students commonly make.
 Cover the whole of what was asked, in the order a teacher would teach it, in 5 to 8 sections and about 1,200 to 1,600 words.
-Only well established facts. Where exam boards differ, keep to what they share.
+Stay strictly inside what that level examines. Content taught only at a higher level is left out entirely, not mentioned in passing: a GCSE page on respiration has no Krebs cycle, and a GCSE page on electricity has no Kirchhoff's laws by name. When no level is given, pitch it at the level the request implies, and at GCSE / IGCSE for a school subject.
+Only facts found in a standard textbook at that level. Never state a number, quantity or date unless it is a standard figure you are certain of; leave it out rather than guess. Where exam boards differ, keep to what they share.
 Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °.
 Write in British English. Do not use em dashes or en dashes.`;
 
