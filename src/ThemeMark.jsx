@@ -10,10 +10,22 @@ import { useId } from "react";
 import { DuckMark, DuckParts } from "./Duck.jsx";
 
 // Places the 120 by 140 duck with its centre at x and its feet at y.
-function Placed({ x = 50, feet = 88, scale = 0.56 }) {
+// Anything passed as children is drawn in the duck's own coordinates, on top
+// of it, which is how it wears things.
+function Placed({ x = 50, feet = 88, scale = 0.56, children }) {
   return (
     <g transform={`translate(${x - 63 * scale} ${feet - 130 * scale}) scale(${scale})`}>
       <DuckParts />
+      {children}
+    </g>
+  );
+}
+
+function Maple({ x, y, r = 1, rot = 0, fill = "#D9602B" }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${r})`}>
+      <path fill={fill} d="M0 -6 L1.6 -2.6 L5 -3.6 L3.6 0 L6.2 1.6 L2.2 2.2 L2.6 5 L0 3.6 L-2.6 5 L-2.2 2.2 L-6.2 1.6 L-3.6 0 L-5 -3.6 L-1.6 -2.6Z" />
+      <path d="M0 3.6 V8" stroke={fill} strokeWidth="0.9" strokeLinecap="round" />
     </g>
   );
 }
@@ -160,6 +172,57 @@ const SCENES = {
         <path d="M83 58 L86 100 L93 100Z" fill="#2E9C87" />
         <path d="M86 100 L95 74 L102 100Z" fill="#7ADBC6" />
         <path d="M95 74 L97 100 L102 100Z" fill="#46BFA7" />
+      </>
+    ),
+  },
+  sunset: {
+    tile: { light: ["#FFE9D2", "#FFB08A"], dark: ["#4A2632", "#1F1016"] },
+    draw: () => (
+      <>
+        <circle cx="70" cy="62" r="17" fill="#FFCB6E" />
+        <rect x="-2" y="64" width="104" height="40" fill="#E9785A" />
+        <path d="M56 70 h28 M60 75 h20 M64 80 h12" stroke="#FFCB6E" strokeOpacity="0.8" strokeWidth="1.8" strokeLinecap="round" />
+        <ellipse cx="50" cy="104" rx="72" ry="18" fill="#F5D2A0" />
+        <path d="M16 96 C 14 80, 16 62, 22 50" stroke="#8A5A3B" strokeWidth="3.4" strokeLinecap="round" fill="none" />
+        <path d="M22 50 C 14 44, 6 46, 2 52 M22 50 C 30 42, 38 44, 42 50 M22 50 C 18 40, 10 36, 6 38 M22 50 C 28 40, 34 36, 40 38"
+          stroke="#3E8A5A" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        <Placed x={58} feet={93} />
+      </>
+    ),
+  },
+  autumn: {
+    tile: { light: ["#FDEEDB", "#F3C99C"], dark: ["#3D2616", "#1A0F08"] },
+    draw: () => (
+      <>
+        <Maple x={16} y={22} r={1.1} rot={-20} />
+        <Maple x={86} y={30} r={0.9} rot={25} fill="#E8A13A" />
+        <Maple x={24} y={48} r={0.7} rot={40} fill="#B8452A" />
+        <ellipse cx="50" cy="100" rx="56" ry="12" fill="#C9763A" />
+        <Placed feet={91}>
+          <path d="M33 72 Q63 86 93 72 L93 82 Q63 96 33 82Z" fill="#B8452A" />
+          <rect x="70" y="82" width="10" height="24" rx="3" fill="#A23B22" transform="rotate(-8 75 82)" />
+          <path d="M72 102 v5 M75 102 v5 M78 102 v5" stroke="#A23B22" strokeWidth="1.6" strokeLinecap="round" />
+        </Placed>
+        <Maple x={10} y={90} r={1.2} rot={10} />
+        <Maple x={22} y={95} r={1} rot={-30} fill="#E8A13A" />
+        <Maple x={82} y={93} r={1.2} rot={30} fill="#B8452A" />
+        <Maple x={93} y={87} r={0.9} rot={-15} />
+      </>
+    ),
+  },
+  midnight: {
+    tile: { light: ["#DCE1F7", "#A9B3E6"], dark: ["#1C2254", "#090B22"] },
+    draw: () => (
+      <>
+        <path d="M84 10 a12 12 0 1 0 8 20 a9.5 9.5 0 1 1 -8 -20Z" fill="#F6D98A" />
+        <Sparkle x={16} y={20} r={0.8} fill="#F6D98A" />
+        <Sparkle x={30} y={34} r={0.45} fill="#FFFFFF" />
+        <Sparkle x={68} y={16} r={0.5} fill="#FFFFFF" />
+        <circle cx="44" cy="12" r="0.9" fill="#FFFFFF" />
+        <circle cx="10" cy="44" r="0.8" fill="#FFFFFF" />
+        <circle cx="90" cy="46" r="0.9" fill="#F6D98A" />
+        <ellipse cx="50" cy="104" rx="66" ry="17" fill="#3B4494" />
+        <Placed feet={92} />
       </>
     ),
   },

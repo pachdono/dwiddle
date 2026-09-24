@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DuckMark } from "./Duck.jsx";
 import { platform, isInstalled, canPrompt, onPromptChange, promptInstall, DOWNLOADS, downloadFor } from "./install.js";
 import desktopNotes from "./assets/shots/desktop-notes.webp";
 import desktopLesson from "./assets/shots/desktop-lesson.webp";
@@ -428,6 +429,48 @@ export function InstallAll({ go }) {
         ))}
         <button className="btn ghost" onClick={() => go("install")}>Back</button>
       </div>
+    </div>
+  );
+}
+
+// Get the app as a page of its own, for the front page's link. It used to drop
+// a visitor into the app itself, sidebar and all, to read about installing
+// the app: a strange first look at something they had not chosen to open yet.
+// This keeps them on the site, under the same bar as the front page.
+export function DownloadPage({ onHome, onOpen, onLegal }) {
+  const [all, setAll] = useState(false);
+  const go = (id) => {
+    setAll(id === "install-all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  useEffect(() => { document.title = "Get the app | Dwiddle"; return () => { document.title = "Dwiddle"; }; }, []);
+
+  return (
+    <div className="landing dl-page">
+      <header className="glassbar">
+        <button className="glass-brand" onClick={onHome} aria-label="Back to the front page">
+          <DuckMark size={22} />
+          <span>Dwiddle</span>
+        </button>
+        <nav className="glass-nav">
+          <button onClick={onHome}>Home</button>
+          <button className={all ? "" : "on"} onClick={() => go("install")}>Download</button>
+          <button className={all ? "on" : ""} onClick={() => go("install-all")}>Every device</button>
+        </nav>
+        <button className="btn small glass-cta" onClick={onOpen}>Open Dwiddle</button>
+      </header>
+
+      <div className="dl-body">
+        {all ? <InstallAll go={go} /> : <Install go={go} />}
+      </div>
+
+      <footer className="landing-foot">
+        <span>&copy; {new Date().getFullYear()} Dwiddle</span>
+        <button className="linkish" onClick={() => onLegal("privacy")}>Privacy</button>
+        <button className="linkish" onClick={() => onLegal("terms")}>Terms</button>
+        <button className="linkish" onClick={onOpen}>Use it in the browser</button>
+        <a className="linkish" href="mailto:dwiddle36@gmail.com">Contact</a>
+      </footer>
     </div>
   );
 }

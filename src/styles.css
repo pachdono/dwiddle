@@ -5640,3 +5640,9 @@ kbd {
 }
 .lp-self-btn.on.right { border-color: var(--good); background: var(--good-soft); color: var(--good); }
 .lp-self-btn.on.wrong { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+
+/* ---------- get the app, standalone ---------- */
+
+.dl-body { flex: 1; padding-top: 84px; }
+.dl-body .page { margin: 0 auto; }
+.glass-nav button.on { background: var(--hover); color: var(--ink); }

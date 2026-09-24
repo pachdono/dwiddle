@@ -19,7 +19,7 @@ import { readFile, MAX_FILE } from "./readfile.js";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
-import Install, { InstallAll } from "./Install.jsx";
+import Install, { InstallAll, DownloadPage } from "./Install.jsx";
 import DesktopWelcome from "./DesktopWelcome.jsx";
 import UpdateBar from "./UpdateBar.jsx";
 import { isDesktop, onMac, appVersion, uninstaller } from "./desktop.js";
@@ -69,7 +69,7 @@ const PATH_PAGE = Object.fromEntries(
 const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http");
 
 const REAL_PATHS = new Set([
-  "/", "/index.html", "", "/privacy", "/terms",
+  "/", "/index.html", "", "/privacy", "/terms", "/download",
   ...Object.values(PAGE_PATH),
 ]);
 
@@ -78,6 +78,7 @@ const REAL_PATHS = new Set([
 function routeOf(pathname) {
   if (pathname === "/privacy") return { legal: "privacy", page: null };
   if (pathname === "/terms") return { legal: "terms", page: null };
+  if (pathname === "/download") return { legal: "download", page: null };
   const page = PATH_PAGE[pathname];
   if (page) return { legal: null, page };
   return { legal: null, page: null };
@@ -530,6 +531,17 @@ export default function App() {
   const group = groupOf(page);
   if (group) lastInGroup.current[group.id] = page;
 
+  if (legal === "download") {
+    const leave = (toLanding) => {
+      if (ROUTABLE) window.history.pushState(null, "", "/");
+      setLegal(null);
+      if (toLanding) setAtLanding(true);
+      else { setAtLanding(false); enter(); go("home"); }
+      window.scrollTo(0, 0);
+    };
+    return <DownloadPage onHome={() => leave(true)} onOpen={() => leave(false)} onLegal={openLegal} />;
+  }
+
   if (legal) {
     return (
       <Legal
@@ -562,7 +574,7 @@ export default function App() {
       : <Landing people={people} onSignIn={() => setSignInOpen(true)}
           onSkip={() => { setAtLanding(false); enter(); }}
           onLegal={openLegal}
-          onInstall={() => { setAtLanding(false); enter(); go("install"); }} />;
+          onInstall={() => openLegal("download")} />;
   }
 
   // Someone already running it installed does not need to be sold it.

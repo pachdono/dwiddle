@@ -50,6 +50,21 @@ export const THEMES = [
     light: { grad: ["#EDFBF6", "#C3EEE0"], card: "#FAFFFD", ink: "#0E2923", accent: "#168F79" },
     dark: { grad: ["#0F2A26", "#061613"], card: "#0E2521", ink: "#DCF5EE", accent: "#5ED7BE" },
   },
+  {
+    id: "sunset", name: "Sunset", blurb: "Peach and coral, golden hour.", font: ROUNDED, radius: "16px",
+    light: { grad: ["#FFF3E6", "#FFD3BC"], card: "#FFFCF8", ink: "#35231A", accent: "#DE5F37" },
+    dark: { grad: ["#2A1812", "#140C09"], card: "#23150F", ink: "#FBE9DD", accent: "#FF9A6B" },
+  },
+  {
+    id: "autumn", name: "Autumn", blurb: "Maple, amber and warm browns.", font: SERIF, radius: "10px",
+    light: { grad: ["#FBF3E7", "#F0DCC0"], card: "#FFFBF4", ink: "#33241A", accent: "#B24E1E" },
+    dark: { grad: ["#251A12", "#130D09"], card: "#21170F", ink: "#F4E6D6", accent: "#E48B4E" },
+  },
+  {
+    id: "midnight", name: "Midnight", blurb: "A starry sky, with gold for the stars.", radius: "14px",
+    light: { grad: ["#EEF0FB", "#D3D8F2"], card: "#FBFBFF", ink: "#171A33", accent: "#3D48B8" },
+    dark: { grad: ["#141836", "#080A1A"], card: "#12152C", ink: "#E9EBFA", accent: "#F2C75C" },
+  },
 ];
 
 export const themeOf = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
