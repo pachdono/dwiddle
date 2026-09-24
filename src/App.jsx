@@ -305,7 +305,10 @@ export default function App() {
           sheets: [...(prev.sheets || (prev.sheet ? [{ title: prev.title, sheet: prev.sheet }] : [])),
                    ...(data.sheet ? [{ title: data.title, sheet: data.sheet }] : [])].slice(-12),
           lessons: { ...(prev.lessons || {}), ...(data.lessons || {}) },
-          notes: { ...(prev.notes || {}), ...(data.notes || {}) },
+          notes: Object.entries(data.notes || {}).reduce(
+            (acc, [name, blocks]) => ({ ...acc, [name]: [...(acc[name] || []), ...blocks] }),
+            { ...(prev.notes || {}) },
+          ),
         };
       }
 
@@ -1124,6 +1127,8 @@ function AddMaterial({ go, setMade, auth }) {
   const [result, setResult] = useState(null);
   const [long, setLong] = useState("");
   const [progress, setProgress] = useState(null); // { n, of } while working in parts
+  const [waiting, setWaiting] = useState(null); // { seconds, why } between parts
+  const [unfinished, setUnfinished] = useState(null); // { rest, done, error } if a long job stopped early
 
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
@@ -1179,31 +1184,40 @@ function AddMaterial({ go, setMade, auth }) {
     build(text, false);
   }
 
-  async function build(text, inParts) {
+  // Carrying on adds to what is already there rather than replacing it, and
+  // numbers its parts after the ones already done so nothing collides.
+  async function build(text, inParts, carryOn = null) {
     setState("working");
     setProgress(null);
+    setWaiting(null);
     try {
       let data;
       if (inParts) {
         // Each part is remembered as the source for its own topics, so a lesson
         // is later taught from that part alone and stays inside the limit.
-        data = await generateInParts(text, {
-          onProgress: (n, of) => setProgress({ n, of }),
+        const run = await generateInParts(text, {
+          startAt: carryOn?.done || 0,
+          onProgress: (n, of) => { setWaiting(null); setProgress({ n: n + (carryOn?.done || 0), of: of + (carryOn?.done || 0) }); },
+          onWait: (seconds, why) => setWaiting({ seconds, why }),
           onPart: (material, partText) => rememberSource(material, { notes: partText }),
         });
+        data = run.material;
+        setUnfinished(run.rest ? { rest: run.rest, done: (carryOn?.done || 0) + run.done, error: run.error } : null);
       } else {
         data = await generateFromNotes(text);
         rememberSource(data, { notes: text });
+        setUnfinished(null);
       }
-      countGeneration(auth?.user);
+      if (!carryOn) countGeneration(auth?.user);
       setResult(data);
-      setMade(data, { replace: true });
+      setMade(data, { replace: !carryOn });
       setState("done");
     } catch (err) {
       setState("error");
       setError(err.message);
     } finally {
       setProgress(null);
+      setWaiting(null);
     }
   }
 
@@ -1271,7 +1285,10 @@ function AddMaterial({ go, setMade, auth }) {
         {state === "working" && (
           <div className="card card-pad note-card fade">
             <b className="small">
-              {progress ? `Part ${progress.n} of ${progress.of}. Each part takes up to a minute.` : "This takes up to a minute"}
+              {waiting?.why === "busy" ? `The AI service is busy. Trying again in ${waiting.seconds} seconds.`
+                : waiting?.why === "pace" ? `Part ${progress?.n || 1} done. Starting the next in ${waiting.seconds} seconds.`
+                : progress ? `Part ${progress.n} of ${progress.of}. About a minute each.`
+                : "This takes up to a minute"}
             </b>
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
               The model is reading your notes and writing the topics, the questions, the explanation
@@ -1284,6 +1301,20 @@ function AddMaterial({ go, setMade, auth }) {
 
         {state === "locked" && (
           <FreeGate onClose={() => setState("idle")} onSignIn={() => go("settings")} />
+        )}
+
+        {state === "done" && unfinished && (
+          <div className="card card-pad spread fade" style={{ borderColor: "var(--warn-line)" }}>
+            <div>
+              <b className="small">The rest could not be done yet</b>
+              <div className="small muted">
+                The AI service was busy. Everything up to there is saved. Carry on to add the rest.
+              </div>
+            </div>
+            <button className="btn" onClick={() => build(unfinished.rest, true, { done: unfinished.done })}>
+              Carry on
+            </button>
+          </div>
         )}
 
         {state === "toomuch" && (

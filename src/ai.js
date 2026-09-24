@@ -22,7 +22,7 @@ async function post(path, body, attempt = 0) {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error("Could not reach the server. Check your connection and try again.");
+    throw Object.assign(new Error("Could not reach the server. Check your connection and try again."), { status: 0 });
   }
 
   let data = null;
@@ -38,16 +38,17 @@ async function post(path, body, attempt = 0) {
   }
 
   if (!reply.ok) {
+    const fail = (message) => Object.assign(new Error(message), { status: reply.status });
     if (reply.status === 504 || (reply.status === 502 && !data)) {
-      throw new Error("That took too long and the server gave up. The model was probably slow. Try again, and it usually goes through second time.");
+      throw fail("That took too long and the server gave up. The model was probably slow. Try again, and it usually goes through second time.");
     }
     if (reply.status === 503) {
-      throw new Error(data?.error || "The free model service is busy. Wait a minute and try again.");
+      throw fail(data?.error || "The free model service is busy. Wait a minute and try again.");
     }
     if (reply.status === 404) {
-      throw new Error("The AI endpoints are not running. They only exist when the app is served by Vercel, so use vercel dev locally.");
+      throw fail("The AI endpoints are not running. They only exist when the app is served by Vercel, so use vercel dev locally.");
     }
-    throw new Error(data?.error || `The server returned ${reply.status}`);
+    throw fail(data?.error || `The server returned ${reply.status}`);
   }
   return data;
 }
@@ -216,18 +217,53 @@ function mergeMaterial(into, part, n) {
 }
 
 // Works through a long source a part at a time and returns it as one set of
-// material. onPart hears about each part as it finishes, with the text it came
-// from, so lessons for those topics can later be taught from that part alone.
-export async function generateInParts(text, { onProgress, onPart } = {}) {
+// material.
+//
+// The AI service allows only so many calls a minute, and a part is about ten of
+// them, so parts are paced a minute apart rather than fired back to back: run
+// flat out, the third part of a test document was refused as busy. A part that
+// is refused anyway waits and tries again. If it still cannot be done, the
+// parts that finished are kept and the rest is handed back to be carried on
+// with later, rather than minutes of finished work being thrown away over the
+// last few pages.
+//
+// onPart hears about each part as it finishes, with the text it came from, so
+// lessons for those topics can later be taught from that part alone. startAt
+// numbers the parts when carrying on, so ids stay unique across both runs.
+const PACE = 60000;
+const RETRIES = [30000, 60000];
+const busy = (err) => [0, 429, 502, 503, 504].includes(err?.status);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export async function generateInParts(text, { onProgress, onPart, onWait, startAt = 0 } = {}) {
   const parts = splitSource(text).slice(0, MAX_PARTS);
   let whole = null;
+  let started = 0;
+
   for (let n = 0; n < parts.length; n++) {
+    const wait = started ? PACE - (Date.now() - started) : 0;
+    if (wait > 0) { onWait?.(Math.ceil(wait / 1000), "pace"); await pause(wait); }
+    started = Date.now();
     onProgress?.(n + 1, parts.length);
-    const material = await generateFromNotes(parts[n]);
+
+    let material = null;
+    for (let attempt = 0; !material; attempt++) {
+      try {
+        material = await generateFromNotes(parts[n]);
+      } catch (err) {
+        if (!busy(err) || attempt >= RETRIES.length) {
+          if (!whole) throw err; // nothing finished, so there is nothing to keep
+          return { material: whole, done: n, rest: parts.slice(n).join("\n"), error: err.message };
+        }
+        onWait?.(RETRIES[attempt] / 1000, "busy");
+        await pause(RETRIES[attempt]);
+        onProgress?.(n + 1, parts.length);
+      }
+    }
     onPart?.(material, parts[n]);
-    whole = mergeMaterial(whole, material, n);
+    whole = mergeMaterial(whole, material, n + startAt);
   }
-  return whole;
+  return { material: whole, done: parts.length, rest: "", error: "" };
 }
 
 // Full notes for topics that do not have them yet: material made before full
