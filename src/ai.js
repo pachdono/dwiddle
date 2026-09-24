@@ -32,13 +32,14 @@ async function post(path, body, attempt = 0) {
     // A non JSON body means the function itself fell over.
   }
 
-  if (!reply.ok && TRANSIENT.has(reply.status) && attempt === 0) {
+  // A spent daily allowance is not transient, so it is not retried.
+  if (!reply.ok && TRANSIENT.has(reply.status) && attempt === 0 && !data?.limit) {
     await new Promise((r) => setTimeout(r, 1200));
     return post(path, body, 1);
   }
 
   if (!reply.ok) {
-    const fail = (message) => Object.assign(new Error(message), { status: reply.status });
+    const fail = (message) => Object.assign(new Error(message), { status: reply.status, limit: !!data?.limit });
     if (reply.status === 504 || (reply.status === 502 && !data)) {
       throw fail("That took too long and the server gave up. The model was probably slow. Try again, and it usually goes through second time.");
     }
@@ -232,7 +233,7 @@ function mergeMaterial(into, part, n) {
 // numbers the parts when carrying on, so ids stay unique across both runs.
 const PACE = 60000;
 const RETRIES = [30000, 60000];
-const busy = (err) => [0, 429, 502, 503, 504].includes(err?.status);
+const busy = (err) => !err?.limit && [0, 429, 502, 503, 504].includes(err?.status);
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function generateInParts(text, { onProgress, onPart, onWait, startAt = 0 } = {}) {

@@ -336,6 +336,9 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
   const all = providers();
   const deadline = Date.now() + 44000;
   let lastError = null;
+  // Set when the provider says the allowance for the whole day is spent, which
+  // no amount of waiting a minute will fix.
+  let spentForToday = false;
 
   for (const p of all) {
     // Try the cached winner for this provider first, then the rest in order.
@@ -423,6 +426,11 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
         continue;
       }
 
+      if (reply.status === 429 && /per.?day|daily/i.test(body)) {
+        console.warn(`[api] ${p.id} daily allowance spent: ${body.slice(0, 160)}`);
+        spentForToday = true;
+      }
+
       if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
         console.warn(`[api] ${p.id}/${model} is busy (${reply.status})`);
         lastError = Object.assign(
@@ -444,6 +452,18 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
     }
   }
 
+  if (spentForToday) {
+    throw Object.assign(
+      new Error("Dwiddle has used today's AI allowance. It resets at midnight UTC, so try again then."),
+      { status: 503, limit: true },
+    );
+  }
+  // A paid model asking for credit is how the fallback path ends when the free
+  // ones are busy. To the student that means busy, and the wording about keys
+  // and credit is the operator's business, not theirs.
+  if (lastError && /credit/i.test(lastError.message)) {
+    throw Object.assign(new Error("The AI service is busy at the moment. Wait a minute and try again."), { status: 503 });
+  }
   throw lastError || Object.assign(new Error("No usable model found"), { status: 502 });
 }
 
@@ -461,5 +481,5 @@ export function guard(req, res) {
 export function fail(res, err) {
   const status = err.status || 500;
   if (status >= 500) console.error("[api]", err.message, err.detail || "");
-  res.status(status).json({ error: err.message });
+  res.status(status).json({ error: err.message, ...(err.limit ? { limit: true } : {}) });
 }
