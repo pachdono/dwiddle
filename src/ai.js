@@ -72,31 +72,77 @@ function tidyPart(p) {
   return { ...p, text: tidyMath(p.text), definition: tidyMath(p.definition) };
 }
 
-// A plan of the topics first, then the questions for a few topics at a time
-// and the one page sheet, all at once. One call writing all of it for a whole
-// chapter ran past the time a function is allowed; these parts each finish
-// well inside it, and side by side they are quicker than the one call was.
-const BATCH = 3; // topics per call for questions
+// A plan of the topics first, then the questions and the full notes for a
+// few topics at a time, several calls running at once. One call writing all of
+// it for a whole chapter ran past the time a function is allowed; these parts
+// each finish well inside it.
+const Q_BATCH = 3; // topics per call for questions
+const AT_ONCE = 5; // calls in flight together
+
+// Longer sources get fewer topics per notes call, since complete notes run
+// about as long as the source itself.
+const notesBatch = (length) => (length > 12000 ? 1 : length > 5000 ? 2 : 3);
+
+async function pool(tasks, size) {
+  const out = new Array(tasks.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(size, tasks.length) }, async () => {
+    while (next < tasks.length) {
+      const n = next++;
+      out[n] = await tasks[n]();
+    }
+  }));
+  return out;
+}
+
+const chunk = (list, size) => {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+};
+
+// Notes blocks carry maths and inline marks. The maths is tidied; the marks
+// are left exactly as they are.
+function tidyBlock(b) {
+  if (b.term) return { term: tidyMath(b.term), def: tidyMath(b.def) };
+  if (b.list) return { list: b.list.map(tidyMath) };
+  const [k, v] = Object.entries(b)[0];
+  return { [k]: tidyMath(v) };
+}
+
+function notesTasks(text, topics) {
+  return chunk(topics, notesBatch(text.length)).map((batch) => async () => {
+    try {
+      const d = await post("/api/generate", { notes: text, mode: "notes", topics: batch.map((t) => ({ name: t.name })) });
+      return d.sections || [];
+    } catch {
+      // A missing section is written again later from the Notes page. It is
+      // not worth losing the questions over.
+      return [];
+    }
+  });
+}
+
+const toNotes = (sectionLists) => Object.fromEntries(
+  sectionLists.flat().map((sec) => [sec.topic, sec.blocks.map(tidyBlock)]),
+);
 
 export async function generateFromNotes(notes) {
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];
 
-  const batches = [];
-  for (let i = 0; i < topics.length; i += BATCH) batches.push(topics.slice(i, i + BATCH));
+  const questionTasks = chunk(topics, Q_BATCH).map((batch, n) => () =>
+    post("/api/generate", {
+      notes,
+      mode: "questions",
+      batch: n,
+      topics: batch.map((t) => ({ name: t.name, large: t.large })),
+    }));
+  const noteTasks = notesTasks(notes, topics);
 
-  const [sheet, ...parts] = await Promise.all([
-    // The sheet is a nicety. If it fails, the questions and the lessons still
-    // stand, so it is not allowed to take the whole generation down with it.
-    post("/api/generate", { notes, mode: "sheet" }).catch(() => ({ sheet: null })),
-    ...batches.map((batch, n) =>
-      post("/api/generate", {
-        notes,
-        mode: "questions",
-        batch: n,
-        topics: batch.map((t) => ({ name: t.name, large: t.large })),
-      })),
-  ]);
+  const results = await pool([...questionTasks, ...noteTasks], AT_ONCE);
+  const parts = results.slice(0, questionTasks.length);
+  const sections = results.slice(questionTasks.length);
 
   const questions = parts.flatMap((p) => p.questions || []);
   const counts = {};
@@ -106,8 +152,15 @@ export async function generateFromNotes(notes) {
     title: plan.title,
     topics: topics.map(({ id, name, reason }) => ({ id, name, reason, questions: counts[name] || 0 })),
     questions,
-    sheet: sheet.sheet || null,
+    notes: toNotes(sections),
+    sheet: null,
   });
+}
+
+// Full notes for topics that do not have them yet: material made before full
+// notes existed, or a batch that failed the first time.
+export async function writeNotes(text, topics) {
+  return toNotes(await pool(notesTasks(text, topics), AT_ONCE));
 }
 
 // No notes needed: the course, subject and syllabus topic are the brief.

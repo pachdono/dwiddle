@@ -67,13 +67,6 @@ export function Learn({ made, go, setTopic, saveLesson, finishLesson }) {
         })}
       </div>
 
-      {(made?.sheet || made?.sheets?.length) && (
-        <p className="ln-foot">
-          Want everything on one page instead?{" "}
-          <button className="linkish" onClick={() => go("sheet")}>Open the study sheet</button>
-        </p>
-      )}
-
       {open && (
         <Player
           key={open}

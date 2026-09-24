@@ -151,6 +151,47 @@ Rules:
 - Cover the whole of the notes, not just the start.
 ${STYLE}`;
 
+// Full notes, rather than a summary. The one page sheet condensed a whole
+// chapter into a dozen lines, so most of what the source said never reached
+// the student: a PDF would go in and a fraction of it would come out. These
+// are written a few topics at a time, like the questions, with one hard rule:
+// nothing in the source may be left out.
+const NOTES = `You turn a student's source material into complete, well organised study notes.
+
+${MATHS}
+
+Return ONE JSON object and nothing else. No prose, no code fences.
+
+Shape:
+{
+  "sections": [
+    {
+      "topic": "must be one of the topic names given, exactly",
+      "blocks": [
+        { "h": "a subheading within the topic" },
+        { "p": "a paragraph" },
+        { "list": ["one item", "another item"] },
+        { "term": "a key term", "def": "its definition" },
+        { "eg": "an example from the source" },
+        { "watch": "a common mistake or exam trap" }
+      ]
+    }
+  ]
+}
+
+Marking, inside any text:
+- {def|...} around wording to learn word for word, usually the core of a definition.
+- {key|...} around a fact, figure, name or date to memorise.
+- {exam|...} around the part of a "watch" block where marks are lost.
+
+Rules:
+- Write a section for each topic you are given, in that order, and nothing on any other part of the source.
+- Include EVERY fact, definition, figure, date, name, formula, list item, reason, advantage, disadvantage and example that the source gives for these topics. Nothing may be left out. If the source lists four things, all four appear.
+- Do not summarise or shorten. Reorganise for clarity instead: put each definition in a "term" block, turn anything the source lists into a "list", and break long passages up under subheadings.
+- Keep the source's own wording for definitions, marked with {def|...}.
+- Add a "watch" block only where the source makes a common mistake or a distinction clear.
+${STYLE}`;
+
 // Never trust the shape that comes back. Anything malformed is dropped rather
 // than allowed into the app, where it would break a quiz halfway through.
 function cleanQuestions(list, allowed, prefix) {
@@ -211,6 +252,38 @@ async function part(req, res, mode, notes) {
     const questions = cleanQuestions(data?.questions, names, prefix);
     if (questions.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
     return res.status(200).json({ questions });
+  }
+
+  if (mode === "notes") {
+    const names = (Array.isArray(req.body?.topics) ? req.body.topics : [])
+      .map((t) => String(t?.name || t || "").slice(0, 160)).filter(Boolean).slice(0, 4);
+    if (!names.length) return userError(res, 400, "Which topics should the notes cover?");
+    const text = await ask({
+      system: NOTES,
+      user: `Write the complete notes for these topics only:\n${names.map((n) => `- ${n}`).join("\n")}\n\nThe source:\n\n${notes}`,
+      maxTokens: 3400,
+      json: true,
+      temperature: 0.2,
+    });
+    const data = safeParse(text, "sections");
+    const KINDS = ["h", "p", "list", "term", "eg", "watch"];
+    const sections = (Array.isArray(data?.sections) ? data.sections : [])
+      .filter((sec) => sec && names.includes(String(sec.topic)) && Array.isArray(sec.blocks))
+      .map((sec) => ({
+        topic: String(sec.topic),
+        blocks: sec.blocks
+          .filter((b) => b && typeof b === "object" && KINDS.some((k) => k in b))
+          .map((b) => {
+            if (b.term) return { term: String(b.term), def: String(b.def || "") };
+            if (Array.isArray(b.list)) return { list: b.list.map(String).filter(Boolean) };
+            const kind = KINDS.find((k) => typeof b[k] === "string" && b[k].trim());
+            return kind ? { [kind]: String(b[kind]) } : null;
+          })
+          .filter(Boolean),
+      }))
+      .filter((sec) => sec.blocks.length);
+    if (!sections.length) return userError(res, 502, "The notes did not come back complete. Try again.");
+    return res.status(200).json({ sections });
   }
 
   if (mode === "sheet") {

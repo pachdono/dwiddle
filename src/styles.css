@@ -3104,9 +3104,10 @@ kbd {
    furniture, and permanent furniture should lead with what is actually used
    rather than with a card whose button does nothing yet. */
 .is-desktop .brand { order: 1; }
-.is-desktop .nav { order: 2; }
-.is-desktop .upgrade { order: 3; margin-top: auto; }
-.is-desktop .sidebar-foot { order: 4; margin-top: 12px; }
+.is-desktop .nav-new { order: 2; }
+.is-desktop .nav { order: 3; }
+.is-desktop .nav-small { order: 4; }
+.is-desktop .sidebar-foot { order: 5; margin-top: 10px; }
 
 /* The list of pages is the part that gives way when the window is short: it
    scrolls, and the card underneath it stands down entirely rather than
@@ -5072,4 +5073,240 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-card, .lp-points li, .lp-why, .ln-item { animation: none; }
+}
+
+
+/* ---------- the sidebar, pared back ---------- */
+
+/* Five places and a button to make something, where there were eleven
+   entries under three headings. Rows are taller and quieter, so the list reads
+   as a few destinations rather than a contents page. */
+.sidebar { width: 232px; flex-basis: 232px; }
+
+.nav-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  margin: 2px 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--btn);
+  color: var(--btn-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.12), 0 4px 12px rgba(17, 17, 26, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.nav-new:hover { filter: brightness(1.12); }
+.nav-new:active { transform: translateY(1px); }
+.nav-new.on { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+.nav { gap: 2px; }
+.nav-item {
+  height: 40px;
+  padding: 0 12px;
+  gap: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 550;
+}
+.nav-item svg { flex: 0 0 18px; width: 18px; height: 18px; opacity: 0.8; }
+.nav-item.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+  font-weight: 650;
+}
+.nav-item.on svg { opacity: 1; color: var(--accent); }
+
+.nav-small {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  padding: 10px 4px 0;
+}
+.nav-small button {
+  border: 0;
+  background: none;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.nav-small button:hover, .nav-small button.on { color: var(--ink); background: var(--hover); }
+
+.sidebar-foot { margin-top: 8px; }
+
+/* ---------- tabs in the title bar ---------- */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  padding: 6px 15px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+/* On a Mac the tabs go where a native window puts its segmented control: the
+   middle of the title bar. */
+.is-mac .topbar .tabs { position: absolute; left: 50%; transform: translateX(-50%); }
+
+@media (max-width: 860px) {
+  .is-mac .topbar .tabs { position: static; transform: none; }
+  .tabs button { padding: 6px 11px; font-size: 13px; }
+}
+
+/* ---------- full notes ---------- */
+
+.nt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.nt-bar .filters { margin: 0; }
+
+.nt-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 22px;
+}
+.nt-toc button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.nt-toc button:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); color: var(--ink); }
+.nt-toc i {
+  font-style: normal;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent);
+}
+.nt-toc button.empty { opacity: 0.55; }
+
+.nt-missing { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+.nt-missing p { margin: 4px 0 0; }
+
+.nt-body { display: grid; gap: 18px; }
+
+.nt-sec {
+  padding: 28px 30px 26px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  scroll-margin-top: 70px;
+}
+.nt-sec h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+.nt-sec h2 span {
+  flex: 0 0 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.nt-sec h3 {
+  margin: 22px 0 8px;
+  font-size: 15.5px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.nt-sec > p { margin: 0 0 12px; font-size: 15px; line-height: 1.75; color: var(--ink-2); }
+.nt-sec > ul { margin: 0 0 14px; padding-left: 20px; }
+.nt-sec > ul li { margin-bottom: 6px; font-size: 15px; line-height: 1.7; }
+
+.nt-term {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) 1fr;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line-soft);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+.nt-term b { color: var(--ink); }
+.nt-term span { color: var(--ink-2); }
+.nt-term + :not(.nt-term) { margin-top: 12px; }
+
+.nt-aside {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+.nt-aside.eg { background: var(--accent-soft); }
+.nt-aside.watch { background: var(--warn-soft); }
+.nt-aside p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--ink-2); }
+.nt-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.nt-aside.eg .nt-label { color: var(--accent); }
+.nt-aside.watch .nt-label { color: var(--warn); }
+
+@media (max-width: 620px) {
+  .nt-sec { padding: 20px 18px; }
+  .nt-term { grid-template-columns: 1fr; gap: 2px; }
+}
+
+@media print {
+  .nt-toc, .nt-print, .nt-missing, .tabs { display: none !important; }
+  .nt-sec { border: 0; box-shadow: none; padding: 0; break-inside: auto; }
+  .nt-sec + .nt-sec { margin-top: 18px; }
 }

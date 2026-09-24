@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { Icon, PageHead, Loading } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters } from "./ui.jsx";
 import { phraseQuestion } from "./mathText.js";
-import { rememberSource } from "./lessons.js";
+import { rememberSource, sourcesFor } from "./lessons.js";
+import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
@@ -123,29 +124,41 @@ function greeting(now = new Date()) {
 
 /* ---------- shell ---------- */
 
-const NAV_STUDY = [
-  { id: "home", label: "Dashboard", icon: "home" },
-  { id: "topics", label: "Topics", icon: "topics" },
-  { id: "quiz", label: "Practice", icon: "quiz" },
-  { id: "solve", label: "Solve", icon: "spark" },
-  { id: "learn", label: "Learn", icon: "cards" },
-  { id: "tests", label: "Test prep", icon: "target" },
-  { id: "courses", label: "Courses", icon: "cap" },
+// The sidebar holds a handful of places, not a list of every page. It used to
+// carry eleven entries under three headings and a card for a plan nobody could
+// buy, which is a table of contents rather than a way round an app. Pages that
+// belong together now share one entry and switch between each other with tabs
+// along the top.
+const GROUPS = [
+  { id: "home", label: "Home", icon: "home", pages: ["home"] },
+  {
+    id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics"],
+    tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics" },
+  },
+  { id: "solve", label: "Solve", icon: "spark", pages: ["solve"] },
+  {
+    id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
+    tabs: { tests: "Test prep", courses: "Courses" },
+  },
+  { id: "library", label: "Library", icon: "library", pages: ["library", "reader"] },
 ];
 
-const NAV_MATERIAL = [
-  { id: "upload", label: "Add material", icon: "upload" },
-  { id: "library", label: "Library", icon: "library" },
-  { id: "feedback", label: "Feedback", icon: "chat" },
-];
+const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 
-const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" },
-  { id: "sheet", label: "Study sheet" },
+// Every page's own name, for the title bar when it is not part of a group.
+const ALL_NAV = [
+  { id: "home", label: "Home" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
+  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "solve", label: "Solve" },
+  { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
+  { id: "upload", label: "New material" }, { id: "library", label: "Library" },
+  { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
   { id: "reader", label: "Material" }, { id: "install", label: "Get the app" },
-  { id: "install-all", label: "Every platform" }];
+  { id: "install-all", label: "Every platform" },
+];
 
 export default function App() {
   const [page, setPage] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).page : null) || "home");
+  const lastInGroup = useRef({});
   const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
   const [custom, setCustomRaw] = useState(() => loadCustom());
   const [customBg, setCustomBg] = useState(() => loadBg());
@@ -291,6 +304,7 @@ export default function App() {
           sheets: [...(prev.sheets || (prev.sheet ? [{ title: prev.title, sheet: prev.sheet }] : [])),
                    ...(data.sheet ? [{ title: data.title, sheet: data.sheet }] : [])].slice(-12),
           lessons: { ...(prev.lessons || {}), ...(data.lessons || {}) },
+          notes: { ...(prev.notes || {}), ...(data.notes || {}) },
         };
       }
 
@@ -319,6 +333,17 @@ export default function App() {
           [name]: { cards: lesson.cards, checks: lesson.checks, done: prev.lessons?.[name]?.done || false },
         },
       };
+      save(KEYS.made, next);
+      return next;
+    });
+  }
+
+  // Full notes written later, for material made before they existed or for a
+  // topic whose notes failed the first time.
+  function saveNotes(written) {
+    setMadeRaw((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, notes: { ...(prev.notes || {}), ...written } };
       save(KEYS.made, next);
       return next;
     });
@@ -422,6 +447,8 @@ export default function App() {
   }[page];
 
   const title = ALL_NAV.find((n) => n.id === page).label;
+  const group = groupOf(page);
+  if (group) lastInGroup.current[group.id] = page;
 
   if (legal) {
     return (
@@ -491,43 +518,27 @@ export default function App() {
           <span className="brand-hint">Home</span>
         </button>
 
-        <div className="upgrade">
-          <span className="pill soon">Coming soon</span>
-          <b className="small">Upgrade to Pro</b>
-          <p className="small muted">Unlimited materials, longer PDFs, and exam mode.</p>
-          <button className="btn ghost full" disabled>Notify me</button>
-        </div>
+        <button className={"nav-new" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
+          <Icon name="plus" size={16} />
+          New material
+        </button>
 
         <nav className="nav">
-          <div className="nav-label">Study</div>
-          {NAV_STUDY.map((n) => (
-            <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
-              onClick={() => go(n.id)}>
-              <Icon name={n.icon} />
-              {n.label}
+          {GROUPS.map((g) => (
+            <button key={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
+              onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
+              <Icon name={g.icon} />
+              {g.label}
             </button>
           ))}
-
-          <div className="nav-label">Material</div>
-          {NAV_MATERIAL.map((n) => (
-            <button key={n.id} className={"nav-item" + (page === n.id ? " on" : "")}
-              onClick={() => go(n.id)}>
-              <Icon name={n.icon} />
-              {n.label}
-            </button>
-          ))}
-
-          {!installed && !isDesktop && (
-            <>
-              <div className="nav-label">App</div>
-              <button className={"nav-item" + (page === "install" ? " on" : "")}
-                onClick={() => go("install")}>
-                <Icon name="download" />
-                Get the app
-              </button>
-            </>
-          )}
         </nav>
+
+        <div className="nav-small">
+          <button className={page === "feedback" ? "on" : ""} onClick={() => go("feedback")}>Feedback</button>
+          {!installed && !isDesktop && (
+            <button className={page === "install" ? "on" : ""} onClick={() => go("install")}>Get the app</button>
+          )}
+        </div>
 
         <div className="sidebar-foot">
           {auth.user ? (
@@ -578,7 +589,17 @@ export default function App() {
             onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={18} />
           </button>
-          <span className="topbar-title">{title}</span>
+          {group?.tabs ? (
+            <nav className="tabs" aria-label={group.label}>
+              {group.pages.filter((id) => group.tabs[id]).map((id) => (
+                <button key={id} className={page === id ? "on" : ""} onClick={() => go(id)}>
+                  {group.tabs[id]}
+                </button>
+              ))}
+            </nav>
+          ) : (
+            <span className="topbar-title">{title}</span>
+          )}
           <span className="crumb small">{made ? made.title : ""}</span>
         </header>
         <Page
@@ -600,6 +621,7 @@ export default function App() {
           setMade={setMade}
           saveLesson={saveLesson}
           finishLesson={finishLesson}
+          saveNotes={saveNotes}
           bank={bank}
           topics={topics}
           materials={materials}
@@ -682,37 +704,9 @@ function shuffle(arr) {
 // plain string where segments were asked for, and a reply cut off mid answer
 // gets repaired, which can leave a line half written or missing. None of that
 // is worth a blank page, so anything unexpected is coerced or dropped.
-function toSegments(parts) {
-  if (Array.isArray(parts)) {
-    return parts.filter((seg) => seg && typeof seg === "object" && typeof seg.t === "string");
-  }
-  if (typeof parts === "string") return [{ t: parts }];
-  return [];
-}
 
-function Marked({ parts, on }) {
-  return toSegments(parts).map((seg, i) =>
-    !seg.mark || !on[seg.mark]
-      ? <span key={i}>{seg.t}</span>
-      : <mark key={i} className={"hl " + seg.mark}>{seg.t}</mark>,
-  );
-}
 
 // The filter chips above any highlighted document.
-function HighlightFilters({ on, setOn, counts }) {
-  return (
-    <div className="filters">
-      {Object.entries(HL_KINDS).map(([k, v]) => (
-        <button key={k} className={"filter " + k + (on[k] ? " on" : "")}
-          onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))} title={v.hint}>
-          <span className="swatch" />
-          {v.label}
-          <span className="count">{counts[k]}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 
 /* ---------- dashboard ---------- */
@@ -1550,8 +1544,16 @@ function sheetParts(sheet) {
   ].flatMap(toSegments);
 }
 
-function StudySheet({ made, go }) {
+function StudySheet({ made, go, saveNotes }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
+
+  // Full notes where they exist, or where they can be written from the
+  // original notes still on this device. The one page sheet below is only for
+  // material that has neither.
+  const names = (made?.topics || []).map((t) => t.name);
+  if (Object.keys(made?.notes || {}).length || sourcesFor(names).length) {
+    return <Notes made={made} saveNotes={saveNotes} />;
+  }
 
   // Every generation keeps its sheet, so the page grows as material is added
   // rather than only ever showing the most recent one.
@@ -1563,12 +1565,13 @@ function StudySheet({ made, go }) {
   if (sheets.length === 0) {
     return (
       <div className="page fade">
-        <PageHead title="Study sheet" sub="A one page condensation, with the important bits marked." />
+        <PageHead title="Notes" sub="Everything in your material, topic by topic." />
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
           <Duck size={84} />
-          <b style={{ display: "block", marginTop: 10 }}>No study sheet yet</b>
+          <b style={{ display: "block", marginTop: 10 }}>No notes yet</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
-            One is written automatically when you add your own notes, alongside the questions.
+            Add a PDF, a document or your own notes, and complete notes are written from it,
+            alongside the lessons and the questions.
           </p>
           <button className="btn" onClick={() => go("upload")}>
             <Icon name="upload" size={14} /> Add material

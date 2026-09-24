@@ -49,6 +49,13 @@ function sheetText(sheet) {
 // What the questions and the sheet say, as plain text, for a topic whose notes
 // are not on this device.
 function contextFor(made, topicName) {
+  // Full notes for the topic are the best stand in for the original, since they
+  // carry everything it said. Failing those, the questions and the old sheet.
+  const blocks = made?.notes?.[topicName];
+  if (blocks?.length) {
+    return blocks.map((b) => b.term ? `${b.term}: ${b.def}` : b.list ? b.list.join("\n") : Object.values(b)[0])
+      .join("\n").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+  }
   const qs = (made?.questions || []).filter((q) => q.topic === topicName);
   const lines = qs.map((q) =>
     `Q: ${q.q}\nA: ${q.choices?.[q.answer] ?? ""}\nWhy: ${q.why || ""}`);
@@ -62,4 +69,20 @@ export async function writeLesson(made, topicName) {
   if (source?.notes) return generateLesson({ topic: topicName, others, notes: source.notes });
   if (source?.syllabus) return generateLesson({ topic: topicName, others, syllabus: source.syllabus });
   return generateLesson({ topic: topicName, others, context: contextFor(made, topicName) });
+}
+
+// The original notes for a set of topics, grouped by the notes they came from,
+// so topics that lost their full notes can have them written again. Only
+// pasted and uploaded material qualifies: a syllabus topic has no source text
+// to be complete about.
+export function sourcesFor(topicNames) {
+  const store = load(KEYS.sources, { list: [], topics: {} });
+  const groups = new Map();
+  topicNames.forEach((name) => {
+    const src = store.list.find((s) => s.id === store.topics[name]);
+    if (!src?.notes) return;
+    if (!groups.has(src.id)) groups.set(src.id, { notes: src.notes, topics: [] });
+    groups.get(src.id).topics.push(name);
+  });
+  return [...groups.values()];
 }

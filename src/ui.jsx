@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { HL_KINDS } from "./mock.js";
 
 // The small pieces every page is built from: the icon set, the heading at the
 // top of a page, and the inline spinner. They sit apart from the app itself so
@@ -28,6 +29,7 @@ const paths = {
   trash: "M4.5 6h11M8 6V4.5h4V6M6 6l.7 10.5h6.6L14 6M8.5 9v5M11.5 9v5",
   menu: "M3.5 6h13M3.5 10h13M3.5 14h13",
   close: "M5 5l10 10M15 5L5 15",
+  plus: "M10 4.5v11M4.5 10h11",
   pen: "M4 16h3l8.5-8.5a2.1 2.1 0 0 0-3-3L4 13z",
   mic: "M10 12.5a2.5 2.5 0 0 0 2.5-2.5V5a2.5 2.5 0 0 0-5 0v5a2.5 2.5 0 0 0 2.5 2.5ZM5 9.5a5 5 0 0 0 10 0M10 15v2.5",
   build: "M3 16.5h14M5.5 16.5v-5h3v5M11.5 16.5V6h3v10.5",
@@ -86,4 +88,37 @@ export function Loading({ label }) {
 // takes it out of every page's frame at once.
 export function Portal({ children }) {
   return createPortal(children, document.body);
+}
+
+// Highlighted text: a run of segments, each plain or carrying a mark, shown or
+// hidden by the filters the reader has switched on.
+export function toSegments(parts) {
+  if (Array.isArray(parts)) {
+    return parts.filter((seg) => seg && typeof seg === "object" && typeof seg.t === "string");
+  }
+  if (typeof parts === "string") return [{ t: parts }];
+  return [];
+}
+
+export function Marked({ parts, on }) {
+  return toSegments(parts).map((seg, i) =>
+    !seg.mark || !on[seg.mark]
+      ? <span key={i}>{seg.t}</span>
+      : <mark key={i} className={"hl " + seg.mark}>{seg.t}</mark>,
+  );
+}
+
+export function HighlightFilters({ on, setOn, counts }) {
+  return (
+    <div className="filters">
+      {Object.entries(HL_KINDS).map(([k, v]) => (
+        <button key={k} className={"filter " + k + (on[k] ? " on" : "")}
+          onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))} title={v.hint}>
+          <span className="swatch" />
+          {v.label}
+          <span className="count">{counts[k]}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
