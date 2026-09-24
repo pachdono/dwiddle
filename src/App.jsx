@@ -136,7 +136,7 @@ const GROUPS = [
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics" },
   },
-  { id: "solve", label: "Solve", icon: "spark", pages: ["solve"] },
+  { id: "solve", label: "Solve", icon: "bulb", pages: ["solve"] },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
     tabs: { tests: "Test prep", courses: "Courses" },
@@ -522,12 +522,13 @@ export default function App() {
           <span className="brand-hint">Home</span>
         </button>
 
-        <button className={"nav-new" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
-          <Icon name="plus" size={16} />
-          New material
-        </button>
-
         <nav className="nav">
+          {/* Making something is the first thing on the list and styled as one of
+              it, rather than a heavy button that belongs to no other element. */}
+          <button className={"nav-item nav-add" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
+            <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
+            New material
+          </button>
           {GROUPS.map((g) => (
             <button key={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
@@ -537,12 +538,20 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="nav-small">
-          <button className={page === "feedback" ? "on" : ""} onClick={() => go("feedback")}>Feedback</button>
+        {/* The places people go now and then, kept to the foot but drawn the
+            same way as everything above them. */}
+        <nav className="nav nav-bottom">
           {!installed && !isDesktop && (
-            <button className={page === "install" ? "on" : ""} onClick={() => go("install")}>Get the app</button>
+            <button className={"nav-item" + (page === "install" ? " on" : "")} onClick={() => go("install")}>
+              <Icon name="download" />
+              Get the app
+            </button>
           )}
-        </div>
+          <button className={"nav-item" + (page === "feedback" ? " on" : "")} onClick={() => go("feedback")}>
+            <Icon name="chat" />
+            Feedback
+          </button>
+        </nav>
 
         <div className="sidebar-foot">
           {auth.user ? (

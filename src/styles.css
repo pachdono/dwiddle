@@ -3104,10 +3104,9 @@ kbd {
    furniture, and permanent furniture should lead with what is actually used
    rather than with a card whose button does nothing yet. */
 .is-desktop .brand { order: 1; }
-.is-desktop .nav-new { order: 2; }
-.is-desktop .nav { order: 3; }
-.is-desktop .nav-small { order: 4; }
-.is-desktop .sidebar-foot { order: 5; margin-top: 10px; }
+.is-desktop .nav { order: 2; }
+.is-desktop .nav-bottom { order: 3; }
+.is-desktop .sidebar-foot { order: 4; margin-top: 10px; }
 
 /* The list of pages is the part that gives way when the window is short: it
    scrolls, and the card underneath it stands down entirely rather than
@@ -5083,29 +5082,6 @@ kbd {
    as a few destinations rather than a contents page. */
 .sidebar { width: 232px; flex-basis: 232px; }
 
-.nav-new {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 40px;
-  margin: 2px 0 16px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--btn);
-  color: var(--btn-ink);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(17, 17, 26, 0.12), 0 4px 12px rgba(17, 17, 26, 0.08);
-  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
-}
-.nav-new:hover { filter: brightness(1.12); }
-.nav-new:active { transform: translateY(1px); }
-.nav-new.on { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
-
 .nav { gap: 2px; }
 .nav-item {
   height: 40px;
@@ -5124,25 +5100,29 @@ kbd {
 }
 .nav-item.on svg { opacity: 1; color: var(--accent); }
 
-.nav-small {
-  margin-top: auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 4px;
-  padding: 10px 4px 0;
-}
-.nav-small button {
-  border: 0;
-  background: none;
-  padding: 5px 8px;
+/* New material heads the list and looks like part of it, marked out only by
+   its colour and a filled square behind the plus. */
+.nav-add { color: var(--accent); font-weight: 650; margin-bottom: 6px; }
+.nav-add-icon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-left: -2px;
   border-radius: 7px;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 550;
-  color: var(--ink-3);
-  cursor: pointer;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
-.nav-small button:hover, .nav-small button.on { color: var(--ink); background: var(--hover); }
+.nav-add .nav-add-icon svg { opacity: 1; width: 14px; height: 14px; flex-basis: 14px; }
+.nav-add:hover { background: var(--accent-soft); color: var(--accent); }
+
+.nav-bottom {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.nav-bottom .nav-item { height: 36px; font-size: 13.5px; color: var(--ink-2); }
 
 .sidebar-foot { margin-top: 8px; }
 

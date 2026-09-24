@@ -74,26 +74,47 @@ export function Duck({ size = 120, className = "", shadow = true }) {
   );
 }
 
-// For small spaces. Fewer, chunkier shapes, because the detailed version turns
-// to mush below about 32px.
+// The duck for small spaces: the sidebar, the floating bar on the landing
+// page. It is the full drawing, cropped to the head and shoulders, rather than
+// a second simplified one.
+//
+// There used to be a separate mark here of fewer, chunkier shapes, on the idea
+// that the detail would turn to mush below 32px. It did not look like the duck
+// at all: a yellow disc with one black bar across it, which read as a
+// blindfold, and a blob for a beak. On any screen made in the last decade a
+// 26px icon is drawn at 52 or 78 real pixels, which is plenty for two lenses,
+// a bridge and a beak line.
 export function DuckMark({ size = 24, className = "" }) {
   return (
     <svg
       className={className}
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="20 3 88 88"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="Dwiddle"
     >
-      <circle cx="32" cy="37" r="24" fill={YELLOW} />
-      <ellipse cx="32" cy="48" rx="9.5" ry="5.5" fill={BEAK} />
-      <rect x="9" y="28" width="46" height="10" rx="5" fill={BLACK} />
-      <ellipse cx="32" cy="19" rx="30" ry="5.8" fill={STRAW} />
-      <rect x="22" y="11" width="20" height="8" rx="1.5" fill={BAND} />
-      <ellipse cx="32" cy="11" rx="10" ry="3.2" fill={STRAW_LIGHT} />
+      <ellipse cx="63" cy="90" rx="45" ry="31" fill={YELLOW} />
+      <circle cx="63" cy="59" r="29" fill={YELLOW} />
+      <ellipse cx="63" cy="74" rx="42" ry="24" fill={YELLOW} />
+      <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />
+      <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
+      <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+      <rect x="27" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="87" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="40" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="66" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
+      <rect x="59" y="43" width="9" height="4" rx="1.6" fill={BLACK} />
+      <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
+      <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
+      <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} />
+      <ellipse cx="64" cy="25" rx="27" ry="6" fill={STRAW_LIGHT} />
+      <path d="M47 24.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
+      <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+      <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
     </svg>
   );
 }
