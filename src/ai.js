@@ -72,8 +72,43 @@ function tidyPart(p) {
   return { ...p, text: tidyMath(p.text), definition: tidyMath(p.definition) };
 }
 
-export const generateFromNotes = (notes) =>
-  post("/api/generate", { notes }).then(tidyMaterial);
+// A plan of the topics first, then the questions for a few topics at a time
+// and the one page sheet, all at once. One call writing all of it for a whole
+// chapter ran past the time a function is allowed; these parts each finish
+// well inside it, and side by side they are quicker than the one call was.
+const BATCH = 3; // topics per call for questions
+
+export async function generateFromNotes(notes) {
+  const plan = await post("/api/generate", { notes, mode: "plan" });
+  const topics = plan.topics || [];
+
+  const batches = [];
+  for (let i = 0; i < topics.length; i += BATCH) batches.push(topics.slice(i, i + BATCH));
+
+  const [sheet, ...parts] = await Promise.all([
+    // The sheet is a nicety. If it fails, the questions and the lessons still
+    // stand, so it is not allowed to take the whole generation down with it.
+    post("/api/generate", { notes, mode: "sheet" }).catch(() => ({ sheet: null })),
+    ...batches.map((batch, n) =>
+      post("/api/generate", {
+        notes,
+        mode: "questions",
+        batch: n,
+        topics: batch.map((t) => ({ name: t.name, large: t.large })),
+      })),
+  ]);
+
+  const questions = parts.flatMap((p) => p.questions || []);
+  const counts = {};
+  questions.forEach((q) => { counts[q.topic] = (counts[q.topic] || 0) + 1; });
+
+  return tidyMaterial({
+    title: plan.title,
+    topics: topics.map(({ id, name, reason }) => ({ id, name, reason, questions: counts[name] || 0 })),
+    questions,
+    sheet: sheet.sheet || null,
+  });
+}
 
 // No notes needed: the course, subject and syllabus topic are the brief.
 export const generateFromSyllabus = ({ course, subject, topic }) =>
