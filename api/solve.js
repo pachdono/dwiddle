@@ -40,6 +40,14 @@ Shape:
   "similar": { "q": "one similar question to try alone", "answer": "its answer" }
 }
 
+The input may be transcribed from several photos or files, marked
+[Page 1 of 3] and so on, in the order the student added them. Treat them as
+one question spread across pages: text on one, a diagram or a later part on
+another. If they hold several separate questions, work through the first in
+full and say in "asked" that the others should be sent one at a time.
+A part marked [Typed by the student] is their own addition and takes priority
+where it clarifies what is being asked.
+
 If the input is not a question, or there is not enough of it to work on, return
 exactly { "ok": false, "message": "one sentence saying what is missing" }.
 

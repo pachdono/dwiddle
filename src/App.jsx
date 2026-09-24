@@ -113,14 +113,66 @@ function initialsOf(user) {
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || n[0].toUpperCase();
 }
 
-function greeting(now = new Date()) {
+// One of a few lines for the time of day, picked when the page opens, so the
+// greeting is not the same sentence every visit but is never wrong about the
+// hour. Before five counts as the night before: calling 2am "morning" reads as
+// a machine that cannot tell. `n` is the first name, or null when signed out,
+// in which case the line has to stand on its own.
+const GREETINGS = [
+  { from: 0, to: 5, lines: [
+    (n) => n ? `Burning the midnight oil, ${n}?` : "Burning the midnight oil?",
+    (n) => n ? `Still up, ${n}?` : "Still up?",
+    (n) => n ? `Late night studying, ${n}?` : "Late night studying?",
+    (n) => n ? `It's late, ${n}` : "It's late",
+  ] },
+  { from: 5, to: 9, lines: [
+    (n) => n ? `Rise and shine, ${n}` : "Rise and shine",
+    (n) => n ? `Early start, ${n}` : "Early start",
+    (n) => n ? `Good morning, ${n}` : "Good morning",
+  ] },
+  { from: 9, to: 12, lines: [
+    (n) => n ? `Good morning, ${n}` : "Good morning",
+    (n) => n ? `Morning, ${n}` : "Morning",
+    (n, d) => n ? `Happy ${d}, ${n}` : `Happy ${d}`,
+  ] },
+  { from: 12, to: 14, lines: [
+    (n) => n ? `Good afternoon, ${n}` : "Good afternoon",
+    (n) => n ? `Lunchtime revision, ${n}?` : "Lunchtime revision?",
+  ] },
+  { from: 14, to: 18, lines: [
+    (n) => n ? `Good afternoon, ${n}` : "Good afternoon",
+    (n) => n ? `Afternoon, ${n}` : "Afternoon",
+    (n, d) => n ? `Happy ${d}, ${n}` : `Happy ${d}`,
+  ] },
+  { from: 18, to: 22, lines: [
+    (n) => n ? `Good evening, ${n}` : "Good evening",
+    (n) => n ? `Evening, ${n}` : "Evening",
+    (n) => n ? `An evening session, ${n}?` : "An evening session?",
+  ] },
+  { from: 22, to: 24, lines: [
+    (n) => n ? `Late night studying, ${n}?` : "Late night studying?",
+    (n) => n ? `One more session, ${n}?` : "One more session?",
+    (n) => n ? `Good evening, ${n}` : "Good evening",
+  ] },
+];
+
+function greeting(name, now = new Date()) {
   const h = now.getHours();
-  // Before five is still the night before as far as anyone revising is
-  // concerned. Calling 2am "morning" reads as a machine that cannot tell.
-  if (h < 5) return "Good evening";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  const day = now.toLocaleDateString("en-GB", { weekday: "long" });
+  const { lines } = GREETINGS.find((g) => h >= g.from && h < g.to);
+  return lines[Math.floor(Math.random() * lines.length)](name, day);
+}
+
+// What goes under the greeting when there is nothing better to say. Late at
+// night it is a nudge towards bed, because that is the honest advice: memory
+// is consolidated during sleep, and an hour of it is worth more than an hour
+// of tired rereading.
+function greetingSub(now = new Date()) {
+  const h = now.getHours();
+  if (h < 5) return "A short session, then sleep. Memory settles while you sleep, so it is part of revising.";
+  if (h >= 22) return "Keep it short tonight. Sleep is when today's work actually sticks.";
+  if (h < 9) return "Mornings are a good time for the hardest topic, before the day uses you up.";
+  return "";
 }
 
 /* ---------- shell ---------- */
@@ -790,8 +842,60 @@ function DashWidgets({ custom, customBg, setCustom, editing, parts }) {
   );
 }
 
+// A different one each day, the same all day. Every one is a finding from the
+// research on how people learn, stated as advice rather than as a citation.
+const TIPS = [
+  { h: "Test yourself, do not reread", p: "Answering questions from memory strengthens it far more than reading the same page again, even though rereading feels more productive." },
+  { h: "Space it out", p: "Three short sessions on a topic across a week beat one long one the night before. The forgetting in between is what makes the next recall count." },
+  { h: "Mix your topics", p: "Practising different kinds of question in one sitting is harder than doing a block of one kind, and it is exactly why it works: you learn to spot which method a question needs." },
+  { h: "Explain it in your own words", p: "If you cannot say why an answer is right without looking, you know the answer but not the idea. Try saying it out loud to nobody." },
+  { h: "Wrong answers are useful", p: "A question you got wrong and then corrected is remembered better than one you got right first time. Go back to your mistakes rather than avoiding them." },
+  { h: "Sleep is part of revising", p: "Memories are consolidated while you sleep. An all nighter before an exam trades the thing that makes revision stick for a few more tired hours." },
+  { h: "Put the phone in another room", p: "A phone within reach costs attention even when it is face down and silent. Out of sight works better than on silent." },
+  { h: "Start with the hardest topic", p: "Attention is highest early in a session. Spend it on the topic you are avoiding, and leave the comfortable ones for when you are tired." },
+];
+
+const tipOfDay = (now = new Date()) =>
+  TIPS[Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000) % TIPS.length];
+
+// The last seven days, oldest first, and whether each one had any practice.
+function lastWeek(days) {
+  const set = new Set(days || []);
+  const out = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push({
+      label: d.toLocaleDateString("en-GB", { weekday: "narrow" }),
+      name: d.toLocaleDateString("en-GB", { weekday: "long" }),
+      on: set.has(d.toISOString().slice(0, 10)),
+      today: i === 0,
+    });
+  }
+  return out;
+}
+
+const SHORTCUTS = [
+  { id: "learn", icon: "cards", name: "Learn", sub: "Short lessons, one topic at a time", needs: true },
+  { id: "quiz", icon: "quiz", name: "Practice", sub: "Questions with an explanation for each", needs: true },
+  { id: "sheet", icon: "sheet", name: "Notes", sub: "Everything in your material, organised", needs: true },
+  { id: "solve", icon: "bulb", name: "Solve", sub: "A question you are stuck on, worked through" },
+  { id: "tests", icon: "target", name: "Test prep", sub: "Timed SAT, ACT, IELTS and more" },
+  { id: "courses", icon: "cap", name: "Courses", sub: "IGCSE, IB and A Level syllabuses" },
+];
+
 function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
-  customBg, setCustomBg, editing, setEditing }) {
+  customBg, setCustomBg, editing, setEditing, bank = [], setPMode }) {
+  const [hello] = useState(() => greeting(auth?.user ? displayName(auth.user) : null));
+  const tip = tipOfDay();
+  const week = lastWeek(stats.days);
+  const toFix = bank.filter((q) => missed.includes(q.id)).length;
+
+  // Where to carry on: the first topic whose lesson is not finished.
+  const lessons = made?.lessons || {};
+  const doneCount = topics.filter((t) => lessons[t.name]?.done).length;
+  const nextTopic = topics.find((t) => !lessons[t.name]?.done) || null;
+
   // Only shown if the database actually answers. No number is better than an
   // invented one. It refreshes on its own so the figure stays current without
   // a reload: every 30 seconds while the tab is in front, and immediately when
@@ -841,22 +945,77 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
       )}
 
       <PageHead
-        title={`${greeting()}, ${displayName(auth?.user)}`}
-        sub={started
+        title={hello}
+        sub={greetingSub() || (started
           ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
           : topics.length > 0
             ? "Ready when you are."
-            : "Turn your notes into questions, and sit full length practice papers."}
+            : "Turn your notes into lessons and questions, and sit full length practice papers.")}
       />
 
       <div className="stack">
+        {topics.length === 0 && (
+          <div className="card card-pad welcome">
+            <Duck size={84} className="welcome-duck" />
+            <b>Start with something you are studying</b>
+            <div className="small muted">
+              A PDF, slides, a photo of a page or notes you paste in. Dwiddle reads all of it.
+            </div>
+            <ol className="welcome-steps">
+              <li><i>1</i><span><b>Add material</b>Anything from one page to a whole chapter.</span></li>
+              <li><i>2</i><span><b>Learn it</b>Full notes and short lessons, topic by topic.</span></li>
+              <li><i>3</i><span><b>Practise</b>Real exam style questions, each one explained.</span></li>
+            </ol>
+            <button className="btn cta" onClick={() => go("upload")}>
+              <Icon name="upload" size={14} /> Add material
+            </button>
+          </div>
+        )}
+
         <DashWidgets custom={custom} customBg={customBg} setCustom={setCustom} editing={editing} parts={{
+          continue: (made && topics.length > 0) ? (
+        <div className="card dash-hero">
+          <div className="dash-hero-main">
+            <span className="dash-eyebrow">{nextTopic ? "Continue learning" : "All lessons finished"}</span>
+            <h2>{nextTopic ? nextTopic.name : made.title}</h2>
+            <p className="small muted">
+              {nextTopic
+                ? `${made.title}. Lesson ${doneCount + 1} of ${topics.length}.`
+                : `Every lesson in ${made.title} is done. Practice is what keeps it there.`}
+            </p>
+            <div className="dash-progress" aria-label={`${doneCount} of ${topics.length} lessons finished`}>
+              {topics.map((t) => <i key={t.id} className={lessons[t.name]?.done ? "on" : ""} title={t.name} />)}
+            </div>
+            <div className="row" style={{ marginTop: 16 }}>
+              {nextTopic ? (
+                <button className="btn cta" onClick={() => go("learn")}>
+                  {doneCount ? "Continue" : "Start the first lesson"} <Icon name="arrow" size={14} />
+                </button>
+              ) : (
+                <button className="btn cta" onClick={() => go("quiz")}>
+                  Practise it all <Icon name="arrow" size={14} />
+                </button>
+              )}
+              <button className="btn ghost" onClick={() => go("sheet")}>Open notes</button>
+            </div>
+          </div>
+          <Duck size={120} className="dash-hero-duck" />
+        </div>
+          ) : null,
           stats: (
-        <div className="grid-3">
+        <div className="grid-3 dash-stats">
           <div className="stat">
             <div className="k">Study streak</div>
             <div className="v">
               {(() => { const n = streakOf(stats.days); return n === 0 ? "None yet" : `${n} day${n === 1 ? "" : "s"}`; })()}
+            </div>
+            <div className="dash-week" aria-label="The last seven days">
+              {week.map((d, i) => (
+                <span key={i} className={(d.on ? "on" : "") + (d.today ? " today" : "")}
+                  title={`${d.name}${d.on ? ", studied" : ""}`}>
+                  <i />{d.label}
+                </span>
+              ))}
             </div>
           </div>
           <div className="stat">
@@ -892,54 +1051,53 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
         </div>
           ),
           actions: (
+        <div className="dash-tools">
+          {SHORTCUTS.map((t) => {
+            const off = t.needs && topics.length === 0;
+            return (
+              <button key={t.id} className="card dash-tool" disabled={off}
+                onClick={() => go(t.id)} title={off ? "Add material first" : undefined}>
+                <span className="dash-tool-icon"><Icon name={t.icon} size={18} /></span>
+                <b>{t.name}</b>
+                <span className="small muted">{t.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+          ),
+          focus: (
         <div className="grid-2">
-          <div className="card card-pad">
-            <div className="spread" style={{ marginBottom: 12 }}>
-              <b>Practice quiz</b>
-              <span className="pill">From your material</span>
-            </div>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              Add a PDF, slides or a photo, and we turn it into questions.
-            </p>
-            <button className="btn" onClick={() => go("upload")}>
-              <Icon name="upload" /> Add material
-            </button>
+          <div className="card card-pad dash-fix">
+            <span className="dash-eyebrow">Mistakes to fix</span>
+            {toFix > 0 ? (
+              <>
+                <div className="dash-big">{toFix}</div>
+                <p className="small muted">
+                  Question{toFix === 1 ? "" : "s"} you got wrong. Each one leaves the list when you get it right.
+                </p>
+                <button className="btn ghost" onClick={() => { setPMode?.("missed"); go("quiz"); }}>
+                  <Icon name="flag" size={14} /> Go through them
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="dash-big">{started ? "None" : "0"}</div>
+                <p className="small muted">
+                  {started
+                    ? "Nothing wrong left to go back over. Anything you miss in practice lands here."
+                    : "Anything you get wrong in practice lands here, to go back over."}
+                </p>
+              </>
+            )}
           </div>
-
-          <div className="card card-pad">
-            <div className="spread" style={{ marginBottom: 12 }}>
-              <b>Study sheet</b>
-              {made?.sheet && <span className="pill accent">Yours</span>}
-            </div>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              {made?.sheet
-                ? "A one page condensation with the important bits marked."
-                : "Add material and a study sheet is written along with the questions."}
-            </p>
-            <button className="btn ghost" disabled={!made?.sheet}
-              onClick={() => go("sheet")}>Open sheet</button>
+          <div className="card card-pad dash-tip">
+            <span className="dash-eyebrow"><Icon name="bulb" size={13} /> Tip of the day</span>
+            <b>{tip.h}</b>
+            <p className="small muted">{tip.p}</p>
           </div>
         </div>
           ),
         }} />
-
-        {topics.length === 0 && (
-          <div className="card card-pad welcome">
-            <Duck size={72} className="welcome-duck" />
-            <div style={{ flex: 1 }}>
-              <b>Nothing here yet</b>
-              <div className="small muted">
-                Paste your notes or drop a PDF, and it writes the topics, the questions and an
-                explanation for every answer.
-              </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn" onClick={() => go("upload")}>
-                  <Icon name="upload" size={14} /> Add material
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="card card-pad pitch">
           <div className="pitch-main">

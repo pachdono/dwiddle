@@ -86,11 +86,13 @@ export const RADII = [
 ];
 
 export const WIDGETS = [
+  { id: "continue", name: "Continue learning" },
   { id: "stats", name: "Streak and accuracy" },
   { id: "photo", name: "Photo" },
   { id: "quote", name: "Your own words" },
   { id: "upnext", name: "Recommended topics" },
-  { id: "actions", name: "Practice and study sheet" },
+  { id: "actions", name: "Shortcuts" },
+  { id: "focus", name: "Mistakes and tip of the day" },
 ];
 
 export const GRADIENTS = [
@@ -112,7 +114,7 @@ export const DEFAULT_CUSTOM = {
   // coherent until the user deliberately overrides one part of it.
   colors: { mode: "flat", bg1: null, bg2: null, angle: 160, card: null, ink: null, accent: null, line: null },
   photo: { dim: 45, blur: 0, place: "widget" }, // widget, background, or both
-  widgets: { stats: true, photo: false, quote: false, upnext: true, actions: true },
+  widgets: { continue: true, stats: true, photo: false, quote: false, upnext: true, actions: true, focus: true },
   order: WIDGETS.map((w) => w.id),
 };
 
@@ -136,8 +138,11 @@ export const PRESETS = [
 
 function orderOf(saved) {
   const ids = WIDGETS.map((w) => w.id);
-  const kept = (Array.isArray(saved) ? saved : []).filter((id) => ids.includes(id));
-  return [...kept, ...ids.filter((id) => !kept.includes(id))];
+  const out = (Array.isArray(saved) ? saved : []).filter((id) => ids.includes(id));
+  // A block added since the order was saved goes where it sits by default,
+  // not to the bottom where nobody would find it.
+  ids.forEach((id, i) => { if (!out.includes(id)) out.splice(Math.min(i, out.length), 0, id); });
+  return out;
 }
 
 export function loadCustom() {
