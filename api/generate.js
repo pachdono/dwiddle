@@ -263,6 +263,15 @@ export default async function handler(req, res) {
   } else {
     if (notes.length < 200) return userError(res, 400, "Give at least a couple of paragraphs of notes to work from");
     if (notes.length > MAX_INPUT) return userError(res, 413, `That is longer than the ${MAX_INPUT} character limit. Send one chapter at a time.`);
+    // Only a copy of the app from before generation was split into parts gets
+    // here: the website and every current build ask for the parts. Those older
+    // copies are still installed on people's computers, and asking this one call
+    // to cover a whole chapter is exactly what timed out, so they keep the
+    // limits they were built with until they update.
+    system = SYSTEM
+      .replace(/- Cover every distinct area[^\n]*\n/, "")
+      .replace(/- 3 questions per topic, 4 where[^\n]*\n/,
+        "- 3 topics, 3 to 4 questions per topic, 4 choices each, \"answer\" is the index of the correct one. Aim for about 10 questions in total.\n");
     user = `Build study material from these notes.\n\n${notes}`;
   }
 
@@ -281,7 +290,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system,
       user,
-      maxTokens: notes.length > 4000 ? 5600 : 4200,
+      maxTokens: notes.length > 4000 ? 5200 : 3800,
       json: true,
       temperature: 0.3,
     });
