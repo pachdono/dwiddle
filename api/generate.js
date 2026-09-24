@@ -244,7 +244,12 @@ Plain text only, no JSON and no markdown symbols. Put each heading on its own li
 
 Include every definition a student at that level must know, the key facts and figures, how and why things happen, formulae with what each symbol means, one or two concrete examples per section, and the mistakes students commonly make.
 Cover the whole of what was asked, in the order a teacher would teach it, in 5 to 8 sections and about 1,200 to 1,600 words.
-Stay strictly inside what that level examines. Content taught only at a higher level is left out entirely, not mentioned in passing: a GCSE page on respiration has no Krebs cycle, and a GCSE page on electricity has no Kirchhoff's laws by name. When no level is given, pitch it at the level the request implies, and at GCSE / IGCSE for a school subject.
+First decide which points that level's syllabus lists for this topic, then write about those points only. What each level covers:
+- Just the basics: what it is, why it matters, the key words, everyday examples. No equations beyond the simplest.
+- GCSE / IGCSE: what happens and why, in plain terms; word and balanced symbol equations; the factors that affect it and how they show on graphs; the standard practical experiments. No molecular mechanisms, biochemical pathways or named intermediates: for photosynthesis that means no thylakoids, stroma, ATP, NADPH, electron transport or Calvin cycle; for respiration, no glycolysis or Krebs cycle.
+- A Level / IB: the mechanisms, named stages and intermediates, and quantitative work.
+- University: full depth, with the detail and nuance a first or second year course expects.
+When no level is given, pitch it at the level the request implies, and at GCSE / IGCSE for a school subject.
 Only facts found in a standard textbook at that level. Never state a number, quantity or date unless it is a standard figure you are certain of; leave it out rather than guess. Where exam boards differ, keep to what they share.
 Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °.
 Write in British English. Do not use em dashes or en dashes.`;
@@ -278,7 +283,10 @@ async function part(req, res, mode, notes) {
       maxTokens: 2800,
       temperature: 0.3,
     });
-    const written = String(text || "").replace(/[\u2013\u2014]/g, ", ").trim();
+    const written = String(text || "")
+      .replace(/\s*[\u2013\u2014]\s*/g, ": ")
+      .replace(/\u2011/g, "-")
+      .trim();
     if (written.length < 400) return userError(res, 502, "The notes on that topic did not come back complete. Try again.");
     return res.status(200).json({ notes: written });
   }
