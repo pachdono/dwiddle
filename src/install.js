@@ -82,7 +82,7 @@ export const DOWNLOADS = {
   // The environment variable still wins, so a new build can be pointed
   // somewhere else without a code change.
   base: import.meta.env.VITE_DOWNLOAD_BASE || RELEASE,
-  version: "1.1.0",
+  version: "1.1.1",
   page: "https://github.com/pachdono/dwiddle-releases/releases/latest",
 };
 
