@@ -35,6 +35,16 @@ export function Duck({ size = 120, className = "", shadow = true }) {
     >
       {shadow && <ellipse cx="61" cy="126" rx="38" ry="6" fill="#000" opacity="0.055" />}
 
+      <DuckParts />
+    </svg>
+  );
+}
+
+// The duck itself, in its own 120 by 140 space, for drawings that place it in
+// a scene of their own.
+export function DuckParts() {
+  return (
+    <>
       {/* feet, splayed slightly outward */}
       <ellipse cx="49" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 124)" />
       <ellipse cx="77" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 124)" />
@@ -70,7 +80,7 @@ export function Duck({ size = 120, className = "", shadow = true }) {
       <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
       <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
       <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
-    </svg>
+    </>
   );
 }
 

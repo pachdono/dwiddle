@@ -35,10 +35,17 @@ Shape:
   ],
   "checks": [
     {
+      "type": "choice",
       "q": "a complete question, exactly as it would be printed on an exam paper",
       "choices": ["four options"],
       "answer": 0,
       "why": "two sentences: why the answer is right, and why the most tempting wrong option is wrong"
+    },
+    {
+      "type": "written",
+      "q": "a question answered in one to three sentences of the student's own words, such as explain, describe, compare or calculate",
+      "answer": "a model answer that would earn full marks, one to three sentences",
+      "points": ["each thing a full answer must contain, as a short phrase; 2 or 3 of them"]
     }
   ]
 }
@@ -66,7 +73,9 @@ How to write it:
 - At least two cards have an "example": a real, specific case a student would recognise.
 - Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
-- Exactly 2 checks, testing understanding rather than recall of a single word. Each "q" is a full question, never a bare term.
+- After the cards, 4 or 5 checks on what the cards taught: 3 of type "choice" and 1 or 2 of type "written". They test understanding rather than recall of a single word, and each "q" is a full question, never a bare term.
+- Order the checks from easiest to hardest, and end on a written one.
+- A written check must be answerable from the cards alone, in a few sentences. Its "points" are what an examiner would look for.
 - Write in British English. Do not use em dashes or en dashes; use commas, colons or full stops.`;
 
 const FROM_NOTES = `
@@ -118,7 +127,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM + rules,
       user,
-      maxTokens: 2000,
+      maxTokens: 2800,
       temperature: 0.35,
       json: true,
     });
@@ -140,15 +149,26 @@ export default async function handler(req, res) {
       return userError(res, 502, "The lesson did not come back complete. Try opening it again.");
     }
 
-    const checks = (Array.isArray(data?.checks) ? data.checks : [])
-      .filter((q) => q && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2)
-      .slice(0, 3)
+    const all = Array.isArray(data?.checks) ? data.checks : [];
+    const choice = all
+      .filter((q) => q && q.type !== "written" && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2)
+      .slice(0, 4)
       .map((q) => ({
         q: String(q.q),
         choices: q.choices.map(String),
         answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
         why: String(q.why || ""),
       }));
+    const written = all
+      .filter((q) => q && q.type === "written" && typeof q.q === "string" && q.answer)
+      .slice(0, 2)
+      .map((q) => ({
+        type: "written",
+        q: String(q.q),
+        answer: String(q.answer),
+        points: (Array.isArray(q.points) ? q.points : []).map(String).filter(Boolean).slice(0, 4),
+      }));
+    const checks = [...choice, ...written];
 
     res.status(200).json({ topic, cards, checks });
   } catch (err) {

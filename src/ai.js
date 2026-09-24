@@ -301,7 +301,9 @@ export const generateLesson = ({ topic, others, notes, syllabus, context }) =>
       example: tidyMath(c.example),
       points: (c.points || []).map((p) => ({ lead: tidyMath(p.lead), text: tidyMath(p.text) })),
     })),
-    checks: (d.checks || []).map(tidyQuestion),
+    checks: (d.checks || []).map((q) => q.type === "written"
+      ? { ...q, q: tidyMath(q.q), answer: tidyMath(q.answer), points: (q.points || []).map(tidyMath) }
+      : tidyQuestion(q)),
   }));
 
 // One question, worked through. Everything that comes back is prose or

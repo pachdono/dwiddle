@@ -29,7 +29,7 @@ export function isDark(c) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.42;
 }
 
-function scheme(bg, ink, accent) {
+export function scheme(bg, ink, accent) {
   return {
     "--bg": bg,
     "--panel": mix(bg, ink, 0.022),

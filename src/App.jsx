@@ -13,6 +13,8 @@ import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, 
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
+import { ThemeMark } from "./ThemeMark.jsx";
+import { THEMES, loadLook, saveLook, applyLook } from "./themes.js";
 import { readFile, MAX_FILE } from "./readfile.js";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
@@ -25,7 +27,7 @@ import { UninstallDialog } from "./Uninstall.jsx";
 import { FreeGate } from "./FreeGate.jsx";
 import { Solve } from "./Solve.jsx";
 import { isInstalled } from "./install.js";
-import { loadCustom, saveCustom, loadBg, applyCustom, WIDGETS } from "./custom.js";
+import { loadCustom, saveCustom, loadBg, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
 
@@ -106,6 +108,14 @@ function displayName(user) {
   return String(user.email || "You").split("@")[0];
 }
 
+// The name the greeting uses: the account's first name, or the one typed in
+// Settings before signing in, or none at all.
+function nameFor(user) {
+  if (user) return displayName(user);
+  const typed = String(load(KEYS.name, "") || "").trim().split(/\s+/)[0];
+  return typed || null;
+}
+
 function initialsOf(user) {
   const n = displayName(user);
   if (!user) return "?";
@@ -156,11 +166,14 @@ const GREETINGS = [
   ] },
 ];
 
-function greeting(name, now = new Date()) {
+// `pick` is a random number chosen once when the page opens, so the line
+// stays put while the name arrives: the account loads a moment after the
+// page does, and choosing then would lock in the version with no name.
+function greeting(name, pick, now = new Date()) {
   const h = now.getHours();
   const day = now.toLocaleDateString("en-GB", { weekday: "long" });
   const { lines } = GREETINGS.find((g) => h >= g.from && h < g.to);
-  return lines[Math.floor(Math.random() * lines.length)](name, day);
+  return lines[Math.floor(pick * lines.length)](name, day);
 }
 
 // What goes under the greeting when there is nothing better to say. Late at
@@ -213,7 +226,15 @@ export default function App() {
   const [page, setPage] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).page : null) || "home");
   const lastInGroup = useRef({});
   const [theme, setTheme] = useState(() => load(KEYS.theme, "system"));
-  const [custom, setCustomRaw] = useState(() => loadCustom());
+  // The dashboard editor is retired in favour of themes. What someone set up
+  // with it is left in storage but no longer applied.
+  const [custom, setCustomRaw] = useState(() => ({ ...loadCustom(), on: false }));
+  const [look, setLookRaw] = useState(() => loadLook());
+  const [resolved, setResolved] = useState("light");
+  function setLook(id) {
+    setLookRaw(id);
+    saveLook(id);
+  }
   const [customBg, setCustomBg] = useState(() => loadBg());
 
   const [editing, setEditing] = useState(false);
@@ -377,7 +398,9 @@ export default function App() {
       if (!prev) return prev;
       const have = new Set(prev.questions.map((q) => q.id));
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+      // Only the multiple choice ones: practice has no way to mark writing.
       const extra = (lesson.checks || [])
+        .filter((c) => c.type !== "written")
         .map((c, i) => ({ id: `ls-${slug}-${i}`, topic: name, kind: "concept", ...c }))
         .filter((q) => !have.has(q.id));
       const next = {
@@ -472,9 +495,10 @@ export default function App() {
     const apply = () => {
       const resolved = theme === "system" ? (mq.matches ? "dark" : "light") : theme;
       document.documentElement.dataset.theme = resolved;
-      // A palette has a light and a dark form, so it is reapplied whenever the
-      // resolved theme changes rather than only when the palette does.
-      applyCustom(custom, resolved);
+      setResolved(resolved);
+      // A theme has a light and a dark form, so it is reapplied whenever the
+      // resolved mode changes rather than only when the theme does.
+      applyLook(look, resolved);
     };
 
     apply();
@@ -483,7 +507,7 @@ export default function App() {
     if (theme !== "system") return;
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
-  }, [theme, custom]);
+  }, [theme, look]);
 
   const Page = {
     home: Dashboard,
@@ -569,7 +593,7 @@ export default function App() {
           onClick={() => { setAtLanding(true); setMenuOpen(false); }}
           title="Back to the front page"
         >
-          <DuckMark size={26} className="brand-mark-duck" />
+          <ThemeMark theme={look} dark={resolved === "dark"} size={look === "classic" ? 26 : 28} className="brand-mark-duck" />
           Dwiddle
           <span className="brand-hint">Home</span>
         </button>
@@ -698,6 +722,9 @@ export default function App() {
           editing={editing}
           setEditing={setEditing}
           openEditor={openEditor}
+          look={look}
+          setLook={setLook}
+          resolved={resolved}
         />
       </main>
 
@@ -885,8 +912,9 @@ const SHORTCUTS = [
 ];
 
 function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
-  customBg, setCustomBg, editing, setEditing, bank = [], setPMode }) {
-  const [hello] = useState(() => greeting(auth?.user ? displayName(auth.user) : null));
+  customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved }) {
+  const [pick] = useState(() => Math.random());
+  const hello = greeting(nameFor(auth?.user), pick);
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
@@ -935,14 +963,6 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
 
   return (
     <div className="page wide fade">
-      {custom?.on && (
-        <div className="dash-edit-cta">
-          <button className={"btn small" + (editing ? "" : " ghost")}
-            onClick={() => setEditing(!editing)}>
-            <Icon name="build" size={14} /> {editing ? "Editing" : "Customise"}
-          </button>
-        </div>
-      )}
 
       <div className="dash-top">
         <PageHead
@@ -1004,7 +1024,9 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
               <button className="btn ghost" onClick={() => go("sheet")}>Open notes</button>
             </div>
           </div>
-          <Duck size={120} className="dash-hero-duck" />
+          {look && look !== "classic"
+            ? <ThemeMark theme={look} dark={resolved === "dark"} size={104} className="dash-hero-duck dash-hero-mark" />
+            : <Duck size={92} className="dash-hero-duck" />}
         </div>
           ) : null,
           stats: (
@@ -1928,9 +1950,13 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) {
+function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
-  const [name, setName] = useState(() => displayName(auth?.user));
+  const [name, setNameRaw] = useState(() => auth?.user ? displayName(auth.user) : load(KEYS.name, ""));
+  function setName(v) {
+    setNameRaw(v);
+    if (!auth?.user) save(KEYS.name, v);
+  }
   const [goal, setGoal] = useState("20");
   const [style, setStyle] = useState("mixed");
   const [reminders, setReminders] = useState(true);
@@ -1946,7 +1972,32 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
-          <SetRow label="Theme" hint="System follows whatever your device is set to.">
+          <div className="th-grid" role="radiogroup" aria-label="Theme">
+            {THEMES.map((t) => {
+              const m = t[resolved] || t.light;
+              const [top, bottom] = m?.grad || t.preview[resolved];
+              const card = m?.card || t.preview[resolved][1];
+              const accent = m?.accent || t.preview[resolved][2];
+              return (
+                <button key={t.id} role="radio" aria-checked={look === t.id}
+                  className={"th-card" + (look === t.id ? " on" : "")} onClick={() => setLook(t.id)}>
+                  <span className="th-swatch" style={{ background: `linear-gradient(170deg, ${top}, ${bottom})` }}>
+                    <span className="th-mini" style={{ background: card, fontFamily: t.font }}>
+                      <i style={{ background: accent }} />
+                      <span>Aa</span>
+                    </span>
+                    {t.id !== "classic" && <ThemeMark theme={t.id} dark={resolved === "dark"} size={40} className="th-mark" />}
+                  </span>
+                  <span className="th-name">
+                    <b>{t.name}</b>
+                    {look === t.id && <Icon name="check" size={14} />}
+                  </span>
+                  <span className="small muted">{t.blurb}</span>
+                </button>
+              );
+            })}
+          </div>
+          <SetRow label="Mode" hint="Every theme has a light and a dark version. System follows your device.">
             <div className="seg">
               <button className={theme === "system" ? "on" : ""} onClick={() => setTheme("system")}>
                 System
@@ -1963,8 +2014,8 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
 
         <div className="card">
           <div className="card-head"><h3>Profile</h3></div>
-          <SetRow label="Display name" hint={auth?.user ? undefined : "Sign in to save this."}>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          <SetRow label="Display name" hint={auth?.user ? "From your account." : "What the home page calls you."}>
+            <input type="text" value={name} placeholder="Your first name" onChange={(e) => setName(e.target.value)} />
           </SetRow>
           <SetRow label="Plan" hint="Pro is coming soon.">
             <span className="pill">Free</span>
@@ -2026,21 +2077,6 @@ function Settings({ theme, setTheme, auth, custom, setCustom, openEditor, go }) 
             <button className="btn small" onClick={() => go("install")}>How</button>
           </SetRow>
         </div>}
-
-        <div className="card">
-          <div className="card-head"><h3>Developer tools</h3></div>
-          <SetRow
-            label="Developer tools"
-            hint="Adds a Customise button to the dashboard, for colours, your own photo and the layout."
-          >
-            <Switch on={!!custom?.on} onClick={() => setCustom({ ...custom, on: !custom.on })} />
-          </SetRow>
-          {custom?.on && (
-            <SetRow label="Open the editor" hint="Or press Customise on the dashboard.">
-              <button className="btn small" onClick={openEditor}>Open</button>
-            </SetRow>
-          )}
-        </div>
 
         {/* Folded away at the very bottom, and only in the installed app. It is
             findable by anyone looking for it and passed over by anyone who is

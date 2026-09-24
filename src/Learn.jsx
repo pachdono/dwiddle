@@ -163,14 +163,19 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
 
   const steps = lesson ? [
     ...lesson.cards.map((c) => ({ type: "card", ...c })),
-    ...(lesson.checks || []).map((q) => ({ type: "check", ...q })),
+    ...(lesson.checks || []).map((q) => ({ ...q, type: q.type === "written" ? "written" : "check" })),
     { type: "end" },
   ] : [];
   const step = steps[at];
   const total = steps.length - 1; // the finish screen is not a step
-  const answered = step?.type !== "check" || picked[at] !== undefined;
-  const right = steps.filter((s, i) => s.type === "check" && picked[i] === s.answer).length;
-  const checks = steps.filter((s) => s.type === "check").length;
+  const [typed, setTyped] = useState({}); // step index -> written answer
+  const [shownAt, setShownAt] = useState({}); // step index -> model answer revealed
+  const answered = (step?.type !== "check" && step?.type !== "written") || picked[at] !== undefined;
+  // A written answer is marked by the student against the model answer, so
+  // "right" there is their own honest call rather than a guess by software.
+  const right = steps.filter((s, i) =>
+    (s.type === "check" && picked[i] === s.answer) || (s.type === "written" && picked[i] === "right")).length;
+  const checks = steps.filter((s) => s.type === "check" || s.type === "written").length;
 
   const forward = useCallback(() => {
     if (!step || !answered || at >= steps.length - 1) return;
@@ -216,6 +221,8 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
       ].filter(Boolean).join(". "));
     } else if (step.type === "check") {
       voice.speak([step.q, ...step.choices.map((c, i) => `${"ABCD"[i]}. ${c}`)].join(". "));
+    } else if (step.type === "written") {
+      voice.speak(shownAt[at] ? `${step.q}. A full answer: ${step.answer}` : step.q);
     }
   }
 
@@ -301,6 +308,60 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
           </article>
         )}
 
+        {step?.type === "written" && (
+          <article className="lp-card" key={at}>
+            <span className="lp-kicker">In your own words</span>
+            <h2>{step.q}</h2>
+            <textarea
+              className="lp-write"
+              placeholder="Write your answer. A few sentences is plenty."
+              value={typed[at] || ""}
+              readOnly={!!shownAt[at]}
+              autoFocus
+              onChange={(e) => setTyped((t) => ({ ...t, [at]: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !shownAt[at]) {
+                  e.preventDefault();
+                  setShownAt((x) => ({ ...x, [at]: true }));
+                }
+              }}
+            />
+            {!shownAt[at] ? (
+              <div className="lp-write-actions">
+                <button className="btn cta" disabled={!(typed[at] || "").trim()}
+                  onClick={() => setShownAt((x) => ({ ...x, [at]: true }))}>
+                  Check my answer
+                </button>
+                <button className="btn ghost" onClick={() => setShownAt((x) => ({ ...x, [at]: true }))}>
+                  Show the answer
+                </button>
+              </div>
+            ) : (
+              <div className="lp-model fade">
+                <span className="lp-example-label">A full marks answer</span>
+                <p>{step.answer}</p>
+                {step.points?.length > 0 && (
+                  <>
+                    <span className="lp-example-label">What the examiner looks for</span>
+                    <ul>{step.points.map((pt, i) => <li key={i}>{pt}</li>)}</ul>
+                  </>
+                )}
+                <div className="lp-self">
+                  <span>Did yours have all of that?</span>
+                  <button className={"lp-self-btn" + (picked[at] === "right" ? " on right" : "")}
+                    onClick={() => setPicked((p) => ({ ...p, [at]: "right" }))}>
+                    <Icon name="check" size={14} /> Yes
+                  </button>
+                  <button className={"lp-self-btn" + (picked[at] === "wrong" ? " on wrong" : "")}
+                    onClick={() => setPicked((p) => ({ ...p, [at]: "wrong" }))}>
+                    Not quite
+                  </button>
+                </div>
+              </div>
+            )}
+          </article>
+        )}
+
         {step?.type === "end" && (
           <div className="lp-wait lp-end fade">
             <DuckSitting size={150} />
@@ -309,7 +370,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
               {checks === 1
                 ? `You got ${right ? "the check" : "the check wrong, which is what it is for"}${right ? " right" : ""}. It is in your practice questions now, with the rest of this topic.`
                 : checks
-                  ? `You got ${right} of ${checks} checks right. They are in your practice questions now, with the rest of this topic.`
+                  ? `You got ${right} of ${checks} questions right. The multiple choice ones are in your practice questions now, with the rest of this topic.`
                   : "Practise it now while it is fresh."}
             </p>
             <div className="lp-end-actions">
