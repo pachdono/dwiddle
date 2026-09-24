@@ -249,7 +249,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
           <div className="lp-wait fade">
             <DuckSitting size={150} />
             <h2>Writing your lesson</h2>
-            <p>On <b>{name}</b>, one idea at a time. This takes about twenty seconds, and only the first time.</p>
+            <p>On <b>{name}</b>, one idea at a time. This takes up to half a minute, and only happens the first time.</p>
             <div className="lp-dots" aria-hidden="true"><i /><i /><i /></div>
           </div>
         )}
@@ -277,7 +277,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
               </ul>
             )}
             {step.example && (
-              <div className="lp-example"><span>For example</span><p><Rich text={step.example} /></p></div>
+              <div className="lp-example"><span className="lp-example-label">For example</span><p><Rich text={step.example} /></p></div>
             )}
           </article>
         )}
