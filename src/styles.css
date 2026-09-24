@@ -5572,3 +5572,11 @@ kbd {
   .grid-3.dash-stats > :first-child { grid-column: 1 / -1; }
   .dash-stats .stat .v { font-size: 24px; }
 }
+
+.dash-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.dash-top .page-head { flex: 1; min-width: 0; }
+.dash-add { flex: 0 0 auto; margin-top: 6px; }
+@media (max-width: 560px) {
+  .dash-top { flex-direction: column; gap: 0; }
+  .dash-add { margin: -8px 0 20px; }
+}

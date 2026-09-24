@@ -944,14 +944,19 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
         </div>
       )}
 
-      <PageHead
-        title={hello}
-        sub={greetingSub() || (started
-          ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
-          : topics.length > 0
-            ? "Ready when you are."
-            : "Turn your notes into lessons and questions, and sit full length practice papers.")}
-      />
+      <div className="dash-top">
+        <PageHead
+          title={hello}
+          sub={greetingSub() || (started
+            ? `${stats.answered} question${stats.answered === 1 ? "" : "s"} answered so far. Pick up where you left off.`
+            : topics.length > 0
+              ? "Ready when you are."
+              : "Turn your notes into lessons and questions, and sit full length practice papers.")}
+        />
+        <button className="btn cta dash-add" onClick={() => go("upload")}>
+          <Icon name="plus" size={15} /> Add material
+        </button>
+      </div>
 
       <div className="stack">
         {topics.length === 0 && (
