@@ -129,6 +129,15 @@ const toNotes = (sectionLists) => Object.fromEntries(
   sectionLists.flat().map((sec) => [sec.topic, sec.blocks.map(tidyBlock)]),
 );
 
+// Whether a short input is a request to study something, and if it is unclear,
+// the one or two questions worth asking before writing anything.
+export const clarify = (text) => post("/api/generate", { notes: text, mode: "clarify" });
+
+// Study notes written on a requested topic, which then go through the same
+// pipeline as notes someone pasted.
+export const writeBrief = (text, answers) =>
+  post("/api/generate", { notes: text, mode: "brief", answers }).then((d) => d.notes);
+
 export async function generateFromNotes(notes) {
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];

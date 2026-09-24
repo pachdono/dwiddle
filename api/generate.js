@@ -216,7 +216,73 @@ function sheetSize(length) {
     : "4 big idea lines, 7 terms and 4 watch out lines";
 }
 
+const CLARIFY = `A student typed or pasted this into a study app that turns material into notes, lessons and practice questions.
+
+Decide two things and return ONE JSON object, nothing else:
+{
+  "kind": "notes" or "request",
+  "clear": true or false,
+  "questions": [
+    { "id": "short_id", "q": "a short, friendly question", "options": ["2 to 5 short options"], "multi": true or false }
+  ]
+}
+
+"kind" is "notes" when it is study material itself (notes, a passage, a chapter, a list of facts), and "request" when it names something the student wants to study, like "photosynthesis" or "IGCSE chemistry paper 2".
+
+"clear" is true whenever good material could be written without guessing. Most inputs are clear. Notes are always clear. A request is clear when the topic is specific and the level is obvious or makes little difference.
+
+Only when a request is genuinely unclear, ask at most 2 questions, most important first:
+- which part of a broad subject they mean, with the main parts as options and "multi": true, since several can be chosen together;
+- the level, when it changes what should be taught, with options such as "GCSE / IGCSE", "A Level / IB", "University", "Just the basics", and "multi": false.
+Options are specific to what they typed, 1 to 5 words each. Never ask about something they already said. Never add "All of the above" or "Other"; the app adds those.
+When "clear" is true, "questions" is [].
+Write in British English. Do not use em dashes or en dashes.`;
+
+const BRIEF = `You write complete, accurate study notes on a topic a student asked for, at the level they asked for, as a good textbook section would.
+
+Plain text only, no JSON and no markdown symbols. Put each heading on its own line in Title Case. Under each heading write short paragraphs and lists, one item per line starting with a hyphen.
+
+Include every definition a student at that level must know, the key facts and figures, how and why things happen, formulae with what each symbol means, one or two concrete examples per section, and the mistakes students commonly make.
+Cover the whole of what was asked, in the order a teacher would teach it, in 5 to 8 sections and about 1,200 to 1,600 words.
+Only well established facts. Where exam boards differ, keep to what they share.
+Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °.
+Write in British English. Do not use em dashes or en dashes.`;
+
 async function part(req, res, mode, notes) {
+  if (mode === "clarify") {
+    const text = await ask({ system: CLARIFY, user: notes, maxTokens: 500, json: true, temperature: 0.2 });
+    const data = safeParse(text, "kind") || {};
+    const kind = data.kind === "request" ? "request" : "notes";
+    const questions = data.clear === true || kind === "notes" ? [] :
+      (Array.isArray(data.questions) ? data.questions : [])
+        .filter((q) => q && typeof q.q === "string" && Array.isArray(q.options) && q.options.length >= 2)
+        .slice(0, 2)
+        .map((q, i) => ({
+          id: String(q.id || `q${i}`).slice(0, 30),
+          q: String(q.q).slice(0, 140),
+          options: q.options.map((o) => String(o).slice(0, 60)).filter(Boolean).slice(0, 5),
+          multi: !!q.multi,
+        }));
+    return res.status(200).json({ kind, questions });
+  }
+
+  if (mode === "brief") {
+    const answers = (Array.isArray(req.body?.answers) ? req.body.answers : [])
+      .filter((a) => a && a.q && Array.isArray(a.chosen) && a.chosen.length)
+      .slice(0, 3)
+      .map((a) => `${String(a.q).slice(0, 140)} ${a.chosen.map((c) => String(c).slice(0, 120)).join(", ")}`);
+    const text = await ask({
+      system: BRIEF,
+      user: `What the student asked for: ${notes}${answers.length ? `\n\nWhat they chose when asked:\n${answers.join("\n")}` : ""}`,
+      maxTokens: 2800,
+      temperature: 0.3,
+    });
+    const written = String(text || "").replace(/[\u2013\u2014]/g, ", ").trim();
+    if (written.length < 400) return userError(res, 502, "The notes on that topic did not come back complete. Try again.");
+    return res.status(200).json({ notes: written });
+  }
+
+
   if (mode === "plan") {
     const text = await ask({ system: PLAN, user: `The notes:\n\n${notes}`, maxTokens: 900, json: true, temperature: 0.2 });
     const data = safeParse(text, "topics");
@@ -310,6 +376,16 @@ export default async function handler(req, res) {
   const syllabus = req.body?.syllabus;
   const notes = String(req.body?.notes || "").trim();
   const mode = req.body?.mode;
+
+  if (mode === "clarify" || mode === "brief") {
+    if (notes.length < 2) return userError(res, 400, "Type what you want to study, or paste your notes");
+    if (notes.length > 2000) return userError(res, 413, "That is long enough to use as notes directly.");
+    try {
+      return await part(req, res, mode, notes);
+    } catch (err) {
+      return fail(res, err);
+    }
+  }
 
   if (mode) {
     if (notes.length < 200) return userError(res, 400, "Give at least a couple of paragraphs of notes to work from");

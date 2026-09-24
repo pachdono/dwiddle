@@ -9,13 +9,14 @@ import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief } from "./ai.js";
+import { Clarify } from "./Clarify.jsx";
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { ThemeMark } from "./ThemeMark.jsx";
 import { THEMES, loadLook, saveLook, applyLook } from "./themes.js";
-import { readFile, MAX_FILE } from "./readfile.js";
+import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Landing } from "./Landing.jsx";
 import Legal from "./Legal.jsx";
 import { EditBar, EditSlot, useDragOrder } from "./DashEdit.jsx";
@@ -1326,40 +1327,78 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
 const LIMIT = 24000; // characters the server takes in one call
 
+const MAX_MATERIAL_FILES = 10;
+// Shorter than this, what someone typed may be a request to study something
+// rather than notes, so it is looked at before anything is written.
+const REQUEST_LIMIT = 1500;
+
 function AddMaterial({ go, setMade, auth }) {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]); // [{ file, url }] in the order added
   const [notes, setNotes] = useState("");
   const [over, setOver] = useState(false);
-  const [state, setState] = useState("idle"); // idle | reading | working | done | error
+  const [state, setState] = useState("idle"); // idle | reading | asking | clarify | brief | working | done | error
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [long, setLong] = useState("");
+  const [reading, setReading] = useState(0);
+  const [ask, setAsk] = useState(null); // { text, questions } while the clarifying questions are up
   const [progress, setProgress] = useState(null); // { n, of } while working in parts
   const [waiting, setWaiting] = useState(null); // { seconds, why } between parts
   const [unfinished, setUnfinished] = useState(null); // { rest, done, error } if a long job stopped early
 
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
-  const ready = !!file || words > 0;
+  const ready = files.length > 0 || words > 0;
+  const busy = ["reading", "asking", "brief", "working"].includes(state);
 
-  // Out of free generations, and not signed in.
-  const locked = generationsLeft(auth?.user) <= 0;
-
-  function accept(f) {
-    if (!f) return;
-    if (f.size > MAX_FILE) {
-      setError(`That file is ${(f.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit.`);
+  function accept(list) {
+    const incoming = [...(list || [])];
+    if (!incoming.length) return;
+    const big = incoming.find((f) => f.size > MAX_FILE);
+    if (big) {
+      setError(`${big.name} is ${(big.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit.`);
       setState("error");
       return;
     }
-    setError("");
-    setState("idle");
-    setFile(f);
+    setFiles((prev) => {
+      const room = MAX_MATERIAL_FILES - prev.length;
+      if (incoming.length > room) {
+        setError(`Up to ${MAX_MATERIAL_FILES} files at a time.${room > 0 ? ` The first ${room} were added.` : ""}`);
+        setState("error");
+      } else {
+        setError("");
+        setState("idle");
+      }
+      return [...prev, ...incoming.slice(0, Math.max(0, room)).map((file) => ({
+        file, url: IMAGE.test(file.name) ? URL.createObjectURL(file) : "",
+      }))];
+    });
   }
 
-  async function onDrop(e) {
+  function remove(i) {
+    setFiles((prev) => {
+      if (prev[i]?.url) URL.revokeObjectURL(prev[i].url);
+      return prev.filter((_, n) => n !== i);
+    });
+  }
+
+  // A screenshot on the clipboard goes straight in, unless the paste is into
+  // the notes box, where it is text someone meant to paste.
+  useEffect(() => {
+    const onPaste = (e) => {
+      if (e.target instanceof HTMLElement && e.target.closest("textarea, input")) return;
+      const pasted = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
+      if (!pasted.length) return;
+      e.preventDefault();
+      accept(pasted.map((f, i) => new File([f], `Pasted ${Date.now()}${i ? `-${i}` : ""}.png`, { type: f.type })));
+    };
+    addEventListener("paste", onPaste);
+    return () => removeEventListener("paste", onPaste);
+  }, []);
+
+  function onDrop(e) {
     e.preventDefault();
     setOver(false);
-    accept(e.dataTransfer.files?.[0]);
+    accept(e.dataTransfer.files);
   }
 
   async function run() {
@@ -1368,15 +1407,37 @@ function AddMaterial({ go, setMade, auth }) {
       return;
     }
     setError("");
-    let text = notes;
+    const parts = [];
 
-    if (file) {
+    // In order, one at a time: each photo is a call to the reading model.
+    for (let i = 0; i < files.length; i++) {
       setState("reading");
+      setReading(i + 1);
       try {
-        text = await readFile(file);
+        const read = (await readFile(files[i].file)).trim();
+        if (read) parts.push(files.length > 1 ? `${files[i].file.name}\n\n${read}` : read);
       } catch (err) {
         setState("error");
-        setError(err.message);
+        setError(files.length > 1 ? `${files[i].file.name}: ${err.message}` : err.message);
+        return;
+      }
+    }
+    if (notes.trim()) parts.push(notes.trim());
+    const text = parts.join("\n\n");
+
+    // Something short may be a request, "photosynthesis" say, rather than
+    // notes. It is checked, and only asked about if it is genuinely unclear.
+    if (!files.length && text.trim().length < REQUEST_LIMIT) {
+      setState("asking");
+      let seen = null;
+      try { seen = await clarify(text.trim()); } catch { seen = null; }
+      if (seen?.kind === "request" || (!seen && text.trim().length < 200)) {
+        if (seen?.questions?.length) {
+          setAsk({ text: text.trim(), questions: seen.questions });
+          setState("clarify");
+        } else {
+          fromRequest(text.trim(), []);
+        }
         return;
       }
     }
@@ -1390,6 +1451,20 @@ function AddMaterial({ go, setMade, auth }) {
       return;
     }
     build(text, false);
+  }
+
+  // Writes the notes on a requested topic, then builds from them exactly as
+  // from notes someone pasted.
+  async function fromRequest(request, answers) {
+    setAsk(null);
+    setState("brief");
+    try {
+      const written = await writeBrief(request, answers);
+      build(written, false);
+    } catch (err) {
+      setState("error");
+      setError(err.message);
+    }
   }
 
   // Carrying on adds to what is already there rather than replacing it, and
@@ -1431,30 +1506,51 @@ function AddMaterial({ go, setMade, auth }) {
 
   return (
     <div className="page fade">
-      <PageHead title="Add material" sub="Drop in a PDF, Word, PowerPoint or a photo of your notes, and we build the questions." />
+      <PageHead title="Add material" sub="Drop in PDFs, slides or photos of your notes, or just type a topic, and Dwiddle builds the notes, lessons and questions." />
 
       <div className="stack">
         <label
-          className={"drop" + (over ? " over" : "") + (file ? " has" : "")}
+          className={"drop" + (over ? " over" : "") + (files.length ? " compact" : "")}
           onDragOver={(e) => { e.preventDefault(); setOver(true); }}
           onDragLeave={() => setOver(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept=".pdf,.docx,.pptx,.txt,.md,image/*" hidden
-            onChange={(e) => accept(e.target.files?.[0])} />
-          <span className="drop-icon"><Icon name={file ? "file" : "upload"} size={20} /></span>
-          {file ? (
+          <input type="file" multiple accept=".pdf,.docx,.pptx,.txt,.md,image/*" hidden
+            onChange={(e) => { accept(e.target.files); e.target.value = ""; }} />
+          <span className="drop-icon"><Icon name={files.length ? "plus" : "upload"} size={20} /></span>
+          {files.length ? (
             <>
-              <b>{file.name}</b>
-              <span className="small muted">{(file.size / 1024).toFixed(0)} KB, ready to process</span>
+              <b>{files.length === 1 ? "1 file added" : `${files.length} files added`}</b>
+              <span className="small muted">
+                {files.length < MAX_MATERIAL_FILES
+                  ? "Add more, or paste a screenshot. They are read in this order."
+                  : `That is the most at once (${MAX_MATERIAL_FILES})`}
+              </span>
             </>
           ) : (
             <>
-              <b>Drop a file here, or click to browse</b>
-              <span className="small muted">PDF, Word, PowerPoint, a photo, or plain text, up to 20 MB</span>
+              <b>Drop files here, or click to browse</b>
+              <span className="small muted">PDF, Word, PowerPoint, photos or plain text. Up to {MAX_MATERIAL_FILES} at once, 20 MB each</span>
             </>
           )}
         </label>
+
+        {files.length > 0 && (
+          <ul className="sv-files" aria-label="Files to use">
+            {files.map((f, i) => (
+              <li key={f.url || f.file.name + i} className={state === "reading" && reading === i + 1 ? "on" : ""}>
+                <span className="sv-thumb">
+                  {f.url ? <img src={f.url} alt="" /> : <Icon name="file" size={18} />}
+                  <i>{i + 1}</i>
+                </span>
+                <span className="sv-fname">{f.file.name}</span>
+                <button className="sv-x" onClick={() => remove(i)} disabled={busy} aria-label={`Remove ${f.file.name}`}>
+                  <Icon name="close" size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="or"><span>or</span></div>
 
@@ -1462,27 +1558,29 @@ function AddMaterial({ go, setMade, auth }) {
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name="text" size={14} /></span>
-              <b className="small">Paste your notes</b>
+              <b className="small">{files.length ? "Add anything else" : "Paste your notes, or say what to study"}</b>
             </div>
             <button className="btn quiet" onClick={() => setNotes(SAMPLE_NOTES)}>Use sample</button>
           </div>
 
           <textarea
             className="notes-area"
-            placeholder="Paste lecture notes, a chapter, or a syllabus."
+            placeholder={files.length ? "Anything the files miss." : "Paste lecture notes or a chapter. Or just type a topic, like \"photosynthesis\" or \"IGCSE chemistry bonding\"."}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
 
           <div className="notes-foot">
             <span className="small muted">
-              {state === "reading" ? "Reading the file"
-                : words === 0 ? "Plain text works best"
+              {state === "reading" ? `Reading ${files.length > 1 ? `file ${reading} of ${files.length}` : "the file"}`
+                : words === 0 ? (files.length ? "Optional" : "Plain text works best")
                 : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
-            <button className="btn cta" disabled={!ready || state === "reading" || state === "working"}
+            <button className="btn cta" disabled={!ready || busy}
               onClick={state === "done" ? () => go("quiz") : run}>
-              {state === "reading" ? <Loading label="Reading file" />
+              {state === "reading" ? <Loading label={files.length > 1 ? `Reading ${reading} of ${files.length}` : "Reading file"} />
+                : state === "asking" ? <Loading label="Reading your request" />
+                : state === "brief" ? <Loading label="Writing notes" />
                 : state === "working" ? <Loading label="Building questions" />
                 : state === "done" ? <>Start practice <Icon name="arrow" /></>
                 : "Generate questions"}
@@ -1509,6 +1607,23 @@ function AddMaterial({ go, setMade, auth }) {
 
         {state === "locked" && (
           <FreeGate onClose={() => setState("idle")} onSignIn={() => go("settings")} />
+        )}
+
+        {state === "brief" && (
+          <div className="card card-pad note-card fade">
+            <b className="small">Writing notes on that topic first</b>
+            <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
+              Then the topics, lessons and questions are built from them, the same as from your own notes.
+              About a minute and a half in all.
+            </p>
+          </div>
+        )}
+
+        {state === "clarify" && ask && (
+          <Clarify asked={ask.text.length > 60 ? ask.text.slice(0, 57) + "..." : ask.text}
+            questions={ask.questions}
+            onDone={(answers) => fromRequest(ask.text, answers)}
+            onSkip={() => { setAsk(null); setState("idle"); }} />
         )}
 
         {state === "done" && unfinished && (

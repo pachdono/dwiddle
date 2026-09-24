@@ -5718,3 +5718,32 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .uw-body, .uw-walker.pacing, .uw-track span.indeterminate { animation: none; }
 }
+
+/* ---------- clarifying questions ---------- */
+
+.gate.cl { max-width: 520px; text-align: left; }
+.gate.cl h2, .gate.cl .gate-sub { text-align: center; }
+.cl-art { display: grid; place-items: center; }
+.cl-bob { animation: cl-bob 2.4s ease-in-out infinite; transform-origin: 63px 128px; }
+@keyframes cl-bob { 50% { transform: rotate(-3deg) translateY(-2px); } }
+.cl-mark { animation: cl-pop 2.4s ease-in-out infinite; transform-origin: 112px 26px; }
+@keyframes cl-pop { 50% { transform: scale(1.08) rotate(6deg); } }
+.cl-qs { display: grid; gap: 16px; margin: 18px 0 6px; }
+.cl-q { border: 0; margin: 0; padding: 0; min-width: 0; }
+.cl-q legend { font-weight: 600; font-size: 14.5px; margin-bottom: 8px; padding: 0; }
+.cl-q legend span { font-weight: 500; font-size: 12px; color: var(--ink-3); margin-left: 6px; }
+.cl-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cl-opt {
+  padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface); font-size: 13.5px; font-weight: 500;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.cl-opt:hover { border-color: var(--ink-3); }
+.cl-opt.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.cl-opt.all { border-style: dashed; }
+.cl-opt.all.on { border-style: solid; }
+.cl-other {
+  margin-top: 8px; width: 100%; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--sunken); font-size: 13.5px;
+}
+@media (prefers-reduced-motion: reduce) { .cl-bob, .cl-mark { animation: none; } }
