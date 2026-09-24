@@ -55,12 +55,14 @@ This is the standard to write to. Match its quality, not its subject:
 }
 
 How to write it:
-- Between 4 and 7 cards, depending on how much there genuinely is to teach. Never pad.
+- Between 4 and 6 cards, depending on how much there genuinely is to teach. Never pad.
+- Each card's body is two or three short sentences. Brevity is what makes a card readable at a glance.
 - The first card sets the idea up. Each card after it adds exactly one new idea, in the order a teacher would introduce them. The last card pulls the topic together.
 - Headings are specific and vivid, naming the idea in plain words the way a good textbook subheading does. Never "Definition of", "Introduction to", "Overview" or "Summary".
 - Explain in your own words, as a good teacher would say it out loud. Never copy sentences from the source.
-- Every card puts at least one key term in **double asterisks** the first time it appears, followed straight away by what it means in brackets.
-- At least half the cards have "points", 2 to 4 of them, breaking the idea into its parts, types or cases, each with a concrete example where one fits. Leave "points" empty only where a paragraph genuinely says it better.
+- Put each key term in **double asterisks** the first time it appears in the lesson, followed straight away by what it means in brackets. Define each term once in the whole lesson; after that, use it plainly.
+- The meaning in brackets must be accurate. Where the source defines the term, use its definition. Never invent a detail, direction, number or fact to make an explanation vivid.
+- About half the cards have "points", 2 or 3 of them, breaking the idea into its parts, types or cases, each with a concrete example where one fits. The other cards leave "points" empty.
 - At least two cards have an "example": a real, specific case a student would recognise.
 - Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
@@ -116,8 +118,8 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM + rules,
       user,
-      maxTokens: 2600,
-      temperature: 0.5,
+      maxTokens: 2000,
+      temperature: 0.35,
       json: true,
     });
 
