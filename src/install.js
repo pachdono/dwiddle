@@ -70,28 +70,36 @@ export function platform() {
   return { id: "other", name: "this device" };
 }
 
-// Where the installers live. They are 120 to 150 MB, which is far past what a
+// Where the installers live. The full ones are 100 to 120 MB, far past what a
 // deployment will serve, so they sit on a releases page instead.
 //
-// ready stays false until that page exists, and the download card simply does
-// not appear, rather than offering a link that 404s.
-const RELEASE = "https://github.com/pachdono/dwiddle-releases/releases/download/v1.1.0/";
+// Every link is built from VERSION, so moving the page to a new release is a
+// one line change. They used to be written out by hand, and changing the
+// version shown on the page left every link still pointing at the old files.
+const VERSION = "1.1.4";
+const RELEASE = `https://github.com/pachdono/dwiddle-releases/releases/download/v${VERSION}/`;
 
 export const DOWNLOADS = {
   ready: true,
   // The environment variable still wins, so a new build can be pointed
   // somewhere else without a code change.
   base: import.meta.env.VITE_DOWNLOAD_BASE || RELEASE,
-  version: "1.1.4",
+  version: VERSION,
   page: "https://github.com/pachdono/dwiddle-releases/releases/latest",
 };
 
-const MAC_ARM = { file: "Dwiddle-1.1.0-arm64.dmg", label: "Download for Mac (Apple Silicon)", primary: true };
-const MAC_X64 = { file: "Dwiddle-1.1.0-x64.dmg", label: "Intel Mac", primary: false };
-const WINDOWS = { file: "Dwiddle-Setup-1.1.0.exe", label: "Download for Windows", primary: true };
+// The Mac installer is small and served from this site. It fetches whichever
+// version is newest when it runs, so it never goes out of date.
+const MAC_SMALL = { href: "/Install-Dwiddle.zip", file: "Install-Dwiddle.zip", label: "Download for Mac", primary: true };
+const MAC_ARM = { file: `Dwiddle-${VERSION}-arm64.dmg`, label: "Disk image, Apple Silicon", primary: false };
+const MAC_X64 = { file: `Dwiddle-${VERSION}-x64.dmg`, label: "Disk image, Intel", primary: false };
+const WINDOWS = { file: `Dwiddle-Setup-${VERSION}.exe`, label: "Download for Windows", primary: true };
+
+// The address a download button goes to.
+export const hrefOf = (d) => d.href || DOWNLOADS.base + d.file;
 
 export function downloadFor(id) {
-  if (id === "windows") return [WINDOWS, { ...MAC_ARM, label: "Mac", primary: false }];
-  if (id === "mac-chromium" || id === "mac-safari") return [MAC_ARM, MAC_X64, { ...WINDOWS, label: "Windows", primary: false }];
-  return [MAC_ARM, WINDOWS];
+  if (id === "windows") return [WINDOWS, { ...MAC_SMALL, label: "Mac", primary: false }];
+  if (id === "mac-chromium" || id === "mac-safari") return [MAC_SMALL, MAC_ARM, MAC_X64];
+  return [MAC_SMALL, WINDOWS];
 }
