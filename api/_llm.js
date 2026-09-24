@@ -429,6 +429,9 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
       if (reply.status === 429 && /per.?day|daily/i.test(body)) {
         console.warn(`[api] ${p.id} daily allowance spent: ${body.slice(0, 160)}`);
         spentForToday = true;
+        // Every free model on the key draws on the same daily allowance, so
+        // trying the rest only spends more requests on the same refusal.
+        break;
       }
 
       if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
