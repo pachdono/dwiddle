@@ -9,7 +9,8 @@ import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, gradeWriting, notifyFeedback } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback } from "./ai.js";
+import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { readFile, MAX_FILE } from "./readfile.js";
@@ -1112,6 +1113,8 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
 /* ---------- add material ---------- */
 
+const LIMIT = 24000; // characters the server takes in one call
+
 function AddMaterial({ go, setMade, auth }) {
   const [file, setFile] = useState(null);
   const [notes, setNotes] = useState("");
@@ -1119,6 +1122,8 @@ function AddMaterial({ go, setMade, auth }) {
   const [state, setState] = useState("idle"); // idle | reading | working | done | error
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [long, setLong] = useState("");
+  const [progress, setProgress] = useState(null); // { n, of } while working in parts
 
   const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
   const ready = !!file || words > 0;
@@ -1163,17 +1168,42 @@ function AddMaterial({ go, setMade, auth }) {
       }
     }
 
+    // Past what one go can take, the choice is theirs: all of it in parts, or
+    // the first ten pages. The server would only have refused it anyway, after
+    // the whole file had been read.
+    if (text.trim().length > LIMIT) {
+      setLong(text);
+      setState("toomuch");
+      return;
+    }
+    build(text, false);
+  }
+
+  async function build(text, inParts) {
     setState("working");
+    setProgress(null);
     try {
-      const data = await generateFromNotes(text);
+      let data;
+      if (inParts) {
+        // Each part is remembered as the source for its own topics, so a lesson
+        // is later taught from that part alone and stays inside the limit.
+        data = await generateInParts(text, {
+          onProgress: (n, of) => setProgress({ n, of }),
+          onPart: (material, partText) => rememberSource(material, { notes: partText }),
+        });
+      } else {
+        data = await generateFromNotes(text);
+        rememberSource(data, { notes: text });
+      }
       countGeneration(auth?.user);
-      rememberSource(data, { notes: text });
       setResult(data);
       setMade(data, { replace: true });
       setState("done");
     } catch (err) {
       setState("error");
       setError(err.message);
+    } finally {
+      setProgress(null);
     }
   }
 
@@ -1240,7 +1270,9 @@ function AddMaterial({ go, setMade, auth }) {
 
         {state === "working" && (
           <div className="card card-pad note-card fade">
-            <b className="small">This takes up to a minute</b>
+            <b className="small">
+              {progress ? `Part ${progress.n} of ${progress.of}. Each part takes up to a minute.` : "This takes up to a minute"}
+            </b>
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>
               The model is reading your notes and writing the topics, the questions, the explanation
               for each answer, and the study sheet in one pass.
@@ -1252,6 +1284,15 @@ function AddMaterial({ go, setMade, auth }) {
 
         {state === "locked" && (
           <FreeGate onClose={() => setState("idle")} onSignIn={() => go("settings")} />
+        )}
+
+        {state === "toomuch" && (
+          <TooMuch
+            text={long}
+            onAll={() => build(long, true)}
+            onFirst={() => build(splitSource(long)[0], false)}
+            onClose={() => setState("idle")}
+          />
         )}
 
         {state === "error" && (

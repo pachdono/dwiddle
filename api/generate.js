@@ -302,9 +302,10 @@ async function part(req, res, mode, notes) {
 }
 
 export default async function handler(req, res) {
-  // A generation from notes is now several calls arriving together, a plan
-  // then up to four at once, so the allowance per minute is higher to match.
-  if (!allow(req, res, { limit: 16 })) return;
+  // A generation from notes is several calls arriving together, a plan then up
+  // to five at once, and a long source repeats that for each part back to back,
+  // so the allowance per minute is sized for a five part job rather than one.
+  if (!allow(req, res, { limit: 40 })) return;
 
   const syllabus = req.body?.syllabus;
   const notes = String(req.body?.notes || "").trim();

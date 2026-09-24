@@ -157,6 +157,79 @@ export async function generateFromNotes(notes) {
   });
 }
 
+// ---------- more than fits in one go ----------
+
+// The most one call is given, a little under the server's own limit so a part
+// never trips it. About ten pages of a textbook.
+export const PART = 22000;
+export const MAX_PARTS = 5; // about forty five pages; past that, split by chapter
+export const pagesOf = (chars) => Math.max(1, Math.round(chars / 2400));
+
+// Cuts a long source into parts at line and sentence breaks, never mid word
+// where it can be helped. A PDF comes through as one line per page, so a part
+// usually ends at the end of a page.
+export function splitSource(text, cap = PART) {
+  const clean = String(text || "").trim();
+  if (clean.length <= cap) return [clean];
+  const sentences = (line) => line.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) || [line];
+  const hard = (piece) => piece.match(new RegExp(`[\\s\\S]{1,${cap}}`, "g"));
+  const pieces = clean.split(/\n+/)
+    .flatMap((line) => (line.length <= cap ? [line] : sentences(line)))
+    .flatMap((piece) => (piece.length <= cap ? [piece] : hard(piece)));
+
+  const parts = [];
+  let cur = "";
+  for (const piece of pieces) {
+    if (cur && cur.length + piece.length + 1 > cap) { parts.push(cur); cur = ""; }
+    cur += (cur ? "\n" : "") + piece;
+  }
+  if (cur) parts.push(cur);
+
+  // A last part of a sentence or two makes a poor lesson and falls under the
+  // server's minimum, so it joins the one before it.
+  const last = parts[parts.length - 1];
+  if (parts.length > 1 && last.length < 2000 && parts[parts.length - 2].length + last.length < 24000) {
+    parts[parts.length - 2] += "\n" + parts.pop();
+  }
+  return parts;
+}
+
+// One part's material folded into the whole. Question ids are made unique per
+// part, and a topic that carries on from one part into the next keeps one
+// name, one set of notes and one count rather than appearing twice.
+function mergeMaterial(into, part, n) {
+  const tag = (id) => (n === 0 ? id : `p${n}-${id}`);
+  const questions = part.questions.map((q) => ({ ...q, id: tag(q.id) }));
+  if (!into) return { ...part, questions, topics: part.topics.map((t) => ({ ...t, id: tag(t.id) })) };
+
+  const topics = into.topics.map((t) => ({ ...t }));
+  part.topics.forEach((t) => {
+    const same = topics.find((x) => x.name === t.name);
+    if (same) same.questions += t.questions;
+    else topics.push({ ...t, id: tag(t.id) });
+  });
+  const notes = { ...into.notes };
+  Object.entries(part.notes || {}).forEach(([name, blocks]) => {
+    notes[name] = [...(notes[name] || []), ...blocks];
+  });
+  return { ...into, topics, notes, questions: [...into.questions, ...questions] };
+}
+
+// Works through a long source a part at a time and returns it as one set of
+// material. onPart hears about each part as it finishes, with the text it came
+// from, so lessons for those topics can later be taught from that part alone.
+export async function generateInParts(text, { onProgress, onPart } = {}) {
+  const parts = splitSource(text).slice(0, MAX_PARTS);
+  let whole = null;
+  for (let n = 0; n < parts.length; n++) {
+    onProgress?.(n + 1, parts.length);
+    const material = await generateFromNotes(parts[n]);
+    onPart?.(material, parts[n]);
+    whole = mergeMaterial(whole, material, n);
+  }
+  return whole;
+}
+
 // Full notes for topics that do not have them yet: material made before full
 // notes existed, or a batch that failed the first time.
 export async function writeNotes(text, topics) {

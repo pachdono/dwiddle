@@ -305,3 +305,101 @@ export function DuckSign({ size = 190, className = "" }) {
     </svg>
   );
 }
+
+// The same duck, holding a door shut on more paper than fits behind it.
+//
+// Drawn for material that is too long to take in one go. It has to say "too
+// much" without saying "you did something wrong", so the duck is on the
+// student's side of the problem: bracing the door, sweating a little, with the
+// pages escaping round the edges.
+export function DuckDoor({ size = 220, className = "" }) {
+  const PAPER = "#FFFFFF";
+  const RULE = "#D9DCE3";
+  const DOOR = "#C98F5E";
+  const DOOR_DARK = "#A8723F";
+  const FRAME = "#8A5A30";
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size * (160 / 220)}
+      viewBox="0 0 220 160"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Dwiddle duck holding a door shut against a pile of paper"
+    >
+      <ellipse cx="112" cy="150" rx="92" ry="6" fill="#000" opacity="0.06" />
+
+      {/* pages escaping from behind the door, over the top and out of the far side */}
+      <g transform="rotate(-14 142 22)">
+        <rect x="128" y="8" width="26" height="32" rx="2" fill={PAPER} stroke={RULE} />
+        <path d="M133 16h16M133 21h16M133 26h11" stroke={RULE} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(10 166 20)">
+        <rect x="153" y="6" width="26" height="32" rx="2" fill={PAPER} stroke={RULE} />
+        <path d="M158 14h16M158 19h16M158 24h11" stroke={RULE} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(-6 186 24)">
+        <rect x="174" y="12" width="24" height="30" rx="2" fill={PAPER} stroke={RULE} />
+        <path d="M179 20h14M179 25h14M179 30h9" stroke={RULE} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(24 196 62)">
+        <rect x="184" y="48" width="24" height="30" rx="2" fill={PAPER} stroke={RULE} />
+        <path d="M189 56h14M189 61h14M189 66h9" stroke={RULE} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(-12 196 104)">
+        <rect x="185" y="90" width="24" height="30" rx="2" fill={PAPER} stroke={RULE} />
+        <path d="M190 98h14M190 103h14M190 108h9" stroke={RULE} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      {/* and one that got away */}
+      <g transform="rotate(28 206 26)">
+        <rect x="198" y="16" width="16" height="20" rx="1.5" fill={PAPER} stroke={RULE} />
+        <path d="M201 22h10M201 26h10M201 30h6" stroke={RULE} strokeWidth="1.3" strokeLinecap="round" />
+      </g>
+
+      {/* the door, frame first, pushed a touch open at the far edge */}
+      <rect x="116" y="20" width="80" height="128" rx="3" fill={FRAME} />
+      <path d="M121 25 L193 21 L193 147 L121 143 Z" fill={DOOR} />
+      <path d="M129 34 L185 31 L185 78 L129 80 Z" fill={DOOR_DARK} opacity="0.45" />
+      <path d="M129 92 L185 91 L185 136 L129 134 Z" fill={DOOR_DARK} opacity="0.45" />
+      <circle cx="182" cy="86" r="4" fill="#E9C46A" />
+      {/* a sliver of page caught in the gap at the hinge side */}
+      <path d="M193 40 l9 -4 l3 9 l-9 3 z" fill={PAPER} stroke={RULE} />
+
+      {/* strain lines where the door is being held */}
+      <path d="M112 12 l-5 -7 M122 9 l0 -8 M132 11 l5 -7" stroke="#B9BFCC" strokeWidth="2" strokeLinecap="round" />
+
+      {/* the duck, leaning its whole weight into the door */}
+      <g transform="translate(6 10) rotate(10 63 124)">
+        <ellipse cx="49" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 124)" />
+        <ellipse cx="77" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 124)" />
+        <ellipse cx="63" cy="90" rx="45" ry="31" fill={YELLOW} />
+        <circle cx="63" cy="59" r="29" fill={YELLOW} />
+        <ellipse cx="63" cy="74" rx="42" ry="24" fill={YELLOW} />
+        <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />
+        <ellipse cx="31" cy="88" rx="12" ry="19" fill={WING} transform="rotate(-6 31 88)" />
+        {/* the near wing, flat against the door */}
+        <ellipse cx="107" cy="72" rx="9" ry="21" fill={WING} transform="rotate(-10 107 72)" />
+        <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
+        <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+        <rect x="27" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+        <rect x="87" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+        <rect x="40" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
+        <rect x="66" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
+        <rect x="59" y="43" width="9" height="4" rx="1.6" fill={BLACK} />
+        <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
+        <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
+        <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} />
+        <ellipse cx="64" cy="25" rx="27" ry="6" fill={STRAW_LIGHT} />
+        <path d="M47 24.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
+        <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
+        <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+        <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </g>
+
+      {/* one bead of sweat */}
+      <path d="M30 40 c-4 6 -4 10 0 11 c4 -1 4 -5 0 -11 z" fill="#8FB8F0" />
+    </svg>
+  );
+}
