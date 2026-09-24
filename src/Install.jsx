@@ -174,12 +174,12 @@ const GUIDES = {
 const DOWNLOAD_GUIDES = {
   mac: {
     title: "Install on your Mac",
-    note: "The installer is small. It fetches the newest Dwiddle for your Mac, Apple Silicon or Intel, and checks it before installing.",
+    note: "Choose Apple Silicon for any Mac from late 2020 onwards, and Intel for older ones.",
     steps: [
-      "Open Install Dwiddle from your Downloads. Safari unzips it for you; in Chrome, open the zip first.",
-      "The first time only, macOS asks whether to open it: right click it and choose Open, then Open again. On macOS 15 and later, go to System Settings, Privacy and Security, and choose Open Anyway.",
-      "It downloads Dwiddle, puts it in Applications and opens it. About half a minute.",
-      "From then on it opens from Launchpad or the Dock, and keeps itself up to date.",
+      "Open the file you downloaded. A window opens with Dwiddle and your Applications folder.",
+      "Drag Dwiddle onto Applications.",
+      "The first time only, right click Dwiddle in Applications and choose Open, then Open again.",
+      "From then on it opens from Launchpad or the Dock like any other app.",
     ],
   },
   windows: {
@@ -219,7 +219,7 @@ export default function Install({ go }) {
     : guide;
   const size = p.id === "windows"
     ? "A small installer that brings the rest down as it goes, about 100 MB in all."
-    : "A small installer, under 1 MB, that fetches the rest, about 110 MB. Or take the whole disk image.";
+    : "About 115 MB. Drag it into Applications and it is installed.";
 
   return (
     <div className="page wide fade ins">
