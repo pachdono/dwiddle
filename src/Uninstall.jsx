@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { uninstaller } from "./desktop.js";
+import { Portal } from "./ui.jsx";
 
 const PHRASE = "uninstall dwiddle";
 const HOLD_MS = 3000;
@@ -47,6 +48,7 @@ export function UninstallDialog({ onClose, signedIn }) {
   const matches = typed.trim().toLowerCase() === PHRASE;
 
   return (
+    <Portal>
     <div className="un-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget && step !== "running") onClose(); }}>
       <div className="un-dialog" role="dialog" aria-modal="true" aria-labelledby="un-title">
         <div className="un-steps" aria-hidden="true">
@@ -143,6 +145,7 @@ export function UninstallDialog({ onClose, signedIn }) {
         )}
       </div>
     </div>
+    </Portal>
   );
 }
 

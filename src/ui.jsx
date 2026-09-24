@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+
 // The small pieces every page is built from: the icon set, the heading at the
 // top of a page, and the inline spinner. They sit apart from the app itself so
 // that a page living in its own file can use them without importing the app
@@ -73,4 +75,15 @@ export function Loading({ label }) {
       {label}
     </span>
   );
+}
+
+// Somewhere to put anything that must cover the whole window.
+//
+// Pages fade in by animating a transform, and an element with a transform
+// becomes the frame its fixed position children are measured against. So a
+// full screen layer rendered inside a page only ever covers the page, with the
+// sidebar still showing beside it. Rendering it at the top of the document
+// takes it out of every page's frame at once.
+export function Portal({ children }) {
+  return createPortal(children, document.body);
 }

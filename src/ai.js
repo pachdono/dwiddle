@@ -93,6 +93,19 @@ export const notifyFeedback = (payload) => post("/api/feedback", payload);
 // images, and the text then goes through generateFromNotes like anything else.
 export const readImage = (image) => post("/api/read", { image });
 
+// One topic taught as a sequence of cards, with two checks at the end.
+export const generateLesson = ({ topic, others, notes, syllabus, context }) =>
+  post("/api/lesson", { topic, others, notes, syllabus, context }).then((d) => ({
+    ...d,
+    cards: (d.cards || []).map((c) => ({
+      heading: tidyMath(c.heading),
+      body: tidyMath(c.body),
+      example: tidyMath(c.example),
+      points: (c.points || []).map((p) => ({ lead: tidyMath(p.lead), text: tidyMath(p.text) })),
+    })),
+    checks: (d.checks || []).map(tidyQuestion),
+  }));
+
 // One question, worked through. Everything that comes back is prose or
 // working, so all of it goes through the maths tidier rather than a chosen
 // field or two.

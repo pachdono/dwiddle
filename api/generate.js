@@ -28,7 +28,8 @@ Shape:
     {
       "topic": "must match a topic name exactly",
       "kind": "vocab" | "concept" | "process",
-      "q": "the question, or the bare term when kind is vocab",
+      "q": "the complete question, exactly as it would be printed on an exam paper",
+      "term": "only when kind is vocab: the bare term being defined",
       "choices": ["four options"],
       "answer": 0,
       "why": "two sentences: why the right answer is right, and why the most tempting wrong one is wrong"
@@ -43,7 +44,9 @@ Shape:
 }
 
 Rules:
-- 3 topics, 3 to 4 questions per topic, 4 choices each, "answer" is the index of the correct one. Aim for about 10 questions in total.
+- Cover every distinct area the notes deal with, one topic per area: 3 for a short page, up to 8 for a whole chapter. Never merge unrelated areas to keep the count down, and never leave an area of the notes out.
+- 3 questions per topic, 4 where a topic is large, and no more than 26 in total. 4 choices each, "answer" is the index of the correct one.
+- Every "q" is a full question a student could answer without guessing what is being asked. For a vocab question write "What is meant by the term demand curve?" or "Define opportunity cost.", never the bare term on its own.
 - Only use what is in the notes. Never invent facts that are not there.
 - "why" must teach something, not restate the answer. Two sentences, no more.
 - Mark types: "def" for wording to learn verbatim, "key" for a fact to memorise, "exam" for where marks are lost.
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
   const size = syllabus
     ? "3 big idea lines, 5 terms and 3 watch out lines"
     : notes.length > 9000
-      ? "8 big idea lines, 14 terms and 6 watch out lines"
+      ? "6 big idea lines, 10 terms and 5 watch out lines"
       : notes.length > 4000
         ? "6 big idea lines, 10 terms and 5 watch out lines"
         : "4 big idea lines, 7 terms and 4 watch out lines";
@@ -97,7 +100,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system,
       user,
-      maxTokens: notes.length > 4000 ? 5200 : 3800,
+      maxTokens: notes.length > 4000 ? 5600 : 4200,
       json: true,
       temperature: 0.3,
     });
@@ -127,6 +130,7 @@ export default async function handler(req, res) {
         topic: String(q.topic || data.topics?.[0]?.name || "General"),
         kind: ["vocab", "concept", "process"].includes(q.kind) ? q.kind : "concept",
         q: String(q.q),
+        ...(q.kind === "vocab" && q.term ? { term: String(q.term) } : {}),
         choices: q.choices.map(String),
         answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
         why: String(q.why || ""),

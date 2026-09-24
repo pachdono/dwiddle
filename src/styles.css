@@ -4696,3 +4696,380 @@ kbd {
 @media (max-width: 720px) {
   .sv-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- learn: the list of lessons ---------- */
+
+.ln-list { display: grid; gap: 10px; }
+
+.ln-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: ln-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+@keyframes ln-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ln-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lift);
+}
+
+.ln-num {
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ln-item.done .ln-num { background: var(--good-soft); color: var(--good); }
+
+.ln-text { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.ln-text b { font-size: 15px; letter-spacing: -0.015em; }
+.ln-text span { font-size: 13px; color: var(--ink-3); line-height: 1.5; }
+
+.ln-go {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--accent);
+}
+.ln-item.done .ln-go { color: var(--ink-3); }
+
+.ln-foot { margin: 22px 0 0; font-size: 13.5px; color: var(--ink-3); }
+
+/* ---------- learn: the lesson itself ---------- */
+
+/* It takes the whole window, above the sidebar and everything else. */
+.lp {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation: fade 0.2s ease both;
+  -webkit-app-region: no-drag;
+}
+
+.lp-top {
+  width: min(760px, 100% - 40px);
+  margin: 0 auto;
+  padding: 22px 0 0;
+}
+.lp.on-mac .lp-top { padding-top: 34px; }
+
+.lp-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.lp-x {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  margin-left: -8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.lp-x:hover { background: var(--hover); color: var(--ink); }
+.lp-where {
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  overflow: hidden;
+}
+.lp-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lp-stage {
+  flex: 1;
+  overflow-y: auto;
+  width: min(760px, 100% - 40px);
+  margin: 0 auto;
+  padding: clamp(40px, 9vh, 96px) 0 140px;
+}
+
+.lp-card { animation: lp-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes lp-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.lp-card h2 {
+  margin: 0 0 20px;
+  font-size: clamp(24px, 1.6vw + 16px, 31px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.lp-body {
+  margin: 0;
+  font-size: clamp(17px, 0.5vw + 14px, 20px);
+  line-height: 1.85;
+  color: var(--ink-2);
+}
+.lp-body b, .lp-points b, .lp-example b { color: var(--ink); font-weight: 650; }
+
+.lp-points {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.lp-points li {
+  position: relative;
+  padding-left: 26px;
+  font-size: clamp(16.5px, 0.5vw + 13.5px, 19px);
+  line-height: 1.75;
+  color: var(--ink-2);
+  animation: lp-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(0.12s + var(--i, 0) * 70ms);
+}
+.lp-points li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.72em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.lp-example {
+  margin: 26px 0 0;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.lp-example span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.lp-example p { margin: 0; font-size: 16.5px; line-height: 1.7; color: var(--ink-2); }
+
+.lp-kicker {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.lp-options { display: grid; gap: 10px; }
+.lp-opt {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 15px 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 16.5px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+.lp-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.lp-opt i {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--sunken);
+  color: var(--ink-3);
+}
+.lp-opt:disabled { cursor: default; }
+.lp-opt.right { border-color: var(--good); background: var(--good-soft); }
+.lp-opt.right i { background: var(--good); color: #fff; }
+.lp-opt.wrong { border-color: var(--warn); background: var(--warn-soft); }
+.lp-opt.wrong i { background: var(--warn); color: #fff; }
+.lp-opt.dim { opacity: 0.5; }
+
+.lp-why {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  animation: lp-in 0.3s ease both;
+}
+.lp-why.right { background: var(--good-soft); }
+.lp-why.wrong { background: var(--warn-soft); }
+.lp-why.right b { color: var(--good); }
+.lp-why.wrong b { color: var(--warn); }
+
+.lp-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 20px;
+}
+.lp-wait h2 { margin: 18px 0 8px; font-size: 24px; letter-spacing: -0.025em; }
+.lp-wait p { margin: 0 0 20px; max-width: 42ch; color: var(--ink-2); font-size: 15.5px; line-height: 1.65; }
+.lp-dots { display: flex; gap: 7px; }
+.lp-dots i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  animation: lp-dot 1.1s ease-in-out infinite;
+}
+.lp-dots i:nth-child(2) { animation-delay: 0.15s; }
+.lp-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes lp-dot { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-5px); } }
+
+.lp-end-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+
+/* The bar along the bottom: listening on the left, going on on the right. */
+.lp-foot {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 18px 0 max(24px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, var(--bg) 35%);
+}
+.lp-foot-in {
+  width: min(760px, 100% - 40px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lp-left { display: flex; align-items: center; gap: 8px; }
+
+.lp-listen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 22px 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.lp-listen:hover { background: var(--hover); }
+.lp-wave { display: flex; align-items: center; gap: 2.5px; height: 18px; }
+.lp-wave i { width: 2.5px; border-radius: 2px; background: currentColor; height: 8px; }
+.lp-wave i:nth-child(2) { height: 16px; }
+.lp-wave i:nth-child(3) { height: 11px; }
+.lp-wave i:nth-child(4) { height: 6px; }
+.lp-listen.on { color: var(--accent); }
+.lp-listen.on .lp-wave i { animation: lp-wave 0.9s ease-in-out infinite; }
+.lp-listen.on .lp-wave i:nth-child(2) { animation-delay: 0.12s; }
+.lp-listen.on .lp-wave i:nth-child(3) { animation-delay: 0.24s; }
+.lp-listen.on .lp-wave i:nth-child(4) { animation-delay: 0.36s; }
+@keyframes lp-wave { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+
+.lp-back {
+  height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.lp-back:hover { color: var(--ink); background: var(--hover); }
+
+/* Pressed into the page, the way a physical key is. */
+.lp-continue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 22px 0 28px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 62%, black);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.2s ease;
+}
+.lp-continue:hover:not(:disabled) { filter: brightness(1.05); }
+.lp-continue:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 62%, black);
+}
+.lp-continue:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.lp-continue kbd {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1.5px solid color-mix(in srgb, var(--accent-ink) 55%, transparent);
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 560px) {
+  .lp-listen { height: 46px; padding: 0 16px 0 14px; font-size: 15px; }
+  .lp-continue { height: 48px; padding: 0 18px 0 22px; font-size: 16px; }
+  .lp-continue kbd { display: none; }
+  .ln-item { padding: 14px; gap: 12px; }
+  .ln-go { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-card, .lp-points li, .lp-why, .ln-item { animation: none; }
+}

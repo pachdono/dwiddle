@@ -13,6 +13,7 @@
 
 import { useEffect, useRef } from "react";
 import { DuckSign } from "./Duck.jsx";
+import { Portal } from "./ui.jsx";
 
 export function FreeGate({ onClose, onSignIn }) {
   const first = useRef(null);
@@ -25,6 +26,7 @@ export function FreeGate({ onClose, onSignIn }) {
   }, [onClose]);
 
   return (
+    <Portal>
     <div
       className="gate-scrim"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -57,5 +59,6 @@ export function FreeGate({ onClose, onSignIn }) {
         <p className="gate-foot">Free, and it takes one email. No card and no password.</p>
       </div>
     </div>
+    </Portal>
   );
 }

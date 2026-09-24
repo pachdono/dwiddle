@@ -101,8 +101,30 @@ export function tidyMath(input) {
 }
 
 // Applied to a whole question, including its options and its explanation.
+// A question that is only a term is not a question.
+//
+// Vocabulary items used to be stored as the bare term, "Demand curve", on the
+// assumption that every screen would add "Define" in front. Only the
+// flashcards did, so the quiz showed a word with four definitions under it and
+// no actual question. Anything short that neither ends in a question mark nor
+// opens with a word that asks something is turned into the question it stood
+// for, and the original is kept as the term.
+const ASKS = /^(what|which|why|how|when|where|who|whose|whom|define|explain|describe|state|give|name|identify|outline|calculate|work|find|compare|contrast|suggest|evaluate|discuss|assess|analyse|analyze|justify|predict|complete|choose|select|is|are|was|were|does|do|did|can|could|should|would|will|has|have)\b/i;
+
+export function phraseQuestion(q) {
+  if (!q || typeof q !== "object" || typeof q.q !== "string") return q;
+  const raw = q.q.trim().replace(/[.:\s]+$/, "");
+  if (!raw || raw.endsWith("?") || ASKS.test(raw)) return q;
+  if (q.kind !== "vocab" && raw.split(/\s+/).length > 6) return q;
+  if (raw.split(/\s+/).length > 10) return q;
+  // "Demand curve" reads as "demand curve" mid sentence; "GDP" stays "GDP".
+  const term = /^[A-Z][a-z]/.test(raw) ? raw[0].toLowerCase() + raw.slice(1) : raw;
+  return { ...q, term: q.term || raw, q: `What is meant by the term ${term}?` };
+}
+
 export function tidyQuestion(q) {
   if (!q || typeof q !== "object") return q;
+  q = phraseQuestion(q);
   return {
     ...q,
     q: tidyMath(q.q),

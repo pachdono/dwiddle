@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading } from "./ui.jsx";
+import { phraseQuestion } from "./mathText.js";
+import { rememberSource } from "./lessons.js";
+import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
@@ -40,6 +43,7 @@ const PAGE_PATH = {
   quiz: "/practice",
   solve: "/solve",
   sheet: "/study-sheet",
+  learn: "/learn",
   tests: "/test-prep",
   courses: "/courses",
   upload: "/add-material",
@@ -124,7 +128,7 @@ const NAV_STUDY = [
   { id: "topics", label: "Topics", icon: "topics" },
   { id: "quiz", label: "Practice", icon: "quiz" },
   { id: "solve", label: "Solve", icon: "spark" },
-  { id: "sheet", label: "Study sheet", icon: "sheet" },
+  { id: "learn", label: "Learn", icon: "cards" },
   { id: "tests", label: "Test prep", icon: "target" },
   { id: "courses", label: "Courses", icon: "cap" },
 ];
@@ -136,6 +140,7 @@ const NAV_MATERIAL = [
 ];
 
 const ALL_NAV = [...NAV_STUDY, ...NAV_MATERIAL, { id: "settings", label: "Settings" },
+  { id: "sheet", label: "Study sheet" },
   { id: "reader", label: "Material" }, { id: "install", label: "Get the app" },
   { id: "install-all", label: "Every platform" }];
 
@@ -285,6 +290,7 @@ export default function App() {
           sheet: data.sheet || prev.sheet,
           sheets: [...(prev.sheets || (prev.sheet ? [{ title: prev.title, sheet: prev.sheet }] : [])),
                    ...(data.sheet ? [{ title: data.title, sheet: data.sheet }] : [])].slice(-12),
+          lessons: { ...(prev.lessons || {}), ...(data.lessons || {}) },
         };
       }
 
@@ -293,8 +299,44 @@ export default function App() {
     });
   }
 
+  // A lesson is kept once written, so it opens instantly the next time and
+  // follows the account. Its two checks join the topic's practice questions,
+  // which is how the question pool grows as someone studies.
+  function saveLesson(name, lesson) {
+    setMadeRaw((prev) => {
+      if (!prev) return prev;
+      const have = new Set(prev.questions.map((q) => q.id));
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+      const extra = (lesson.checks || [])
+        .map((c, i) => ({ id: `ls-${slug}-${i}`, topic: name, kind: "concept", ...c }))
+        .filter((q) => !have.has(q.id));
+      const next = {
+        ...prev,
+        questions: [...prev.questions, ...extra],
+        topics: prev.topics.map((t) => t.name === name ? { ...t, questions: (t.questions || 0) + extra.length } : t),
+        lessons: {
+          ...(prev.lessons || {}),
+          [name]: { cards: lesson.cards, checks: lesson.checks, done: prev.lessons?.[name]?.done || false },
+        },
+      };
+      save(KEYS.made, next);
+      return next;
+    });
+  }
+
+  function finishLesson(name) {
+    setMadeRaw((prev) => {
+      if (!prev?.lessons?.[name]) return prev;
+      const next = { ...prev, lessons: { ...prev.lessons, [name]: { ...prev.lessons[name], done: true } } };
+      save(KEYS.made, next);
+      return next;
+    });
+  }
+
   // Everything comes from the person's own notes. There is no built in content.
-  const bank = made ? made.questions : [];
+  // Phrased on the way out as well as on the way in, so material saved before
+  // bare terms were turned into questions reads properly too.
+  const bank = made ? made.questions.map(phraseQuestion) : [];
   const topics = made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : [];
   const materials = made ? [{ id: "made", title: made.title, kind: "Yours" }] : [];
 
@@ -368,6 +410,7 @@ export default function App() {
     quiz: Practice,
     solve: Solve,
     sheet: StudySheet,
+    learn: Learn,
     upload: AddMaterial,
     library: Library,
     settings: Settings,
@@ -555,6 +598,8 @@ export default function App() {
           stats={stats}
           made={made}
           setMade={setMade}
+          saveLesson={saveLesson}
+          finishLesson={finishLesson}
           bank={bank}
           topics={topics}
           materials={materials}
@@ -1128,6 +1173,7 @@ function AddMaterial({ go, setMade, auth }) {
     try {
       const data = await generateFromNotes(text);
       countGeneration(auth?.user);
+      rememberSource(data, { notes: text });
       setResult(data);
       setMade(data, { replace: true });
       setState("done");
@@ -1781,7 +1827,7 @@ function cardsFrom(questions) {
     id: q.id,
     kind: q.kind,
     topic: q.topic,
-    front: q.kind === "vocab" ? `Define: ${q.q}` : q.q,
+    front: q.kind === "vocab" && q.term ? q.term : q.q,
     back: q.choices[q.answer],
     note: q.why,
   }));
@@ -3647,6 +3693,7 @@ function Courses({ go, setMade, auth }) {
         topic,
       });
       countGeneration(auth?.user);
+      rememberSource(data, { syllabus: { course: course.name, subject: subject.name, topic } });
       setMade(data);
       setDone({ topic, count: data.questions.length });
     } catch (err) {
