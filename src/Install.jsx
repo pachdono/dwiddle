@@ -178,7 +178,7 @@ const DOWNLOAD_GUIDES = {
     steps: [
       "Open the file you downloaded. A window opens with Dwiddle and your Applications folder.",
       "Drag Dwiddle onto Applications.",
-      "The first time only, right click Dwiddle in Applications and choose Open, then Open again.",
+      "The first time only, macOS stops it opening. Press Done, then go to System Settings, Privacy and Security, and choose Open Anyway next to Dwiddle. On older macOS, right click it and choose Open instead.",
       "From then on it opens from Launchpad or the Dock like any other app.",
     ],
   },
