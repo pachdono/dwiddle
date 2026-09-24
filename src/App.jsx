@@ -743,6 +743,30 @@ export default function App() {
         />
       </main>
 
+      {/* On a phone the sidebar gives way to a tab bar along the bottom, where
+          a thumb can reach it, the way a phone app is laid out. The places
+          visited less often stay in the drawer behind More. */}
+      <nav className="tabbar" aria-label="Main">
+        {[
+          { id: "home", label: "Home", icon: "home", on: page === "home", to: "home" },
+          { id: "study", label: "Study", icon: "cards", on: groupOf(page)?.id === "study",
+            to: lastInGroup.current.study || "sheet" },
+          { id: "add", label: "New", icon: "plus", on: page === "upload", to: "upload", add: true },
+          { id: "solve", label: "Solve", icon: "bulb", on: page === "solve", to: "solve" },
+        ].map((t) => (
+          <button key={t.id} className={"tab" + (t.on ? " on" : "") + (t.add ? " tab-add" : "")}
+            onClick={() => go(t.to)} aria-current={t.on ? "page" : undefined}>
+            <span className="tab-icon"><Icon name={t.icon} size={t.add ? 22 : 21} /></span>
+            <span className="tab-label">{t.label}</span>
+          </button>
+        ))}
+        <button className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all"].includes(page) ? " on" : "")}
+          onClick={() => setMenuOpen(true)}>
+          <span className="tab-icon"><Icon name="menu" size={21} /></span>
+          <span className="tab-label">More</span>
+        </button>
+      </nav>
+
       <UpdateBar />
 
       {editing && page === "home" && custom.on && (
@@ -1061,7 +1085,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
             </div>
           </div>
           <div className="stat">
-            <div className="k">Questions answered</div>
+            <div className="k"><span className="k-long">Questions answered</span><span className="k-short">Answered</span></div>
             <div className="v">{stats.answered}</div>
           </div>
           <div className="stat">

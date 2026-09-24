@@ -5747,3 +5747,87 @@ kbd {
   border: 1px solid var(--line); background: var(--sunken); font-size: 13.5px;
 }
 @media (prefers-reduced-motion: reduce) { .cl-bob, .cl-mark { animation: none; } }
+
+/* ---------- phone layout ---------- */
+
+/* A phone gets its own layout rather than the desktop one squeezed: a tab bar
+   along the bottom, a slim top bar, and everything a size down, so a screen
+   shows a screen's worth rather than one card at a time. */
+.tabbar { display: none; }
+
+@media (max-width: 700px) {
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
+    display: grid; grid-template-columns: repeat(5, 1fr); align-items: end;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-top: 1px solid var(--line);
+  }
+  .tab {
+    display: grid; justify-items: center; gap: 3px; padding: 4px 0 2px;
+    border: 0; background: none; color: var(--ink-3); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-icon { display: grid; place-items: center; width: 44px; height: 28px; border-radius: 14px; transition: background 0.15s ease; }
+  .tab-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em; }
+  .tab.on { color: var(--accent); }
+  .tab.on .tab-icon { background: var(--accent-soft); }
+  .tab-add .tab-icon {
+    width: 48px; height: 48px; border-radius: 16px; margin-top: -18px;
+    background: var(--accent); color: var(--accent-ink);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .tab-add.on .tab-icon { background: var(--accent); }
+  .tab-add .tab-label { color: var(--ink-2); }
+
+  /* The drawer is reached from More now. */
+  .menu-btn { display: none !important; }
+
+  .main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .topbar { height: calc(50px + env(safe-area-inset-top)); padding-left: 12px; padding-right: 12px; }
+  .topbar-title { font-size: 15px; font-weight: 650; }
+  .tabs { max-width: 100%; }
+  .tabs button { padding: 6px 11px; font-size: 13px; white-space: nowrap; }
+
+  .page, .page.wide { padding: 18px 14px 28px; }
+  .page-head { margin-bottom: 16px; }
+  .page-head h1 { font-size: 22px; margin-bottom: 4px; letter-spacing: -0.025em; }
+  .page-head p { font-size: 13.5px; line-height: 1.5; }
+  .stack { gap: 12px; }
+  .grid-3, .grid-2 { gap: 10px; }
+  .card-pad { padding: 15px; }
+  .card-head { padding: 12px 15px; }
+  .card-head h3 { font-size: 14px; }
+  .list-item { padding: 11px 15px; gap: 10px; }
+  .btn { min-height: 38px; }
+
+  /* Home, laid out for a phone. */
+  .dash-add { display: none; }
+  .dash-hero { padding: 16px; gap: 12px; }
+  .dash-hero h2 { font-size: 19px; }
+  .dash-hero p { font-size: 12.5px; }
+  .dash-progress { margin-top: 10px; }
+  .dash-hero .row { margin-top: 12px !important; }
+  .grid-3.dash-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .grid-3.dash-stats > :first-child { grid-column: auto; }
+  .dash-stats .stat { padding: 11px 12px; }
+  .dash-stats .stat .k { font-size: 9.5px; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dash-stats .stat .v { font-size: 18px; margin-top: 4px; }
+  .dash-week { display: none; }
+  .dash-tools { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .dash-tool { justify-items: center; text-align: center; padding: 12px 6px; gap: 6px; }
+  .dash-tool b { font-size: 12.5px; margin-top: 0; }
+  .dash-tool .small { display: none; }
+  .dash-tool-icon { width: 36px; height: 36px; border-radius: 11px; }
+  .dash-fix, .dash-tip { gap: 4px; }
+  .dash-big { font-size: 24px; }
+  .dash-tip b { font-size: 15px; }
+  .pitch { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  /* Popups sit above the tab bar rather than behind it. */
+  .upd-pop { top: calc(10px + env(safe-area-inset-top)); }
+}
+.k-short { display: none; }
+@media (max-width: 700px) { .dash-stats .k-long { display: none; } .dash-stats .k-short { display: inline; } }
