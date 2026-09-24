@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { platform, isInstalled, canPrompt, onPromptChange, promptInstall, DOWNLOADS, downloadFor } from "./install.js";
+import desktopNotes from "./assets/shots/desktop-notes.webp";
+import desktopLesson from "./assets/shots/desktop-lesson.webp";
+import phoneLesson from "./assets/shots/phone-lesson.webp";
+import phoneNotes from "./assets/shots/phone-notes.webp";
 
 /* The install page.
    The walkthrough is drawn rather than recorded. A GIF of an iPhone would be a
@@ -162,6 +166,33 @@ const GUIDES = {
   },
 };
 
+// When there is a proper download for the computer, the steps are for that
+// download. The browser's own install, which the guides above describe, is a
+// lesser version of the same thing, and describing both on one page is how
+// someone ends up with two copies and no idea which to open.
+const DOWNLOAD_GUIDES = {
+  mac: {
+    title: "Install on your Mac",
+    note: "Choose Apple Silicon for any Mac from late 2020 onwards, and Intel for older ones.",
+    steps: [
+      "Open the file you downloaded. A window opens with Dwiddle and your Applications folder.",
+      "Drag Dwiddle onto Applications.",
+      "The first time only, right click Dwiddle in Applications and choose Open, then Open again.",
+      "From then on it opens from Launchpad or the Dock like any other app.",
+    ],
+  },
+  windows: {
+    title: "Install on Windows",
+    note: "The installer is small. It downloads the rest of Dwiddle as it goes.",
+    steps: [
+      "Open the file you downloaded.",
+      "If a blue box says Windows protected your PC, choose More info, then Run anyway.",
+      "It installs and opens by itself. There is nothing to choose.",
+      "Next time, open it from the Start menu or the shortcut on your desktop.",
+    ],
+  },
+};
+
 export default function Install({ go }) {
   const [step, setStep] = useState(0);
   const [prompt, setPrompt] = useState(canPrompt());
@@ -181,59 +212,72 @@ export default function Install({ go }) {
     return () => clearInterval(t);
   }, []);
 
+  const downloads = DOWNLOADS.ready && ["mac-chromium", "mac-safari", "windows", "other"].includes(p.id) ? downloadFor(p.id) : [];
+  const how = downloads.length && p.id !== "other"
+    ? DOWNLOAD_GUIDES[p.id === "windows" ? "windows" : "mac"]
+    : guide;
+  const size = p.id === "windows"
+    ? "A small installer that brings the rest down as it goes, about 100 MB in all."
+    : "About 115 MB. Drag it into Applications and it is installed.";
+
   return (
-    <div className="page fade">
-      <div className="page-head">
-        <h1>Get the app</h1>
-        <p>
-          Download it for your computer, or add it from the browser on a phone. Either way there is
-          no store, no account needed, and nothing to keep up to date.
-        </p>
-      </div>
-
-      {installed ? (
-        <div className="card card-pad ins-done">
-          <b>You are already running the installed app.</b>
-          <p className="small muted" style={{ margin: "6px 0 0" }}>
-            Nothing more to do. It will keep itself up to date.
+    <div className="page wide fade ins">
+      {/* What it is, shown rather than described: the real app, captured, on
+          the two screens most people will put it on. */}
+      <section className="ins-hero">
+        <div className="ins-hero-copy">
+          <span className="ins-kicker">For Mac, Windows, iPhone and Android</span>
+          <h1>Dwiddle, as an app</h1>
+          <p className="ins-lead">
+            Your notes, lessons and practice in a window of their own, one click from your
+            Dock, taskbar or home screen. Free, like everything else in Dwiddle.
           </p>
-        </div>
-      ) : (
-        <div className="stack">
-          {prompt && (
-            <div className="card card-pad ins-prompt">
-              <div>
-                <b>Your browser can install it right now</b>
-                <p className="small muted" style={{ margin: "4px 0 0" }}>
-                  One click. It gets its own window and an icon, the same as any other app.
-                </p>
-              </div>
-              <button className="btn cta" onClick={promptInstall}>Install Dwiddle</button>
-            </div>
-          )}
 
-          {DOWNLOADS.ready && ["mac-chromium", "mac-safari", "windows", "other"].includes(p.id) && (
-            <div className="card card-pad ins-dl">
-              <div className="ins-dl-head">
-                <b>Download the app</b>
-                <span className="small muted">
-                  Installs like any other program. Roughly 130 MB, and it works offline.
-                </span>
-              </div>
+          {installed ? (
+            <div className="ins-have"><Check /> You are using the app already, and it keeps itself up to date.</div>
+          ) : downloads.length > 0 ? (
+            <>
               <div className="ins-dl-row">
-                {downloadFor(p.id).map((d) => (
-                  <a key={d.file} className={"btn" + (d.primary ? " cta" : " ghost")}
+                {downloads.map((d) => (
+                  <a key={d.file} className={"btn" + (d.primary ? " cta ins-big" : " ghost")}
                     href={DOWNLOADS.base + d.file} download>
                     {d.label}
                   </a>
                 ))}
               </div>
-              <p className="small muted ins-dl-note">
-                It is not signed, so the first launch needs one extra step.{" "}
-                {p.id === "windows"
-                  ? "Windows shows a blue box: click More info, then Run anyway."
-                  : "On a Mac, drag it into Applications, then right click it and choose Open."}
+              <p className="ins-fine">
+                {size} Version {DOWNLOADS.version}.{" "}
+                <button className="linkish" onClick={() => go("install-all")}>Other devices</button>
               </p>
+            </>
+          ) : (
+            <div className="ins-dl-row">
+              <button className="btn cta ins-big"
+                onClick={() => document.getElementById("ins-how")?.scrollIntoView({ behavior: "smooth" })}>
+                Show me how
+              </button>
+              <button className="btn ghost" onClick={() => go("install-all")}>Other devices</button>
+            </div>
+          )}
+        </div>
+
+        <div className="ins-hero-art" aria-hidden="true">
+          <MacFrame src={desktopNotes} />
+          <PhoneFrame src={phoneLesson} className="ins-hero-phone" />
+        </div>
+      </section>
+
+      {!installed && (
+        <section className="ins-how" id="ins-how">
+          {prompt && (
+            <div className="card card-pad ins-prompt">
+              <div>
+                <b>Your browser can install it right now</b>
+                <p className="small muted" style={{ margin: "4px 0 0" }}>
+                  One click, and it gets its own window and icon.
+                </p>
+              </div>
+              <button className="btn cta" onClick={promptInstall}>Install Dwiddle</button>
             </div>
           )}
 
@@ -246,9 +290,9 @@ export default function Install({ go }) {
                 {STEPS[step].label}
               </div>
               <div className="ins-dots">
-                {STEPS.map((s, i) => (
+                {STEPS.map((st, i) => (
                   <button
-                    key={s.label}
+                    key={st.label}
                     className={"ins-pip" + (i === step ? " on" : "")}
                     onClick={() => setStep(i)}
                     aria-label={`Step ${i + 1}`}
@@ -259,30 +303,111 @@ export default function Install({ go }) {
             )}
 
             <div className="card card-pad ins-guide">
-              <h3>{guide.title}</h3>
-              <p className="small muted ins-note">{guide.note}</p>
-              <Steps items={guide.steps} current={-1} />
-              <p className="small muted ins-detected">
-                Detected: {p.name}{p.browser ? `, ${p.browser}` : ""}.{" "}
-                <button className="linkish" onClick={() => go("install-all")}>
-                  Show every platform
-                </button>
-              </p>
+              <h3>{how.title}</h3>
+              <p className="small muted ins-note">{how.note}</p>
+              <Steps items={how.steps} current={-1} />
             </div>
           </div>
+        </section>
+      )}
 
-          <div className="card card-pad">
-            <h3 style={{ margin: "0 0 10px" }}>What you get</h3>
-            <ul className="ins-perks">
-              <li><b>Full screen.</b> No address bar, no browser tabs.</li>
-              <li><b>Its own icon.</b> On the home screen, Dock or taskbar.</li>
-              <li><b>Works offline.</b> Your material and progress open without a connection. Writing new questions still needs one.</li>
-              <li><b>Updates itself.</b> There is nothing to reinstall.</li>
-            </ul>
+      <section className="ins-features">
+        <h2>What you get</h2>
+
+        <div className="ins-feature">
+          <div className="ins-feature-art"><MacFrame src={desktopLesson} /></div>
+          <div className="ins-feature-copy">
+            <h3>A window of its own</h3>
+            <p>
+              Dwiddle opens from your Dock, taskbar or home screen, the same as any other app. There
+              are no browser tabs to dig through, and a lesson has the whole window to itself.
+            </p>
           </div>
         </div>
-      )}
+
+        <div className="ins-feature reverse">
+          <div className="ins-feature-art narrow"><PhoneFrame src={phoneNotes} offline /></div>
+          <div className="ins-feature-copy">
+            <h3>Revise without Wi-Fi</h3>
+            <p>
+              The notes, lessons and questions you have made are kept on the device, so you can
+              revise on a train or a plane. Only making something new needs a connection.
+            </p>
+          </div>
+        </div>
+
+        <div className="ins-feature compact">
+          <div className="ins-feature-icon"><Refresh /></div>
+          <div className="ins-feature-copy">
+            <h3>Always the newest version</h3>
+            <p>
+              On Windows and on phones, updates arrive on their own. On a Mac, Dwiddle tells you
+              when one is ready and takes you straight to it.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
+  );
+}
+
+// The app in a Mac window. The frame is drawn, the contents are a screenshot.
+function MacFrame({ src }) {
+  return (
+    <div className="frame-mac">
+      <div className="frame-mac-bar"><i /><i /><i /></div>
+      <img src={src} alt="" loading="lazy" width="1280" height="800" />
+    </div>
+  );
+}
+
+// The app on a phone. A real phone keeps the app clear of the island with a
+// status bar, so this does too: the time on the left, and on the right either
+// signal and battery or, for the offline example, the aeroplane.
+function PhoneFrame({ src, className = "", offline = false }) {
+  return (
+    <div className={"frame-phone " + className}>
+      <div className="frame-phone-screen">
+        <div className="frame-phone-status">
+          <span className="fps-time">9:41</span>
+          <span className="frame-phone-island" />
+          <span className="fps-icons">
+            {offline ? (
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M18 12.5v-1.6l-6.5-4V3a1.5 1.5 0 0 0-3 0v3.9L2 10.9v1.6l6.5-2v3.9l-1.8 1.3v1.3l3.3-1 3.3 1v-1.3l-1.8-1.3v-3.9z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 20 14" fill="currentColor" aria-hidden="true">
+                <rect x="0" y="9" width="3" height="5" rx="1" /><rect x="5" y="6" width="3" height="8" rx="1" />
+                <rect x="10" y="3" width="3" height="11" rx="1" /><rect x="15" y="0" width="3" height="14" rx="1" />
+              </svg>
+            )}
+            <svg viewBox="0 0 28 14" fill="none" aria-hidden="true">
+              <rect x="0.5" y="0.5" width="23" height="13" rx="3.5" stroke="currentColor" opacity="0.4" />
+              <rect x="2" y="2" width="17" height="10" rx="2" fill="currentColor" />
+              <path d="M25.5 5v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.4" />
+            </svg>
+          </span>
+        </div>
+        <img src={src} alt="" loading="lazy" width="390" height="844" />
+      </div>
+    </div>
+  );
+}
+
+function Check() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 10.5 8 14l7.5-8" /></svg>
+  );
+}
+
+function Refresh() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4" />
+    </svg>
   );
 }
 

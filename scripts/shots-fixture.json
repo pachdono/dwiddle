@@ -1,0 +1,73 @@
+{
+  "title": "The basic economic problem",
+  "topics": [
+    { "id": "t0", "name": "Scarcity", "reason": "Why every consumer, producer and government has to choose.", "questions": 5 },
+    { "id": "t1", "name": "Factors of production", "reason": "Land, labour, capital and enterprise, and what each one earns.", "questions": 3 },
+    { "id": "t2", "name": "Opportunity cost", "reason": "The real cost of any choice is the next best thing given up.", "questions": 3 },
+    { "id": "t3", "name": "Production possibility curves", "reason": "Where most of the diagram marks are won and lost.", "questions": 4 },
+    { "id": "t4", "name": "Economic systems", "reason": "How market, planned and mixed economies decide what to make.", "questions": 3 },
+    { "id": "t5", "name": "Specialisation and the division of labour", "reason": "Why splitting work up raises output, and what it costs.", "questions": 3 }
+  ],
+  "questions": [
+    { "id": "q0", "topic": "Scarcity", "kind": "concept", "q": "Why does scarcity force every economic agent to make choices?", "choices": ["Resources used one way cannot be used another", "Prices are always rising", "Governments limit spending", "Wants are fixed"], "answer": 0, "why": "Limited resources mean every use rules out another. Rising prices are a symptom, not the cause." },
+    { "id": "q1", "topic": "Scarcity", "kind": "vocab", "term": "Scarcity", "q": "What is meant by the term scarcity?", "choices": ["Unlimited wants but limited resources", "A temporary lack of a good", "Prices higher than income", "Too few buyers"], "answer": 0, "why": "Scarcity is permanent. A shortage is the temporary one." },
+    { "id": "q2", "topic": "Factors of production", "kind": "concept", "q": "What is the reward to enterprise?", "choices": ["Profit", "Rent", "Wages", "Interest"], "answer": 0, "why": "Enterprise takes the risk, so it earns what is left over: profit." },
+    { "id": "q3", "topic": "Opportunity cost", "kind": "concept", "q": "A student spends £20 on a concert ticket instead of a video game. What is the opportunity cost?", "choices": ["The video game", "£20", "The concert", "Nothing"], "answer": 0, "why": "Opportunity cost is the next best alternative given up, measured in the alternative rather than in money." }
+  ],
+  "notes": {
+    "Scarcity": [
+      { "h": "The basic economic problem" },
+      { "p": "The {key|basic economic problem} is that human wants are unlimited but the resources available to satisfy them are limited." },
+      { "term": "Scarcity", "def": "the situation where {def|wants are unlimited but the resources to satisfy them are limited}" },
+      { "h": "Everyone has to choose" },
+      { "list": ["{key|Consumers} have limited income and must choose which goods and services to buy.", "{key|Producers} have limited inputs and must choose what to produce.", "{key|Governments} have limited tax revenue and must choose which public services to fund."] },
+      { "watch": "Scarcity is not a shortage: {exam|a shortage is temporary and happens when demand exceeds supply at the current price, whereas scarcity is permanent}." }
+    ],
+    "Factors of production": [
+      { "p": "Resources are also called {key|factors of production}. There are four." },
+      { "term": "Land", "def": "{def|all natural resources, such as minerals, forests, fish and the land itself}; the reward to land is {key|rent}" },
+      { "term": "Labour", "def": "{def|the human effort, both physical and mental, used in production}; the reward to labour is {key|wages}" },
+      { "term": "Capital", "def": "{def|man-made goods used to produce other goods}, such as machinery, tools, factories and computers; the reward to capital is {key|interest}" },
+      { "term": "Enterprise", "def": "{def|the willingness to take risks and organise the other three factors}; the reward to enterprise is {key|profit}" },
+      { "eg": "The quality of labour rises with education and training, and the quantity of capital rises with investment." }
+    ],
+    "Opportunity cost": [
+      { "term": "Opportunity cost", "def": "{def|the next best alternative forgone when a choice is made}" },
+      { "p": "It is measured in terms of the alternative given up, {exam|not in money}." },
+      { "eg": "If a student spends £20 on a concert ticket instead of a video game, the opportunity cost of the concert is the video game." }
+    ],
+    "Production possibility curves": [
+      { "term": "Production possibility curve", "def": "{def|the maximum combinations of two goods an economy can produce when all its resources are fully and efficiently employed}" },
+      { "list": ["Points on the curve are {key|productively efficient}.", "Points inside show unemployed or inefficiently used resources.", "Points outside are currently unattainable."] },
+      { "p": "The curve is usually {key|concave to the origin}, because resources are not equally suited to producing both goods." }
+    ],
+    "Economic systems": [
+      { "p": "Every economy must answer three questions: {key|what to produce, how to produce it, and for whom}." },
+      { "list": ["A {key|market economy} answers them through the price mechanism.", "A {key|planned economy} answers them through government decisions.", "A {key|mixed economy} combines both."] }
+    ],
+    "Specialisation and the division of labour": [
+      { "term": "Division of labour", "def": "{def|production split into separate tasks, each done by a different worker}" },
+      { "list": ["Higher output per worker", "Workers become more skilled through repetition", "Time saved from not switching tasks"] },
+      { "watch": "The disadvantages count too: {exam|boredom, a narrow range of skills, and the whole process stopping if one stage fails}." }
+    ]
+  },
+  "lessons": {
+    "Scarcity": {
+      "done": true,
+      "cards": [
+        { "heading": "Unlimited wants and limited resources", "body": "Human wants are unlimited but the resources available to satisfy them are limited. This situation is called **scarcity** (the condition where resources are insufficient to meet all desires). Because of scarcity, every economic agent must make choices about how to use limited resources.", "points": [ { "lead": "Consumers", "text": "a student with £10 must choose between buying a book or a snack." }, { "lead": "Producers", "text": "a farmer with limited land must decide whether to grow wheat or barley." }, { "lead": "Governments", "text": "a council with a fixed budget must choose between repairing roads or building a library." } ], "example": "" },
+        { "heading": "Scarcity versus shortage", "body": "Scarcity is a permanent condition due to limited resources relative to unlimited wants. A **shortage** (a temporary excess of demand over supply at a given price) is different. Shortages can be resolved by price changes or increased supply, but scarcity cannot be eliminated.", "points": [], "example": "Even if the price of oil rises and supply increases, scarcity remains because wants still exceed available resources." }
+      ],
+      "checks": [
+        { "q": "Why does scarcity force every economic agent to make choices?", "choices": ["Resources used one way cannot be used another", "Prices are always rising", "Governments set limits on spending", "Wants are fixed"], "answer": 0, "why": "Limited resources mean every use has an alternative that is given up. Rising prices are a symptom, not the cause." }
+      ]
+    },
+    "Factors of production": {
+      "done": false,
+      "cards": [
+        { "heading": "Four ingredients of everything made", "body": "Every good and service is made from the same four **factors of production** (the resources used to produce goods and services). Each one earns its own reward.", "points": [ { "lead": "Land", "text": "every natural resource, from minerals to fish. It earns rent." }, { "lead": "Labour", "text": "human effort, physical and mental. It earns wages." }, { "lead": "Capital", "text": "man-made tools and machines. It earns interest." } ], "example": "" }
+      ],
+      "checks": []
+    }
+  }
+}

@@ -5290,3 +5290,168 @@ kbd {
   .nt-sec { border: 0; box-shadow: none; padding: 0; break-inside: auto; }
   .nt-sec + .nt-sec { margin-top: 18px; }
 }
+
+/* ---------- get the app ---------- */
+
+.ins-hero {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) 1.2fr;
+  align-items: center;
+  gap: clamp(28px, 4vw, 56px);
+  padding: 8px 0 56px;
+}
+
+.ins-kicker {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.ins-hero-copy h1 {
+  margin: 0 0 14px;
+  font-size: clamp(30px, 2.4vw + 16px, 44px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+.ins-lead {
+  margin: 0 0 26px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 42ch;
+}
+.ins-big { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+.ins-fine { margin: 14px 0 0; font-size: 13px; line-height: 1.55; color: var(--ink-3); }
+.ins-have {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: var(--good-soft);
+  color: var(--good);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* The desktop window with the phone stood in front of its corner. */
+.ins-hero-art { position: relative; padding: 0 7% 9% 0; }
+.ins-hero-phone {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 27%;
+}
+
+/* A Mac window: drawn frame, real screenshot. */
+.frame-mac {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fbfbfa;
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  box-shadow: 0 2px 6px rgba(16, 16, 30, 0.06), 0 24px 60px rgba(16, 16, 30, 0.16);
+}
+.frame-mac-bar {
+  display: flex;
+  gap: 7px;
+  padding: 11px 14px;
+  background: #f3f3f1;
+  border-bottom: 1px solid #e6e6e3;
+}
+.frame-mac-bar i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.frame-mac-bar i:nth-child(2) { background: #febc2e; }
+.frame-mac-bar i:nth-child(3) { background: #28c840; }
+.frame-mac img, .frame-phone img { display: block; width: 100%; height: auto; }
+
+/* A phone: black bezel, rounded screen, the island. */
+.frame-phone {
+  padding: 7px;
+  border-radius: 34px;
+  background: #111114;
+  box-shadow: 0 2px 6px rgba(16, 16, 30, 0.12), 0 26px 60px rgba(16, 16, 30, 0.28);
+}
+.frame-phone-screen {
+  position: relative;
+  overflow: hidden;
+  /* The status bar is sized from the phone itself, not from the window, so it
+     is in proportion whether the phone is drawn large or small. */
+  container-type: inline-size;
+  border-radius: 27px;
+  background: #fff;
+}
+.frame-phone-status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7% 9% 3%;
+  color: #111;
+  background: #fff;
+}
+.fps-time { font-size: 5.4cqw; font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
+.fps-icons { display: flex; align-items: center; gap: 1.6cqw; }
+.fps-icons svg { height: 3.6cqw; width: auto; }
+.frame-phone-island {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  width: 32%;
+  height: 46%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #111114;
+}
+
+.ins-how { margin-bottom: 64px; scroll-margin-top: 80px; }
+
+/* What you get: one idea per row, each with the picture that proves it. */
+.ins-features h2 {
+  margin: 0 0 30px;
+  font-size: clamp(24px, 1.4vw + 16px, 32px);
+  letter-spacing: -0.03em;
+}
+.ins-feature {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: center;
+  gap: clamp(24px, 4vw, 56px);
+  padding: 34px;
+  margin-bottom: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, var(--surface), var(--sunken));
+}
+.ins-feature.reverse { grid-template-columns: 1fr 1.15fr; }
+.ins-feature.reverse .ins-feature-art { order: 2; }
+.ins-feature-art.narrow { max-width: 250px; justify-self: center; width: 100%; }
+.ins-feature-copy h3 { margin: 0 0 10px; font-size: 21px; letter-spacing: -0.025em; }
+.ins-feature-copy p { margin: 0; font-size: 15.5px; line-height: 1.7; color: var(--ink-2); max-width: 44ch; }
+
+.ins-feature.compact { grid-template-columns: auto 1fr; padding: 26px 34px; }
+.ins-feature-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .ins-hero { grid-template-columns: 1fr; padding-bottom: 40px; }
+  .ins-feature, .ins-feature.reverse { grid-template-columns: 1fr; padding: 24px; }
+  .ins-feature.reverse .ins-feature-art { order: 0; }
+}
+@media (max-width: 560px) {
+  .ins-hero-art { padding: 0 10% 12% 0; }
+  .ins-hero-phone { width: 32%; }
+  .frame-phone { padding: 5px; border-radius: 24px; }
+  .frame-phone-screen { border-radius: 19px; }
+  .ins-feature.compact { grid-template-columns: 1fr; }
+}
