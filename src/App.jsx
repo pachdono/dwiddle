@@ -134,43 +134,51 @@ function initialsOf(user) {
 // hour. Before five counts as the night before: calling 2am "morning" reads as
 // a machine that cannot tell. `n` is the first name, or null when signed out,
 // in which case the line has to stand on its own.
+// {n} is the name and {d} the day. A line may also say when it applies,
+// so "Happy weekend" only turns up on a Saturday or Sunday.
+const WEEKEND = (d) => d.getDay() === 0 || d.getDay() === 6;
+const WEEKDAY = (d) => !WEEKEND(d);
 const GREETINGS = [
   { from: 0, to: 5, lines: [
-    (n) => n ? `Burning the midnight oil, ${n}?` : "Burning the midnight oil?",
-    (n) => n ? `Still up, ${n}?` : "Still up?",
-    (n) => n ? `Late night studying, ${n}?` : "Late night studying?",
-    (n) => n ? `It's late, ${n}` : "It's late",
+    "Burning the midnight oil, {n}?", "Still up, {n}?", "Late night studying, {n}?", "It's late, {n}",
+    "The night owl returns, {n}", "Quiet hours, {n}", "Up past midnight, {n}?", "Just you and the notes, {n}",
+    "One more topic, then bed, {n}?", "The world's asleep, {n}",
   ] },
   { from: 5, to: 9, lines: [
-    (n) => n ? `Rise and shine, ${n}` : "Rise and shine",
-    (n) => n ? `Early start, ${n}` : "Early start",
-    (n) => n ? `Good morning, ${n}` : "Good morning",
+    "Rise and shine, {n}", "Early start, {n}", "Good morning, {n}", "Up with the sun, {n}", "Early bird, {n}",
+    "Fresh start, {n}", "Morning, {n}. Coffee first?", "Beating the rush, {n}",
+    { t: "Fresh week, {n}", when: (d) => d.getDay() === 1 },
   ] },
   { from: 9, to: 12, lines: [
-    (n) => n ? `Good morning, ${n}` : "Good morning",
-    (n) => n ? `Morning, ${n}` : "Morning",
-    (n, d) => n ? `Happy ${d}, ${n}` : `Happy ${d}`,
+    "Good morning, {n}", "Morning, {n}", "Happy {d}, {n}", "Ready for today, {n}?", "Let's get going, {n}",
+    "Welcome back, {n}", "Hello again, {n}", "Nice to see you, {n}",
+    { t: "Weekend study, {n}?", when: WEEKEND }, { t: "Happy weekend, {n}", when: WEEKEND },
   ] },
   { from: 12, to: 14, lines: [
-    (n) => n ? `Good afternoon, ${n}` : "Good afternoon",
-    (n) => n ? `Lunchtime revision, ${n}?` : "Lunchtime revision?",
+    "Good afternoon, {n}", "Lunchtime revision, {n}?", "Midday check in, {n}", "Hi {n}, lunch break?",
+    "Afternoon already, {n}", "Welcome back, {n}",
   ] },
   { from: 14, to: 18, lines: [
-    (n) => n ? `Good afternoon, ${n}` : "Good afternoon",
-    (n) => n ? `Afternoon, ${n}` : "Afternoon",
-    (n, d) => n ? `Happy ${d}, ${n}` : `Happy ${d}`,
+    "Good afternoon, {n}", "Afternoon, {n}", "Happy {d}, {n}", "Back at it, {n}", "Keep it going, {n}",
+    "Welcome back, {n}", "Hey {n}, how's it going?",
+    { t: "After school session, {n}?", when: WEEKDAY }, { t: "Almost the weekend, {n}", when: (d) => d.getDay() === 5 },
+    { t: "Weekend study, {n}?", when: WEEKEND },
   ] },
   { from: 18, to: 22, lines: [
-    (n) => n ? `Good evening, ${n}` : "Good evening",
-    (n) => n ? `Evening, ${n}` : "Evening",
-    (n) => n ? `An evening session, ${n}?` : "An evening session?",
+    "Good evening, {n}", "Evening, {n}", "An evening session, {n}?", "Winding down, {n}?", "Welcome back, {n}",
+    "Hi {n}, good day?", "Evening revision, {n}?", "Settling in, {n}?",
   ] },
   { from: 22, to: 24, lines: [
-    (n) => n ? `Late night studying, ${n}?` : "Late night studying?",
-    (n) => n ? `One more session, ${n}?` : "One more session?",
-    (n) => n ? `Good evening, ${n}` : "Good evening",
+    "Late night studying, {n}?", "One more session, {n}?", "Good evening, {n}", "Getting late, {n}",
+    "Night owl mode, {n}?", "Quick review before bed, {n}?",
   ] },
 ];
+
+// Fills in the name, or takes it out cleanly when there is none.
+function fillGreeting(line, name, day) {
+  const t = line.replace("{d}", day);
+  return name ? t.replace("{n}", name) : t.replace(/,? \{n\}/, "").replace("{n}", "");
+}
 
 // `pick` is a random number chosen once when the page opens, so the line
 // stays put while the name arrives: the account loads a moment after the
@@ -179,7 +187,8 @@ function greeting(name, pick, now = new Date()) {
   const h = now.getHours();
   const day = now.toLocaleDateString("en-GB", { weekday: "long" });
   const { lines } = GREETINGS.find((g) => h >= g.from && h < g.to);
-  return lines[Math.floor(pick * lines.length)](name, day);
+  const fits = lines.filter((l) => typeof l === "string" || l.when(now)).map((l) => (typeof l === "string" ? l : l.t));
+  return fillGreeting(fits[Math.floor(pick * fits.length)], name, day);
 }
 
 // What goes under the greeting when there is nothing better to say. Late at

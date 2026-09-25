@@ -6308,3 +6308,7 @@ kbd {
 @media (prefers-reduced-motion: reduce) { .fc { opacity: 1; transform: none; } .fc-chips span { animation: none; } }
 .fc-tall { grid-row: span 3; }
 @media (max-width: 900px) { .fc-tall { grid-row: auto; } }
+.fc-list { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.fc-list li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.fc-list li::before { content: ""; position: absolute; left: 2px; top: 5px; width: 12px; height: 7px;
+  border-left: 2px solid var(--good); border-bottom: 2px solid var(--good); transform: rotate(-45deg); }

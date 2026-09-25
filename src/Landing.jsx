@@ -496,7 +496,8 @@ function Features() {
           <div className="fc-copy">
             <span className="fc-tag">Notes</span>
             <h3>Full notes, not a summary</h3>
-            <p>Every definition, figure and example in your material, organised by topic. What to learn word for word, the key facts and where marks are lost are picked out in colour.</p>
+            <p>Every definition, figure, date and example in your material, reorganised under the topics it belongs to. Nothing is condensed away, so the notes are as complete as the chapter they came from.</p>
+            <ul className="fc-list"><li>Definitions to learn word for word, highlighted</li><li>Key facts and figures picked out in colour</li><li>Common mistakes and exam traps flagged</li><li>Print them, or read them anywhere</li></ul>
           </div>
           <div className="fc-shot"><img src={shotNotes} alt="Dwiddle's notes, organised by topic with highlights" loading="lazy" /></div>
         </article>
@@ -505,7 +506,8 @@ function Features() {
           <div className="fc-copy">
             <span className="fc-tag">Learn</span>
             <h3>Lessons that actually teach</h3>
-            <p>Short lessons, one idea at a time, with examples, then questions to check it went in.</p>
+            <p>Each topic becomes a short lesson that teaches one idea at a time, the way a good teacher would explain it out loud, then checks it went in before moving on.</p>
+            <ul className="fc-list"><li>Plain words first, the technical term second</li><li>A real example on most cards</li><li>5 or 6 varied questions at the end</li><li>Read aloud with Listen</li></ul>
           </div>
           <div className="fc-phone"><img src={shotLesson} alt="A Dwiddle lesson on a phone" loading="lazy" /></div>
         </article>
@@ -513,14 +515,15 @@ function Features() {
         <article className="fc" style={{ "--i": 2 }}>
           <span className="fc-tag">Practice</span>
           <h3>Seven ways to be tested</h3>
-          <p>Because picking an answer out of four is not the same as knowing it.</p>
+          <p>Picking an answer out of four is not the same as knowing it. Dwiddle mixes in questions that make you recall, spell, order and explain, which is what exams actually ask.</p>
           <div className="fc-chips">{kinds.map((k, i) => <span key={k} style={{ "--k": i }}>{k}</span>)}</div>
         </article>
 
         <article className="fc fc-chat" style={{ "--i": 3 }}>
           <span className="fc-tag">Ask Dwiddle</span>
           <h3>Stuck? Just ask</h3>
-          <p>Dwiddle sees what you are working on. Ask it to explain again, give another example, or check an answer you think is wrong.</p>
+          <p>A study buddy that can see what is on your screen. Ask it to explain a card again, give another example, quiz you, or check an answer you think the app got wrong.</p>
+          <ul className="fc-list"><li>Speak your question or type it</li><li>Replies can be read aloud</li><li>Honest when something was wrong</li></ul>
           <div className="fc-convo">
             <div className="fc-me">why is it the video game and not £20?</div>
             <div className="fc-bot"><DuckTalk mood="talking" size={34} /><span>Because <b>opportunity cost</b> is what you give up, not what you spend.</span></div>
@@ -530,14 +533,14 @@ function Features() {
         <article className="fc" style={{ "--i": 4 }}>
           <span className="fc-tag">Solve</span>
           <h3>Photograph a question</h3>
-          <p>Every step worked through, with the reason each one is the right move, and a similar question to try.</p>
+          <p>Take a photo of the question you are stuck on, or several for a question across pages. Every step is worked through with the reason it is the right move, the idea being tested, and where marks are usually lost.</p>
           <ol className="fc-steps"><li>Write the equation</li><li>Substitute the values</li><li>Rearrange for x</li></ol>
         </article>
 
         <article className="fc" style={{ "--i": 5 }}>
           <span className="fc-tag">Review</span>
           <h3>Remember it for the exam</h3>
-          <p>Questions come back just before you would forget them. Optional, never forced.</p>
+          <p>Spaced repetition brings each question back just before you would forget it: sooner when you got it wrong, further apart as you keep getting it right. Optional, never forced.</p>
           <div className="fc-gaps">{["1 day", "2", "4", "1 week", "2", "1 month"].map((g, i) => <span key={i} style={{ "--k": i }}>{g}</span>)}</div>
         </article>
 
@@ -545,7 +548,7 @@ function Features() {
           <div className="fc-copy">
             <span className="fc-tag">Any material</span>
             <h3>Start from whatever you have</h3>
-            <p>Several files at once, a YouTube lecture, a recording of a class, or nothing at all: type a topic like "IGCSE photosynthesis" and Dwiddle writes the notes first.</p>
+            <p>Up to ten files at once, a YouTube lecture, or a recording of a class as it happens. Or nothing at all: type a topic like "IGCSE photosynthesis" and Dwiddle writes the notes first, asking a quick question if it needs to know your level.</p>
           </div>
           <div className="fc-ins">
             {[["PDF", "#e5484d"], ["Slides", "#f59e0b"], ["Word", "#3b82f6"], ["Photos", "#10b981"], ["YouTube", "#ff0033"], ["Record", "#8b5cf6"], ["Just a topic", "#64748b"]].map(([n, c]) => (
@@ -557,13 +560,14 @@ function Features() {
         <article className="fc" style={{ "--i": 7 }}>
           <span className="fc-tag">Exams</span>
           <h3>Full length test prep</h3>
-          <p>Timed SAT, ACT, SSAT, IELTS and TOEFL papers, marked on each test's own scale, plus IGCSE, IB and A Level courses.</p>
+          <p>Full length, timed SAT, ACT, SSAT, IELTS and TOEFL papers, marked and converted to each test's own score scale, with feedback on what to fix.</p>
+          <ul className="fc-list"><li>IGCSE, IB and A Level courses</li><li>Writing marked against the real criteria</li><li>Fresh questions each sitting</li></ul>
         </article>
 
         <article className="fc fc-themes" style={{ "--i": 8 }}>
           <span className="fc-tag">Make it yours</span>
           <h3>Ten themes, ten ducks</h3>
-          <p>Sakura, Matcha, Midnight and more, each in light and dark, each with its own duck.</p>
+          <p>Sakura, Cottage, Matcha, Violet, Ocean, Prismarine, Sunset, Autumn and Midnight, each designed in both light and dark, each with its own duck in the corner.</p>
           <div className="fc-ducks">{THEMES.filter((t) => t.id !== "classic").map((t) => <ThemeMark key={t.id} theme={t.id} size={40} />)}</div>
         </article>
 
@@ -571,7 +575,7 @@ function Features() {
           <div className="fc-copy">
             <span className="fc-tag">Everywhere</span>
             <h3>Mac, Windows and phone</h3>
-            <p>In the browser, as an app for Mac and Windows, or on your home screen. Sign in and your progress follows you.</p>
+            <p>Use it in any browser, install it as an app on Mac and Windows that updates itself, or add it to your phone's home screen. Sign in once and your material, streak and progress follow you between them.</p>
           </div>
           <div className="fc-ins">
             {["Web", "Mac app", "Windows app", "iPhone", "Android"].map((n) => <span key={n}><i style={{ background: "var(--accent)" }} />{n}</span>)}
