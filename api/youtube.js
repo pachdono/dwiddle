@@ -28,9 +28,7 @@ const decode = (t) => t
 
 // The player's answer, from the Android client first, which returns caption
 // addresses that can be fetched directly, then the web client.
-const trail = [];
 async function player(id) {
-  trail.length = 0;
   const clients = [
     { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30,
       ua: "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip" },
@@ -59,7 +57,6 @@ async function player(id) {
     }).catch(() => null);
     if (!r?.ok) continue;
     const data = await r.json().catch(() => null);
-    trail.push(`${client.clientName}:${data?.playabilityStatus?.status || "?"}:${data?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length || 0}`);
     last = data;
     if (data?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length) return data;
   }
@@ -90,9 +87,8 @@ export default async function handler(req, res) {
     const data = await player(id);
     const status = data?.playabilityStatus?.status;
     if (status && status !== "OK" && !data?.captions) {
-      if (req.body?.debug) return res.status(200).json({ trail });
       return userError(res, 422, status === "LOGIN_REQUIRED"
-        ? "YouTube would not share that video's captions. Open it on YouTube, choose Show transcript under the description, copy it and paste it here instead."
+        ? "YouTube will not let the website read videos. Use the Dwiddle app for YouTube links, or open the video on YouTube, press Show transcript under the description, and paste it here."
         : "That video is private, removed or not available where Dwiddle runs.");
     }
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];

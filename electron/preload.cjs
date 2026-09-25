@@ -45,3 +45,9 @@ contextBridge.exposeInMainWorld("DWIDDLE_UNINSTALL", {
   plan: () => ipcRenderer.invoke("dwiddle:uninstall-plan"),
   run: (phrase) => ipcRenderer.invoke("dwiddle:uninstall", phrase),
 });
+
+// YouTube captions, read from the person's own connection, which YouTube
+// answers where it refuses the website's server.
+contextBridge.exposeInMainWorld("DWIDDLE_YT", {
+  read: (url, lang) => ipcRenderer.invoke("dwiddle:youtube", url, lang),
+});

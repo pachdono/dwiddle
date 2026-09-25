@@ -13,6 +13,7 @@ import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, 
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation } from "./Chat.jsx";
+import { RecordingView } from "./Record.jsx";
 import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
@@ -1655,9 +1656,12 @@ function AddMaterial({ go, setMade, auth }) {
         </div>
         {dictation.error && <p className="small" style={{ color: "var(--warn)", margin: "-4px 0 0" }}>{dictation.error}</p>}
         {dictation.on && (
-          <p className="small muted" style={{ margin: "-4px 0 0" }}>
-            Listening. What is said appears in the notes below as it is heard. Keep the device near the speaker.
-          </p>
+          <RecordingView
+            seconds={(recNow - recStart) / 1000}
+            words={notes.trim() ? notes.trim().split(/\s+/).length : 0}
+            lastLine={notes.trim().split(/\s+/).slice(-9).join(" ")}
+            onStop={() => dictation.stop()}
+          />
         )}
 
         <div className="or"><span>or</span></div>

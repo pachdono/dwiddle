@@ -130,8 +130,17 @@ const toNotes = (sectionLists) => Object.fromEntries(
 );
 
 // The transcript of a YouTube video, to build material from.
-export const readYouTube = (url) =>
-  post("/api/youtube", { url, lang: (navigator.language || "en").slice(0, 2) });
+// In the installed app it is read on the person's own connection; YouTube
+// refuses the website's server, so there the message says what to do instead.
+export async function readYouTube(url) {
+  const lang = (navigator.language || "en").slice(0, 2);
+  if (typeof window !== "undefined" && window.DWIDDLE_YT) {
+    const r = await window.DWIDDLE_YT.read(url, lang);
+    if (r?.error) throw new Error(r.error);
+    return r;
+  }
+  return post("/api/youtube", { url, lang });
+}
 
 // A turn of the conversation with Dwiddle about what is on screen.
 export const chatWithDwiddle = (context, messages) =>

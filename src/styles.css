@@ -6065,3 +6065,31 @@ kbd {
 .dc-list { min-height: 0; }
 .dc-head, .dc-input, .dc-more { flex: 0 0 auto; }
 .dc-input textarea { min-height: 40px; height: 40px; }
+
+/* ---------- recording a lecture ---------- */
+
+.rv { overflow: hidden; padding: 0; }
+.rv-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 4px; }
+.rv-live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #e5484d; letter-spacing: 0.02em; }
+.rv-live i { width: 9px; height: 9px; border-radius: 50%; background: #e5484d; animation: dc-pulse 1.2s ease infinite; }
+.rv-time { font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.rv-bars { display: block; width: 100%; height: 70px; color: var(--accent); }
+.rv-water { display: block; width: 100%; height: 150px; margin-top: -8px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 6%, transparent)); }
+.rw-back { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.rw-front { fill: color-mix(in srgb, var(--accent) 42%, #4fa6da 30%); opacity: 0.9; }
+.rv-splash circle { fill: color-mix(in srgb, var(--accent) 50%, #7cc3e8); opacity: 0; }
+.rv-splash.go circle { animation: rv-drop 0.7s ease-out both; }
+.rv-splash.go circle:nth-child(3n+2) { animation-delay: 0.05s; }
+@keyframes rv-drop {
+  0% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(0, -26px) scale(0.6); }
+}
+.rv-foot { padding: 12px 18px 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.rv-line { margin: 0; font-size: 14px; color: var(--ink-2); font-style: italic; min-height: 1.5em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rv-stop { display: inline-flex; align-items: center; gap: 8px; background: #e5484d; color: #fff; border-color: #e5484d; }
+.rv-square { width: 10px; height: 10px; border-radius: 2px; background: #fff; }
+@media (prefers-reduced-motion: reduce) { .rv-splash.go circle { animation: none; } }
+.rv-water { height: 170px; }

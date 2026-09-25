@@ -230,6 +230,9 @@ app.whenReady().then(async () => {
   // Registers what the page can ask about updates straight away, and checks
   // for one itself once the window has had a moment to settle.
   updates.start();
+  ipcMain.handle("dwiddle:youtube", (_e, url, lang) => require("./youtube.cjs").read(url, lang).catch(() => ({
+    error: "The video could not be read just now. Check your connection and try again.",
+  })));
   ipcMain.handle("dwiddle:uninstall-plan", () => uninstall.plan());
   ipcMain.handle("dwiddle:uninstall", (event, phrase) =>
     uninstall.run(BrowserWindow.fromWebContents(event.sender), phrase));
