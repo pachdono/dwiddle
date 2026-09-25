@@ -45,10 +45,13 @@ export function MindMap({ made, onClose }) {
       const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
       const x = Math.cos(a) * R, y = Math.sin(a) * R * 0.82;
       const kids = branchesOf(made?.notes?.[t.name]);
-      const spread = Math.min(1.25, 0.34 * kids.length);
+      // A wide fan, with alternate terms on an outer ring, so six labels
+      // side by side still clear each other.
+      const spread = Math.min(2.4, 0.46 * kids.length);
       const leaves = kids.map((k, j) => {
         const b = a + (kids.length > 1 ? (j / (kids.length - 1) - 0.5) * spread : 0);
-        return { ...k, x: x + Math.cos(b) * 190, y: y + Math.sin(b) * 150 };
+        const r = 200 + (j % 2) * 85;
+        return { ...k, x: x + Math.cos(b) * r, y: y + Math.sin(b) * r * 0.78 };
       });
       return { name: t.name, x, y, a, color: COLORS[i % COLORS.length], leaves };
     });
@@ -94,7 +97,7 @@ export function MindMap({ made, onClose }) {
             setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
           }}
           onPointerUp={() => { dragging.current = null; }}>
-          <svg className="mm-svg" viewBox="-700 -560 1400 1120">
+          <svg className="mm-svg" viewBox="-820 -660 1640 1320">
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
               {layout.map((t) => (
                 <g key={t.name}>
