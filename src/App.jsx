@@ -57,6 +57,7 @@ const PAGE_PATH = {
   learn: "/learn",
   tests: "/test-prep",
   courses: "/courses",
+  notebook: "/notebook",
   upload: "/add-material",
   library: "/library",
   feedback: "/feedback",
@@ -218,6 +219,7 @@ const GROUPS = [
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics" },
   },
+  { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
   { id: "solve", label: "Solve", icon: "bulb", pages: ["solve"] },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
@@ -232,6 +234,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "solve", label: "Solve" },
+  { id: "notebook", label: "Notebooks" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
@@ -563,6 +566,7 @@ export default function App() {
     settings: Settings,
     tests: TestPrep,
     courses: Courses,
+    notebook: NotebookLoader,
     feedback: FeedbackPage,
     install: Install,
     "install-all": InstallAll,
@@ -804,7 +808,7 @@ export default function App() {
             <span className="tab-label">{t.label}</span>
           </button>
         ))}
-        <button className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all"].includes(page) ? " on" : "")}
+        <button className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all", "notebook"].includes(page) ? " on" : "")}
           onClick={() => setMenuOpen(true)}>
           <span className="tab-icon"><Icon name="menu" size={21} /></span>
           <span className="tab-label">More</span>
@@ -812,7 +816,7 @@ export default function App() {
       </nav>
 
       <UpdateBar />
-      <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests"].includes(page)} />
+      <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook"].includes(page)} />
       <PermissionPrompt />
 
       {editing && page === "home" && custom.on && (
@@ -841,6 +845,20 @@ function useHeavy() {
     return () => { live = false; };
   }, [ready]);
   return ready;
+}
+
+// The notebook's ink and fonts are only fetched when a notebook is opened, so
+// the rest of the app does not carry them.
+let NotebookPage = null;
+function NotebookLoader(props) {
+  const [, setReady] = useState(!!NotebookPage);
+  useEffect(() => {
+    if (NotebookPage) return;
+    let live = true;
+    import("./Notebook.jsx").then((m) => { NotebookPage = m.default; if (live) setReady(true); });
+    return () => { live = false; };
+  }, []);
+  return NotebookPage ? <NotebookPage {...props} /> : <LoadingPage title="Notebooks" />;
 }
 
 function LoadingPage({ title }) {
@@ -1413,7 +1431,12 @@ const REQUEST_LIMIT = 1500;
 
 function AddMaterial({ go, setMade, auth }) {
   const [files, setFiles] = useState([]); // [{ file, url }] in the order added
-  const [notes, setNotes] = useState("");
+  // A notebook page sent here arrives as its text, ready to build from.
+  const [notes, setNotes] = useState(() => {
+    const handed = sessionStorage.getItem("dwiddle-handoff-notes");
+    if (handed) sessionStorage.removeItem("dwiddle-handoff-notes");
+    return handed || "";
+  });
   const [over, setOver] = useState(false);
   const [state, setState] = useState("idle"); // idle | reading | asking | clarify | brief | working | done | error
   const [error, setError] = useState("");

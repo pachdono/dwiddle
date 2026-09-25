@@ -40,6 +40,12 @@ const paths = {
   check: "M4.5 10.5 8 14l7.5-8",
   // A phone, for the install page. An arrow would read as a file download,
   // and there is no file to download.
+  eraser: "M8.5 16.5h8M3.8 12.3l7.5-7.5a1.5 1.5 0 0 1 2.1 0l3.3 3.3a1.5 1.5 0 0 1 0 2.1l-6 6H7.6l-3.8-3.8a1.5 1.5 0 0 1 0-2.1ZM7 9l4.5 4.5",
+  shape: "M3.5 3.5h6v6h-6zM14 16.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM13.5 3l3.5 6h-7z",
+  select: "M4.5 3.5l11 5-4.8 1.6-1.6 4.8z",
+  image: "M4 4.5h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1ZM3.5 13l4-4 3 3 2-2 4 4M13 8.2a.8.8 0 1 0 0 .01",
+  undo: "M7.5 5 4 8.5 7.5 12M4.5 8.5h7a4.5 4.5 0 0 1 0 9H9",
+  redo: "M12.5 5 16 8.5 12.5 12M15.5 8.5h-7a4.5 4.5 0 0 0 0 9H11",
   expand: "M4 8V4h4M12 4h4v4M16 12v4h-4M8 16H4v-4",
   shrink: "M8 4v4H4M16 8h-4V4M12 16v-4h4M4 12h4v4",
   copy: "M7 7V4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5v7a1.5 1.5 0 0 1-1.5 1.5H13M4.5 7h7A1.5 1.5 0 0 1 13 8.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 15.5v-7A1.5 1.5 0 0 1 4.5 7Z",

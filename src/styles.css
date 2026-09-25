@@ -6364,3 +6364,107 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .ann-pop-actions { display: flex; justify-content: space-between; gap: 8px; }
 .topbar-fs { margin-left: 4px; flex: 0 0 auto; }
 @media (max-width: 700px) { .topbar-fs { display: none; } }
+
+/* ---------- notebooks ---------- */
+
+.nb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
+.nb-book { position: relative; cursor: pointer; display: grid; gap: 8px; }
+.nb-cover {
+  position: relative; aspect-ratio: 3 / 4; border-radius: 6px 16px 16px 6px; overflow: hidden;
+  box-shadow: inset 8px 0 0 rgba(0, 0, 0, 0.14), 0 10px 26px -10px rgba(0, 0, 0, 0.35);
+  display: grid; align-content: center; justify-items: center; padding: 16px; transition: transform 0.2s ease;
+}
+.nb-book:hover .nb-cover { transform: translateY(-3px) rotate(-1deg); }
+.nb-cover-band { position: absolute; left: 0; right: 0; top: 30%; height: 44px; background: rgba(255, 255, 255, 0.9); }
+.nb-cover-title { position: relative; z-index: 1; font-weight: 700; font-size: 15px; color: #1b1d26; text-align: center;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -36%; }
+.nb-cover-duck { position: absolute; right: 12px; bottom: 12px; opacity: 0.9; }
+.nb-meta { display: grid; gap: 1px; }
+.nb-meta b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-del { position: absolute; top: 8px; right: 8px; background: rgba(255, 255, 255, 0.9); opacity: 0; transition: opacity 0.15s ease; }
+.nb-book:hover .nb-del, .nb-del:focus-visible { opacity: 1; }
+.nb-empty { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 44px 20px; }
+.nb-empty p { max-width: 44ch; margin: 0 0 8px; }
+
+.gate.nb-new { max-width: 640px; text-align: left; }
+.nb-new-title { width: 100%; font-size: 16px; padding: 10px 14px; margin: 10px 0 14px; }
+.nb-new-body { display: grid; grid-template-columns: 170px 1fr; gap: 18px; }
+.nb-new-preview svg { width: 100%; border-radius: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); display: block; }
+.nb-new-opts { display: grid; gap: 8px; align-content: start; }
+.nb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.nb-chips button { padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: 12.5px; cursor: pointer; }
+.nb-chips button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nb-swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+.nb-swatches button { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.15); cursor: pointer; }
+.nb-swatches button.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.nb-swatches.small button { width: 20px; height: 20px; }
+
+/* The editor fills the whole content area. */
+.nb { display: flex; flex-direction: column; height: calc(100vh - 56px); min-height: 0; background: var(--sunken); }
+.nb-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; overflow-x: auto; flex: 0 0 auto;
+  border-bottom: 1px solid var(--line); background: var(--surface); scrollbar-width: none;
+}
+.nb-bar::-webkit-scrollbar { display: none; }
+.nb-title { width: 180px; flex: 0 0 auto; border: 0; background: transparent; font: inherit; font-weight: 650; font-size: 15px; padding: 6px 8px; border-radius: 8px; min-height: 0; }
+.nb-title:hover, .nb-title:focus { background: var(--hover); }
+.nb-group { display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 12px; background: var(--sunken); flex: 0 0 auto; }
+.nb-spacer { flex: 1; min-width: 8px; }
+.nb-tool { width: 36px; height: 36px; border-radius: 9px; border: 0; display: grid; place-items: center; background: transparent; color: var(--ink-2); cursor: pointer; }
+.nb-tool:hover { background: var(--hover); color: var(--ink); }
+.nb-tool.on { background: var(--accent); color: var(--accent-ink); }
+.nb-color { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--surface); cursor: pointer; box-shadow: 0 0 0 1px var(--line); margin: 0 2px; }
+.nb-color.on { box-shadow: 0 0 0 2px var(--accent); }
+.nb-custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.nb-custom input { position: absolute; inset: -6px; opacity: 0; cursor: pointer; }
+.nb-dot { width: 30px; height: 30px; border-radius: 8px; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.nb-dot i { display: block; border-radius: 50%; background: var(--ink-2); }
+.nb-dot.on { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.nb-pill { padding: 6px 10px; border-radius: 8px; border: 0; background: transparent; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink-2); min-height: 0; }
+.nb-pill.on, .nb-pill:hover { background: var(--surface); color: var(--ink); }
+.nb-font { min-height: 0; padding: 6px 8px; font-size: 13px; border-radius: 8px; width: auto; }
+.nb-ask { display: inline-flex; align-items: center; gap: 6px; }
+
+.nb-work { flex: 1; display: flex; min-height: 0; }
+.nb-thumbs { width: 118px; flex: 0 0 auto; overflow-y: auto; padding: 12px 10px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line); background: var(--surface); }
+.nb-thumb { position: relative; padding: 0; border: 2px solid transparent; border-radius: 6px; background: none; cursor: pointer; }
+.nb-thumb svg { display: block; width: 100%; height: auto; border-radius: 4px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); }
+.nb-thumb span { position: absolute; bottom: 4px; left: 4px; font-size: 10px; font-weight: 700; background: rgba(0, 0, 0, 0.55); color: #fff; padding: 1px 6px; border-radius: 6px; }
+.nb-thumb.on { border-color: var(--accent); }
+.nb-thumb-add { aspect-ratio: 3 / 4; border: 2px dashed var(--line); display: grid; place-items: center; color: var(--ink-3); }
+.nb-pages { flex: 1; overflow: auto; padding: 16px 20px 60px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.nb-page-opts { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 6px 10px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); }
+.nb-page-opts select { min-height: 0; padding: 5px 8px; font-size: 12.5px; width: auto; }
+.nb-page { flex: 0 0 auto; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04); border-radius: 3px; overflow: hidden; background: #fff; }
+.nb-svg { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.nb.pen .nb-svg { touch-action: pan-x pan-y pinch-zoom; }
+.nb-svg.tool-pen, .nb-svg.tool-highlighter { cursor: crosshair; }
+.nb-svg.tool-eraser { cursor: cell; }
+.nb-svg.tool-text { cursor: text; }
+.nb-svg.tool-select { cursor: default; }
+.nb-text { white-space: pre-wrap; word-break: break-word; outline: none; min-height: 1.35em; padding: 2px 4px; border-radius: 4px; }
+.nb-text.editing { outline: 1.5px dashed #3B5BFD; background: rgba(59, 91, 253, 0.04); cursor: text; user-select: text; -webkit-user-select: text; }
+.nb-add-end { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 999px; border: 1.5px dashed var(--line); background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; }
+.nb-print { display: none; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .nb-print, .nb-print * { visibility: visible !important; }
+  .nb-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+  .nb-print svg { display: block; width: 100%; height: auto; page-break-after: always; break-after: page; }
+}
+
+@media (max-width: 900px) {
+  .nb-thumbs { display: none; }
+}
+@media (max-width: 700px) {
+  .nb { height: calc(100vh - 50px - 76px); }
+  .nb-pages { padding: 10px 8px 40px; }
+  .nb-title { width: 130px; }
+  .nb-new-body { grid-template-columns: 1fr; }
+  .nb-new-preview { width: 120px; }
+}
+.nb-thumb-add { aspect-ratio: auto; height: 44px; }
+.nb-pages { min-width: 0; } .nb-work { min-width: 0; } .nb { min-width: 0; }
+.nb-thumb-add svg { width: 18px !important; height: 18px; box-shadow: none !important; }
