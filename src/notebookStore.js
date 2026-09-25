@@ -33,6 +33,9 @@ export const listBooks = async () => {
 };
 export const getBook = (id) => run("readonly", (s) => s.get(id));
 export const putBook = (book) => run("readwrite", (s) => s.put({ ...book, updated: Date.now() }));
+// Stores a notebook exactly as given, keeping its own time, for copies that
+// arrive from the account.
+export const putRaw = (book) => run("readwrite", (s) => s.put(book));
 export const deleteBook = (id) => run("readwrite", (s) => s.delete(id));
 
 export const uid = () => Math.random().toString(36).slice(2, 10);

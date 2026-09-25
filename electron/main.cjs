@@ -134,12 +134,13 @@ function create() {
 // disk have no host, so the same protection is applied here instead.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.googleusercontent.com",
   "font-src 'self' data:",
   `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co`,
   "media-src 'self' blob:",
+  "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
@@ -221,8 +222,16 @@ app.whenReady().then(async () => {
   await offerToMoveMac();
   if (quitting) { app.exit(0); return; }
 
+  // The app's own pages get its security policy; a video embedded in a
+  // notebook keeps YouTube's, or it would not play.
   session.defaultSession.webRequest.onHeadersReceived((details, done) => {
-    done({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [CSP] } });
+    const own = details.url.startsWith("file:") || details.url.startsWith(process.env.DWIDDLE_DEV_URL || "http://localhost:5180");
+    done({ responseHeaders: own ? { ...details.responseHeaders, "Content-Security-Policy": [CSP] } : details.responseHeaders });
+  });
+  // YouTube refuses to play an embed that does not say which site it is on,
+  // and a page opened from a file says nothing.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["https://www.youtube-nocookie.com/*", "https://www.youtube.com/embed/*"] }, (details, done) => {
+    done({ requestHeaders: { ...details.requestHeaders, Referer: SITE + "/" } });
   });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu()));

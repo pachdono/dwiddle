@@ -7,24 +7,12 @@
 // skill the section tests, and reading a transcript does not train it.
 
 import { useEffect, useRef, useState } from "react";
+import { say } from "./tts.js";
 
 export function speechAvailable() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-// Prefer a voice in the language the test is in, and a natural one where the
-// system offers a choice.
-function pickVoice() {
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
-  const english = voices.filter((v) => /^en(-|_)?/i.test(v.lang));
-  const pool = english.length ? english : voices;
-  return (
-    pool.find((v) => /natural|premium|enhanced|neural/i.test(v.name)) ||
-    pool.find((v) => /^en-GB/i.test(v.lang)) ||
-    pool[0]
-  );
-}
 
 export function Player({ transcript, playsAllowed = 1, onFinished }) {
   const [state, setState] = useState("idle"); // idle | playing | done
@@ -47,22 +35,13 @@ export function Player({ transcript, playsAllowed = 1, onFinished }) {
   function play() {
     if (!speechAvailable() || plays >= playsAllowed) return;
 
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(transcript);
-    const voice = pickVoice();
-    if (voice) u.voice = voice;
-    u.lang = voice?.lang || "en-GB";
-    u.rate = 0.95; // a shade under default, closer to exam pace
-    u.onend = () => {
-      setState("done");
-      onFinished?.();
-    };
-    u.onerror = () => setState("done");
-
-    utterance.current = u;
+    // A shade under normal pace, closer to how exam recordings sound.
+    utterance.current = say(transcript, {
+      rate: 0.95,
+      onEnd: () => { setState("done"); onFinished?.(); },
+    });
     setPlays((n) => n + 1);
     setState("playing");
-    window.speechSynthesis.speak(u);
   }
 
   function stop() {

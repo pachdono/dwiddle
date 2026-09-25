@@ -1,3 +1,4 @@
+import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
@@ -2064,61 +2065,44 @@ function Practice(props) {
   const drillPool = (props.drills || []).filter((q) => (topic ? q.topic === topic : liveTopics.includes(q.topic)));
   const dueCount = dueFrom([...pool, ...drillPool], props.srs).length;
 
+  const [playing, setPlaying] = useState(false);
+  const open = (id) => { setPMode(id); setPlaying(true); };
+  useEffect(() => {
+    if (!playing) return;
+    const onKey = (e) => { if (e.key === "Escape" && !e.target.closest?.("input, textarea")) setPlaying(false); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [playing]);
+
+  const stat = {
+    quiz: `${pool.length} question${pool.length === 1 ? "" : "s"}`,
+    review: dueCount ? `${dueCount} due now` : "Nothing due",
+    cards: `${pool.length} card${pool.length === 1 ? "" : "s"}`,
+    mock: `${Math.min(pool.length, 20)} questions, timed`,
+    speed: "60 seconds",
+    missed: missed.length ? `${missed.length} to fix` : "None yet",
+  };
+  const empty = pool.length === 0;
+
   return (
     <div className="page fade">
-      <PageHead title="Practice" sub={active.sub} />
+      <PageHead title="Practice" sub="Pick a way to study. Each one opens full screen, and you can switch between them at the top." />
 
-      <div className="learning-bar">
-        <div className="learning-main">
-          <span className="small muted">Currently learning</span>
-          <div className="learning-name">{topic || "All topics"}</div>
-          <div className="small muted">
-            {pool.length} question{pool.length === 1 ? "" : "s"} in this set
-            {topic ? "" : `, across ${choices.length} topics`}
-          </div>
-        </div>
-        <div className="row">
-          <label className="field topic-pick">
-            <select value={topic || ""} onChange={(e) => setTopic(e.target.value || null)}>
+      <div className="pz-topic">
+        <div className="pz-topic-main">
+          <span className="qv-label">Studying</span>
+          <label className="pz-topic-pick">
+            <select value={topic || ""} onChange={(e) => setTopic(e.target.value || null)} aria-label="Topic">
               <option value="">All topics</option>
               {choices.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
-          <button className="btn ghost" onClick={() => go("topics")}>Choose in Topics</button>
+          <span className="small muted">{pool.length} question{pool.length === 1 ? "" : "s"}{topic ? "" : `, ${choices.length} topics`}</span>
         </div>
+        <button className="btn ghost small" onClick={() => go("topics")}>Manage topics</button>
       </div>
 
-      <div className="spread mode-bar">
-        <div className="seg modes">
-          {MODES.map((m) => (
-            <button key={m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
-              <Icon name={m.icon} size={14} /> {m.label}
-              {m.id === "missed" && missed.length > 0 && <span className="badge">{missed.length}</span>}
-              {m.id === "review" && dueCount > 0 && <span className="badge">{dueCount}</span>}
-            </button>
-          ))}
-        </div>
-
-        {pMode === "quiz" && (
-          <label className="len-pick">
-            <span className="small muted">Questions</span>
-            <div className="seg tight">
-              {QUIZ_LENGTHS.map((n) => (
-                <button key={n} className={quizLen === n ? "on" : ""}
-                  disabled={n > pool.length}
-                  onClick={() => setQuizLen(n)}>
-                  {n}
-                </button>
-              ))}
-            </div>
-            {quizLen > pool.length && (
-              <span className="small muted">using {pool.length}</span>
-            )}
-          </label>
-        )}
-      </div>
-
-      {pool.length === 0 && active.id !== "missed" ? (
+      {empty ? (
         <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
           <Duck size={80} />
           <b style={{ display: "block", marginTop: 10 }}>Nothing to practise</b>
@@ -2133,7 +2117,53 @@ function Practice(props) {
           </div>
         </div>
       ) : (
-        <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} drillPool={drillPool} len={quizLen} />
+        <div className="pz-grid">
+          {MODES.map((m, n) => (
+            <div key={m.id} role="button" tabIndex={0} className={"pz-card c" + n + (m.id === "missed" && !missed.length ? " quiet" : "")}
+              onClick={() => open(m.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(m.id); } }}>
+              <span className="pz-icon"><Icon name={m.icon} size={22} /></span>
+              <b>{m.label}</b>
+              <p>{m.sub}</p>
+              <div className="pz-foot">
+                <span className={"pz-stat" + ((m.id === "review" && dueCount) || (m.id === "missed" && missed.length) ? " hot" : "")}>{stat[m.id]}</span>
+                {m.id === "quiz" && (
+                  <div className="seg tight" onClick={(e) => e.stopPropagation()}>
+                    {QUIZ_LENGTHS.map((k) => (
+                      <button key={k} className={quizLen === k ? "on" : ""} disabled={k > pool.length && k !== QUIZ_LENGTHS[0]} onClick={() => setQuizLen(k)}>{k}</button>
+                    ))}
+                  </div>
+                )}
+                <span className="pz-go">Start <Icon name="arrow" size={14} /></span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {playing && !empty && (
+        <Portal>
+          <div className="pz-full" role="dialog" aria-modal="true" aria-label={active.label}>
+            <div className="pz-bar">
+              <button className="icon-btn" onClick={() => setPlaying(false)} aria-label="Back to practice" title="Back to practice (Esc)"><Icon name="close" size={18} /></button>
+              <div className="pz-tabs" role="tablist">
+                {MODES.map((m) => (
+                  <button key={m.id} role="tab" aria-selected={pMode === m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
+                    <Icon name={m.icon} size={16} /><span>{m.label}</span>
+                    {m.id === "missed" && missed.length > 0 && <i className="pz-badge">{missed.length}</i>}
+                    {m.id === "review" && dueCount > 0 && <i className="pz-badge">{dueCount}</i>}
+                  </button>
+                ))}
+              </div>
+              <span className="pz-where small muted">{topic || "All topics"}</span>
+            </div>
+            <div className="pz-body">
+              <div className="pz-inner">
+                <p className="pz-sub muted">{active.sub}</p>
+                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} drillPool={drillPool} len={quizLen} />
+              </div>
+            </div>
+          </div>
+        </Portal>
       )}
     </div>
   );
@@ -2433,6 +2463,31 @@ function SetRow({ label, hint, children }) {
   );
 }
 
+// The voice that reads lessons, listening tests, podcasts and chat aloud.
+function VoiceCard() {
+  const [list, setList] = useState([]);
+  const [name, setName] = useState(savedVoiceName());
+  useEffect(() => onVoices(() => setList(allVoices())), []);
+  if (!("speechSynthesis" in window)) return null;
+  const current = list.find((v) => v.name === name) || list[0];
+  const pick = (n) => { setName(n); saveVoiceName(n); };
+  const natural = list.filter(isNatural);
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Voice</h3></div>
+      <SetRow label="Reading voice" hint="Used for lessons, listening tests, audio overviews and Dwiddle's replies. Natural voices are listed first.">
+        <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+          <select value={current?.name || ""} onChange={(e) => pick(e.target.value)} style={{ maxWidth: 240 }}>
+            {list.map((v) => <option key={v.name} value={v.name}>{v.name.replace(/^Microsoft /, "").replace(/ - English.*$/, "")}{isNatural(v) ? " ✦" : ""}</option>)}
+          </select>
+          <button className="btn ghost small" onClick={() => say("Hi, I'm Dwiddle. This is how I'll read your notes to you.", { voice: current || null })}>Preview</button>
+        </div>
+      </SetRow>
+      {natural.length < 2 && <p className="small muted" style={{ margin: "0 20px 16px" }}>{voiceTip()}</p>}
+    </div>
+  );
+}
+
 function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
   const [name, setNameRaw] = useState(() => auth?.user ? displayName(auth.user) : load(KEYS.name, ""));
@@ -2531,6 +2586,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
             </select>
           </SetRow>
         </div>
+
+        <VoiceCard />
 
         <div className="card">
           <div className="card-head"><h3>Notifications</h3></div>

@@ -9,20 +9,12 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, Portal, Loading } from "./ui.jsx";
 import { DuckTalk } from "./Chat.jsx";
 import { writePodcast } from "./ai.js";
+import { say, onVoices, voicePair, stopSpeaking } from "./tts.js";
 
 const KEY = "dwiddle-podcasts";
 const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
 const saveOne = (id, ep) => { try { const all = loadAll(); all[id] = ep; localStorage.setItem(KEY, JSON.stringify(all)); } catch {} };
 
-// Two voices that sound different from each other.
-function voicesFor() {
-  const all = (window.speechSynthesis?.getVoices?.() || []).filter((v) => /^en/i.test(v.lang));
-  const female = /samantha|serena|karen|moira|tessa|victoria|google uk english female|libby|sonia|aria|jenny|female/i;
-  const male = /daniel|alex|fred|tom|oliver|arthur|google uk english male|ryan|guy|male/i;
-  const a = all.find((v) => female.test(v.name)) || all[0] || null;
-  const b = all.find((v) => male.test(v.name) && v !== a) || all.find((v) => v !== a) || a;
-  return { dwiddle: a, puddle: b };
-}
 
 const flat = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
 export function notesText(made) {
@@ -51,10 +43,8 @@ export function Podcast({ made, onClose }) {
   const playingRef = useRef(false);
 
   useEffect(() => {
-    const pick = () => { voices.current = voicesFor(); };
-    pick();
-    window.speechSynthesis?.addEventListener?.("voiceschanged", pick);
-    return () => { window.speechSynthesis?.removeEventListener?.("voiceschanged", pick); window.speechSynthesis?.cancel(); };
+    const off = onVoices(() => { const [a, b] = voicePair(); voices.current = { dwiddle: a, puddle: b }; });
+    return () => { off(); stopSpeaking(); };
   }, []);
 
   useEffect(() => {
@@ -75,13 +65,12 @@ export function Podcast({ made, onClose }) {
     if (i >= ep.lines.length) { setPlaying(false); playingRef.current = false; return; }
     setAt(i);
     const line = ep.lines[i];
-    const u = new SpeechSynthesisUtterance(line.text);
+    // Two different voices are enough to tell the ducks apart; the pitch is
+    // only nudged when the device has a single voice.
     const v = voices.current[line.who];
-    if (v) u.voice = v;
-    u.rate = rate;
-    u.pitch = line.who === "puddle" ? 1.15 : 1;
-    u.onend = () => { if (playingRef.current) speakFrom(i + 1); };
-    synth.speak(u);
+    const same = voices.current.dwiddle === voices.current.puddle;
+    say(line.text, { voice: v || null, rate, pitch: same && line.who === "puddle" ? 1.12 : 1,
+      onEnd: () => { if (playingRef.current) speakFrom(i + 1); } });
   }
   function play() { playingRef.current = true; setPlaying(true); speakFrom(at); }
   function pause() { playingRef.current = false; setPlaying(false); window.speechSynthesis?.cancel(); }

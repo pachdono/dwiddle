@@ -13,6 +13,7 @@
 // about something specific with openDwiddle. Both go through window events,
 // so any page, including the full screen lesson, can reach the one panel.
 
+import { say } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckParts } from "./Duck.jsx";
 import { Icon, Portal } from "./ui.jsx";
@@ -214,24 +215,8 @@ export function useDictation(onText) {
 }
 
 // Reading a reply aloud, in the most natural voice the device has.
-function pickVoice() {
-  const voices = window.speechSynthesis?.getVoices?.() || [];
-  const en = voices.filter((v) => /^en/i.test(v.lang));
-  return en.find((v) => /samantha|google uk english female|serena|karen|moira|libby|sonia|aria|jenny/i.test(v.name))
-    || en.find((v) => /female/i.test(v.name)) || en[0] || null;
-}
 function speak(text, { onStart, onEnd } = {}) {
-  const synth = window.speechSynthesis;
-  if (!synth) return onEnd?.();
-  synth.cancel();
-  const u = new SpeechSynthesisUtterance(plainText(text));
-  const v = pickVoice();
-  if (v) u.voice = v;
-  u.rate = 1.02;
-  u.onstart = () => onStart?.();
-  u.onend = () => onEnd?.();
-  u.onerror = () => onEnd?.();
-  synth.speak(u);
+  say(plainText(text), { rate: 1.02, onStart, onEnd });
 }
 const plainText = (t) => String(t).replace(/\*\*/g, "").replace(/^\s*[-*]\s+/gm, "");
 
