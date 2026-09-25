@@ -82,6 +82,7 @@ const SYNCED = [
   KEYS.quizLen,
   KEYS.stats,
   KEYS.made,
+  KEYS.madeCleared,
   KEYS.seen,
   KEYS.testBank,
 ];
@@ -101,6 +102,8 @@ export function applySnapshot(data) {
   SYNCED.forEach((k) => {
     if (data[k] !== undefined && data[k] !== null) save(k, data[k]);
   });
+  // Material deleted, here or on another device, is removed here too.
+  if (data[KEYS.made] === null && data[KEYS.madeCleared]) save(KEYS.made, null);
 }
 
 // Merging matters more than it looks. Two devices both hold a full picture, so
@@ -157,7 +160,14 @@ export function merge(localData, remoteData) {
     const b = remoteData?.[k];
 
     if (k === KEYS.stats) out[k] = mergeStats(a, b);
-    else if (k === KEYS.made) out[k] = mergeMade(a, b);
+    else if (k === KEYS.made) {
+      // A deletion newer than either copy wins, so deleting on one device
+      // is not undone by the copy another device still has.
+      const cleared = Math.max(localData?.[KEYS.madeCleared] || 0, remoteData?.[KEYS.madeCleared] || 0);
+      const keep = (m) => (m && (!cleared || (m.savedAt || 0) > cleared) ? m : null);
+      out[k] = mergeMade(keep(a), keep(b)) || null;
+    }
+    else if (k === KEYS.madeCleared) out[k] = Math.max(a || 0, b || 0) || null;
     else if (k === KEYS.testBank) out[k] = mergeBank(a, b);
     else if (Array.isArray(a) || Array.isArray(b)) {
       out[k] = [...new Set([...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])])];

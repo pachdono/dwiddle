@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal } from "./ui.jsx";
 import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -14,6 +14,8 @@ import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
+import { AnnotatedText } from "./Annotate.jsx";
+import { FullscreenButton } from "./ContextMenu.jsx";
 import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
@@ -403,9 +405,23 @@ export default function App() {
         };
       }
 
-      save(KEYS.made, next);
+      save(KEYS.made, next && { ...next, savedAt: Date.now() });
       return next;
     });
+  }
+
+  // Deleting material takes its lessons, notes and review schedule with it.
+  // Your streak and totals stay: they are what you did, not what you added.
+  function deleteMaterial() {
+    setMadeRaw(null);
+    save(KEYS.made, null);
+    save(KEYS.madeCleared, Date.now());
+    save(KEYS.sources, { list: [], topics: {} });
+    save(KEYS.srs, {});
+    setSrs({});
+    setMissed([]); save(KEYS.missed, []);
+    setHiddenRaw([]); save(KEYS.hidden, []);
+    setTopicRaw(null); save(KEYS.topic, null);
   }
 
   // A lesson is kept once written, so it opens instantly the next time and
@@ -435,7 +451,7 @@ export default function App() {
           [name]: { cards: lesson.cards, checks: lesson.checks, done: prev.lessons?.[name]?.done || false },
         },
       };
-      save(KEYS.made, next);
+      save(KEYS.made, next && { ...next, savedAt: Date.now() });
       return next;
     });
   }
@@ -446,7 +462,7 @@ export default function App() {
     setMadeRaw((prev) => {
       if (!prev) return prev;
       const next = { ...prev, notes: { ...(prev.notes || {}), ...written } };
-      save(KEYS.made, next);
+      save(KEYS.made, next && { ...next, savedAt: Date.now() });
       return next;
     });
   }
@@ -455,7 +471,7 @@ export default function App() {
     setMadeRaw((prev) => {
       if (!prev?.lessons?.[name]) return prev;
       const next = { ...prev, lessons: { ...prev.lessons, [name]: { ...prev.lessons[name], done: true } } };
-      save(KEYS.made, next);
+      save(KEYS.made, next && { ...next, savedAt: Date.now() });
       return next;
     });
   }
@@ -476,7 +492,7 @@ export default function App() {
     if (!auth.user) return;
     const t = setTimeout(() => pushProgress(auth.user.id, localSnapshot()), 1200);
     return () => clearTimeout(t);
-  }, [auth.user, missed, hidden, topic, theme]);
+  }, [auth.user, missed, hidden, topic, theme, made]);
 
   const go = (p, mode) => {
     if (p !== "home") setEditing(false);
@@ -729,6 +745,7 @@ export default function App() {
             <span className="topbar-title">{title}</span>
           )}
           <span className="crumb small">{made ? made.title : ""}</span>
+          <FullscreenButton className="icon-btn topbar-fs" />
         </header>
         <Page
           key={`${page}:${seq}`}
@@ -750,6 +767,7 @@ export default function App() {
           saveLesson={saveLesson}
           finishLesson={finishLesson}
           saveNotes={saveNotes}
+          deleteMaterial={deleteMaterial}
           bank={bank}
           drills={drills}
           srs={srs}
@@ -794,7 +812,7 @@ export default function App() {
       </nav>
 
       <UpdateBar />
-      <DwiddleChat hidden={["settings", "install", "install-all", "feedback"].includes(page)} />
+      <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests"].includes(page)} />
       <PermissionPrompt />
 
       {editing && page === "home" && custom.on && (
@@ -1229,6 +1247,12 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
                     </div>
                   </div>
                   <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
+                  {m.id === "made" && deleteMaterial && (
+                    <button className="icon-btn lib-del" title="Delete this material" aria-label={`Delete ${m.title}`}
+                      onClick={(e) => { e.stopPropagation(); setConfirm(true); }}>
+                      <Icon name="trash" size={15} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1868,7 +1892,13 @@ function AddMaterial({ go, setMade, auth }) {
 
 /* ---------- library ---------- */
 
-function Library({ go, made, materials }) {
+function Library({ go, made, materials, deleteMaterial }) {
+  const [confirm, setConfirm] = useState(false);
+  const counts = made ? {
+    topics: made.topics.length,
+    questions: made.questions.length,
+    lessons: Object.keys(made.lessons || {}).length,
+  } : null;
   return (
     <div className="page fade">
       <PageHead title="Library" sub="Everything you have added so far." />
@@ -1900,12 +1930,40 @@ function Library({ go, made, materials }) {
                     </div>
                   </div>
                   <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
+                  {m.id === "made" && deleteMaterial && (
+                    <button className="icon-btn lib-del" title="Delete this material" aria-label={`Delete ${m.title}`}
+                      onClick={(e) => { e.stopPropagation(); setConfirm(true); }}>
+                      <Icon name="trash" size={15} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
         </div>
+      )}
+
+      {confirm && counts && (
+        <Portal>
+          <div className="gate-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirm(false); }}>
+            <div className="gate lib-confirm" role="alertdialog" aria-modal="true" aria-labelledby="lib-del-title">
+              <div className="lib-confirm-icon"><Icon name="trash" size={22} /></div>
+              <h2 id="lib-del-title">Delete "{made.title}"?</h2>
+              <p className="gate-sub">
+                This removes its {counts.topics} topic{counts.topics === 1 ? "" : "s"}, {counts.questions} question{counts.questions === 1 ? "" : "s"}
+                {counts.lessons ? `, ${counts.lessons} lesson${counts.lessons === 1 ? "" : "s"}` : ""} and notes, from this
+                device and from your account. Your streak and totals stay. It cannot be undone.
+              </p>
+              <div className="gate-actions">
+                <button className="btn lib-confirm-go" autoFocus onClick={() => { deleteMaterial(); setConfirm(false); }}>
+                  Delete it
+                </button>
+                <button className="btn ghost" onClick={() => setConfirm(false)}>Keep it</button>
+              </div>
+            </div>
+          </div>
+        </Portal>
       )}
     </div>
   );
@@ -3708,7 +3766,7 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
             </div>
             {sec.audio
               ? <Player transcript={q.passage} playsAllowed={sec.plays || 1} />
-              : <div className="passage-body">{q.passage}</div>}
+              : <AnnotatedText className="passage-body" text={q.passage} />}
           </div>
           <div className="card card-pad paper-questions">{questionPane}</div>
         </div>
@@ -4224,7 +4282,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
             <div className="prompt-label">{sec.audio ? "Recording" : "Passage"}</div>
             {sec.audio
               ? <Player transcript={q.passage} playsAllowed={sec.plays || 2} />
-              : <div className="passage-body">{q.passage}</div>}
+              : <AnnotatedText className="passage-body" text={q.passage} />}
           </div>
         )}
 

@@ -55,6 +55,7 @@ export const KEYS = {
   quizLen: "dwiddle-quizlen", // questions per quiz run
   stats: "dwiddle-stats",     // answered, correct, and the days you studied
   made: "dwiddle-made",       // material generated from your own notes
+  madeCleared: "dwiddle-made-cleared", // when material was last deleted, so another device does not bring it back
   bannerOff: "dwiddle-banner", // the not signed in notice was dismissed
   entered: "dwiddle-entered",  // landing passed, for this tab only
   testBank: "dwiddle-bank",   // questions written for test sections, kept and reused

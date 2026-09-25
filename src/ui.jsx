@@ -40,6 +40,16 @@ const paths = {
   check: "M4.5 10.5 8 14l7.5-8",
   // A phone, for the install page. An arrow would read as a file download,
   // and there is no file to download.
+  expand: "M4 8V4h4M12 4h4v4M16 12v4h-4M8 16H4v-4",
+  shrink: "M8 4v4H4M16 8h-4V4M12 16v-4h4M4 12h4v4",
+  copy: "M7 7V4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5v7a1.5 1.5 0 0 1-1.5 1.5H13M4.5 7h7A1.5 1.5 0 0 1 13 8.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 15.5v-7A1.5 1.5 0 0 1 4.5 7Z",
+  paste: "M7.5 4H6a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 6 17h8a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 14 4h-1.5M8 3h4v2.5H8z",
+  cut: "M6 14.5a2 2 0 1 0 0 .01M14 14.5a2 2 0 1 0 0 .01M7.6 13.2 14.5 4M12.4 13.2 5.5 4",
+  marker: "M12.5 3.5l4 4-7.5 7.5H5v-4zM5 17h10",
+  note: "M5 3.5h10a1 1 0 0 1 1 1v8L12.5 16H5a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1ZM12 16v-3.5h4M7 7.5h6M7 10.5h4",
+  back: "M11.5 5 6.5 10l5 5",
+  refresh: "M15.5 8A6 6 0 1 0 16 11M16 4v4h-4",
+  selectall: "M4 4h2M8 4h4M14 4h2v2M16 8v4M16 14v2h-2M12 16H8M6 16H4v-2M4 12V8M4 6V4",
   download: "M6.5 2.5h7a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V4a1.5 1.5 0 0 1 1.5-1.5ZM8.5 15h3",
 };
 
