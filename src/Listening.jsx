@@ -7,7 +7,7 @@
 // skill the section tests, and reading a transcript does not train it.
 
 import { useEffect, useRef, useState } from "react";
-import { say } from "./tts.js";
+import { sayAs, stopSpeaking } from "./tts.js";
 
 export function speechAvailable() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
@@ -21,7 +21,7 @@ export function Player({ transcript, playsAllowed = 1, onFinished }) {
   const utterance = useRef(null);
 
   // Leaving the page mid sentence would otherwise keep talking.
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  useEffect(() => () => stopSpeaking(), []);
 
   // Voices load asynchronously in most browsers, so the first call can be empty.
   useEffect(() => {
@@ -36,7 +36,7 @@ export function Player({ transcript, playsAllowed = 1, onFinished }) {
     if (!speechAvailable() || plays >= playsAllowed) return;
 
     // A shade under normal pace, closer to how exam recordings sound.
-    utterance.current = say(transcript, {
+    utterance.current = sayAs("narrator", transcript, {
       rate: 0.95,
       onEnd: () => { setState("done"); onFinished?.(); },
     });
@@ -45,7 +45,7 @@ export function Player({ transcript, playsAllowed = 1, onFinished }) {
   }
 
   function stop() {
-    window.speechSynthesis.cancel();
+    stopSpeaking();
     setState("done");
   }
 

@@ -7,7 +7,7 @@
 // sidebar and a list of other things to do is a lesson half read.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { say } from "./tts.js";
+import { sayAs, stopSpeaking } from "./tts.js";
 import { Icon, PageHead, Portal } from "./ui.jsx";
 import { Duck, DuckSitting } from "./Duck.jsx";
 import { writeLesson } from "./lessons.js";
@@ -128,14 +128,14 @@ function useSpeech() {
 
   const stop = useCallback(() => {
     if (!supported) return;
-    window.speechSynthesis.cancel();
+    stopSpeaking();
     setSpeaking(false);
   }, [supported]);
 
   const speak = useCallback((text) => {
     if (!supported) return;
     setSpeaking(true);
-    say(text, { onEnd: () => setSpeaking(false) });
+    sayAs("dwiddle", text, { onEnd: () => setSpeaking(false) });
   }, [supported]);
 
   useEffect(() => stop, [stop]);

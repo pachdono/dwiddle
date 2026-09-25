@@ -1045,6 +1045,16 @@ function Editor({ id, go, onClose }) {
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const twoFinger = useRef(null); // { x, y } midpoint while two fingers scroll
+  // Add ?nbdebug to the address to see what the device sends while drawing.
+  const [debug, setDebug] = useState(() => (/nbdebug/.test(location.search) ? [] : null));
+  const log = (type, e) => {
+    if (!debug) return;
+    const t = e.changedTouches?.[0];
+    const line = `${type} ${e.pointerType || t?.touchType || ""} ${e.defaultPrevented ? "blocked" : ""} ${e.target?.nodeName || ""}`;
+    setDebug((d) => [line, ...(d || [])].slice(0, 14));
+  };
+  const logRef = useRef(log);
+  logRef.current = log;
   const loaded = !!book;
   useEffect(() => {
     const el = pagesRef.current;
@@ -1053,7 +1063,9 @@ function Editor({ id, go, onClose }) {
     // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
     // hand tool, it scrolls. Two fingers always scroll.
     const onStart = (e) => {
+      logRef.current("touchstart", e);
       if (toolRef.current === "hand") return; // the browser scrolls
+      if (e.target.closest?.(".nb-text.editing")) return; // placing the caret in text being typed
       if (e.touches.length >= 2) {
         twoFinger.current = mid(e.touches);
         setLive(null);
@@ -1065,6 +1077,7 @@ function Editor({ id, go, onClose }) {
     };
     const onMove = (e) => {
       if (toolRef.current === "hand") return;
+      if (e.target.closest?.(".nb-text.editing")) return;
       if (twoFinger.current && e.touches.length >= 2) {
         const m = mid(e.touches);
         el.scrollBy(twoFinger.current.x - m.x, twoFinger.current.y - m.y);
@@ -1074,7 +1087,16 @@ function Editor({ id, go, onClose }) {
       }
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
-    const onEnd = (e) => { if (e.touches.length === 0) twoFinger.current = null; };
+    const onEnd = (e) => {
+      logRef.current("touchend", e);
+      if (e.touches.length === 0) twoFinger.current = null;
+      // iPhones and iPads only bring up the keyboard when focus happens
+      // during the tap itself, so a new text box is focused here.
+      if (toolRef.current === "text") {
+        const box = el.querySelector(".nb-text.editing");
+        if (box && document.activeElement !== box) box.focus();
+      }
+    };
     el.addEventListener("touchstart", onStart, { passive: false });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd);
@@ -1159,6 +1181,7 @@ function Editor({ id, go, onClose }) {
   }
 
   function down(e, page) {
+    log("pointerdown", e);
     if (e.button !== 0 && e.pointerType === "mouse") return;
     if (twoFinger.current) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
@@ -1289,7 +1312,8 @@ function Editor({ id, go, onClose }) {
     });
   }
 
-  function up() {
+  function up(e) {
+    if (e?.type) log(e.type, e);
     if (drag.current) {
       const start = drag.current.start;
       if (start && start !== book) { past.current.push(start); future.current = []; }
@@ -1489,6 +1513,7 @@ function Editor({ id, go, onClose }) {
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />
+      {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (
         <ToolPop tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize}
           colors={colors} color={color} setColor={setColor} shapeKind={shapeKind} setShapeKind={setShapeKind}
@@ -1510,7 +1535,7 @@ function Editor({ id, go, onClose }) {
           <button className="nb-thumb nb-thumb-add" onClick={() => addPage(book.pages.length - 1)} aria-label="Add a page"><Icon name="plus" size={18} /></button>
         </aside>
 
-        <div className="nb-pages" ref={pagesArea}>
+        <div className={"nb-pages" + (tool === "hand" ? " hand" : "")} ref={pagesArea}>
           <div className="nb-page-opts">
             <span className="small muted">Page {current + 1} of {book.pages.length}</span>
             <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
@@ -1554,7 +1579,13 @@ function Editor({ id, go, onClose }) {
               <svg viewBox={`0 0 ${page.w} ${page.h}`} width={page.w * zoom} height={page.h * zoom}
                 className={"nb-svg tool-" + tool}
                 onPointerDown={(e) => down(e, page)} onPointerMove={(e) => move(e, page)}
-                onPointerUp={up} onPointerCancel={up} onPointerLeave={(e) => { if (ring.current) ring.current.style.display = "none"; if (e.buttons === 0) up(); }}>
+                onPointerUp={up} onPointerCancel={up} onPointerLeave={(e) => {
+                  if (ring.current) ring.current.style.display = "none";
+                  // Only a mouse can leave mid stroke; a finger or Pencil is held by the page
+                  // until it lifts, and Safari reports a "leave" the moment it is held.
+                  if (e.pointerType === "mouse" && e.buttons === 0) up(e);
+                  else log("pointerleave (ignored)", e);
+                }}>
                 <Paper page={page} />
                 {page.items.map((it) => (
                   <Item key={it.id} it={it} editing={editingText === it.id} shown={shown.has(it.id)}

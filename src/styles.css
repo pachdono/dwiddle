@@ -6810,3 +6810,9 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .yt-badge.small { width: 28px; height: 20px; border-radius: 6px; }
 .more-in .rec-btn:not(.on) { border-radius: 999px; min-height: 46px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
 .more-in .rec-btn:not(.on):hover { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+/* Safari can ignore touch-action on SVG, so the page around it says it too. */
+.nb-page { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.nb-pages.hand .nb-page, .nb-pages.hand .nb-svg { touch-action: pan-x pan-y; }
+.nb-text.editing { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+.nb-debug { position: fixed; left: 8px; bottom: 8px; z-index: 90; margin: 0; padding: 8px 10px; max-width: 70vw; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.8); color: #9f9; font: 11px/1.4 ui-monospace, monospace; pointer-events: none; white-space: pre-wrap; }

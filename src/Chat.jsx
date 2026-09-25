@@ -13,7 +13,7 @@
 // about something specific with openDwiddle. Both go through window events,
 // so any page, including the full screen lesson, can reach the one panel.
 
-import { say } from "./tts.js";
+import { sayAs, stopSpeaking } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckParts, PuddleParts } from "./Duck.jsx";
 import { Icon, Portal } from "./ui.jsx";
@@ -216,7 +216,7 @@ export function useDictation(onText) {
 
 // Reading a reply aloud, in the most natural voice the device has.
 function speak(text, { onStart, onEnd } = {}) {
-  say(plainText(text), { rate: 1.02, onStart, onEnd });
+  sayAs("dwiddle", plainText(text), { rate: 1.02, onStart, onEnd });
 }
 const plainText = (t) => String(t).replace(/\*\*/g, "").replace(/^\s*[-*]\s+/gm, "");
 
@@ -287,7 +287,7 @@ export function DwiddleChat({ hidden = false }) {
   function close() {
     setOpen(false);
     dict.stop();
-    window.speechSynthesis?.cancel();
+    stopSpeaking();
     setMood("idle");
   }
 
@@ -356,7 +356,7 @@ export function DwiddleChat({ hidden = false }) {
               <span>{mood === "thinking" ? "thinking..." : mood === "listening" ? "listening..." : mood === "talking" ? "talking" : context ? "about what's on your screen" : "ask me anything you're studying"}</span>
             </div>
             <button className={"dc-icon" + (voiceOn ? " on" : "")} title={voiceOn ? "Stop reading replies aloud" : "Read replies aloud"}
-              aria-pressed={voiceOn} onClick={() => { setVoiceOn((v) => !v); window.speechSynthesis?.cancel(); }}>
+              aria-pressed={voiceOn} onClick={() => { setVoiceOn((v) => !v); stopSpeaking(); }}>
               <SpeakerIcon on={voiceOn} />
             </button>
             <button className="dc-icon" onClick={close} aria-label="Close"><Icon name="close" size={16} /></button>
