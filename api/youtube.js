@@ -28,10 +28,20 @@ const decode = (t) => t
 
 // The player's answer, from the Android client first, which returns caption
 // addresses that can be fetched directly, then the web client.
+const trail = [];
 async function player(id) {
+  trail.length = 0;
   const clients = [
     { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30,
       ua: "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip" },
+    { clientName: "IOS", clientVersion: "20.10.4", deviceModel: "iPhone16,2",
+      ua: "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3 like Mac OS X)" },
+    { clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER", clientVersion: "2.0",
+      ua: "Mozilla/5.0 (PlayStation; PlayStation 4/12.00) AppleWebKit/605.1.15 (KHTML, like Gecko)" },
+    { clientName: "WEB_EMBEDDED_PLAYER", clientVersion: "1.20250101.00.00",
+      ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36" },
+    { clientName: "MWEB", clientVersion: "2.20250101.00.00",
+      ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1" },
     { clientName: "WEB", clientVersion: "2.20250101.00.00",
       ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36" },
   ];
@@ -41,10 +51,15 @@ async function player(id) {
     const r = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
       method: "POST",
       headers: { "Content-Type": "application/json", "User-Agent": ua, "Accept-Language": "en-GB,en;q=0.9" },
-      body: JSON.stringify({ context: { client: { ...client, hl: "en", gl: "GB" } }, videoId: id }),
+      body: JSON.stringify({
+        context: { client: { ...client, hl: "en", gl: "GB" },
+          ...(client.clientName.includes("EMBED") ? { thirdParty: { embedUrl: "https://www.google.com" } } : {}) },
+        videoId: id,
+      }),
     }).catch(() => null);
     if (!r?.ok) continue;
     const data = await r.json().catch(() => null);
+    trail.push(`${client.clientName}:${data?.playabilityStatus?.status || "?"}:${data?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length || 0}`);
     last = data;
     if (data?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length) return data;
   }
@@ -75,6 +90,7 @@ export default async function handler(req, res) {
     const data = await player(id);
     const status = data?.playabilityStatus?.status;
     if (status && status !== "OK" && !data?.captions) {
+      if (req.body?.debug) return res.status(200).json({ trail });
       return userError(res, 422, status === "LOGIN_REQUIRED"
         ? "YouTube would not share that video's captions. Open it on YouTube, choose Show transcript under the description, copy it and paste it here instead."
         : "That video is private, removed or not available where Dwiddle runs.");
