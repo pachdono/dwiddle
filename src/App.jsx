@@ -1247,12 +1247,6 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
                     </div>
                   </div>
                   <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
-                  {m.id === "made" && deleteMaterial && (
-                    <button className="icon-btn lib-del" title="Delete this material" aria-label={`Delete ${m.title}`}
-                      onClick={(e) => { e.stopPropagation(); setConfirm(true); }}>
-                      <Icon name="trash" size={15} />
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
