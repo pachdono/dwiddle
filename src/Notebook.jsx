@@ -322,6 +322,36 @@ const FOLDERS_KEY = "dwiddle-nb-folders";
 const loadFolders = () => { try { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]"); } catch { return []; } };
 const saveFolders = (f) => { try { localStorage.setItem(FOLDERS_KEY, JSON.stringify(f)); } catch {} };
 
+const VIEW_KEY = "dwiddle-nb-view";
+const FOLDER_COLORS_KEY = "dwiddle-nb-folder-colors";
+const loadJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
+const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } };
+const FOLDER_COLORS = ["#5AB0F5", "#8E8E93", "#FF6B6B", "#FFA94D", "#FFD43B", "#69DB7C", "#38D9A9", "#9775FA", "#F783AC"];
+
+// A folder drawn the way a Mac draws one, in any colour, with the covers of
+// the first few notebooks peeking out of the top.
+function MacFolder({ color = FOLDER_COLORS[0], peek = [] }) {
+  return (
+    <svg className="nb-macfolder" viewBox="0 0 120 96" aria-hidden="true">
+      <defs>
+        <linearGradient id={"fb" + color.slice(1)} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity="0.78" /><stop offset="1" stopColor={color} stopOpacity="0.95" />
+        </linearGradient>
+        <linearGradient id={"ff" + color.slice(1)} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.35" /><stop offset="0.08" stopColor={color} /><stop offset="1" stopColor={color} />
+        </linearGradient>
+      </defs>
+      <path d="M8 14a6 6 0 0 1 6-6h28a6 6 0 0 1 4.6 2.2L51 16h55a6 6 0 0 1 6 6v8H8Z" fill={`url(#fb${color.slice(1)})`} />
+      <path d="M8 22h104v8H8z" fill={color} opacity="0.6" />
+      {peek.slice(0, 3).map((c, i) => (
+        <rect key={i} x={22 + i * 26} y={20 - (i % 2) * 3} width="24" height="30" rx="2.5" fill={c} stroke="#fff" strokeWidth="1.5" transform={`rotate(${(i - 1) * 5} ${34 + i * 26} 35)`} />
+      ))}
+      <path d="M4 32a6 6 0 0 1 6-6h100a6 6 0 0 1 6 6l-3 52a6 6 0 0 1-6 5.6H13a6 6 0 0 1-6-5.6Z" fill={`url(#ff${color.slice(1)})`} />
+      <path d="M10 30h100" stroke="#fff" strokeOpacity="0.45" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
 // A small picture of a page, for choosing paper and for covers.
 export function PagePreview({ page, className = "" }) {
   return (
@@ -340,6 +370,12 @@ export default function NotebookPage({ go }) {
   const [confirm, setConfirm] = useState(null);
   const [folder, setFolder] = useState("all");
   const [extraFolders, setExtraFolders] = useState(loadFolders);
+  const [view, setViewRaw] = useState(() => loadJSON(VIEW_KEY, "folders")); // "folders" like a Mac, or "tabs"
+  const setView = (v) => { setViewRaw(v); saveJSON(VIEW_KEY, v); };
+  const [folderColors, setFolderColors] = useState(() => loadJSON(FOLDER_COLORS_KEY, {}));
+  const [folderMenu, setFolderMenu] = useState(null); // folder with its menu open
+  const [renaming, setRenaming] = useState(null); // { from, to }
+  const [dropOn, setDropOn] = useState(null); // folder a notebook is being dragged over
   const [menu, setMenu] = useState(null); // book id with its menu open
   const [sync, setSync] = useState(null); // { state, message }
 
@@ -356,7 +392,38 @@ export default function NotebookPage({ go }) {
   }, [refresh]);
 
   const folders = [...new Set([...extraFolders, ...(books || []).map((b) => b.folder).filter(Boolean)])].sort();
-  const shown = (books || []).filter((b) => folder === "all" || (folder === "none" ? !b.folder : b.folder === folder));
+  // Shown as Mac folders, the top level holds the folders and the notebooks
+  // in none; opening a folder shows what is in it.
+  const shown = (books || []).filter((b) => (folder === "all" ? (view === "folders" ? !b.folder : true) : folder === "none" ? !b.folder : b.folder === folder));
+  const inFolder = (f) => (books || []).filter((b) => b.folder === f);
+
+  function setFolderColor(f, c) {
+    const next = { ...folderColors, [f]: c };
+    setFolderColors(next); saveJSON(FOLDER_COLORS_KEY, next);
+  }
+  // Enter and then the box losing focus both finish a rename; only the first counts.
+  const renamed = useRef(null);
+  async function renameFolder(from, to) {
+    if (renamed.current === from + "\u0000" + to) return;
+    renamed.current = from + "\u0000" + to;
+    setTimeout(() => { renamed.current = null; }, 500);
+    setRenaming(null);
+    to = to?.trim();
+    if (!to || to === from) return;
+    await Promise.all(inFolder(from).map((b) => putBook({ ...b, folder: to }).then(() => queueUpload(b.id))));
+    const next = [...new Set(extraFolders.map((x) => (x === from ? to : x)).concat(to))];
+    setExtraFolders(next); saveFolders(next);
+    if (folderColors[from]) { const c = { ...folderColors, [to]: folderColors[from] }; delete c[from]; setFolderColors(c); saveJSON(FOLDER_COLORS_KEY, c); }
+    if (folder === from) setFolder(to);
+    refresh();
+  }
+  async function removeFolder(f) {
+    await Promise.all(inFolder(f).map((b) => putBook({ ...b, folder: "" }).then(() => queueUpload(b.id))));
+    const next = extraFolders.filter((x) => x !== f);
+    setExtraFolders(next); saveFolders(next);
+    if (folder === f) setFolder("all");
+    refresh();
+  }
 
   async function create(opts) {
     const b = { ...newBook(opts), folder: opts.folder || "", coverStyle: opts.coverStyle, coverImg: opts.coverImg, sticker: opts.sticker, pic: opts.pic };
@@ -415,6 +482,16 @@ export default function NotebookPage({ go }) {
       </div>
 
       <div className="nb-folders" role="tablist" aria-label="Folders">
+        <div className="seg tight nb-viewpick" role="group" aria-label="Show folders as">
+          <button className={view === "folders" ? "on" : ""} onClick={() => setView("folders")} title="Folders, like on a Mac"><Icon name="folder" size={14} /> Folders</button>
+          <button className={view === "tabs" ? "on" : ""} onClick={() => setView("tabs")} title="Folders as tabs"><Icon name="more" size={14} /> Tabs</button>
+        </div>
+        {view === "folders" ? (
+          <nav className="nb-crumbs" aria-label="Where you are">
+            <button className={folder === "all" ? "on" : ""} onClick={() => setFolder("all")}>All notebooks</button>
+            {folder !== "all" && <><span aria-hidden="true">›</span><b>{folder === "none" ? "Not in a folder" : folder}</b></>}
+          </nav>
+        ) : <>
         <button role="tab" aria-selected={folder === "all"} className={folder === "all" ? "on" : ""} onClick={() => setFolder("all")}>All notebooks</button>
         {folders.map((f) => (
           <button key={f} role="tab" aria-selected={folder === f} className={folder === f ? "on" : ""} onClick={() => setFolder(f)}>
@@ -424,6 +501,7 @@ export default function NotebookPage({ go }) {
         {books?.some((b) => !b.folder) && folders.length > 0 && (
           <button role="tab" aria-selected={folder === "none"} className={folder === "none" ? "on" : ""} onClick={() => setFolder("none")}>Not in a folder</button>
         )}
+        </>}
         {naming === null
           ? <button className="nb-folder-add" onClick={() => setNaming("")}><Icon name="plus" size={13} /> New folder</button>
           : <input className="nb-folder-input" autoFocus placeholder="Folder name, then Enter" value={naming} onChange={(e) => setNaming(e.target.value)}
@@ -437,7 +515,7 @@ export default function NotebookPage({ go }) {
 
       {importing && <div className="card card-pad note-card"><Loading label={`Importing: ${importing}`} /></div>}
 
-      {books === null ? <Loading label="Opening your notebooks" /> : shown.length === 0 ? (
+      {books === null ? <Loading label="Opening your notebooks" /> : shown.length === 0 && !(view === "folders" && folder === "all" && folders.length) ? (
         <div className="card card-pad nb-empty">
           <div className="nb-empty-art"><DuckMark size={56} /></div>
           <b>{folder === "all" ? "Your first notebook" : "Nothing in this folder yet"}</b>
@@ -445,9 +523,39 @@ export default function NotebookPage({ go }) {
           <button className="btn cta" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> New notebook</button>
         </div>
       ) : (
-        <div className="nb-grid">
+        <div className="nb-grid" onClick={() => setFolderMenu(null)}>
+          {view === "folders" && folder === "all" && folders.map((f) => {
+            const kids = inFolder(f);
+            return (
+              <div key={"f:" + f} className={"nb-folder-tile" + (dropOn === f ? " drop" : "")} role="button" tabIndex={0}
+                onClick={() => { if (!renaming) setFolder(f); }} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) setFolder(f); }}
+                onDragOver={(e) => { e.preventDefault(); setDropOn(f); }} onDragLeave={() => setDropOn(null)}
+                onDrop={(e) => { e.preventDefault(); setDropOn(null); const id = e.dataTransfer.getData("text/dwiddle-book"); const b = books.find((x) => x.id === id); if (b) update(b, { folder: f }); }}>
+                <div className="nb-folder-art"><MacFolder color={folderColors[f] || FOLDER_COLORS[0]} peek={kids.map((k) => k.cover)} /></div>
+                <div className="nb-meta">
+                  {renaming?.from === f ? (
+                    <input className="nb-folder-input" autoFocus value={renaming.to} onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setRenaming({ from: f, to: e.target.value })}
+                      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") renameFolder(f, renaming.to); if (e.key === "Escape") setRenaming(null); }}
+                      onBlur={() => renameFolder(f, renaming.to)} />
+                  ) : <b>{f}</b>}
+                  <span className="small muted">{kids.length} notebook{kids.length === 1 ? "" : "s"}</span>
+                </div>
+                <button className="icon-btn nb-more" aria-label={`Options for the ${f} folder`}
+                  onClick={(e) => { e.stopPropagation(); setFolderMenu(folderMenu === f ? null : f); }}><Icon name="more" size={18} /></button>
+                {folderMenu === f && (
+                  <div className="nb-menu" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => { setRenaming({ from: f, to: f }); setFolderMenu(null); }}><span>Rename</span><Icon name="pen" size={14} /></button>
+                    <div className="nb-menu-covers">{FOLDER_COLORS.map((c) => <button key={c} style={{ background: c }} aria-label="Folder colour" onClick={() => { setFolderColor(f, c); setFolderMenu(null); }} />)}</div>
+                    <button className="danger" onClick={() => { setFolderMenu(null); if (window.confirm(`Remove the ${f} folder? The notebooks in it are kept.`)) removeFolder(f); }}>Remove folder</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {shown.map((b) => (
             <div key={b.id} className="nb-book" onClick={() => setOpenId(b.id)} role="button" tabIndex={0}
+              draggable onDragStart={(e) => { e.dataTransfer.setData("text/dwiddle-book", b.id); e.dataTransfer.effectAllowed = "move"; }}
               onKeyDown={(e) => { if (e.key === "Enter") setOpenId(b.id); }}>
               <div className="nb-cover"><CoverArt book={b} page={b.pages[0]} /></div>
               <div className="nb-meta">
@@ -503,7 +611,12 @@ const COVER_STYLES = [
   { id: "stripe", name: "Stripe" },
   { id: "photo", name: "Photo" },
 ];
-const STICKERS = ["", "📚", "🧪", "🧬", "📐", "🌍", "📝", "💡", "🎨", "🎵", "⚖️", "💻", "🩺", "⭐"];
+// Ready to tap, grouped so the right one is quick to find.
+const STICKER_SETS = [
+  { name: "Subjects", items: ["📚", "🧪", "🧬", "🔬", "📐", "➗", "🌍", "🏛️", "📝", "🎨", "🎵", "⚖️", "💻", "🩺", "🗣️", "💰", "⚽", "🧠"] },
+  { name: "Cute", items: ["🦆", "🐶", "🐱", "🐰", "🐻", "🐼", "🦊", "🐸", "🐧", "🦋", "🌸", "🍓", "🍀", "🌈", "☁️", "🌙"] },
+  { name: "Mood", items: ["⭐", "✨", "💡", "🔥", "💯", "✅", "📌", "🎯", "🚀", "🏆", "❤️", "💜"] },
+];
 
 // A notebook's cover: its first page on the cover colour, a plain or
 // patterned cover, or a photo, with the name on a label and an optional sticker.
@@ -643,10 +756,16 @@ function BookDialog({ folders, folder: startFolder, book, onSave, onClose }) {
           {cutting && <p className="small muted" style={{ margin: "-6px 0 12px" }}>{cutting.startsWith("Removing") ? <Loading label={cutting} /> : cutting}</p>}
           <p className="small muted" style={{ margin: "-6px 0 14px" }}>Your dog, a friend, a favourite thing: the background is cut away on this device, nothing is uploaded.</p>
 
-          <span className="qv-label">Sticker</span>
+          <div className="nb-sticker-head"><span className="qv-label">Sticker</span>
+            {sticker && <button className="btn quiet small" onClick={() => setSticker("")}>No sticker</button>}</div>
           <div className="nb-stickers">
-            {STICKERS.map((st) => (
-              <button key={st || "none"} className={sticker === st ? "on" : ""} onClick={() => setSticker(st)} aria-label={st ? "Sticker " + st : "No sticker"}>{st || <Icon name="close" size={14} />}</button>
+            {STICKER_SETS.map((set) => (
+              <div key={set.name} className="nb-sticker-set">
+                <span>{set.name}</span>
+                <div>{set.items.map((st) => (
+                  <button key={st} className={sticker === st ? "on" : ""} onClick={() => setSticker(sticker === st ? "" : st)} aria-label={"Sticker " + st} aria-pressed={sticker === st}>{st}</button>
+                ))}</div>
+              </div>
             ))}
           </div>
 
@@ -1307,8 +1426,8 @@ function Editor({ id, go, onClose }) {
         </div>
         <div className="nb-group">
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> Ask</button>
-          <button className="btn small cta" onClick={() => dwiddle("questions")} disabled={!!busy}>
-            {busy ? <Loading label={busy} /> : <>Make questions</>}
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
+            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> Questions</>}
           </button>
         </div>
       </div>

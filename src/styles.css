@@ -6751,3 +6751,31 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   .pz-body { padding-top: 40px; }
   .pz-inner { font-size: 18px; }
 }
+
+/* ---------- notebooks: Mac style folders ---------- */
+.nb-viewpick button { display: inline-flex; align-items: center; gap: 5px; }
+.nb-folders .nb-viewpick button { border: 0; padding: 6px 11px; border-radius: 8px; background: none; }
+.nb-folders .nb-viewpick button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.nb-folders .nb-viewpick { border: 0; padding: 3px; border-radius: 11px; background: var(--sunken); }
+.nb-crumbs { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.nb-folders .nb-crumbs button { border: 0; background: none; padding: 6px 4px; color: var(--ink-2); font-weight: 600; }
+.nb-folders .nb-crumbs button:hover { color: var(--accent); }
+.nb-crumbs span { color: var(--ink-3); }
+.nb-folder-tile { position: relative; display: grid; gap: 8px; cursor: pointer; border-radius: 16px; padding: 6px; margin: -6px; transition: background 0.15s ease; }
+.nb-folder-tile:hover { background: var(--hover); }
+.nb-folder-tile.drop { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
+.nb-folder-art { aspect-ratio: 3 / 4; display: grid; place-items: end center; padding-bottom: 6%; }
+.nb-macfolder { width: 100%; height: auto; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18)); transition: transform 0.2s ease; }
+.nb-folder-tile:hover .nb-macfolder { transform: translateY(-3px); }
+.nb-folder-tile .nb-more { opacity: 0; }
+.nb-folder-tile:hover .nb-more, .nb-folder-tile .nb-more:focus-visible { opacity: 1; }
+@media (hover: none) { .nb-folder-tile .nb-more { opacity: 1; } }
+.nb-book[draggable="true"] { -webkit-user-drag: element; }
+.nb-sticker-head { display: flex; align-items: center; justify-content: space-between; min-height: 30px; }
+.nb-stickers { display: grid; gap: 10px; margin: 6px 0 18px; padding: 12px; border-radius: 16px; background: var(--sunken); }
+.nb-sticker-set > span { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-3); margin: 0 0 6px 2px; }
+.nb-sticker-set > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
+.nb-stickers .nb-sticker-set button { width: 100%; height: 46px; border-radius: 12px; border: 2px solid transparent; background: var(--surface); font-size: 25px; cursor: pointer;
+  display: grid; place-items: center; transition: transform 0.12s ease; }
+.nb-stickers .nb-sticker-set button:hover { transform: scale(1.1); }
+.nb-stickers .nb-sticker-set button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
