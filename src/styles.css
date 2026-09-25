@@ -6779,3 +6779,27 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   display: grid; place-items: center; transition: transform 0.12s ease; }
 .nb-stickers .nb-sticker-set button:hover { transform: scale(1.1); }
 .nb-stickers .nb-sticker-set button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
+.nb-svg.tool-hand { cursor: grab; touch-action: pan-x pan-y pinch-zoom; }
+.nb-svg.tool-hand:active { cursor: grabbing; }
+/* Phones: one tidy row of document controls, one row of tools, and a
+   compact page bar, so the page gets the room. */
+@media (max-width: 700px) {
+  .nb-bar { flex-wrap: wrap; padding: 6px 8px; gap: 4px; }
+  .nb-title { flex: 1 1 auto; width: auto; min-width: 0; }
+  .nb-zoom .nb-pill, .nb-zoom .icon-btn:not(:has(svg)) { display: none; }
+  .nb-zoom { padding: 0; background: none; }
+  .nb-spacer { display: none; }
+  .nb-lbl { display: none; }
+  .nb-ask { padding: 6px 9px; }
+  .nb-page-opts { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding: 6px 8px; gap: 6px; scrollbar-width: none; }
+  .nb-page-opts::-webkit-scrollbar { display: none; }
+  .nb-page-opts > .small.muted { white-space: nowrap; }
+  .nb-pages { padding: 10px 8px 60px; }
+}
+@media (max-width: 700px) {
+  .nb-zoom { display: none; }
+  .nb-title { flex: 1 1 60px; font-size: 14px; }
+  .nb-page-opts .nb-swatches { flex-wrap: nowrap; }
+  .nb-page-opts .nb-swatches button { flex: 0 0 auto; }
+}
+@media (max-width: 700px) { .nb-page-opts > *, .nb-page-opts .btn { flex: 0 0 auto; white-space: nowrap; } }

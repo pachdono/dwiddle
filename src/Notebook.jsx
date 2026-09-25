@@ -965,6 +965,7 @@ function capture(el, e) {
 }
 
 const TOOLS = [
+  { id: "hand", icon: "hand", name: "Scroll: move around without drawing" },
   { id: "pen", icon: "pen", name: "Pen" },
   { id: "highlighter", icon: "marker", name: "Highlighter" },
   { id: "revealer", icon: "eyeoff", name: "Revealer pen: hide answers, then tap to reveal" },
@@ -1038,6 +1039,54 @@ function Editor({ id, go, onClose }) {
     measure();
   }, []);
   useEffect(() => { setEditingText(null); }, [tool]);
+
+  // Phones and iPads: one finger draws, two fingers scroll, and the hand
+  // tool scrolls with one. The browser has to be told not to scroll on its
+  // own, which only a non-passive touch listener can do.
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const penRef = useRef(penSeen);
+  penRef.current = penSeen;
+  const twoFinger = useRef(null); // { x, y } midpoint while two fingers scroll
+  const loaded = !!book;
+  useEffect(() => {
+    const el = pagesRef.current;
+    if (!el) return;
+    const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+    const onStart = (e) => {
+      if (toolRef.current === "hand" || penRef.current) return; // the browser scrolls
+      if (e.touches.length >= 2) {
+        twoFinger.current = mid(e.touches);
+        setLive(null);
+        drag.current = null;
+        e.preventDefault();
+        return;
+      }
+      if (e.target.closest?.(".nb-svg")) e.preventDefault();
+    };
+    const onMove = (e) => {
+      if (toolRef.current === "hand" || penRef.current) return;
+      if (twoFinger.current && e.touches.length >= 2) {
+        const m = mid(e.touches);
+        el.scrollBy(twoFinger.current.x - m.x, twoFinger.current.y - m.y);
+        twoFinger.current = m;
+        e.preventDefault();
+        return;
+      }
+      if (e.target.closest?.(".nb-svg")) e.preventDefault();
+    };
+    const onEnd = (e) => { if (e.touches.length === 0) twoFinger.current = null; };
+    el.addEventListener("touchstart", onStart, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, [loaded]);
 
   // Every change is saved shortly after it is made, and kept for undo.
   const commit = useCallback((next, { record = true } = {}) => {
@@ -1115,6 +1164,12 @@ function Editor({ id, go, onClose }) {
     if (e.pointerType === "pen") setPenSeen(true);
     // With a pen in use, a finger scrolls instead of drawing: palm rejection.
     if (e.pointerType === "touch" && penSeen) return;
+    if (twoFinger.current) return;
+    // With the hand tool a mouse drags the pages around; fingers scroll natively.
+    if (tool === "hand") {
+      if (e.pointerType === "mouse") { drag.current = { pan: { x: e.clientX, y: e.clientY } }; capture(e.currentTarget, e); }
+      return;
+    }
     const svg = e.currentTarget;
     const [x, y] = toPage(e, svg, page);
     const pressure = e.pointerType === "pen" ? e.pressure || 0.5 : 0.5;
@@ -1196,6 +1251,12 @@ function Editor({ id, go, onClose }) {
     const svg = e.currentTarget;
     showRing(e, svg, page);
     if (e.pointerType === "touch" && penSeen) return;
+    if (twoFinger.current) return;
+    if (drag.current?.pan) {
+      pagesRef.current?.scrollBy(drag.current.pan.x - e.clientX, drag.current.pan.y - e.clientY);
+      drag.current.pan = { x: e.clientX, y: e.clientY };
+      return;
+    }
     const [x, y] = toPage(e, svg, page);
     if (drag.current?.erase) { erase(page, x, y); return; }
     if (drag.current && tool === "select") {
@@ -1418,16 +1479,16 @@ function Editor({ id, go, onClose }) {
         )}
         </div>
         <div className="nb-spacer" />
-        <div className="nb-group">
+        <div className="nb-group nb-zoom">
           <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
           <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
           <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
           <FullscreenButton />
         </div>
         <div className="nb-group">
-          <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> Ask</button>
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
-            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> Questions</>}
+            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
           </button>
         </div>
       </div>
@@ -1489,8 +1550,8 @@ function Editor({ id, go, onClose }) {
                 </div>
               )}
             </div>
-            <button className="btn quiet small" onClick={() => removePage(current)} disabled={book.pages.length === 1}><Icon name="trash" size={13} /> Remove page</button>
-            <button className="btn quiet small" onClick={() => window.print()}><Icon name="sheet" size={13} /> Print or PDF</button>
+            <button className="btn quiet small" onClick={() => removePage(current)} disabled={book.pages.length === 1}><Icon name="trash" size={13} /> <span className="nb-lbl">Remove page</span></button>
+            <button className="btn quiet small" onClick={() => window.print()}><Icon name="sheet" size={13} /> <span className="nb-lbl">Print or PDF</span></button>
           </div>
 
           {book.pages.map((page, i) => (
