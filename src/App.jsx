@@ -1,3 +1,4 @@
+import { dwiddleSays, talksOn, setTalksOn } from "./voice.js";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -322,7 +323,13 @@ export default function App() {
       return next;
     });
     const firstToday = !stats.days.includes(new Date().toISOString().slice(0, 10));
-    announceXp((correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0), firstToday ? "first study today" : "");
+    const gainedNow = (correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0);
+    announceXp(gainedNow, firstToday ? "first study today" : "");
+    // Dwiddle reacts: a level up or a kept streak beats an everyday cheer.
+    const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    if (levelOf((stats.xp || 0) + gainedNow).level > levelOf(stats.xp || 0).level) dwiddleSays("levelup");
+    else if (firstToday && stats.days.includes(yesterday)) dwiddleSays("streak");
+    else dwiddleSays(correct ? "correct" : "wrong", { chance: 0.4 });
   }
 
   // Clicking the nav item for the page you are already on resets it, which is
@@ -1032,6 +1039,15 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
   customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {} }) {
   const [pick] = useState(() => Math.random());
   const hello = greeting(nameFor(auth?.user), pick);
+  // Dwiddle says hi once a visit, when the home page is reached by a tap
+  // (browsers do not allow sound before one).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("dwiddle-said-hello") || !navigator.userActivation?.hasBeenActive) return;
+      sessionStorage.setItem("dwiddle-said-hello", "1");
+      dwiddleSays("hello");
+    } catch { /* private mode */ }
+  }, []);
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
@@ -2201,7 +2217,10 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false }) {
   }
 
   function next() {
-    if (i + 1 >= QUIZ.length) return setFinished(true);
+    if (i + 1 >= QUIZ.length) {
+      dwiddleSays(score / QUIZ.length >= 0.7 ? "done-great" : "done-okay");
+      return setFinished(true);
+    }
     setI(i + 1);
     setPicked(null);
   }
@@ -2467,6 +2486,7 @@ function SetRow({ label, hint, children }) {
 function VoiceCard() {
   const [list, setList] = useState([]);
   const [name, setName] = useState(savedVoiceName());
+  const [talks, setTalks] = useState(talksOn);
   useEffect(() => onVoices(() => setList(allVoices())), []);
   if (!("speechSynthesis" in window)) return null;
   const current = list.find((v) => v.name === name) || list[0];
@@ -2475,6 +2495,9 @@ function VoiceCard() {
   return (
     <div className="card">
       <div className="card-head"><h3>Voice</h3></div>
+      <SetRow label="Dwiddle talks" hint="Dwiddle cheers right answers, helps with wrong ones and celebrates level ups, out loud.">
+        <Switch on={talks} onClick={() => { setTalksOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => dwiddleSays("hello"), 50); }} />
+      </SetRow>
       <SetRow label="Reading voice" hint="Used for lessons, listening tests, audio overviews and Dwiddle's replies. Natural voices are listed first.">
         <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
           <select value={current?.name || ""} onChange={(e) => pick(e.target.value)} style={{ maxWidth: 240 }}>
