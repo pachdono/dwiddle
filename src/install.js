@@ -76,7 +76,7 @@ export function platform() {
 // Every link is built from VERSION, so moving the page to a new release is a
 // one line change. They used to be written out by hand, and changing the
 // version shown on the page left every link still pointing at the old files.
-const VERSION = "1.1.4";
+const VERSION = "1.1.7";
 const RELEASE = `https://github.com/pachdono/dwiddle-releases/releases/download/v${VERSION}/`;
 
 export const DOWNLOADS = {
