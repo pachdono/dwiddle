@@ -11,6 +11,23 @@ import { useMemo, useState } from "react";
 import { Icon, PageHead, Loading, Marked, HighlightFilters } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
+import { usePageContext } from "./Chat.jsx";
+
+const flatText = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+function notesContext(made) {
+  const out = [`The student is reading their notes on "${made?.title || "their material"}".`];
+  for (const t of made?.topics || []) {
+    const blocks = made?.notes?.[t.name] || [];
+    out.push(`\n## ${t.name}`);
+    blocks.forEach((b) => {
+      if (b.h) out.push(b.h);
+      else if (b.term) out.push(`${b.term}: ${flatText(b.def)}`);
+      else if (b.list) out.push(b.list.map((x) => "- " + flatText(x)).join("\n"));
+      else out.push(flatText(Object.values(b)[0]));
+    });
+  }
+  return out.join("\n").slice(0, 8500);
+}
 
 // "{def|the wording}" becomes a marked segment; everything else is plain text.
 const MARK = /\{(def|key|exam)\|([^{}]*)\}/g;
@@ -37,6 +54,7 @@ const slug = (s) => "nt-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 export function Notes({ made, saveNotes }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
+  usePageContext(useMemo(() => notesContext(made), [made]));
   const [writing, setWriting] = useState(false);
   const [error, setError] = useState("");
 

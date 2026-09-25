@@ -332,7 +332,7 @@ export function safeParse(text, requiredKey) {
   return found.sort((a, b) => b.length - a.length)[0].parsed;
 }
 
-export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, json = false, vision = false }) {
+export async function ask({ system, user, messages, maxTokens = 4000, temperature = 0.4, json = false, vision = false }) {
   const all = providers();
   const deadline = Date.now() + 44000;
   let lastError = null;
@@ -374,9 +374,10 @@ export async function ask({ system, user, maxTokens = 4000, temperature = 0.4, j
             // providers and models that do not support them.
             ...(json ? { response_format: { type: "json_object" } } : {}),
             ...(p.supportsReasoningFlag ? { reasoning: { enabled: false, exclude: true } } : {}),
+            // A conversation passes its turns; everything else is one question.
             messages: [
               { role: "system", content: system },
-              { role: "user", content: user },
+              ...(messages || [{ role: "user", content: user }]),
             ],
           }),
         });

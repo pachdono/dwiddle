@@ -41,6 +41,12 @@ Shape:
       "answer": 0,
       "why": "two sentences: why the answer is right, and why the most tempting wrong option is wrong"
     },
+    { "type": "blank", "q": "one sentence from the lesson with the key word replaced by ___", "answer": "the missing word", "accept": ["other spellings or synonyms that are also right"], "why": "one sentence" },
+    { "type": "word", "q": "a clue: the definition or a description of the term", "answer": "the single term itself", "why": "one sentence" },
+    { "type": "tf", "q": "one statement, either true or containing one common misconception", "answer": true, "correction": "if false, the corrected statement in one sentence; otherwise empty", "why": "one sentence" },
+    { "type": "match", "q": "Match each term to its meaning", "pairs": [{ "a": "a term", "b": "its meaning in a few words" }], "why": "" },
+    { "type": "order", "q": "Put these steps in order", "items": ["the steps of a process from the lesson, in the correct order"], "why": "one sentence" },
+    { "type": "finish", "q": "the start of an important sentence from the lesson, ending with ...", "answer": "the rest of the sentence, as a full marks answer", "points": ["what the ending must contain"] },
     {
       "type": "written",
       "q": "a question answered in one to three sentences of the student's own words, such as explain, describe, compare or calculate",
@@ -73,9 +79,12 @@ How to write it:
 - At least two cards have an "example": a real, specific case a student would recognise.
 - Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
-- After the cards, 4 or 5 checks on what the cards taught: 3 of type "choice" and 1 or 2 of type "written". They test understanding rather than recall of a single word, and each "q" is a full question, never a bare term.
-- Order the checks from easiest to hardest, and end on a written one.
-- A written check must be answerable from the cards alone, in a few sentences. Its "points" are what an examiner would look for.
+- After the cards, 5 or 6 checks on what the cards taught, each a different way of recalling it:
+  1 or 2 of type "choice"; 1 of type "blank" or "word"; 1 of type "tf"; 1 of type "match" (3 or 4 pairs, when the lesson defines at least 3 terms) or "order" (3 to 5 steps, when it teaches a process with a fixed sequence); and 1 of type "written" or "finish".
+- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term.
+- A "blank" removes one key word that has a single right answer. A "word" answer is one word the student can spell from the lesson.
+- A false "tf" statement contains one realistic misconception, and its "correction" puts it right.
+- Order the checks from easiest to hardest, and end on the "written" or "finish" one. Its "points" are what an examiner would look for.
 - Write in British English. Do not use em dashes or en dashes; use commas, colons or full stops.`;
 
 const FROM_NOTES = `
@@ -127,7 +136,7 @@ export default async function handler(req, res) {
     const text = await ask({
       system: SYSTEM + rules,
       user,
-      maxTokens: 2800,
+      maxTokens: 3400,
       temperature: 0.35,
       json: true,
     });
@@ -149,26 +158,34 @@ export default async function handler(req, res) {
       return userError(res, 502, "The lesson did not come back complete. Try opening it again.");
     }
 
-    const all = Array.isArray(data?.checks) ? data.checks : [];
-    const choice = all
-      .filter((q) => q && q.type !== "written" && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2)
-      .slice(0, 4)
-      .map((q) => ({
-        q: String(q.q),
-        choices: q.choices.map(String),
+    // Each kind is checked for the fields its question needs, and anything
+    // malformed is dropped rather than shown half built.
+    const str = (v, n = 400) => String(v ?? "").trim().slice(0, n);
+    const list = (v, n) => (Array.isArray(v) ? v : []).map((x) => str(x, 200)).filter(Boolean).slice(0, n);
+    const shape = {
+      choice: (q) => Array.isArray(q.choices) && q.choices.length >= 2 && {
+        q: str(q.q), choices: q.choices.map((c) => str(c, 200)),
         answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
-        why: String(q.why || ""),
-      }));
-    const written = all
-      .filter((q) => q && q.type === "written" && typeof q.q === "string" && q.answer)
-      .slice(0, 2)
-      .map((q) => ({
-        type: "written",
-        q: String(q.q),
-        answer: String(q.answer),
-        points: (Array.isArray(q.points) ? q.points : []).map(String).filter(Boolean).slice(0, 4),
-      }));
-    const checks = [...choice, ...written];
+        why: str(q.why),
+      },
+      blank: (q) => /_{3,}/.test(q.q) && q.answer && { type: "blank", q: str(q.q), answer: str(q.answer, 80), accept: list(q.accept, 4), why: str(q.why) },
+      word: (q) => q.answer && !/\s/.test(String(q.answer).trim()) && String(q.answer).trim().length >= 3 &&
+        { type: "word", q: str(q.q), answer: str(q.answer, 40), why: str(q.why) },
+      tf: (q) => typeof q.answer === "boolean" && { type: "tf", q: str(q.q), answer: q.answer, correction: q.answer ? "" : str(q.correction), why: str(q.why) },
+      match: (q) => {
+        const pairs = (Array.isArray(q.pairs) ? q.pairs : []).filter((p) => p && p.a && p.b).slice(0, 5)
+          .map((p) => ({ a: str(p.a, 80), b: str(p.b, 160) }));
+        return pairs.length >= 3 && { type: "match", q: str(q.q) || "Match each term to its meaning", pairs, why: str(q.why) };
+      },
+      order: (q) => { const items = list(q.items, 6); return items.length >= 3 && { type: "order", q: str(q.q) || "Put these in order", items, why: str(q.why) }; },
+      finish: (q) => q.answer && { type: "finish", q: str(q.q), answer: str(q.answer), points: list(q.points, 4) },
+      written: (q) => q.answer && { type: "written", q: str(q.q), answer: str(q.answer), points: list(q.points, 4) },
+    };
+    const checks = (Array.isArray(data?.checks) ? data.checks : [])
+      .filter((q) => q && typeof q.q === "string" && q.q.trim())
+      .map((q) => (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q))
+      .filter(Boolean)
+      .slice(0, 7);
 
     res.status(200).json({ topic, cards, checks });
   } catch (err) {

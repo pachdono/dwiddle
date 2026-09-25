@@ -1,0 +1,362 @@
+// Chat with Dwiddle.
+//
+// A panel that opens from the duck in the corner, or from an "Ask Dwiddle"
+// button next to a question, a worked solution or a lesson card. Whatever the
+// student is looking at goes with the question, so "explain that more simply"
+// or "I think this is wrong" is about that, not the subject in general.
+//
+// The duck reacts as the conversation goes: it listens when the microphone is
+// on, thinks while the answer is coming, moves its beak while the reply is
+// written out or read aloud, and hops when it is done.
+//
+// Pages say what is on screen with setPageContext; buttons open the panel
+// about something specific with openDwiddle. Both go through window events,
+// so any page, including the full screen lesson, can reach the one panel.
+
+import { useEffect, useRef, useState } from "react";
+import { DuckParts } from "./Duck.jsx";
+import { Icon, Portal } from "./ui.jsx";
+import { chatWithDwiddle } from "./ai.js";
+
+/* ---------- reaching the panel from anywhere ---------- */
+
+let pageContext = "";
+export function setPageContext(text) { pageContext = String(text || ""); }
+export function usePageContext(text) {
+  useEffect(() => { setPageContext(text); return () => setPageContext(""); }, [text]);
+}
+export function openDwiddle(context, { ask } = {}) {
+  window.dispatchEvent(new CustomEvent("dwiddle:ask", { detail: { context, ask } }));
+}
+
+export function AskDwiddleButton({ context, label = "Ask Dwiddle", className = "btn ghost", ask }) {
+  return (
+    <button className={className + " ask-btn"} onClick={() => openDwiddle(context, { ask })}>
+      <MiniDuck /> {label}
+    </button>
+  );
+}
+
+function MiniDuck() {
+  return (
+    <svg width="18" height="18" viewBox="20 3 88 88" aria-hidden="true"><DuckParts /></svg>
+  );
+}
+
+/* ---------- the duck, animated by state ---------- */
+
+// mood: idle | listening | thinking | talking | happy | oops
+export function DuckTalk({ mood = "idle", size = 64 }) {
+  return (
+    <svg className={"dt dt-" + mood} width={size} height={size * (140 / 132)} viewBox="-6 -10 132 140" aria-hidden="true">
+      <g className="dt-body">
+        <DuckParts />
+        <ellipse className="dt-mouth" cx="64" cy="64.5" rx="12" ry="5" fill="#6B2F12" />
+        <g className="dt-think">
+          <circle cx="104" cy="14" r="4" fill="currentColor" />
+          <circle cx="113" cy="3" r="5" fill="currentColor" />
+          <circle cx="122" cy="-8" r="6" fill="currentColor" />
+        </g>
+        <g className="dt-ears" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" fill="none">
+          <path d="M14 46 q-6 8 0 16" /><path d="M6 40 q-10 14 0 28" />
+        </g>
+        <g className="dt-spark" fill="#F6C443">
+          <path d="M104 30 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" />
+          <path d="M16 20 l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5z" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+/* ---------- voice ---------- */
+
+const Recognition = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+const inApp = typeof window !== "undefined" && !!window.DWIDDLE_DESKTOP;
+
+// Speech to text, from the browser itself. Chrome, Edge and Safari do it; the
+// installed app's engine has no speech service behind it, so it says so
+// rather than pretending to listen.
+export function useDictation(onText) {
+  const [on, setOn] = useState(false);
+  const [error, setError] = useState("");
+  const rec = useRef(null);
+  const want = useRef(false);   // still meant to be listening
+  const kept = useRef("");      // text from sessions the browser already ended
+  const supported = !!Recognition && !inApp;
+
+  function start({ continuous = false, from = "" } = {}) {
+    if (!supported) {
+      setError(inApp
+        ? "Voice works on the Dwiddle website in Chrome, Edge or Safari. The installed app cannot hear yet."
+        : "This browser cannot turn speech into text. Chrome, Edge and Safari can.");
+      return;
+    }
+    setError("");
+    want.current = true;
+    kept.current = from ? from.trim() + " " : "";
+    const begin = () => {
+      const r = new Recognition();
+      r.lang = navigator.language || "en-GB";
+      r.interimResults = true;
+      r.continuous = continuous;
+      let committed = "";
+      r.onresult = (e) => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) committed += t.trim() + " ";
+          else interim += t;
+        }
+        onText(kept.current + committed + interim, { final: !interim });
+      };
+      r.onerror = (e) => {
+        if (e.error === "no-speech" || e.error === "aborted") return;
+        want.current = false;
+        setError(e.error === "not-allowed" || e.error === "service-not-allowed"
+          ? "Dwiddle needs permission to use the microphone."
+          : e.error === "network" ? "Speech recognition needs an internet connection." : "Listening stopped. Try again.");
+      };
+      // Browsers end a session after a pause. A long recording carries on
+      // in a new one, keeping what the last one heard.
+      r.onend = () => {
+        kept.current += committed;
+        if (continuous && want.current) { try { begin(); return; } catch {} }
+        want.current = false;
+        setOn(false);
+      };
+      rec.current = r;
+      r.start();
+    };
+    try { begin(); setOn(true); } catch { want.current = false; setOn(false); }
+  }
+
+  function stop() {
+    want.current = false;
+    setOn(false);
+    try { rec.current?.stop(); } catch {}
+  }
+
+  useEffect(() => () => { want.current = false; try { rec.current?.stop(); } catch {} }, []);
+  return { on, start, stop, error, supported };
+}
+
+// Reading a reply aloud, in the most natural voice the device has.
+function pickVoice() {
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  const en = voices.filter((v) => /^en/i.test(v.lang));
+  return en.find((v) => /samantha|google uk english female|serena|karen|moira|libby|sonia|aria|jenny/i.test(v.name))
+    || en.find((v) => /female/i.test(v.name)) || en[0] || null;
+}
+function speak(text, { onStart, onEnd } = {}) {
+  const synth = window.speechSynthesis;
+  if (!synth) return onEnd?.();
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(plainText(text));
+  const v = pickVoice();
+  if (v) u.voice = v;
+  u.rate = 1.02;
+  u.onstart = () => onStart?.();
+  u.onend = () => onEnd?.();
+  u.onerror = () => onEnd?.();
+  synth.speak(u);
+}
+const plainText = (t) => String(t).replace(/\*\*/g, "").replace(/^\s*[-*]\s+/gm, "");
+
+/* ---------- replies, lightly formatted ---------- */
+
+function Bold({ text }) {
+  return String(text).split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? <b key={i}>{part.slice(2, -2)}</b> : <span key={i}>{part}</span>);
+}
+
+function Reply({ text }) {
+  const blocks = [];
+  String(text).split(/\n+/).forEach((line) => {
+    const item = line.match(/^\s*(?:[-*]|\d+[.)])\s+(.*)/);
+    if (item) {
+      const last = blocks[blocks.length - 1];
+      if (last?.list) last.list.push(item[1]); else blocks.push({ list: [item[1]] });
+    } else if (line.trim()) blocks.push({ p: line.trim() });
+  });
+  return blocks.map((b, i) => b.list
+    ? <ul key={i}>{b.list.map((x, j) => <li key={j}><Bold text={x} /></li>)}</ul>
+    : <p key={i}><Bold text={b.p} /></p>);
+}
+
+/* ---------- the panel ---------- */
+
+const STARTERS = ["Explain it more simply", "Give me another example", "I think this is wrong", "Quiz me on this"];
+
+export function DwiddleChat({ hidden = false }) {
+  const [open, setOpen] = useState(false);
+  const [context, setContext] = useState("");
+  const [msgs, setMsgs] = useState([]); // { role, content, shown }
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mood, setMood] = useState("idle");
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [error, setError] = useState("");
+  const list = useRef(null);
+  const input = useRef(null);
+  const dict = useDictation((t, { final }) => { setText(t); if (final) setMood("idle"); });
+
+  // Opened about something specific: a new conversation about that.
+  useEffect(() => {
+    const onAsk = (e) => {
+      const next = e.detail?.context || pageContext;
+      setContext((prev) => {
+        if (next !== prev) setMsgs([]);
+        return next;
+      });
+      setOpen(true);
+      setError("");
+      if (e.detail?.ask) setTimeout(() => send(e.detail.ask, next), 50);
+      else setTimeout(() => input.current?.focus(), 250);
+    };
+    window.addEventListener("dwiddle:ask", onAsk);
+    return () => window.removeEventListener("dwiddle:ask", onAsk);
+  });
+
+  useEffect(() => { if (dict.on) setMood("listening"); }, [dict.on]);
+  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [msgs, busy]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function close() {
+    setOpen(false);
+    dict.stop();
+    window.speechSynthesis?.cancel();
+    setMood("idle");
+  }
+
+  async function send(raw, ctx = context) {
+    const q = String(raw ?? text).trim();
+    if (!q || busy) return;
+    dict.stop();
+    setText("");
+    setError("");
+    const history = [...msgs, { role: "user", content: q, shown: q.length }];
+    setMsgs(history);
+    setBusy(true);
+    setMood("thinking");
+    try {
+      const reply = await chatWithDwiddle(ctx || pageContext, history.map(({ role, content }) => ({ role, content })));
+      setBusy(false);
+      reveal([...history, { role: "assistant", content: reply, shown: 0 }]);
+    } catch (err) {
+      setBusy(false);
+      setMood("oops");
+      setError(err.message || "Dwiddle could not answer just now.");
+      setTimeout(() => setMood("idle"), 1600);
+    }
+  }
+
+  // The reply is written out rather than dropped in, with the beak moving,
+  // and read aloud too when voice is on.
+  function reveal(all) {
+    const last = all[all.length - 1];
+    const total = last.content.length;
+    const step = Math.max(2, Math.ceil(total / 90));
+    setMood("talking");
+    let n = 0;
+    setMsgs(all);
+    const tick = setInterval(() => {
+      n = Math.min(total, n + step);
+      setMsgs((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, shown: n } : x)));
+      if (n >= total) {
+        clearInterval(tick);
+        if (voiceOn) speak(last.content, { onStart: () => setMood("talking"), onEnd: () => cheer() });
+        else cheer();
+      }
+    }, 22);
+  }
+  function cheer() {
+    setMood("happy");
+    setTimeout(() => setMood((m) => (m === "happy" ? "idle" : m)), 1300);
+  }
+
+  if (hidden && !open) return null;
+
+  return (
+    <Portal>
+      {!open && (
+        <button className="dc-fab" onClick={() => openDwiddle(pageContext)} aria-label="Chat with Dwiddle">
+          <DuckTalk size={46} />
+          <span className="dc-fab-label">Ask Dwiddle</span>
+        </button>
+      )}
+      {open && (
+        <div className="dc" role="dialog" aria-label="Chat with Dwiddle">
+          <div className="dc-head">
+            <DuckTalk mood={mood} size={58} />
+            <div className="dc-title">
+              <b>Dwiddle</b>
+              <span>{mood === "thinking" ? "thinking..." : mood === "listening" ? "listening..." : mood === "talking" ? "talking" : context ? "about what's on your screen" : "ask me anything you're studying"}</span>
+            </div>
+            <button className={"dc-icon" + (voiceOn ? " on" : "")} title={voiceOn ? "Stop reading replies aloud" : "Read replies aloud"}
+              aria-pressed={voiceOn} onClick={() => { setVoiceOn((v) => !v); window.speechSynthesis?.cancel(); }}>
+              <SpeakerIcon on={voiceOn} />
+            </button>
+            <button className="dc-icon" onClick={close} aria-label="Close"><Icon name="close" size={16} /></button>
+          </div>
+
+          <div className="dc-list" ref={list}>
+            {msgs.length === 0 && (
+              <div className="dc-hello">
+                <p>Hi! I can see what you're working on. Ask me anything about it, or pick one of these:</p>
+                <div className="dc-chips">
+                  {STARTERS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
+                </div>
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <div key={i} className={"dc-msg " + (m.role === "user" ? "dc-me" : "dc-bot")}>
+                {m.role === "assistant" ? <Reply text={m.content.slice(0, m.shown ?? m.content.length)} /> : <p>{m.content}</p>}
+              </div>
+            ))}
+            {busy && <div className="dc-msg dc-bot typing"><i /><i /><i /></div>}
+            {error && <div className="dc-err">{error}</div>}
+            {dict.error && <div className="dc-err">{dict.error}</div>}
+          </div>
+
+          {msgs.length > 0 && !busy && (
+            <div className="dc-chips dc-more">
+              {["Explain more simply", "Another example", "Quiz me"].map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
+            </div>
+          )}
+
+          <form className="dc-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
+            <button type="button" className={"dc-icon mic" + (dict.on ? " on" : "")}
+              onClick={() => (dict.on ? dict.stop() : dict.start())} aria-label={dict.on ? "Stop listening" : "Speak"}>
+              <Icon name="mic" size={18} />
+            </button>
+            <textarea ref={input} rows={1} value={text} placeholder={dict.on ? "Listening..." : "Ask Dwiddle..."}
+              onChange={(e) => {
+                setText(e.target.value);
+                e.target.style.height = "40px";
+                e.target.style.height = Math.min(120, e.target.scrollHeight) + "px";
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
+            <button type="submit" className="dc-send" disabled={!text.trim() || busy} aria-label="Send">
+              <Icon name="arrow" size={18} />
+            </button>
+          </form>
+        </div>
+      )}
+    </Portal>
+  );
+}
+
+function SpeakerIcon({ on }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 7.5h3l4-3.5v12l-4-3.5h-3z" />
+      {on ? <path d="M13.5 7a4 4 0 0 1 0 6M15.8 4.8a7 7 0 0 1 0 10.4" /> : <path d="M13.5 8l4 4M17.5 8l-4 4" />}
+    </svg>
+  );
+}

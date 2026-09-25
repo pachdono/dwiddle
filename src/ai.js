@@ -129,6 +129,14 @@ const toNotes = (sectionLists) => Object.fromEntries(
   sectionLists.flat().map((sec) => [sec.topic, sec.blocks.map(tidyBlock)]),
 );
 
+// The transcript of a YouTube video, to build material from.
+export const readYouTube = (url) =>
+  post("/api/youtube", { url, lang: (navigator.language || "en").slice(0, 2) });
+
+// A turn of the conversation with Dwiddle about what is on screen.
+export const chatWithDwiddle = (context, messages) =>
+  post("/api/chat", { context, messages }).then((d) => tidyMath(d.reply));
+
 // Whether a short input is a request to study something, and if it is unclear,
 // the one or two questions worth asking before writing anything.
 export const clarify = (text) => post("/api/generate", { notes: text, mode: "clarify" });
@@ -310,8 +318,17 @@ export const generateLesson = ({ topic, others, notes, syllabus, context }) =>
       example: tidyMath(c.example),
       points: (c.points || []).map((p) => ({ lead: tidyMath(p.lead), text: tidyMath(p.text) })),
     })),
-    checks: (d.checks || []).map((q) => q.type === "written"
-      ? { ...q, q: tidyMath(q.q), answer: tidyMath(q.answer), points: (q.points || []).map(tidyMath) }
+    checks: (d.checks || []).map((q) => q.type
+      ? {
+          ...q,
+          q: tidyMath(q.q),
+          ...(typeof q.answer === "string" ? { answer: tidyMath(q.answer) } : {}),
+          ...(q.why ? { why: tidyMath(q.why) } : {}),
+          ...(q.correction ? { correction: tidyMath(q.correction) } : {}),
+          ...(q.points ? { points: q.points.map(tidyMath) } : {}),
+          ...(q.items ? { items: q.items.map(tidyMath) } : {}),
+          ...(q.pairs ? { pairs: q.pairs.map((p) => ({ a: tidyMath(p.a), b: tidyMath(p.b) })) } : {}),
+        }
       : tidyQuestion(q)),
   }));
 

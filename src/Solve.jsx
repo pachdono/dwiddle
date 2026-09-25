@@ -17,6 +17,20 @@ import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading } from "./ui.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
+import { AskDwiddleButton, usePageContext } from "./Chat.jsx";
+
+// What Dwiddle is told about a worked solution, so a follow up is about it.
+function solutionContext(r) {
+  if (!r) return "The student is on the Solve page and has not sent a question yet.";
+  return [
+    `A worked solution on the Solve page. Subject: ${r.subject || "unknown"}.`,
+    `The question: ${r.asked}`,
+    `The answer given: ${r.answer}`,
+    ...r.steps.map((st, i) => `Step ${i + 1}: ${st.do}. ${st.work} (${st.why})`),
+    r.idea ? `What it tests: ${r.idea}` : "",
+    r.check ? `Checking it: ${r.check}` : "",
+  ].filter(Boolean).join("\n");
+}
 
 const MAX_FILES = 6;
 
@@ -31,6 +45,7 @@ export function Solve({ go, auth }) {
   const [reading, setReading] = useState(0); // which file is being read, from 1
 
   const ready = files.length > 0 || text.trim().length > 0;
+  usePageContext(solutionContext(state === "done" ? result : null));
   const busy = state === "reading" || state === "working";
 
   function accept(list) {
@@ -244,7 +259,10 @@ export function Solve({ go, auth }) {
                 <h2>{result.title}</h2>
                 {result.asked && <p className="sv-asked">{result.asked}</p>}
               </div>
-              <button className="btn ghost" onClick={again}>Another question</button>
+              <div className="row">
+                <AskDwiddleButton context={solutionContext(result)} />
+                <button className="btn ghost" onClick={again}>Another question</button>
+              </div>
             </div>
 
             {result.answer && (
@@ -289,6 +307,14 @@ export function Solve({ go, auth }) {
                   </ul>
                 </div>
               )}
+            </div>
+
+            <div className="card card-pad sv-ask">
+              <div>
+                <b className="small">Lost on a step, or think something is off?</b>
+                <p className="small muted" style={{ margin: "2px 0 0" }}>Dwiddle can see this whole solution. Ask about any part of it.</p>
+              </div>
+              <AskDwiddleButton context={solutionContext(result)} className="btn" />
             </div>
 
             {result.similar && (

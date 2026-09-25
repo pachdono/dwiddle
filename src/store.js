@@ -60,6 +60,8 @@ export const KEYS = {
   testBank: "dwiddle-bank",   // questions written for test sections, kept and reused
   seen: "dwiddle-seen",       // question ids already served, so papers do not repeat
   freeGen: "dwiddle-freegen", // generations used before signing in
+  srs: "dwiddle-srs",         // when each question is next due for review
+  srsOn: "dwiddle-srs-on",    // whether review is suggested at all
   name: "dwiddle-name",       // what to call you before you sign in
   sources: "dwiddle-sources", // the notes each topic came from; kept on this device, never synced
 };

@@ -9,8 +9,11 @@ import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
+import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
+import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation } from "./Chat.jsx";
+import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
 import { Duck, DuckMark } from "./Duck.jsx";
@@ -254,6 +257,7 @@ export default function App() {
   }
   const [pMode, setPMode] = useState("quiz");
   const [missed, setMissed] = useState(() => load(KEYS.missed, []));
+  const [srs, setSrs] = useState(() => loadSrs());
   const [stats, setStats] = useState(() => load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
   const [topic, setTopicRaw] = useState(() => load(KEYS.topic, null));
   const [hidden, setHiddenRaw] = useState(() => load(KEYS.hidden, []));
@@ -271,6 +275,7 @@ export default function App() {
 
   // A question joins the list when you get it wrong and leaves when you get it right.
   function grade(id, correct, topicName) {
+    setSrs(recordReview(id, correct));
     setMissed((prev) => {
       const next = correct ? prev.filter((x) => x !== id) : prev.includes(id) ? prev : [...prev, id];
       save(KEYS.missed, next);
@@ -380,6 +385,7 @@ export default function App() {
           sheets: [...(prev.sheets || (prev.sheet ? [{ title: prev.title, sheet: prev.sheet }] : [])),
                    ...(data.sheet ? [{ title: data.title, sheet: data.sheet }] : [])].slice(-12),
           lessons: { ...(prev.lessons || {}), ...(data.lessons || {}) },
+          drills: [...(prev.drills || []), ...(data.drills || [])],
           notes: Object.entries(data.notes || {}).reduce(
             (acc, [name, blocks]) => ({ ...acc, [name]: [...(acc[name] || []), ...blocks] }),
             { ...(prev.notes || {}) },
@@ -400,14 +406,19 @@ export default function App() {
       if (!prev) return prev;
       const have = new Set(prev.questions.map((q) => q.id));
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-      // Only the multiple choice ones: practice has no way to mark writing.
+      // Multiple choice ones join the questions every practice mode uses; the
+      // other kinds join the drills, which Quiz and Review mix in.
       const extra = (lesson.checks || [])
-        .filter((c) => c.type !== "written")
         .map((c, i) => ({ id: `ls-${slug}-${i}`, topic: name, kind: "concept", ...c }))
+        .filter((c) => !isDrill(c))
         .filter((q) => !have.has(q.id));
       const next = {
         ...prev,
         questions: [...prev.questions, ...extra],
+        drills: [
+          ...(prev.drills || []).filter((d) => d.topic !== name || !String(d.id).startsWith(`ld-${slug}-`)),
+          ...(lesson.checks || []).map((c, i) => ({ id: `ld-${slug}-${i}`, topic: name, ...c })).filter(isDrill),
+        ],
         topics: prev.topics.map((t) => t.name === name ? { ...t, questions: (t.questions || 0) + extra.length } : t),
         lessons: {
           ...(prev.lessons || {}),
@@ -443,6 +454,9 @@ export default function App() {
   // Phrased on the way out as well as on the way in, so material saved before
   // bare terms were turned into questions reads properly too.
   const bank = made ? made.questions.map(phraseQuestion) : [];
+  // The other kinds: those written with lessons, and those built from the
+  // vocabulary questions every set already has.
+  const drills = made ? [...(made.drills || []), ...derivedDrills(made.questions)] : [];
   const topics = made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : [];
   const materials = made ? [{ id: "made", title: made.title, kind: "Yours" }] : [];
 
@@ -727,6 +741,8 @@ export default function App() {
           finishLesson={finishLesson}
           saveNotes={saveNotes}
           bank={bank}
+          drills={drills}
+          srs={srs}
           topics={topics}
           materials={materials}
           auth={auth}
@@ -768,6 +784,7 @@ export default function App() {
       </nav>
 
       <UpdateBar />
+      <DwiddleChat hidden={["settings", "install", "install-all", "feedback"].includes(page)} />
 
       {editing && page === "home" && custom.on && (
         <EditBar
@@ -951,12 +968,13 @@ const SHORTCUTS = [
 ];
 
 function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
-  customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved }) {
+  customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {} }) {
   const [pick] = useState(() => Math.random());
   const hello = greeting(nameFor(auth?.user), pick);
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
+  const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
 
   // Where to carry on: the first topic whose lesson is not finished.
   const lessons = made?.lessons || {};
@@ -1066,6 +1084,16 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
           {look && look !== "classic"
             ? <ThemeMark theme={look} dark={resolved === "dark"} size={104} className="dash-hero-duck dash-hero-mark" />
             : <Duck size={92} className="dash-hero-duck" />}
+        </div>
+          ) : null,
+          review: due > 0 ? (
+        <div className="card card-pad dash-review">
+          <span className="dash-review-icon"><Icon name="timer" size={18} /></span>
+          <div className="dash-review-main">
+            <b>{due} question{due === 1 ? "" : "s"} due for review</b>
+            <span className="small muted">Spaced out so they stick. Optional, whenever suits you.</span>
+          </div>
+          <button className="btn" onClick={() => { setPMode?.("review"); go("quiz"); }}>Review</button>
         </div>
           ) : null,
           stats: (
@@ -1366,6 +1394,34 @@ function AddMaterial({ go, setMade, auth }) {
   const [long, setLong] = useState("");
   const [reading, setReading] = useState(0);
   const [ask, setAsk] = useState(null); // { text, questions } while the clarifying questions are up
+  const [link, setLink] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [recStart, setRecStart] = useState(0);
+  const [recNow, setRecNow] = useState(0);
+  const dictation = useDictation((t) => setNotes(t));
+  useEffect(() => {
+    if (!dictation.on) return;
+    const t = setInterval(() => setRecNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [dictation.on]);
+
+  // A YouTube link joins the list like a file, as its transcript.
+  async function addVideo() {
+    if (!link.trim() || fetching) return;
+    setFetching(true);
+    setError("");
+    try {
+      const v = await readYouTube(link.trim());
+      setFiles((prev) => [...prev, { yt: v, file: { name: v.title, size: v.transcript.length } }]);
+      setLink("");
+      setState("idle");
+    } catch (err) {
+      setError(err.message);
+      setState("error");
+    } finally {
+      setFetching(false);
+    }
+  }
   const [progress, setProgress] = useState(null); // { n, of } while working in parts
   const [waiting, setWaiting] = useState(null); // { seconds, why } between parts
   const [unfinished, setUnfinished] = useState(null); // { rest, done, error } if a long job stopped early
@@ -1430,6 +1486,7 @@ function AddMaterial({ go, setMade, auth }) {
       setState("locked");
       return;
     }
+    dictation.stop();
     setError("");
     const parts = [];
 
@@ -1438,7 +1495,7 @@ function AddMaterial({ go, setMade, auth }) {
       setState("reading");
       setReading(i + 1);
       try {
-        const read = (await readFile(files[i].file)).trim();
+        const read = (files[i].yt ? files[i].yt.transcript : await readFile(files[i].file)).trim();
         if (read) parts.push(files.length > 1 ? `${files[i].file.name}\n\n${read}` : read);
       } catch (err) {
         setState("error");
@@ -1451,7 +1508,7 @@ function AddMaterial({ go, setMade, auth }) {
 
     // Something short may be a request, "photosynthesis" say, rather than
     // notes. It is checked, and only asked about if it is genuinely unclear.
-    if (!files.length && text.trim().length < REQUEST_LIMIT) {
+    if (!files.length && !dictation.on && text.trim().length < REQUEST_LIMIT) {
       setState("asking");
       let seen = null;
       try { seen = await clarify(text.trim()); } catch { seen = null; }
@@ -1564,7 +1621,8 @@ function AddMaterial({ go, setMade, auth }) {
             {files.map((f, i) => (
               <li key={f.url || f.file.name + i} className={state === "reading" && reading === i + 1 ? "on" : ""}>
                 <span className="sv-thumb">
-                  {f.url ? <img src={f.url} alt="" /> : <Icon name="file" size={18} />}
+                  {f.yt ? <span className="yt-badge" aria-label="YouTube video">▶</span>
+                    : f.url ? <img src={f.url} alt="" /> : <Icon name="file" size={18} />}
                   <i>{i + 1}</i>
                 </span>
                 <span className="sv-fname">{f.file.name}</span>
@@ -1574,6 +1632,32 @@ function AddMaterial({ go, setMade, auth }) {
               </li>
             ))}
           </ul>
+        )}
+
+        <div className="more-in">
+          <form className="yt-in" onSubmit={(e) => { e.preventDefault(); addVideo(); }}>
+            <span className="yt-badge small" aria-hidden="true">▶</span>
+            <input type="url" inputMode="url" placeholder="Paste a YouTube link" value={link}
+              onChange={(e) => setLink(e.target.value)} disabled={busy || fetching} aria-label="YouTube link" />
+            <button className="btn small" disabled={!link.trim() || busy || fetching}>
+              {fetching ? <Loading label="Reading" /> : "Add video"}
+            </button>
+          </form>
+          <button className={"btn rec-btn" + (dictation.on ? " on" : "")} disabled={busy}
+            onClick={() => {
+              if (dictation.on) { dictation.stop(); return; }
+              setRecStart(Date.now()); setRecNow(Date.now());
+              dictation.start({ continuous: true, from: notes });
+            }}>
+            <span className="rec-dot" />
+            {dictation.on ? `Stop, ${Math.floor((recNow - recStart) / 60000)}:${String(Math.floor(((recNow - recStart) / 1000) % 60)).padStart(2, "0")}` : "Record a lecture"}
+          </button>
+        </div>
+        {dictation.error && <p className="small" style={{ color: "var(--warn)", margin: "-4px 0 0" }}>{dictation.error}</p>}
+        {dictation.on && (
+          <p className="small muted" style={{ margin: "-4px 0 0" }}>
+            Listening. What is said appears in the notes below as it is heard. Keep the device near the speaker.
+          </p>
         )}
 
         <div className="or"><span>or</span></div>
@@ -1757,7 +1841,8 @@ function Library({ go, made, materials }) {
 /* ---------- practice: modes ---------- */
 
 const MODES = [
-  { id: "quiz", label: "Quiz", icon: "quiz", sub: "Multiple choice, with an explanation after each answer." },
+  { id: "quiz", label: "Quiz", icon: "quiz", sub: "A mix of question kinds, with an explanation after each answer." },
+  { id: "review", label: "Review", icon: "timer", sub: "Questions due for another look, spaced out so they stick. Entirely optional." },
   { id: "cards", label: "Flashcards", icon: "cards", sub: "Pick a deck. Cards you know are retired and stop appearing." },
   { id: "mock", label: "Mock exam", icon: "exam", sub: "A full length paper against the clock, marked at the end." },
   { id: "speed", label: "Speed round", icon: "bolt", sub: "Sixty seconds. Answer as many as you can." },
@@ -1769,7 +1854,7 @@ const QUIZ_LENGTHS = [5, 10, 15, 20];
 function Practice(props) {
   const { pMode, setPMode, missed, topic, setTopic, go, hidden, bank, topics } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
-  const Mode = { quiz: QuizMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
+  const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
 
   function setQuizLen(n) {
@@ -1786,6 +1871,8 @@ function Practice(props) {
   const pool = topic
     ? bank.filter((q) => q.topic === topic)
     : bank.filter((q) => liveTopics.includes(q.topic));
+  const drillPool = (props.drills || []).filter((q) => (topic ? q.topic === topic : liveTopics.includes(q.topic)));
+  const dueCount = dueFrom([...pool, ...drillPool], props.srs).length;
 
   return (
     <div className="page fade">
@@ -1817,6 +1904,7 @@ function Practice(props) {
             <button key={m.id} className={pMode === m.id ? "on" : ""} onClick={() => setPMode(m.id)}>
               <Icon name={m.icon} size={14} /> {m.label}
               {m.id === "missed" && missed.length > 0 && <span className="badge">{missed.length}</span>}
+              {m.id === "review" && dueCount > 0 && <span className="badge">{dueCount}</span>}
             </button>
           ))}
         </div>
@@ -1855,7 +1943,7 @@ function Practice(props) {
           </div>
         </div>
       ) : (
-        <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} len={quizLen} />
+        <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} drillPool={drillPool} len={quizLen} />
       )}
     </div>
   );
@@ -1863,21 +1951,33 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool, len }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false }) {
   const [i, setI] = useState(0);
-  const [picked, setPicked] = useState(null);
+  const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
-  const [QUIZ] = useState(() => shuffle(pool).slice(0, Math.min(len, pool.length)));
+  // A run mixes kinds: about one question in three is another way of
+  // recalling the same material, when the topic has any.
+  const [QUIZ] = useState(() => {
+    if (ordered) return pool.slice(0, len);
+    const main = shuffle(pool).slice(0, Math.min(len, pool.length));
+    const extra = shuffle(drillPool);
+    return main.map((q, n) => (n % 3 === 2 && extra.length ? extra.pop() : q));
+  });
 
   const q = QUIZ[i];
+  const drill = isDrill(q);
+  const answered = picked !== null;
 
-  function pick(n) {
-    if (picked !== null) return;
-    setPicked(n);
-    const ok = n === q.answer;
+  function settle(ok) {
     if (ok) setScore((s) => s + 1);
     grade(q.id, ok, q.topic);
+  }
+
+  function pick(n) {
+    if (answered) return;
+    setPicked(n);
+    settle(n === q.answer);
   }
 
   function next() {
@@ -1914,34 +2014,43 @@ function QuizMode({ grade, pool, len }) {
           <span className="small muted">{score} correct</span>
         </div>
         <div className="bar" style={{ marginBottom: 22 }}>
-          <i style={{ width: `${((i + (picked !== null ? 1 : 0)) / QUIZ.length) * 100}%` }} />
+          <i style={{ width: `${((i + (answered ? 1 : 0)) / QUIZ.length) * 100}%` }} />
         </div>
 
-        <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          {q.q}
-        </h3>
+        {drill ? (
+          <QuestionView key={q.id + ":" + i} q={q} onDone={(ok) => { setPicked(ok); settle(ok); }} />
+        ) : (
+          <>
+            <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
+              {q.q}
+            </h3>
 
-        {q.choices.map((c, n) => {
-          let cls = "choice";
-          if (picked !== null && n === q.answer) cls += " right";
-          else if (picked === n) cls += " wrong";
-          return (
-            <button key={n} className={cls} onClick={() => pick(n)} disabled={picked !== null}>
-              <span className="key">{"ABCD"[n]}</span>
-              {c}
-            </button>
-          );
-        })}
+            {q.choices.map((c, n) => {
+              let cls = "choice";
+              if (answered && n === q.answer) cls += " right";
+              else if (picked === n) cls += " wrong";
+              return (
+                <button key={n} className={cls} onClick={() => pick(n)} disabled={answered}>
+                  <span className="key">{"ABCD"[n]}</span>
+                  {c}
+                </button>
+              );
+            })}
+          </>
+        )}
 
-        {picked !== null && (
+        {answered && (
           <div className="fade" style={{ marginTop: 16 }}>
-            <div className="card card-pad" style={{ background: "var(--panel)" }}>
-              <span className={"pill " + (picked === q.answer ? "good" : "warn")}>
-                {picked === q.answer ? "Correct" : "Not quite"}
-              </span>
-              <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
-            </div>
+            {!drill && (
+              <div className="card card-pad" style={{ background: "var(--panel)" }}>
+                <span className={"pill " + (picked === q.answer ? "good" : "warn")}>
+                  {picked === q.answer ? "Correct" : "Not quite"}
+                </span>
+                <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
+              </div>
+            )}
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
+              <AskDwiddleButton context={askContext(q, picked)} />
               <button className="btn" onClick={next}>
                 {i + 1 >= QUIZ.length ? "See results" : "Next question"} <Icon name="arrow" />
               </button>
@@ -1951,6 +2060,37 @@ function QuizMode({ grade, pool, len }) {
       </div>
     </div>
   );
+}
+
+// What Dwiddle is told about a question when asked about it.
+function askContext(q, picked) {
+  if (!q) return "";
+  if (isDrill(q)) {
+    return `A practice question (${q.type}) on "${q.topic}": ${q.q}\nThe expected answer: ${
+      q.answer ?? (q.items ? q.items.join(" > ") : q.pairs ? q.pairs.map((p) => `${p.a} = ${p.b}`).join("; ") : "")
+    }${q.correction ? `\nCorrection: ${q.correction}` : ""}${q.why ? `\nExplanation: ${q.why}` : ""}`;
+  }
+  return `A multiple choice practice question on "${q.topic}": ${q.q}\nOptions: ${q.choices.map((c, n) => `${"ABCD"[n]}) ${c}`).join("  ")}\nCorrect answer: ${q.choices[q.answer]}${
+    typeof picked === "number" ? `\nThe student chose: ${q.choices[picked]}` : ""}\nExplanation given: ${q.why}`;
+}
+
+// Questions due for another look. Optional in every sense: it is one mode
+// among six, and nothing is withheld from anyone who never opens it.
+function ReviewMode({ grade, pool, drillPool = [], srs }) {
+  const [due] = useState(() => dueFrom([...pool, ...drillPool], srs).slice(0, 20));
+  if (!due.length) {
+    return (
+      <div className="card card-pad fade" style={{ textAlign: "center", padding: 36 }}>
+        <Duck size={80} />
+        <b style={{ display: "block", marginTop: 10 }}>Nothing due today</b>
+        <p className="muted small" style={{ margin: "6px auto 0", maxWidth: 420, lineHeight: 1.6 }}>
+          Every question you answer comes back here just before you would forget it: tomorrow if you
+          got it wrong, then in 2 days, 4, a week, two weeks and a month as you keep getting it right.
+        </p>
+      </div>
+    );
+  }
+  return <QuizMode grade={grade} pool={due} len={due.length} ordered />;
 }
 
 /* ---------- study sheet ---------- */
@@ -2115,6 +2255,7 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
   const [reminders, setReminders] = useState(true);
   const [sound, setSound] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [review, setReview] = useState(() => reviewOn());
 
   return (
     <div className="page fade">
@@ -2182,6 +2323,9 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
         <div className="card">
           <div className="card-head"><h3>Study</h3></div>
+          <SetRow label="Suggest reviews" hint="Show on the home page when questions are due for another look. Review stays in Practice either way.">
+            <Switch on={review} onClick={() => { setReviewOn(!review); setReview(!review); }} />
+          </SetRow>
           <SetRow label="Daily goal" hint="How many questions counts as a day done.">
             <select value={goal} onChange={(e) => setGoal(e.target.value)}>
               <option value="10">10 questions</option>

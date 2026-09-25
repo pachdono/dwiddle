@@ -87,6 +87,7 @@ export const RADII = [
 
 export const WIDGETS = [
   { id: "continue", name: "Continue learning" },
+  { id: "review", name: "Review due" },
   { id: "stats", name: "Streak and accuracy" },
   { id: "photo", name: "Photo" },
   { id: "quote", name: "Your own words" },
@@ -114,7 +115,7 @@ export const DEFAULT_CUSTOM = {
   // coherent until the user deliberately overrides one part of it.
   colors: { mode: "flat", bg1: null, bg2: null, angle: 160, card: null, ink: null, accent: null, line: null },
   photo: { dim: 45, blur: 0, place: "widget" }, // widget, background, or both
-  widgets: { continue: true, stats: true, photo: false, quote: false, upnext: true, actions: true, focus: true },
+  widgets: { continue: true, review: true, stats: true, photo: false, quote: false, upnext: true, actions: true, focus: true },
   order: WIDGETS.map((w) => w.id),
 };
 
