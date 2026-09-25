@@ -139,6 +139,7 @@ const CSP = [
   "img-src 'self' data: blob: https://*.googleusercontent.com",
   "font-src 'self' data:",
   `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co`,
+  "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",

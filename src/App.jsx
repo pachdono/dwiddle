@@ -1381,6 +1381,13 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 const LIMIT = 24000; // characters the server takes in one call
 
 const MAX_MATERIAL_FILES = 10;
+
+// The opening of a transcript, a few sentences long, to recognise it by.
+function firstSentences(text, n) {
+  const parts = String(text || "").match(/[^.!?]+[.!?]+/g);
+  if (!parts) return String(text || "").split(/\s+/).slice(0, 45).join(" ") + (String(text).split(/\s+/).length > 45 ? "..." : "");
+  return parts.slice(0, n).map((p) => p.trim()).join(" ");
+}
 // Shorter than this, what someone typed may be a request to study something
 // rather than notes, so it is looked at before anything is written.
 const REQUEST_LIMIT = 1500;
@@ -1399,9 +1406,24 @@ function AddMaterial({ go, setMade, auth }) {
   const [fetching, setFetching] = useState(false);
   const [recStart, setRecStart] = useState(0);
   const [recNow, setRecNow] = useState(0);
-  const dictation = useDictation((t) => setNotes(t));
+  // A recording's words go to their own transcript, not into the notes box,
+  // where an hour of lecture would be a wall of text. When it stops, it is
+  // offered back as a recording to listen to and use.
+  const [heard, setHeard] = useState("");
+  const [recording, setRecording] = useState(null); // { transcript, url, blob, seconds } after stopping
+  const [fullText, setFullText] = useState(false);
+  const dictation = useDictation((t) => setHeard(t));
+  const audioRef = useRef(null);
   useEffect(() => {
-    if (!dictation.on) return;
+    if (!dictation.on) {
+      if (recStart && (heard.trim() || audioRef.current)) {
+        const blob = audioRef.current;
+        setRecording({ transcript: heard.trim(), seconds: (Date.now() - recStart) / 1000,
+          blob, url: blob ? URL.createObjectURL(blob) : "" });
+        setRecStart(0);
+      }
+      return;
+    }
     const t = setInterval(() => setRecNow(Date.now()), 500);
     return () => clearInterval(t);
   }, [dictation.on]);
@@ -1622,7 +1644,8 @@ function AddMaterial({ go, setMade, auth }) {
             {files.map((f, i) => (
               <li key={f.url || f.file.name + i} className={state === "reading" && reading === i + 1 ? "on" : ""}>
                 <span className="sv-thumb">
-                  {f.yt ? <span className="yt-badge" aria-label="YouTube video">▶</span>
+                  {f.rec ? <span className="rec-card-icon" aria-label="Recording"><Icon name="mic" size={18} /></span>
+                    : f.yt ? <span className="yt-badge" aria-label="YouTube video">▶</span>
                     : f.url ? <img src={f.url} alt="" /> : <Icon name="file" size={18} />}
                   <i>{i + 1}</i>
                 </span>
@@ -1647,8 +1670,10 @@ function AddMaterial({ go, setMade, auth }) {
           <button className={"btn rec-btn" + (dictation.on ? " on" : "")} disabled={busy}
             onClick={() => {
               if (dictation.on) { dictation.stop(); return; }
+              if (recording?.url) URL.revokeObjectURL(recording.url);
+              setRecording(null); setHeard(""); setFullText(false); audioRef.current = null;
               setRecStart(Date.now()); setRecNow(Date.now());
-              dictation.start({ continuous: true, from: notes });
+              dictation.start({ continuous: true });
             }}>
             <span className="rec-dot" />
             {dictation.on ? `Stop, ${Math.floor((recNow - recStart) / 60000)}:${String(Math.floor(((recNow - recStart) / 1000) % 60)).padStart(2, "0")}` : "Record a lecture"}
@@ -1658,10 +1683,51 @@ function AddMaterial({ go, setMade, auth }) {
         {dictation.on && (
           <RecordingView
             seconds={(recNow - recStart) / 1000}
-            words={notes.trim() ? notes.trim().split(/\s+/).length : 0}
-            lastLine={notes.trim().split(/\s+/).slice(-9).join(" ")}
+            words={heard.trim() ? heard.trim().split(/\s+/).length : 0}
+            lastLine={heard.trim().split(/\s+/).slice(-9).join(" ")}
             onStop={() => dictation.stop()}
+            onAudio={(blob) => { audioRef.current = blob; setRecording((r) => r && { ...r, url: URL.createObjectURL(blob), blob }); }}
           />
+        )}
+
+        {recording && (
+          <div className="card card-pad rec-card fade">
+            <div className="rec-card-head">
+              <span className="rec-card-icon"><Icon name="mic" size={18} /></span>
+              <div>
+                <b>Lecture recording</b>
+                <span className="small muted">
+                  {Math.floor(recording.seconds / 60)}:{String(Math.floor(recording.seconds % 60)).padStart(2, "0")}
+                  {" · "}{recording.transcript.split(/\s+/).filter(Boolean).length.toLocaleString()} words heard
+                </span>
+              </div>
+            </div>
+            {recording.url
+              ? <audio className="rec-audio" controls src={recording.url} preload="metadata" />
+              : <p className="small muted" style={{ margin: 0 }}>The audio could not be kept on this device, but the words were.</p>}
+            <div className="rec-preview">
+              <span className="qv-label">{fullText ? "Everything heard" : "How it starts"}</span>
+              <p>{fullText ? recording.transcript : firstSentences(recording.transcript, 3)}</p>
+              {recording.transcript.length > firstSentences(recording.transcript, 3).length + 5 && (
+                <button className="btn quiet small" onClick={() => setFullText((v) => !v)}>
+                  {fullText ? "Show less" : "Show full transcript"}
+                </button>
+              )}
+            </div>
+            <div className="row" style={{ flexWrap: "wrap" }}>
+              <button className="btn cta" disabled={!recording.transcript.trim()} onClick={() => {
+                setFiles((prev) => [...prev, { rec: true, yt: { transcript: recording.transcript, title: "Lecture recording" },
+                  file: { name: `Lecture recording, ${Math.max(1, Math.round(recording.seconds / 60))} min`, size: recording.transcript.length } }]);
+                setRecording(null);
+              }}>Use this recording</button>
+              {recording.url && (
+                <a className="btn ghost" href={recording.url} download={`lecture-${new Date().toISOString().slice(0, 10)}.${/mp4/.test(recording.blob?.type) ? "m4a" : "webm"}`}>
+                  Download audio
+                </a>
+              )}
+              <button className="btn ghost" onClick={() => { if (recording.url) URL.revokeObjectURL(recording.url); setRecording(null); }}>Discard</button>
+            </div>
+          </div>
         )}
 
         <div className="or"><span>or</span></div>

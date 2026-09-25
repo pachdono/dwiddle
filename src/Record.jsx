@@ -13,14 +13,17 @@
 import { useEffect, useRef } from "react";
 import { DuckParts } from "./Duck.jsx";
 
-export function RecordingView({ seconds = 0, words = 0, lastLine = "", onStop }) {
+// onAudio(blob) receives the recording when the view closes, so it can be
+// played back. It stays on the device: nothing here uploads it.
+export function RecordingView({ seconds = 0, words = 0, lastLine = "", onStop, onAudio }) {
   const bars = useRef(null);
   const water = useRef(null);
   const duck = useRef(null);
   const splash = useRef(null);
 
   useEffect(() => {
-    let raf = 0, stream = null, ctx = null, analyser = null, data = null;
+    let raf = 0, stream = null, ctx = null, analyser = null, data = null, recorder = null;
+    const chunks = [];
     let level = 0, smooth = 0, t0 = performance.now(), lastBar = 0, lastSplash = 0;
     let W = 320; // the water's width in its own units, matched to the box so nothing stretches
     const history = [];
@@ -33,6 +36,16 @@ export function RecordingView({ seconds = 0, words = 0, lastLine = "", onStop })
         analyser.fftSize = 1024;
         data = new Uint8Array(analyser.fftSize);
         ctx.createMediaStreamSource(stream).connect(analyser);
+        if (window.MediaRecorder) {
+          const type = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((t) => MediaRecorder.isTypeSupported?.(t));
+          recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+          recorder.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data); };
+          recorder.onstop = () => {
+            if (chunks.length) onAudio?.(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+            stream?.getTracks().forEach((tr) => tr.stop());
+          };
+          recorder.start(1000);
+        }
       } catch {
         // No microphone reading: the water stays calm and the duck bobs.
       }
@@ -129,7 +142,8 @@ export function RecordingView({ seconds = 0, words = 0, lastLine = "", onStop })
     return () => {
       cancelAnimationFrame(raf);
       removeEventListener("resize", size);
-      stream?.getTracks().forEach((tr) => tr.stop());
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      else stream?.getTracks().forEach((tr) => tr.stop());
       ctx?.close().catch(() => {});
     };
   }, []);
