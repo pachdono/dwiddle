@@ -195,7 +195,8 @@ export function Solve({ go, auth }) {
 
             <div className="or"><span>or</span></div>
 
-            <div className="notes">
+            <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
+            <div className="notes glass">
               <div className="notes-head">
                 <div className="row">
                   <span className="notes-icon"><Icon name="text" size={14} /></span>
@@ -223,6 +224,7 @@ export function Solve({ go, auth }) {
                     : "Work it through"}
                 </button>
               </div>
+            </div>
             </div>
           </>
         )}

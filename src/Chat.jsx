@@ -69,6 +69,77 @@ export function DuckTalk({ mood = "idle", size = 64 }) {
   );
 }
 
+/* ---------- asking for the microphone ---------- */
+
+// Asked in Dwiddle's own words first, then by the browser. The browser's
+// prompt on its own is a bare "use your microphone?" with no reason given,
+// which is exactly when people press Block. Once allowed, it is never asked
+// again; if blocked, it says how to undo that, since the browser will not
+// ask a second time.
+async function micState() {
+  try { return (await navigator.permissions.query({ name: "microphone" })).state; } catch { return "prompt"; }
+}
+export function requestMic(reason) {
+  return new Promise(async (resolve) => {
+    const state = await micState();
+    if (state === "granted") return resolve(true);
+    window.dispatchEvent(new CustomEvent("dwiddle:perm", { detail: { reason, blocked: state === "denied", resolve } }));
+  });
+}
+
+export function PermissionPrompt() {
+  const [ask, setAsk] = useState(null);
+  const [trying, setTrying] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    const on = (e) => { setAsk(e.detail); setBlocked(!!e.detail.blocked); setTrying(false); };
+    window.addEventListener("dwiddle:perm", on);
+    return () => window.removeEventListener("dwiddle:perm", on);
+  }, []);
+  if (!ask) return null;
+  const done = (ok) => { ask.resolve(ok); setAsk(null); };
+  async function allow() {
+    setTrying(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      done(true);
+    } catch {
+      setTrying(false);
+      setBlocked(true);
+    }
+  }
+  const mac = /Mac/.test(navigator.platform);
+  return (
+    <Portal>
+      <div className="gate-scrim perm-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) done(false); }}>
+        <div className="gate perm" role="dialog" aria-modal="true" aria-labelledby="perm-title">
+          <div className="perm-art"><DuckTalk mood={blocked ? "oops" : "listening"} size={96} /></div>
+          <h2 id="perm-title">{blocked ? "The microphone is blocked" : "Can Dwiddle use your microphone?"}</h2>
+          {blocked ? (
+            <div className="perm-steps">
+              <p>It was turned off for this site, so the browser will not ask again. To turn it back on:</p>
+              <ol>
+                <li>Click the <b>lock</b> or <b>settings</b> icon at the left of the address bar.</li>
+                <li>Set <b>Microphone</b> to <b>Allow</b>, then try again.</li>
+                {mac && <li>If it is still silent: System Settings, <b>Privacy and Security</b>, <b>Microphone</b>, and switch your browser on.</li>}
+              </ol>
+            </div>
+          ) : (
+            <p className="gate-sub">{ask.reason || "So you can speak instead of type."} Nothing is recorded until you press the button, and you can stop at any time.</p>
+          )}
+          <div className="gate-actions">
+            {blocked
+              ? <button className="btn cta gate-go" onClick={() => allow()} disabled={trying}>{trying ? "Checking" : "I've allowed it, try again"}</button>
+              : <button className="btn cta gate-go" onClick={allow} disabled={trying}>{trying ? "Waiting for your browser" : "Allow microphone"}</button>}
+            <button className="btn ghost" onClick={() => done(false)}>Not now</button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
 /* ---------- voice ---------- */
 
 const Recognition = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -85,7 +156,7 @@ export function useDictation(onText) {
   const kept = useRef("");      // text from sessions the browser already ended
   const supported = !!Recognition && !inApp;
 
-  function start({ continuous = false, from = "" } = {}) {
+  async function start({ continuous = false, from = "", reason = "" } = {}) {
     if (!supported) {
       setError(inApp
         ? "Voice works on the Dwiddle website in Chrome, Edge or Safari. The installed app cannot hear yet."
@@ -93,6 +164,7 @@ export function useDictation(onText) {
       return;
     }
     setError("");
+    if (!(await requestMic(reason))) return;
     want.current = true;
     kept.current = from ? from.trim() + " " : "";
     const begin = () => {
@@ -332,7 +404,7 @@ export function DwiddleChat({ hidden = false }) {
 
           <form className="dc-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
             <button type="button" className={"dc-icon mic" + (dict.on ? " on" : "")}
-              onClick={() => (dict.on ? dict.stop() : dict.start())} aria-label={dict.on ? "Stop listening" : "Speak"}>
+              onClick={() => (dict.on ? dict.stop() : dict.start({ reason: "So you can ask Dwiddle by speaking." }))} aria-label={dict.on ? "Stop listening" : "Speak"}>
               <Icon name="mic" size={18} />
             </button>
             <textarea ref={input} rows={1} value={text} placeholder={dict.on ? "Listening..." : "Ask Dwiddle..."}

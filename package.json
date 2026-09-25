@@ -68,7 +68,8 @@
               "dwiddle"
             ]
           }
-        ]
+        ],
+        "NSMicrophoneUsageDescription": "Dwiddle uses the microphone only when you choose to speak to it or record a lecture."
       }
     },
     "dmg": {

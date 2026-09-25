@@ -86,9 +86,9 @@ export const RADII = [
 ];
 
 export const WIDGETS = [
+  { id: "stats", name: "Streak and accuracy" },
   { id: "continue", name: "Continue learning" },
   { id: "review", name: "Review due" },
-  { id: "stats", name: "Streak and accuracy" },
   { id: "photo", name: "Photo" },
   { id: "quote", name: "Your own words" },
   { id: "upnext", name: "Recommended topics" },

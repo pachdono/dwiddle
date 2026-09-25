@@ -12,7 +12,7 @@ import { pushProgress, localSnapshot, configured, userCount, submitFeedback } fr
 import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
-import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation } from "./Chat.jsx";
+import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
 import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
 import { TooMuch } from "./TooMuch.jsx";
@@ -786,6 +786,7 @@ export default function App() {
 
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback"].includes(page)} />
+      <PermissionPrompt />
 
       {editing && page === "home" && custom.on && (
         <EditBar
@@ -1057,52 +1058,35 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
 
         <DashWidgets custom={custom} customBg={customBg} setCustom={setCustom} editing={editing} parts={{
           continue: (made && topics.length > 0) ? (
-        <div className="card dash-hero">
-          <div className="dash-hero-main">
+        <div className="card dash-cont">
+          <div className="dash-cont-main">
             <span className="dash-eyebrow">{nextTopic ? "Continue learning" : "All lessons finished"}</span>
-            <h2>{nextTopic ? nextTopic.name : made.title}</h2>
-            <p className="small muted">
-              {nextTopic
-                ? `${made.title}. Lesson ${doneCount + 1} of ${topics.length}.`
-                : `Every lesson in ${made.title} is done. Practice is what keeps it there.`}
-            </p>
-            <div className="dash-progress" aria-label={`${doneCount} of ${topics.length} lessons finished`}>
+            <b className="dash-cont-title">{nextTopic ? nextTopic.name : made.title}</b>
+            <span className="small muted">
+              {nextTopic ? `${made.title} · Lesson ${doneCount + 1} of ${topics.length}` : "Practice is what keeps it there."}
+            </span>
+          </div>
+          <div className="dash-cont-progress" aria-label={`${doneCount} of ${topics.length} lessons finished`}>
+            <div className="dash-progress">
               {topics.map((t) => <i key={t.id} className={lessons[t.name]?.done ? "on" : ""} title={t.name} />)}
             </div>
-            <div className="row" style={{ marginTop: 16 }}>
-              {nextTopic ? (
-                <button className="btn cta" onClick={() => go("learn")}>
-                  {doneCount ? "Continue" : "Start the first lesson"} <Icon name="arrow" size={14} />
-                </button>
-              ) : (
-                <button className="btn cta" onClick={() => go("quiz")}>
-                  Practise it all <Icon name="arrow" size={14} />
-                </button>
-              )}
-              <button className="btn ghost" onClick={() => go("sheet")}>Open notes</button>
-            </div>
+            <span className="small muted">{doneCount} of {topics.length} done</span>
           </div>
-          {look && look !== "classic"
-            ? <ThemeMark theme={look} dark={resolved === "dark"} size={104} className="dash-hero-duck dash-hero-mark" />
-            : <Duck size={92} className="dash-hero-duck" />}
+          <div className="dash-cont-actions">
+            <button className="btn ghost small" onClick={() => go("sheet")}>Notes</button>
+            {nextTopic
+              ? <button className="btn cta small" onClick={() => go("learn")}>{doneCount ? "Continue" : "Start"} <Icon name="arrow" size={13} /></button>
+              : <button className="btn cta small" onClick={() => go("quiz")}>Practise <Icon name="arrow" size={13} /></button>}
+          </div>
         </div>
           ) : null,
-          review: due > 0 ? (
-        <div className="card card-pad dash-review">
-          <span className="dash-review-icon"><Icon name="timer" size={18} /></span>
-          <div className="dash-review-main">
-            <b>{due} question{due === 1 ? "" : "s"} due for review</b>
-            <span className="small muted">Spaced out so they stick. Optional, whenever suits you.</span>
-          </div>
-          <button className="btn" onClick={() => { setPMode?.("review"); go("quiz"); }}>Review</button>
-        </div>
-          ) : null,
+          review: null,
           stats: (
-        <div className="grid-3 dash-stats">
+        <div className="dash-overview">
           <div className="stat">
             <div className="k">Study streak</div>
             <div className="v">
-              {(() => { const n = streakOf(stats.days); return n === 0 ? "None yet" : `${n} day${n === 1 ? "" : "s"}`; })()}
+              {(() => { const n = streakOf(stats.days); return n === 0 ? "0 days" : `${n} day${n === 1 ? "" : "s"}`; })()}
             </div>
             <div className="dash-week" aria-label="The last seven days">
               {week.map((d, i) => (
@@ -1116,11 +1100,19 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
           <div className="stat">
             <div className="k"><span className="k-long">Questions answered</span><span className="k-short">Answered</span></div>
             <div className="v">{stats.answered}</div>
+            <div className="small muted stat-sub">{stats.correct} right</div>
           </div>
           <div className="stat">
             <div className="k">Accuracy</div>
-            <div className="v">{started ? `${accuracy}%` : "Not yet"}</div>
+            <div className="v">{started ? `${accuracy}%` : "–"}</div>
+            <div className="stat-bar"><i style={{ width: `${started ? accuracy : 0}%` }} /></div>
           </div>
+          <button className="stat stat-link" onClick={() => { setPMode?.("review"); go("quiz"); }}
+            disabled={!due} title={due ? "Review them now" : "Nothing due"}>
+            <div className="k">Due for review</div>
+            <div className="v">{due}</div>
+            <div className="small muted stat-sub">{due ? <>Review now <Icon name="arrow" size={12} /></> : "All caught up"}</div>
+          </button>
         </div>
           ),
           upnext: topics.length > 0 && (
@@ -1673,7 +1665,7 @@ function AddMaterial({ go, setMade, auth }) {
               if (recording?.url) URL.revokeObjectURL(recording.url);
               setRecording(null); setHeard(""); setFullText(false); audioRef.current = null;
               setRecStart(Date.now()); setRecNow(Date.now());
-              dictation.start({ continuous: true });
+              dictation.start({ continuous: true, reason: "To turn the lecture into notes as it is spoken, and keep a recording you can play back." });
             }}>
             <span className="rec-dot" />
             {dictation.on ? `Stop, ${Math.floor((recNow - recStart) / 60000)}:${String(Math.floor(((recNow - recStart) / 1000) % 60)).padStart(2, "0")}` : "Record a lecture"}
@@ -1732,7 +1724,8 @@ function AddMaterial({ go, setMade, auth }) {
 
         <div className="or"><span>or</span></div>
 
-        <div className="notes">
+        <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
+            <div className="notes glass">
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name="text" size={14} /></span>
@@ -1765,6 +1758,7 @@ function AddMaterial({ go, setMade, auth }) {
             </button>
           </div>
         </div>
+            </div>
 
         {state === "working" && (
           <div className="card card-pad note-card fade">
@@ -3978,7 +3972,8 @@ function WritingRun({ test, sec, cfg, onExit }) {
         )}
 
         {running && (
-          <div className="notes">
+          <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
+            <div className="notes glass">
             <div className="notes-head">
               <div className="row">
                 <span className="notes-icon"><Icon name="pen" size={14} /></span>
@@ -3997,6 +3992,7 @@ function WritingRun({ test, sec, cfg, onExit }) {
               {!done && <button className="btn" onClick={() => setDone(true)}>Finish and mark it</button>}
             </div>
           </div>
+            </div>
         )}
 
         {done && (
@@ -4671,7 +4667,8 @@ function FeedbackPage({ auth }) {
           </div>
         )}
 
-        <div className="notes">
+        <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
+            <div className="notes glass">
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name={kind === "review" ? "star" : "chat"} size={14} /></span>
@@ -4710,6 +4707,7 @@ function FeedbackPage({ auth }) {
             </button>
           </div>
         </div>
+            </div>
 
         {state === "error" && (
           <div className="card card-pad" style={{ borderColor: "var(--warn-line)" }}>

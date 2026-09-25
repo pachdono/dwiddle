@@ -4,6 +4,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { approvedReviews } from "./supabase.js";
+import { ThemeMark } from "./ThemeMark.jsx";
+import { THEMES } from "./themes.js";
+import { DuckTalk } from "./Chat.jsx";
+import shotNotes from "./assets/shots/desktop-notes.webp";
+import shotLesson from "./assets/shots/phone-lesson.webp";
 
 const TESTS = ["SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
 
@@ -475,6 +480,130 @@ function Faq() {
   );
 }
 
+
+// Everything Dwiddle does, each shown rather than described: real screenshots
+// where there are any, and small working pictures of the rest.
+function Features() {
+  const grid = useRef(null);
+  const seen = useSeen(grid, 0.08);
+  const kinds = ["Multiple choice", "Fill in the blank", "Complete the word", "True or false", "Match them up", "Put in order", "In your own words"];
+  return (
+    <section className="feat" id="features">
+      <h2>Everything you need to study</h2>
+      <p className="lp-lead">One place for the notes, the teaching, the practice and the help, made from your own material.</p>
+      <div className={"feat-grid" + (seen ? " seen" : "")} ref={grid}>
+        <article className="fc fc-wide" style={{ "--i": 0 }}>
+          <div className="fc-copy">
+            <span className="fc-tag">Notes</span>
+            <h3>Full notes, not a summary</h3>
+            <p>Every definition, figure and example in your material, organised by topic. What to learn word for word, the key facts and where marks are lost are picked out in colour.</p>
+          </div>
+          <div className="fc-shot"><img src={shotNotes} alt="Dwiddle's notes, organised by topic with highlights" loading="lazy" /></div>
+        </article>
+
+        <article className="fc fc-tall" style={{ "--i": 1 }}>
+          <div className="fc-copy">
+            <span className="fc-tag">Learn</span>
+            <h3>Lessons that actually teach</h3>
+            <p>Short lessons, one idea at a time, with examples, then questions to check it went in.</p>
+          </div>
+          <div className="fc-phone"><img src={shotLesson} alt="A Dwiddle lesson on a phone" loading="lazy" /></div>
+        </article>
+
+        <article className="fc" style={{ "--i": 2 }}>
+          <span className="fc-tag">Practice</span>
+          <h3>Seven ways to be tested</h3>
+          <p>Because picking an answer out of four is not the same as knowing it.</p>
+          <div className="fc-chips">{kinds.map((k, i) => <span key={k} style={{ "--k": i }}>{k}</span>)}</div>
+        </article>
+
+        <article className="fc fc-chat" style={{ "--i": 3 }}>
+          <span className="fc-tag">Ask Dwiddle</span>
+          <h3>Stuck? Just ask</h3>
+          <p>Dwiddle sees what you are working on. Ask it to explain again, give another example, or check an answer you think is wrong.</p>
+          <div className="fc-convo">
+            <div className="fc-me">why is it the video game and not £20?</div>
+            <div className="fc-bot"><DuckTalk mood="talking" size={34} /><span>Because <b>opportunity cost</b> is what you give up, not what you spend.</span></div>
+          </div>
+        </article>
+
+        <article className="fc" style={{ "--i": 4 }}>
+          <span className="fc-tag">Solve</span>
+          <h3>Photograph a question</h3>
+          <p>Every step worked through, with the reason each one is the right move, and a similar question to try.</p>
+          <ol className="fc-steps"><li>Write the equation</li><li>Substitute the values</li><li>Rearrange for x</li></ol>
+        </article>
+
+        <article className="fc" style={{ "--i": 5 }}>
+          <span className="fc-tag">Review</span>
+          <h3>Remember it for the exam</h3>
+          <p>Questions come back just before you would forget them. Optional, never forced.</p>
+          <div className="fc-gaps">{["1 day", "2", "4", "1 week", "2", "1 month"].map((g, i) => <span key={i} style={{ "--k": i }}>{g}</span>)}</div>
+        </article>
+
+        <article className="fc fc-wide fc-inputs" style={{ "--i": 6 }}>
+          <div className="fc-copy">
+            <span className="fc-tag">Any material</span>
+            <h3>Start from whatever you have</h3>
+            <p>Several files at once, a YouTube lecture, a recording of a class, or nothing at all: type a topic like "IGCSE photosynthesis" and Dwiddle writes the notes first.</p>
+          </div>
+          <div className="fc-ins">
+            {[["PDF", "#e5484d"], ["Slides", "#f59e0b"], ["Word", "#3b82f6"], ["Photos", "#10b981"], ["YouTube", "#ff0033"], ["Record", "#8b5cf6"], ["Just a topic", "#64748b"]].map(([n, c]) => (
+              <span key={n}><i style={{ background: c }} />{n}</span>
+            ))}
+          </div>
+        </article>
+
+        <article className="fc" style={{ "--i": 7 }}>
+          <span className="fc-tag">Exams</span>
+          <h3>Full length test prep</h3>
+          <p>Timed SAT, ACT, SSAT, IELTS and TOEFL papers, marked on each test's own scale, plus IGCSE, IB and A Level courses.</p>
+        </article>
+
+        <article className="fc fc-themes" style={{ "--i": 8 }}>
+          <span className="fc-tag">Make it yours</span>
+          <h3>Ten themes, ten ducks</h3>
+          <p>Sakura, Matcha, Midnight and more, each in light and dark, each with its own duck.</p>
+          <div className="fc-ducks">{THEMES.filter((t) => t.id !== "classic").map((t) => <ThemeMark key={t.id} theme={t.id} size={40} />)}</div>
+        </article>
+
+        <article className="fc fc-wide" style={{ "--i": 9 }}>
+          <div className="fc-copy">
+            <span className="fc-tag">Everywhere</span>
+            <h3>Mac, Windows and phone</h3>
+            <p>In the browser, as an app for Mac and Windows, or on your home screen. Sign in and your progress follows you.</p>
+          </div>
+          <div className="fc-ins">
+            {["Web", "Mac app", "Windows app", "iPhone", "Android"].map((n) => <span key={n}><i style={{ background: "var(--accent)" }} />{n}</span>)}
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+// Free, set against what studying with most AI apps costs.
+function Compare() {
+  const rows = [
+    ["Price", "$10 or more a month", "Free"],
+    ["Uploads", "A few, then pay", "No limit"],
+    ["Notes, lessons and quizzes", "Some locked behind Pro", "All included"],
+    ["Card to sign up", "Often", "Never"],
+  ];
+  return (
+    <section className="cmp">
+      <h2>Free, actually</h2>
+      <p className="lp-lead">No trial that turns into a subscription. Sign up and everything is yours.</p>
+      <div className="cmp-table">
+        <div className="cmp-row cmp-head"><span /><span>Most AI study apps</span><span className="cmp-us"><DuckMark size={20} /> Dwiddle</span></div>
+        {rows.map(([k, a, b]) => (
+          <div className="cmp-row" key={k}><span>{k}</span><span className="cmp-no">{a}</span><span className="cmp-yes">{b}</span></div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
@@ -496,6 +625,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           <span>Dwiddle</span>
         </button>
         <nav className="glass-nav">
+          <button onClick={() => jump("features")}>Features</button>
           <button onClick={() => jump("analytics")}>Analytics</button>
           <button onClick={() => jump("faq")}>FAQ</button>
           <button onClick={onInstall}>Get the app</button>
@@ -510,8 +640,8 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
             <span className="hero-accent"> the real exam.</span>
           </h1>
           <p className="hero-sub">
-            Paste your notes or drop in a PDF. Dwiddle writes the topics, the questions and an
-            explanation for every answer, then puts you through full length timed papers.
+            Drop in a PDF, a lecture or just a topic. Dwiddle writes full notes, short lessons and
+            questions with every answer explained, and helps whenever you are stuck.
           </p>
 
           <div className="hero-actions">
@@ -572,9 +702,13 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         </section>
       )}
 
+      <Features />
+
       <Deck />
 
       <Build />
+
+      <Compare />
 
       <section className="landing-numbers" id="analytics">
         <h2>Analytics</h2>
