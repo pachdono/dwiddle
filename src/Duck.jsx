@@ -42,6 +42,54 @@ export function Duck({ size = 120, className = "", shadow = true }) {
 
 // The duck itself, in its own 120 by 140 space, for drawings that place it in
 // a scene of their own.
+// Puddle, Dwiddle's co-host: the same duck shape, a little softer in
+// colour, with a pink bow instead of the straw hat, heart shaped sunglasses,
+// lashes and rosy cheeks.
+const PINK = "#F472B6", PINK_DARK = "#DB2777", PINK_LIGHT = "#FBCFE8", PEACH = "#FFD98A";
+const heart = (cx, cy, k) => `M${cx} ${cy + 3 * k} C${cx} ${cy - 1 * k} ${cx - 6.5 * k} ${cy - 2 * k} ${cx - 7 * k} ${cy + 2.5 * k} C${cx - 7 * k} ${cy + 6 * k} ${cx - 2 * k} ${cy + 8.5 * k} ${cx} ${cy + 11 * k} C${cx + 2 * k} ${cy + 8.5 * k} ${cx + 7 * k} ${cy + 6 * k} ${cx + 7 * k} ${cy + 2.5 * k} C${cx + 6.5 * k} ${cy - 2 * k} ${cx} ${cy - 1 * k} ${cx} ${cy + 3 * k}Z`;
+export function PuddleParts() {
+  return (
+    <>
+      <ellipse cx="49" cy="124" rx="11" ry="6" fill="#F59E7A" transform="rotate(-8 49 124)" />
+      <ellipse cx="77" cy="124" rx="11" ry="6" fill="#F59E7A" transform="rotate(8 77 124)" />
+      <ellipse cx="63" cy="90" rx="45" ry="31" fill={PEACH} />
+      <circle cx="63" cy="59" r="29" fill={PEACH} />
+      <ellipse cx="63" cy="74" rx="42" ry="24" fill={PEACH} />
+      <ellipse cx="65" cy="97" rx="27" ry="21" fill="#FFEBC2" />
+      <ellipse cx="31" cy="88" rx="12" ry="19" fill="#F7C873" transform="rotate(-6 31 88)" />
+      {/* rosy cheeks */}
+      <ellipse cx="38" cy="62" rx="7" ry="4.5" fill={PINK} opacity="0.35" />
+      <ellipse cx="90" cy="62" rx="7" ry="4.5" fill={PINK} opacity="0.35" />
+      <ellipse cx="64" cy="63" rx="16" ry="9.5" fill="#FF9B6A" />
+      <rect x="48" y="61.6" width="32" height="3" rx="1.5" fill="#E07A4F" />
+      {/* lashes peeking over the glasses */}
+      <g stroke={BLACK} strokeWidth="2.2" strokeLinecap="round">
+        <path d="M41 36 l-3.5 -4" /><path d="M46 34 l-1.8 -4.6" />
+        <path d="M86 36 l3.5 -4" /><path d="M81 34 l1.8 -4.6" />
+      </g>
+      {/* heart sunglasses */}
+      <rect x="27" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="87" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
+      <rect x="59" y="43.5" width="10" height="3.6" rx="1.6" fill={BLACK} />
+      <path d={heart(49.5, 36.5, 1.75)} fill={BLACK} />
+      <path d={heart(77.5, 36.5, 1.75)} fill={BLACK} />
+      <path d={heart(49.5, 39.4, 1.2)} fill={PINK_DARK} />
+      <path d={heart(77.5, 39.4, 1.2)} fill={PINK_DARK} />
+      <ellipse cx="45.5" cy="43" rx="2.3" ry="1.5" fill={PINK_LIGHT} opacity="0.9" />
+      <ellipse cx="73.5" cy="43" rx="2.3" ry="1.5" fill={PINK_LIGHT} opacity="0.9" />
+      {/* bow, worn to one side on top of the head */}
+      <g transform="translate(80 23) rotate(16) scale(0.98) translate(-64 -25)">
+      <path d="M64 25 C54 12 40 14 42 25 C44 35 56 31 64 25Z" fill={PINK} />
+      <path d="M64 25 C74 12 88 14 86 25 C84 35 72 31 64 25Z" fill={PINK} />
+      <path d="M62 26 l-7 12 5 -1 3 4Z M66 26 l7 12 -5 -1 -3 4Z" fill={PINK_DARK} />
+      <path d="M50 20 C54 19 58 21 61 24" stroke={PINK_LIGHT} strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.8" />
+      <circle cx="64" cy="25" r="5.5" fill={PINK_DARK} />
+      <circle cx="62.5" cy="23.5" r="1.6" fill={PINK_LIGHT} />
+      </g>
+    </>
+  );
+}
+
 export function DuckParts() {
   return (
     <>

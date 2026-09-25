@@ -20,6 +20,7 @@
     "@fontsource/shadows-into-light": "^5.3.0",
     "@mediapipe/tasks-vision": "^1.0.1",
     "electron-updater": "^6.8.9",
+    "kokoro-js": "^1.2.1",
     "perfect-freehand": "^1.2.3"
   },
   "devDependencies": {

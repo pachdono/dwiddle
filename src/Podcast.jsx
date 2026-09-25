@@ -98,7 +98,7 @@ export function Podcast({ made, onClose }) {
 
         {!ep && !error && (
           <div className="pod-wait">
-            <div className="pod-ducks"><DuckTalk mood="thinking" size={90} /><DuckTalk mood="thinking" size={78} /></div>
+            <div className="pod-ducks"><DuckTalk mood="thinking" size={90} /><DuckTalk who="puddle" mood="thinking" size={78} /></div>
             <h2>Writing your episode</h2>
             <p className="muted">Two ducks are reading your notes to talk you through them. About half a minute.</p>
             <Loading label="Writing" />
@@ -115,7 +115,7 @@ export function Podcast({ made, onClose }) {
                 <b>Dwiddle</b>
               </div>
               <div className={"pod-host puddle" + (speaker === "puddle" && playing ? " on" : "")}>
-                <DuckTalk mood={speaker === "puddle" && playing ? "talking" : "idle"} size={96} />
+                <DuckTalk who="puddle" mood={speaker === "puddle" && playing ? "talking" : "idle"} size={96} />
                 <b>Puddle</b>
               </div>
             </div>

@@ -15,7 +15,7 @@
 
 import { say } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
-import { DuckParts } from "./Duck.jsx";
+import { DuckParts, PuddleParts } from "./Duck.jsx";
 import { Icon, Portal } from "./ui.jsx";
 import { chatWithDwiddle } from "./ai.js";
 
@@ -47,11 +47,11 @@ function MiniDuck() {
 /* ---------- the duck, animated by state ---------- */
 
 // mood: idle | listening | thinking | talking | happy | oops
-export function DuckTalk({ mood = "idle", size = 64 }) {
+export function DuckTalk({ mood = "idle", size = 64, who = "dwiddle" }) {
   return (
     <svg className={"dt dt-" + mood} width={size} height={size * (140 / 132)} viewBox="-6 -10 132 140" aria-hidden="true">
       <g className="dt-body">
-        <DuckParts />
+        {who === "puddle" ? <PuddleParts /> : <DuckParts />}
         <ellipse className="dt-mouth" cx="64" cy="64.5" rx="12" ry="5" fill="#6B2F12" />
         <g className="dt-think">
           <circle cx="104" cy="14" r="4" fill="currentColor" />
