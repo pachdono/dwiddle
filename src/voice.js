@@ -1,6 +1,5 @@
-// Dwiddle's own voice: short reactions recorded ahead of time with real
-// feeling (a cheer for a right answer, a kind word for a wrong one, a
-// celebration for a level up), played as little audio clips.
+// Dwiddle's own voice for the big moments: finishing a quiz and levelling
+// up, recorded ahead of time with real feeling and played as little clips.
 //
 // They are few and small, so they ship with the app and play instantly,
 // even offline. Anything Dwiddle says that is not fixed, like a chat reply,
@@ -14,11 +13,9 @@ export const setTalksOn = (on) => { try { localStorage.setItem(KEY, on ? "true" 
 
 let playing = null;
 let lastFile = "";
-const important = new Set(["levelup", "streak", "done-great", "done-okay"]);
+const important = new Set(["levelup", "done-great", "done-okay"]);
 
-// Plays one of Dwiddle's lines of this kind. Everyday reactions only play
-// some of the time, so he does not say "nice one" to every single answer,
-// and never talk over each other; the big moments always play.
+// Plays one of Dwiddle's lines of this kind, never over another one.
 export function dwiddleSays(kind, { chance = 1 } = {}) {
   if (!talksOn() || !CLIPS[kind]) return;
   if (Math.random() > chance) return;

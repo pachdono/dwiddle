@@ -1,52 +1,4 @@
 {
- "correct": [
-  {
-   "file": "correct-1.mp3",
-   "text": "Nice one!"
-  },
-  {
-   "file": "correct-2.mp3",
-   "text": "Yes! Nailed it."
-  },
-  {
-   "file": "correct-3.mp3",
-   "text": "That's right. You're on fire!"
-  },
-  {
-   "file": "correct-4.mp3",
-   "text": "Ooh, smooth."
-  },
-  {
-   "file": "correct-5.mp3",
-   "text": "Correct! Easy."
-  },
-  {
-   "file": "correct-6.mp3",
-   "text": "Look at you go!"
-  }
- ],
- "wrong": [
-  {
-   "file": "wrong-1.mp3",
-   "text": "Ah, so close! Have a look at why."
-  },
-  {
-   "file": "wrong-2.mp3",
-   "text": "Not quite, but that's how we learn."
-  },
-  {
-   "file": "wrong-3.mp3",
-   "text": "Oops! Let's check that one."
-  },
-  {
-   "file": "wrong-4.mp3",
-   "text": "Hmm, tricky one. Read the explanation."
-  },
-  {
-   "file": "wrong-5.mp3",
-   "text": "No worries, you'll get it next time."
-  }
- ],
  "done-great": [
   {
    "file": "done-great-1.mp3",
@@ -79,30 +31,6 @@
   {
    "file": "levelup-2.mp3",
    "text": "You just levelled up! Hat tip to you."
-  }
- ],
- "streak": [
-  {
-   "file": "streak-1.mp3",
-   "text": "That's your streak going! Keep it up."
-  },
-  {
-   "file": "streak-2.mp3",
-   "text": "Another day, another streak. Love that."
-  }
- ],
- "hello": [
-  {
-   "file": "hello-1.mp3",
-   "text": "Hey! Ready to study?"
-  },
-  {
-   "file": "hello-2.mp3",
-   "text": "Welcome back! Let's get into it."
-  },
-  {
-   "file": "hello-3.mp3",
-   "text": "Hat on, shades on. Let's go."
   }
  ]
 }

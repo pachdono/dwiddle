@@ -325,11 +325,7 @@ export default function App() {
     const firstToday = !stats.days.includes(new Date().toISOString().slice(0, 10));
     const gainedNow = (correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0);
     announceXp(gainedNow, firstToday ? "first study today" : "");
-    // Dwiddle reacts: a level up or a kept streak beats an everyday cheer.
-    const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
     if (levelOf((stats.xp || 0) + gainedNow).level > levelOf(stats.xp || 0).level) dwiddleSays("levelup");
-    else if (firstToday && stats.days.includes(yesterday)) dwiddleSays("streak");
-    else dwiddleSays(correct ? "correct" : "wrong", { chance: 0.4 });
   }
 
   // Clicking the nav item for the page you are already on resets it, which is
@@ -1039,15 +1035,6 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
   customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {} }) {
   const [pick] = useState(() => Math.random());
   const hello = greeting(nameFor(auth?.user), pick);
-  // Dwiddle says hi once a visit, when the home page is reached by a tap
-  // (browsers do not allow sound before one).
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem("dwiddle-said-hello") || !navigator.userActivation?.hasBeenActive) return;
-      sessionStorage.setItem("dwiddle-said-hello", "1");
-      dwiddleSays("hello");
-    } catch { /* private mode */ }
-  }, []);
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
@@ -2495,8 +2482,8 @@ function VoiceCard() {
   return (
     <div className="card">
       <div className="card-head"><h3>Voice</h3></div>
-      <SetRow label="Dwiddle talks" hint="Dwiddle cheers right answers, helps with wrong ones and celebrates level ups, out loud.">
-        <Switch on={talks} onClick={() => { setTalksOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => dwiddleSays("hello"), 50); }} />
+      <SetRow label="Dwiddle talks" hint="Dwiddle cheers out loud when you finish a quiz or level up.">
+        <Switch on={talks} onClick={() => { setTalksOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => dwiddleSays("levelup"), 50); }} />
       </SetRow>
       <SetRow label="Reading voice" hint="Used for lessons, listening tests, audio overviews and Dwiddle's replies. Natural voices are listed first.">
         <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
