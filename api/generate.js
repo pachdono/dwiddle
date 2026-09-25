@@ -270,7 +270,33 @@ Rules:
 - End with Dwiddle asking three quick recall questions, Puddle answering each correctly in a few words, and a one line sign off.
 - British English. Do not use em dashes or en dashes.`;
 
+const SYLLABUS_NOTES = `You write complete revision notes for one topic of a real exam syllabus, the way an experienced teacher of that exact course would.
+
+Plain text only, no JSON, no markdown symbols. Headings on their own line in Title Case; lists one item per line starting with a hyphen.
+
+Start with a heading "Learning Outcomes", listing in your own words what the current published syllabus for this course and code expects a candidate to be able to do on this topic. Then one section per outcome, teaching it fully: every definition exactly as the mark scheme expects it, key facts, processes step by step, equations and formulae with units, one or two worked or real examples, and the common mistakes examiners report.
+Where the course is tiered, mark content that only the higher tier examines with "(Extended)" or "(Higher)" at the start of the line, and do not leave it out.
+Finish with a heading "How This Is Examined": the command words used for this topic (such as state, describe, explain, calculate, suggest, evaluate) and what each needs in an answer, and the typical mark scheme points.
+Stay strictly inside what this course examines at this level. Only facts found in a standard textbook for the course; never guess a number or date.
+About 1,400 to 2,000 words. Mathematics with real symbols. British English. Do not use em dashes or en dashes.`;
+
 async function part(req, res, mode, notes) {
+  if (mode === "syllabus") {
+    const s = req.body?.syllabus || {};
+    const course = String(s.course || "").slice(0, 80), subject = String(s.subject || "").slice(0, 80);
+    const code = String(s.code || "").slice(0, 20), topic = String(s.topic || "").slice(0, 160);
+    if (!course || !subject || !topic) return userError(res, 400, "Which course and topic?");
+    const text = await ask({
+      system: SYLLABUS_NOTES,
+      user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.\nSyllabus topic: ${topic}.`,
+      maxTokens: 3400,
+      temperature: 0.25,
+    });
+    const written = String(text || "").replace(/\s*[\u2013\u2014]\s*/g, ": ").trim();
+    if (written.length < 600) return userError(res, 502, "The syllabus notes did not come back complete. Try again.");
+    return res.status(200).json({ notes: written });
+  }
+
   if (mode === "podcast") {
     const text = await ask({ system: PODCAST, user: `The notes:\n\n${notes}`, maxTokens: 3200, json: true, temperature: 0.5 });
     const data = safeParse(text, "lines");
@@ -343,9 +369,10 @@ async function part(req, res, mode, notes) {
     if (!topics.length) return userError(res, 400, "Which topics should the questions cover?");
     const names = topics.map((t) => t.name);
     const list = topics.map((t) => `- ${t.name}${t.large ? " (large)" : ""}`).join("\n");
+    const style = String(req.body?.style || "").slice(0, 120);
     const text = await ask({
       system: QUESTIONS,
-      user: `Write questions for these topics only:\n${list}\n\nThe notes:\n\n${notes}`,
+      user: `Write questions for these topics only:\n${list}${style ? `\n\nWrite them in the style of ${style} exam papers: its command words, its structure and its difficulty, with the marks a real question like it would carry reflected in how much the answer needs. They must be new questions; never reproduce a real past paper question.` : ""}\n\nThe notes:\n\n${notes}`,
       maxTokens: 2600,
       json: true,
       temperature: 0.3,
@@ -413,6 +440,10 @@ export default async function handler(req, res) {
   const syllabus = req.body?.syllabus;
   const notes = String(req.body?.notes || "").trim();
   const mode = req.body?.mode;
+
+  if (mode === "syllabus") {
+    try { return await part(req, res, mode, ""); } catch (err) { return fail(res, err); }
+  }
 
   if (mode === "clarify" || mode === "brief") {
     if (notes.length < 2) return userError(res, 400, "Type what you want to study, or paste your notes");

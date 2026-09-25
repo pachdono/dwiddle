@@ -9,7 +9,7 @@ import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube } from "./ai.js";
+import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
@@ -4473,13 +4473,15 @@ function Courses({ go, setMade, auth }) {
     setError("");
     setDone(null);
     try {
-      const data = await generateFromSyllabus({
-        course: course.name,
-        subject: subject.name,
-        topic,
+      // Syllabus notes first, then the same pipeline as your own notes, with
+      // the questions written in this board's exam style.
+      const syllabus = { course: course.name, subject: subject.name, code: subject.code || "", topic };
+      const notes = await writeSyllabusNotes(syllabus);
+      const data = await generateFromNotes(notes, {
+        style: `${course.name} ${subject.name}${subject.code ? ` (${subject.code})` : ""}`,
       });
       countGeneration(auth?.user);
-      rememberSource(data, { syllabus: { course: course.name, subject: subject.name, topic } });
+      rememberSource(data, { notes, syllabus });
       setMade(data);
       setDone({ topic, count: data.questions.length });
     } catch (err) {

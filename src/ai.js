@@ -161,7 +161,12 @@ export const clarify = (text) => post("/api/generate", { notes: text, mode: "cla
 export const writeBrief = (text, answers) =>
   post("/api/generate", { notes: text, mode: "brief", answers }).then((d) => d.notes);
 
-export async function generateFromNotes(notes) {
+// Revision notes for one topic of a real syllabus, written first so a course
+// topic is built the same way as your own notes, not from a one line prompt.
+export const writeSyllabusNotes = (syllabus) =>
+  post("/api/generate", { mode: "syllabus", syllabus }).then((d) => d.notes);
+
+export async function generateFromNotes(notes, { style = "" } = {}) {
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];
 
@@ -169,6 +174,7 @@ export async function generateFromNotes(notes) {
     post("/api/generate", {
       notes,
       mode: "questions",
+      style,
       batch: n,
       topics: batch.map((t) => ({ name: t.name, large: t.large })),
     }));

@@ -6503,7 +6503,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .pod-host { display: grid; justify-items: center; gap: 4px; opacity: 0.55; transition: opacity 0.25s ease, transform 0.25s ease; }
 .pod-host.on { opacity: 1; transform: translateY(-4px); }
 .pod-host b { font-size: 13px; color: var(--ink-2); }
-.pod-host.puddle .dt { transform: scaleX(-1); }
+.pod-host.puddle .dt { transform: scaleX(-1); filter: hue-rotate(-22deg) saturate(1.35) brightness(1.02); }
 .pod-title { margin: 14px 0 2px; font-size: 22px; letter-spacing: -0.02em; text-align: center; max-width: 640px; }
 .pod-meta { margin: 0 0 14px; text-align: center; }
 .pod-controls { display: flex; align-items: center; gap: 14px; }
