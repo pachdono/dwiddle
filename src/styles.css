@@ -6438,7 +6438,6 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-page-opts select { min-height: 0; padding: 5px 8px; font-size: 12.5px; width: auto; }
 .nb-page { flex: 0 0 auto; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04); border-radius: 3px; overflow: hidden; background: #fff; }
 .nb-svg { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
-.nb.pen .nb-svg { touch-action: pan-x pan-y pinch-zoom; }
 .nb-svg.tool-pen, .nb-svg.tool-highlighter { cursor: crosshair; }
 .nb-svg.tool-eraser { cursor: cell; }
 .nb-svg.tool-text { cursor: text; }
@@ -6779,7 +6778,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   display: grid; place-items: center; transition: transform 0.12s ease; }
 .nb-stickers .nb-sticker-set button:hover { transform: scale(1.1); }
 .nb-stickers .nb-sticker-set button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
-.nb-svg.tool-hand { cursor: grab; touch-action: pan-x pan-y pinch-zoom; }
+.nb-svg.tool-hand { cursor: grab; touch-action: pan-x pan-y; }
 .nb-svg.tool-hand:active { cursor: grabbing; }
 /* Phones: one tidy row of document controls, one row of tools, and a
    compact page bar, so the page gets the room. */

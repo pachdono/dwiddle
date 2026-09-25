@@ -1005,7 +1005,6 @@ function Editor({ id, go, onClose }) {
   const [editingText, setEditingText] = useState(null); // itemId
   const [current, setCurrent] = useState(0); // page index in view
   const [busy, setBusy] = useState("");
-  const [penSeen, setPenSeen] = useState(false);
   const [cov, setCov] = useState(COVERS_INK[0]);
   const [shown, setShown] = useState(() => new Set()); // revealer strokes tapped open
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
@@ -1045,16 +1044,16 @@ function Editor({ id, go, onClose }) {
   // own, which only a non-passive touch listener can do.
   const toolRef = useRef(tool);
   toolRef.current = tool;
-  const penRef = useRef(penSeen);
-  penRef.current = penSeen;
   const twoFinger = useRef(null); // { x, y } midpoint while two fingers scroll
   const loaded = !!book;
   useEffect(() => {
     const el = pagesRef.current;
     if (!el) return;
     const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+    // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
+    // hand tool, it scrolls. Two fingers always scroll.
     const onStart = (e) => {
-      if (toolRef.current === "hand" || penRef.current) return; // the browser scrolls
+      if (toolRef.current === "hand") return; // the browser scrolls
       if (e.touches.length >= 2) {
         twoFinger.current = mid(e.touches);
         setLive(null);
@@ -1065,7 +1064,7 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onMove = (e) => {
-      if (toolRef.current === "hand" || penRef.current) return;
+      if (toolRef.current === "hand") return;
       if (twoFinger.current && e.touches.length >= 2) {
         const m = mid(e.touches);
         el.scrollBy(twoFinger.current.x - m.x, twoFinger.current.y - m.y);
@@ -1161,9 +1160,6 @@ function Editor({ id, go, onClose }) {
 
   function down(e, page) {
     if (e.button !== 0 && e.pointerType === "mouse") return;
-    if (e.pointerType === "pen") setPenSeen(true);
-    // With a pen in use, a finger scrolls instead of drawing: palm rejection.
-    if (e.pointerType === "touch" && penSeen) return;
     if (twoFinger.current) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
     if (tool === "hand") {
@@ -1250,7 +1246,6 @@ function Editor({ id, go, onClose }) {
   function move(e, page) {
     const svg = e.currentTarget;
     showRing(e, svg, page);
-    if (e.pointerType === "touch" && penSeen) return;
     if (twoFinger.current) return;
     if (drag.current?.pan) {
       pagesRef.current?.scrollBy(drag.current.pan.x - e.clientX, drag.current.pan.y - e.clientY);
@@ -1408,7 +1403,7 @@ function Editor({ id, go, onClose }) {
   };
 
   return (
-    <div className={"nb" + (penSeen ? " pen" : "")}>
+    <div className="nb">
       <div className="nb-bar">
         <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
         <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
