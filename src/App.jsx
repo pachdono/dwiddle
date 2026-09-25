@@ -14,6 +14,7 @@ import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
+import { XP, levelOf, announceXp } from "./xp.js";
 import { AnnotatedText } from "./Annotate.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
@@ -307,15 +308,20 @@ export default function App() {
         const t = byTopic[topicName] || { right: 0, total: 0 };
         byTopic[topicName] = { right: t.right + (correct ? 1 : 0), total: t.total + 1 };
       }
+      const first = !prev.days.includes(today);
+      const gained = (correct ? XP.right : XP.tried) + (first ? XP.firstToday : 0);
       const next = {
         answered: prev.answered + 1,
         correct: prev.correct + (correct ? 1 : 0),
         days,
         byTopic,
+        xp: (prev.xp || 0) + gained,
       };
       save(KEYS.stats, next);
       return next;
     });
+    const firstToday = !stats.days.includes(new Date().toISOString().slice(0, 10));
+    announceXp((correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0), firstToday ? "first study today" : "");
   }
 
   // Clicking the nav item for the page you are already on resets it, which is
@@ -471,6 +477,12 @@ export default function App() {
   }
 
   function finishLesson(name) {
+    setStats((prev) => {
+      const next = { ...prev, xp: (prev.xp || 0) + XP.lesson };
+      save(KEYS.stats, next);
+      return next;
+    });
+    announceXp(XP.lesson, "lesson finished");
     setMadeRaw((prev) => {
       if (!prev?.lessons?.[name]) return prev;
       const next = { ...prev, lessons: { ...prev.lessons, [name]: { ...prev.lessons[name], done: true } } };
@@ -818,6 +830,7 @@ export default function App() {
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook"].includes(page)} />
       <PermissionPrompt />
+      <XpToast />
 
       {editing && page === "home" && custom.on && (
         <EditBar
@@ -1021,6 +1034,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
+  const lv = levelOf(stats.xp || 0);
   const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
 
   // Where to carry on: the first topic whose lesson is not finished.
@@ -1077,6 +1091,14 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
               ? "Ready when you are."
               : "Turn your notes into lessons and questions, and sit full length practice papers.")}
         />
+        <div className="dash-level" title={`${lv.into} of ${lv.need} XP to level ${lv.level + 1}`}>
+          <span className="dash-level-badge">{lv.level}</span>
+          <div>
+            <b>Level {lv.level}</b>
+            <div className="dash-level-bar"><i style={{ width: `${(lv.into / lv.need) * 100}%` }} /></div>
+            <span className="small muted">{(stats.xp || 0).toLocaleString()} XP</span>
+          </div>
+        </div>
         <button className="btn cta dash-add" onClick={() => go("upload")}>
           <Icon name="plus" size={15} /> Add material
         </button>
@@ -1271,6 +1293,26 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// "+10 XP" drifting up from the bottom of the screen, stacked if several
+// arrive together.
+function XpToast() {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    const on = (e) => {
+      const id = Math.random();
+      setItems((l) => [...l.slice(-2), { id, ...e.detail }]);
+      setTimeout(() => setItems((l) => l.filter((x) => x.id !== id)), 1600);
+    };
+    window.addEventListener("dwiddle:xp", on);
+    return () => window.removeEventListener("dwiddle:xp", on);
+  }, []);
+  return (
+    <div className="xp-toasts" aria-live="polite">
+      {items.map((x) => <div key={x.id} className="xp-toast">+{x.amount} XP{x.label ? <span> · {x.label}</span> : null}</div>)}
     </div>
   );
 }

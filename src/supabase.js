@@ -124,6 +124,7 @@ function mergeStats(a, b) {
     // Adding them would double count everything already synced.
     answered: Math.max(x.answered || 0, y.answered || 0),
     correct: Math.max(x.correct || 0, y.correct || 0),
+    xp: Math.max(x.xp || 0, y.xp || 0),
     days: [...new Set([...(x.days || []), ...(y.days || [])])].sort().slice(-400),
     byTopic,
   };
