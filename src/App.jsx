@@ -4475,7 +4475,7 @@ function Courses({ go, setMade, auth }) {
     try {
       // Syllabus notes first, then the same pipeline as your own notes, with
       // the questions written in this board's exam style.
-      const syllabus = { course: course.name, subject: subject.name, code: subject.code || "", topic };
+      const syllabus = { course: course.name, subject: subject.name, code: subject.code || "", topic, level: course.ages || "" };
       const notes = await writeSyllabusNotes(syllabus);
       const data = await generateFromNotes(notes, {
         style: `${course.name} ${subject.name}${subject.code ? ` (${subject.code})` : ""}`,

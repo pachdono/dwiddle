@@ -275,9 +275,13 @@ const SYLLABUS_NOTES = `You write complete revision notes for one topic of a rea
 Plain text only, no JSON, no markdown symbols. Headings on their own line in Title Case; lists one item per line starting with a hyphen.
 
 Start with a heading "Learning Outcomes", listing in your own words what the current published syllabus for this course and code expects a candidate to be able to do on this topic. Then one section per outcome, teaching it fully: every definition exactly as the mark scheme expects it, key facts, processes step by step, equations and formulae with units, one or two worked or real examples, and the common mistakes examiners report.
-Where the course is tiered, mark content that only the higher tier examines with "(Extended)" or "(Higher)" at the start of the line, and do not leave it out.
+Where the course is tiered, mark content that only the higher tier examines at the start of its line, using the board's own word: "(Supplement)" for Cambridge IGCSE, "(Higher)" for GCSE, and "(HL)" for IB. Do not leave that content out.
 Finish with a heading "How This Is Examined": the command words used for this topic (such as state, describe, explain, calculate, suggest, evaluate) and what each needs in an answer, and the typical mark scheme points.
-Stay strictly inside what this course examines at this level. Only facts found in a standard textbook for the course; never guess a number or date.
+Stay strictly inside what this syllabus examines. The level decides the depth:
+- IGCSE and GCSE (ages 14 to 16): no content from A Level or IB. In biology, for example, no activation energy, induced fit, enzyme inhibitors, Krebs cycle or light dependent reactions; in chemistry, no entropy, orbitals or equilibrium constants; in physics, no calculus.
+- A Level and IB (ages 16 to 18): the full depth those courses examine, and nothing from university.
+If you are not sure a point is in this syllabus, leave it out. A point missing costs less than teaching one that is not examined.
+Only facts found in a standard textbook for the course; never guess a number or date.
 About 1,400 to 2,000 words. Mathematics with real symbols. British English. Do not use em dashes or en dashes.`;
 
 async function part(req, res, mode, notes) {
@@ -288,7 +292,7 @@ async function part(req, res, mode, notes) {
     if (!course || !subject || !topic) return userError(res, 400, "Which course and topic?");
     const text = await ask({
       system: SYLLABUS_NOTES,
-      user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.\nSyllabus topic: ${topic}.`,
+      user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.${s.level ? `\nLevel: ${String(s.level).slice(0, 80)}.` : ""}\nSyllabus topic: ${topic}.`,
       maxTokens: 3400,
       temperature: 0.25,
     });
