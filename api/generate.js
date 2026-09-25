@@ -254,7 +254,35 @@ Only facts found in a standard textbook at that level. Never state a number, qua
 Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °.
 Write in British English. Do not use em dashes or en dashes.`;
 
+const PODCAST = `You write the script for a short study podcast about a student's own notes, two ducks talking.
+
+DWIDDLE explains. PUDDLE is a curious friend studying the same thing, who asks the questions a student would, gets things slightly wrong now and then so Dwiddle can put them right, and sums up.
+
+Return ONE JSON object and nothing else:
+{ "title": "a short episode title", "lines": [ { "who": "DWIDDLE" or "PUDDLE", "text": "one or two spoken sentences" } ] }
+
+Rules:
+- Between 24 and 34 lines, about three minutes spoken. Alternate speakers naturally; never three lines in a row from one duck.
+- Open with Puddle saying what today's episode is about, in one line.
+- Cover every topic in the notes, in their order, explaining the ideas and definitions in plain spoken English with an everyday example where it helps.
+- Use only what the notes say. Never add facts, figures or dates that are not in them.
+- Written to be heard: short sentences, no lists, no brackets, no symbols that cannot be read aloud. Write numbers and units as they are said.
+- End with Dwiddle asking three quick recall questions, Puddle answering each correctly in a few words, and a one line sign off.
+- British English. Do not use em dashes or en dashes.`;
+
 async function part(req, res, mode, notes) {
+  if (mode === "podcast") {
+    const text = await ask({ system: PODCAST, user: `The notes:\n\n${notes}`, maxTokens: 3200, json: true, temperature: 0.5 });
+    const data = safeParse(text, "lines");
+    const lines = (Array.isArray(data?.lines) ? data.lines : [])
+      .filter((l) => l && typeof l.text === "string" && l.text.trim())
+      .map((l) => ({ who: String(l.who).toUpperCase().includes("PUD") ? "puddle" : "dwiddle",
+        text: l.text.replace(/\s*[\u2013\u2014]\s*/g, ", ").trim() }))
+      .slice(0, 40);
+    if (lines.length < 8) return userError(res, 502, "The episode did not come back complete. Try again.");
+    return res.status(200).json({ title: String(data.title || "Your notes, talked through"), lines });
+  }
+
   if (mode === "clarify") {
     const text = await ask({ system: CLARIFY, user: notes, maxTokens: 500, json: true, temperature: 0.2 });
     const data = safeParse(text, "kind") || {};

@@ -142,6 +142,12 @@ export async function readYouTube(url) {
   return post("/api/youtube", { url, lang });
 }
 
+// A two duck podcast script about a set of notes.
+export const writePodcast = (notes) =>
+  post("/api/generate", { notes, mode: "podcast" }).then((d) => ({
+    title: d.title, lines: (d.lines || []).map((l) => ({ ...l, text: tidyMath(l.text) })),
+  }));
+
 // A turn of the conversation with Dwiddle about what is on screen.
 export const chatWithDwiddle = (context, messages) =>
   post("/api/chat", { context, messages }).then((d) => tidyMath(d.reply));

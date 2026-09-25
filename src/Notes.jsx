@@ -12,6 +12,8 @@ import { Icon, PageHead, Loading, Marked, HighlightFilters } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
+import { MindMap } from "./MindMap.jsx";
+import { Podcast } from "./Podcast.jsx";
 
 const flatText = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
 function notesContext(made) {
@@ -56,6 +58,8 @@ export function Notes({ made, saveNotes }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
   usePageContext(useMemo(() => notesContext(made), [made]));
   const [writing, setWriting] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [showPod, setShowPod] = useState(false);
   const [error, setError] = useState("");
 
   const topics = made?.topics || [];
@@ -102,11 +106,17 @@ export function Notes({ made, saveNotes }) {
       {written.length > 0 && (
         <div className="nt-bar">
           <HighlightFilters on={on} setOn={setOn} counts={counts} />
-          <button className="btn ghost small nt-print" onClick={() => window.print()}>
-            <Icon name="sheet" size={14} /> Print
-          </button>
+          <div className="row nt-tools">
+            <button className="btn ghost small" onClick={() => setShowMap(true)}><Icon name="topics" size={14} /> Mind map</button>
+            <button className="btn ghost small" onClick={() => setShowPod(true)}><Icon name="mic" size={14} /> Audio overview</button>
+            <button className="btn ghost small nt-print" onClick={() => window.print()}>
+              <Icon name="sheet" size={14} /> Print
+            </button>
+          </div>
         </div>
       )}
+      {showMap && <MindMap made={made} onClose={() => setShowMap(false)} />}
+      {showPod && <Podcast made={made} onClose={() => setShowPod(false)} />}
 
       {topics.length > 1 && (
         <nav className="nt-toc" aria-label="Topics in these notes">
