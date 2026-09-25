@@ -6741,3 +6741,13 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-home .nb-folders { margin-top: 10px; }
 .nb-grid { gap: 26px 20px; margin-top: 6px; }
 @media (max-width: 700px) { .nb-cover-styles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1024px) {
+  .pz-bar { grid-template-columns: 40px 1fr; }
+  .pz-where { display: none; }
+  .pz-tabs { justify-self: center; }
+  .pz-tabs button { padding: 9px 12px; font-size: 13.5px; gap: 6px; }
+}
+@media (max-width: 1024px) and (min-width: 701px) {
+  .pz-body { padding-top: 40px; }
+  .pz-inner { font-size: 18px; }
+}
