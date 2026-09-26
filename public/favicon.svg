@@ -1,8 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <circle cx="32" cy="37" r="24" fill="#F8DC6E"/>
-  <ellipse cx="32" cy="48" rx="9.5" ry="5.5" fill="#E8963C"/>
-  <rect x="9" y="28" width="46" height="10" rx="5" fill="#1A1A1A"/>
-  <ellipse cx="32" cy="19" rx="30" ry="5.8" fill="#D9BE7E"/>
-  <rect x="22" y="11" width="20" height="8" rx="1.5" fill="#C0563A"/>
-  <ellipse cx="32" cy="11" rx="10" ry="3.2" fill="#E2CB93"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 3 88 88">
+  <!-- The Dwiddle duck, the same drawing as in the app. -->
+  <ellipse cx="63" cy="90" rx="45" ry="31" fill="#F8DC6E"/>
+  <circle cx="63" cy="59" r="29" fill="#F8DC6E"/>
+  <ellipse cx="63" cy="74" rx="42" ry="24" fill="#F8DC6E"/>
+  <ellipse cx="65" cy="97" rx="27" ry="21" fill="#FAE491"/>
+  <ellipse cx="64" cy="63" rx="17" ry="10" fill="#E8963C"/>
+  <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill="#C9762A"/>
+  <rect x="27" y="43" width="14" height="5" rx="2.5" fill="#1A1A1A"/>
+  <rect x="87" y="43" width="14" height="5" rx="2.5" fill="#1A1A1A"/>
+  <rect x="40" y="39" width="21" height="13" rx="4.5" fill="#1A1A1A"/>
+  <rect x="66" y="39" width="21" height="13" rx="4.5" fill="#1A1A1A"/>
+  <rect x="59" y="43" width="9" height="4" rx="1.6" fill="#1A1A1A"/>
+  <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill="#4A4A4A"/>
+  <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill="#4A4A4A"/>
+  <ellipse cx="64" cy="27" rx="41" ry="8.6" fill="#D9BE7E"/>
+  <ellipse cx="64" cy="25" rx="27" ry="6" fill="#E2CB93"/>
+  <path d="M47 24.5c4-7 30-7 34 0" stroke="#CDB076" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+  <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill="#C0563A"/>
+  <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill="#E2CB93"/>
+  <path d="M52 17c4-3.5 21-3.5 25 0" stroke="#CDB076" stroke-width="1.5" fill="none" stroke-linecap="round"/>
 </svg>

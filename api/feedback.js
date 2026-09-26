@@ -94,5 +94,7 @@ export default async function handler(req, res) {
   if (team.status === "rejected") console.error("[feedback] team email error", team.reason?.message);
   if (thanks.status === "rejected") console.error("[feedback] thanks email error", thanks.reason?.message);
 
-  res.status(200).json({ emailed: team.value === true, thanked: thanks.value === true });
+  // Says why no thank you went out, without any detail from Gmail itself.
+  const mail = !to ? "no address" : !gmailReady ? "not set up" : thanks.status === "rejected" ? "refused" : "sent";
+  res.status(200).json({ emailed: team.value === true, thanked: thanks.value === true, mail });
 }
