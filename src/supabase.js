@@ -265,7 +265,10 @@ export async function submitFeedback({ kind, rating, message, contact, title }) 
   const { data: session } = await supabase.auth.getSession();
   const user = session?.session?.user ?? null;
 
+  // The id is made here so the thank you email can quote a reference for it.
+  const id = crypto.randomUUID();
   const { error } = await supabase.from("feedback").insert({
+    id,
     user_id: user?.id ?? null,
     kind,
     rating: kind === "review" ? rating : null,
@@ -278,7 +281,7 @@ export async function submitFeedback({ kind, rating, message, contact, title }) 
     console.warn("[feedback] insert failed", error.message);
     return { stored: false, reason: error.message };
   }
-  return { stored: true, from: user?.email ?? null };
+  return { stored: true, id, from: user?.email ?? null };
 }
 
 // Only ever returns approved reviews: the policy enforces it, this just asks.

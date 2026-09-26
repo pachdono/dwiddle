@@ -4850,6 +4850,7 @@ function FeedbackPage({ auth }) {
     let emailed = false, thanked = false;
     try {
       const res = await notifyFeedback({
+        id: stored.id,
         kind,
         rating: rating || null,
         message: message.trim(),
@@ -4873,6 +4874,8 @@ function FeedbackPage({ auth }) {
         ? "Thank you. Reviews are read before they appear, so it will not show up straight away."
         : kind === "bug"
           ? "Thank you. The bug goes straight to the people who build Dwiddle."
+          : kind === "complaint"
+            ? "Thank you for telling us. Your complaint has gone to the Dwiddle owners and the staff team."
           : "Thank you. This goes straight to the people who build Dwiddle.")
       + (thanked ? " We've emailed you a copy, and any reply will come to that email." : ""),
     );
@@ -4912,6 +4915,9 @@ function FeedbackPage({ auth }) {
           <button type="button" className={kind === "bug" ? "on" : ""} onClick={() => setKind("bug")}>
             <Icon name="flag" size={14} /> Report a bug
           </button>
+          <button type="button" className={kind === "complaint" ? "on" : ""} onClick={() => setKind("complaint")}>
+            <Icon name="alert" size={14} /> Complaint
+          </button>
         </div>
 
         {kind === "review" && (
@@ -4932,7 +4938,7 @@ function FeedbackPage({ auth }) {
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name={kind === "review" ? "star" : "chat"} size={14} /></span>
-              <b className="small">{kind === "review" ? "Your review" : kind === "bug" ? "What went wrong?" : "What's on your mind?"}</b>
+              <b className="small">{kind === "review" ? "Your review" : kind === "bug" ? "What went wrong?" : kind === "complaint" ? "Your complaint" : "What's on your mind?"}</b>
             </div>
           </div>
           <textarea
@@ -4945,6 +4951,8 @@ function FeedbackPage({ auth }) {
                 ? "What is it good at, and what would make it better?"
                 : kind === "bug"
                   ? "What were you doing, what did you expect, and what happened instead? Say which device too (iPhone, iPad, Mac, Windows)."
+                  : kind === "complaint"
+                    ? "What happened? If it's about an email from us, include the reference (like DW-1A2B3C4D) and the staff name or ID. This goes to the Dwiddle owners and the staff team."
                   : "What's missing, what you'd like next, or anything else."
             }
             onChange={(e) => setMessage(e.target.value)}

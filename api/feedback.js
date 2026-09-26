@@ -7,7 +7,7 @@
 // site, and the endpoint says so rather than pretending it sent.
 
 import { allow } from "./_guard.js";
-import { sendGmail, gmailReady, escape, isEmail } from "./_gmail.js";
+import { sendGmail, gmailReady, escape, isEmail, refOf } from "./_gmail.js";
 
 export const config = { maxDuration: 20 };
 
@@ -36,9 +36,10 @@ const THANKS = {
   bug: { subject: "We got your bug report", body: "Thanks for reporting this. We've got it and we'll look into it. If we need more details, we'll reply to this email." },
   review: { subject: "Thanks for your review", body: "Thanks for taking the time to review Dwiddle. We read every one. If yours is picked for the front page, you'll see it there with your first name." },
   feedback: { subject: "We got your message", body: "Thanks for your feedback. We read every message, and if we have a question we'll reply to this email." },
+  complaint: { subject: "We got your complaint", body: "We're sorry something went wrong. Your complaint has gone to the Dwiddle owners and the staff team, and one of us will reply to this email." },
 };
 
-async function toTeam({ kind, stars, message, account, contact }) {
+async function toTeam({ kind, stars, message, account, contact, reference }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return false;
   const reply = await fetch("https://api.resend.com/emails", {
@@ -48,7 +49,7 @@ async function toTeam({ kind, stars, message, account, contact }) {
       from: process.env.FEEDBACK_FROM || "Dwiddle <onboarding@resend.dev>",
       to: [TO],
       reply_to: account?.email || (isEmail(contact) ? contact : undefined),
-      subject: `Dwiddle ${kind}${kind === "review" ? ` (${stars})` : ""}`,
+      subject: `${kind === "complaint" ? "COMPLAINT: " : ""}Dwiddle ${kind}${kind === "review" ? ` (${stars})` : ""}${reference ? ` [${reference}]` : ""}`,
       html: `
         <p><strong>${escape(kind)}</strong>${kind === "review" ? ` &middot; ${escape(stars)}` : ""}</p>
         <p style="white-space:pre-wrap">${escape(message)}</p>
@@ -67,7 +68,9 @@ async function toTeam({ kind, stars, message, account, contact }) {
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 4 })) return;
 
-  const kind = ["review", "bug"].includes(req.body?.kind) ? req.body.kind : "feedback";
+  const kind = ["review", "bug", "complaint"].includes(req.body?.kind) ? req.body.kind : "feedback";
+  const id = String(req.body?.id || "");
+  const reference = /^[0-9a-f-]{36}$/i.test(id) ? refOf(id) : "";
   const message = String(req.body?.message || "").trim().slice(0, 4000);
   const contact = String(req.body?.contact || "").trim().slice(0, 200);
   const rating = Number(req.body?.rating);
@@ -86,9 +89,9 @@ export default async function handler(req, res) {
   const to = account?.email || (isEmail(contact) ? contact : "");
   const t = THANKS[kind];
   const [team, thanks] = await Promise.allSettled([
-    toTeam({ kind, stars, message, account, contact }),
+    toTeam({ kind, stars, message, account, contact, reference }),
     to && gmailReady
-      ? sendGmail({ to, subject: t.subject, paragraphs: [`Hi${account?.first ? " " + account.first : ""},`, t.body], quote: account ? message : null })
+      ? sendGmail({ to, subject: t.subject + (reference ? ` (${reference})` : ""), paragraphs: [`Hi${account?.first ? " " + account.first : ""},`, t.body], quote: account ? message : null, reference })
       : Promise.resolve(false),
   ]);
   if (team.status === "rejected") console.error("[feedback] team email error", team.reason?.message);

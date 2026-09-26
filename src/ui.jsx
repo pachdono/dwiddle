@@ -37,6 +37,7 @@ const paths = {
   build: "M3 16.5h14M5.5 16.5v-5h3v5M11.5 16.5V6h3v10.5",
   timer: "M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM10 8v3l2 1.2M8 2.5h4",
   flag: "M5 17V3.5h9l-1.6 3 1.6 3H5",
+  alert: "M10 3.2 17.6 16.5H2.4Z M10 8.2v3.8 M10 14.3v.01",
   check: "M4.5 10.5 8 14l7.5-8",
   // A phone, for the install page. An arrow would read as a file download,
   // and there is no file to download.
