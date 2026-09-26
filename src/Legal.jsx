@@ -83,8 +83,8 @@ const PRIVACY = [
             The content of any feedback, bug report or review you submit, any star rating you
             give, and a contact address where you provide one. If you are signed in, the message
             is linked to your account so that the Dwiddle team can reply to you by email. Reviews
-            appear publicly only after the team approves them, and only the rating and text are
-            shown, never your name or email.
+            appear publicly only after the team approves them, shown with your first name, the
+            initial of your last name and your profile picture if you have one, never your email.
           </dd>
           <dt>Preferences</dt>
           <dd>

@@ -7018,3 +7018,8 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .updates-more { display: flex; margin: 14px auto 0; }
 a.nav-item { text-decoration: none; color: inherit; }
 .notfound svg { margin-bottom: 4px; }
+.review-by { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.review-avatar { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; object-fit: cover; display: grid; place-items: center;
+  background: var(--accent-soft, #e6ebff); color: var(--accent); font-size: 12.5px; font-weight: 700; }
+.review-card { display: flex; flex-direction: column; }
+.review-card p { flex: 1; }

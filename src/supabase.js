@@ -335,10 +335,22 @@ export async function latestUpdates(limit = 4) {
   return error ? [] : data || [];
 }
 
-// Whether the signed in account is on the staff list. Only decides whether a
-// link shows; the staff site and the database check again for themselves.
-export async function amStaff() {
-  if (!supabase) return false;
-  const { data, error } = await supabase.rpc("is_staff");
-  return !error && data === true;
+// The signed in person's staff role, tester flag and ban. Only decides what
+// the app shows; the database enforces all of it for itself.
+export async function myAccess() {
+  const none = { role: null, tester: false, banned: false, reason: null };
+  if (!supabase) return none;
+  const { data, error } = await supabase.rpc("my_access");
+  if (!error && data) return { ...none, ...data };
+  // before roles.sql is run, fall back to the plain staff check
+  const r = await supabase.rpc("is_staff");
+  return { ...none, role: !r.error && r.data === true ? "admin" : null };
+}
+
+// Approved reviews with the reviewer's first name and picture.
+export async function publicReviews(n = 3) {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("public_reviews", { n });
+  if (!error) return data || [];
+  return approvedReviews(n);
 }

@@ -10,7 +10,7 @@ import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar, ProfileGate } from "./Account.jsx";
-import { pushProgress, localSnapshot, configured, userCount, submitFeedback, amStaff } from "./supabase.js";
+import { pushProgress, localSnapshot, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
@@ -93,6 +93,21 @@ function routeOf(pathname) {
   const page = PATH_PAGE[pathname];
   if (page) return { legal: null, page };
   return { legal: null, page: null };
+}
+
+// A banned account: nothing of the app, just why and what to do.
+function Suspended({ reason, email, onSignOut }) {
+  return (
+    <div className="notfound">
+      <DuckSign size={210} label="Nope" />
+      <h1>This account is suspended</h1>
+      <p>
+        {email} can no longer use Dwiddle{reason ? ` (${String(reason).replace(/[.\s]+$/, "")}).` : "."} If you think this is a mistake,
+        email <a href="mailto:dwiddle36@gmail.com">dwiddle36@gmail.com</a>.
+      </p>
+      <button className="btn" onClick={onSignOut}>Sign out</button>
+    </div>
+  );
 }
 
 function NotFound({ onHome }) {
@@ -364,13 +379,15 @@ export default function App() {
     clearSession(KEYS.entered);
     setEnteredRaw(false);
   });
-  const [staff, setStaff] = useState(false);
+  // Staff role, tester and ban, from the database.
+  const [access, setAccess] = useState({ role: null, tester: false, banned: false });
   useEffect(() => {
-    if (!auth.user) { setStaff(false); return; }
+    if (!auth.user) { setAccess({ role: null, tester: false, banned: false }); return; }
     let live = true;
-    amStaff().then((v) => live && setStaff(v));
+    myAccess().then((v) => live && setAccess(v));
     return () => { live = false; };
   }, [auth.user]);
+  const staff = !!access.role;
 
   // Session storage, so closing the tab brings the landing page back. Anyone
   // signed in skips it entirely, because their work is already safe.
@@ -633,6 +650,10 @@ export default function App() {
     );
   }
 
+  if (auth.user && access.banned) {
+    return <Suspended reason={access.reason} email={auth.user.email} onSignOut={auth.signOut} />;
+  }
+
   // Someone signed in, or who has been here before, goes straight to the app.
   if (signInOpen && !auth.user) {
     return <SignInPage onClose={() => { setSignInOpen(false); enter(); }} />;
@@ -727,7 +748,7 @@ export default function App() {
               <Avatar user={auth.user} size={26} initials={initialsOf(auth.user)} />
               <div style={{ minWidth: 0 }}>
                 <div className="user-name">{displayName(auth.user)}</div>
-                <div className="user-sub">Synced</div>
+                <div className="user-sub">Synced{access.role ? ` · ${access.role === "admin" ? "Admin" : "Moderator"}` : access.tester ? " · Tester" : ""}</div>
               </div>
             </div>
           ) : (
@@ -4877,7 +4898,8 @@ function FeedbackPage({ auth }) {
             <b className="small">How is it?</b>
             <Stars value={rating} onPick={setRating} />
             <p className="small muted" style={{ margin: "10px 0 0" }}>
-              Reviews are read before they appear anywhere, so nothing goes public automatically.
+              Reviews are read before they appear anywhere, so nothing goes public automatically. If yours
+              is picked for the front page, your first name and profile picture show with it.
             </p>
           </div>
         )}

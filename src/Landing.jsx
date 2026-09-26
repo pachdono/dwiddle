@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
-import { activeAnnouncement, approvedReviews, latestUpdates } from "./supabase.js";
+import { activeAnnouncement, publicReviews, latestUpdates } from "./supabase.js";
 import { ThemeMark } from "./ThemeMark.jsx";
 import { THEMES } from "./themes.js";
 import { DuckTalk } from "./Chat.jsx";
@@ -617,7 +617,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   const [reviews, setReviews] = useState([]);
   useEffect(() => {
     let live = true;
-    approvedReviews(3).then((r) => live && setReviews(r));
+    publicReviews(3).then((r) => live && setReviews(r));
     return () => { live = false; };
   }, []);
 
@@ -720,6 +720,12 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
                   </div>
                 ) : null}
                 <p>{r.message}</p>
+                {r.name && (
+                  <figcaption className="review-by">
+                    <ReviewAvatar name={r.name} src={r.avatar} />
+                    <span>{r.name}</span>
+                  </figcaption>
+                )}
               </figure>
             ))}
           </div>
@@ -810,6 +816,16 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
       </footer>
     </div>
   );
+}
+
+// The reviewer's Google picture, or their first letter when there is none
+// or it fails to load.
+function ReviewAvatar({ name, src }) {
+  const [broken, setBroken] = useState(false);
+  if (src && !broken && /^https:\/\//.test(src)) {
+    return <img className="review-avatar" src={src} alt="" width={28} height={28} referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
+  }
+  return <span className="review-avatar" aria-hidden="true">{String(name).trim().charAt(0).toUpperCase()}</span>;
 }
 
 // An update log: lines starting with "- " become a list, anything else a line of text.
