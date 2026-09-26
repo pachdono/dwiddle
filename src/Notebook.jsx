@@ -215,8 +215,8 @@ function pathFrom(stroke) {
 // pen's swell with pressure and speed, a brush's thick-to-thin.
 const PEN_STYLES = [
   { id: "ball", name: "Ballpoint", thinning: 0.12, taper: 0 },
-  { id: "fountain", name: "Fountain", thinning: 0.38, taper: 8 },
-  { id: "brush", name: "Brush", thinning: 0.8, taper: 22 },
+  { id: "fountain", name: "Fountain", thinning: 0.35, taper: 0 },
+  { id: "brush", name: "Brush", thinning: 0.6, taper: 5 },
 ];
 
 // Evens out a stroke before its ink shape is made: points spaced evenly
@@ -231,7 +231,7 @@ function smoothPts(points) {
   const extent = Math.hypot(x1 - x0, y1 - y0);
   // Small writing is evened out over about half a millimetre: enough to
   // remove a Pencil's shimmer, far too little to change a letter.
-  const step = extent < 24 ? 0.45 : Math.min(1.4, Math.max(0.35, extent / 100));
+  const step = Math.min(1.5, Math.max(0.45, extent / 45));
   const even = [points[0]];
   let carry = 0;
   for (let i = 1; i < points.length; i++) {
@@ -444,11 +444,11 @@ function ItemView({ it, editing, onText, shown }) {
     // answer shows through.
     return <path d={inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
   }
-  if (it.type === "stroke" && (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball")) && isDot(it.points)) {
+  if (it.type === "stroke" && (it.uniform || it.straight || it.tool === "highlighter" || (it.tool === "pen" && it.style === "ball")) && isDot(it.points)) {
     return <circle cx={it.points[0][0]} cy={it.points[0][1]} r={it.size / 2} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
-  if (it.type === "stroke" && (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball"))) {
-    return <path d={linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
+  if (it.type === "stroke" && (it.uniform || it.straight || it.tool === "highlighter" || (it.tool === "pen" && it.style === "ball"))) {
+    return <path d={linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap="round" strokeLinejoin="round"
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
@@ -1101,11 +1101,11 @@ function isDot(points) {
 // once it is finished.
 function paintStroke(ctx, it) {
   ctx.globalAlpha = 1;
-  if (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball")) {
+  if (it.uniform || it.straight || it.tool === "highlighter" || (it.tool === "pen" && it.style === "ball")) {
     if (isDot(it.points)) { ctx.fillStyle = it.color; ctx.beginPath(); ctx.arc(it.points[0][0], it.points[0][1], it.size / 2, 0, Math.PI * 2); ctx.fill(); return; }
     ctx.strokeStyle = it.color;
     ctx.lineWidth = it.size;
-    ctx.lineCap = it.tip === "flat" ? "butt" : "round";
+    ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.stroke(new Path2D(linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))));
     return;
@@ -1195,10 +1195,6 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
         )}
         {tool === "highlighter" && (
           <>
-            <div className="seg tight nb-pop-seg">
-              <button className={prefs.tip !== "flat" ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, tip: "round" }))}>Round tip</button>
-              <button className={prefs.tip === "flat" ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, tip: "flat" }))}>Flat tip</button>
-            </div>
             <label className="nb-pop-check"><input type="checkbox" checked={!!prefs.hlStraight} onChange={(e) => setPrefs((o) => ({ ...o, hlStraight: e.target.checked }))} /> Always draw straight lines</label>
           </>
         )}
@@ -1539,7 +1535,7 @@ function Editor({ id, go, onClose }) {
         { id: "p2", tool: "pen", color: "#3B5BFD", size: 2, style: "ball", stab: 2 },
         { id: "p3", tool: "pen", color: "#e5484d", size: 2, style: "ball", stab: 2 },
         { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
-        { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "flat", stab: 5 },
+        { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "round", stab: 5 },
       ] };
     try {
       const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}");
@@ -2223,6 +2219,11 @@ function Editor({ id, go, onClose }) {
     }
     clearTimeout(holdT.current);
     const ls = liveStroke.current;
+    if (ls && e?.type === "pointerup" && !ls.straight && !ls.arc && e.currentTarget?.getBoundingClientRect) {
+      // where the pen left the glass is the true end of the stroke
+      const pg = pageOf(ls.pageId);
+      if (pg) { const [ex, ey] = toPage(e, e.currentTarget, pg); const lp = ls.points[ls.points.length - 1]; if (Math.hypot(ex - lp[0], ey - lp[1]) > 0.3 && Math.hypot(ex - lp[0], ey - lp[1]) < 30) ls.points.push([ex, ey, lp[2]]); }
+    }
     if (ls) {
       liveStroke.current = null;
       const { pageId, arc, guide, ...rest } = ls;
