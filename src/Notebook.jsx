@@ -1753,6 +1753,19 @@ function Editor({ id, go, onClose }) {
   drawLiveRef.current = drawLive;
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
+  // A text box left empty is removed, so invisible boxes never pile up
+  // over real writing and catch taps meant for it.
+  const lastEditing = useRef(null);
+  useEffect(() => {
+    const prev = lastEditing.current;
+    lastEditing.current = editingText;
+    if (!prev || prev === editingText || !book) return;
+    const pg = book.pages.find((p) => p.items.some((i) => i.id === prev));
+    const it = pg?.items.find((i) => i.id === prev);
+    if (it && it.type === "text" && !String(it.text || "").trim()) {
+      updatePage(pg.id, (p) => ({ ...p, items: p.items.filter((i) => i.id !== prev) }), { record: false });
+    }
+  }, [editingText]);
   const [current, setCurrent] = useState(0); // page index in view
   const [busy, setBusy] = useState("");
   const [cov, setCov] = useState(COVERS_INK[0]);
@@ -2030,7 +2043,8 @@ function Editor({ id, go, onClose }) {
     // so a finger can still lasso, type, pick and scroll
     else if (e.pointerType === "touch" && Date.now() - lastPen.current < 1500 && DRAWING_TOOLS.includes(tool)) return;
     // Pencil only: a finger scrolls, though it can still move the ruler.
-    if (e.pointerType === "touch" && prefs.finger === false && !e.target.closest?.(".nb-ruler")) return;
+    // Pencil only means a finger never draws; it can still select, move and type.
+    if (e.pointerType === "touch" && prefs.finger === false && DRAWING_TOOLS.includes(tool) && !e.target.closest?.(".nb-ruler")) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
     const svg = e.currentTarget;
     const [x, y] = toPage(e, svg, page);
@@ -2074,7 +2088,7 @@ function Editor({ id, go, onClose }) {
     const pressure = e.pointerType === "pen" ? penPressure(e.pressure) : 0.5;
 
     if (tool === "text") {
-      const hit = [...page.items].reverse().find((i) => i.type === "text" && x >= i.x && x <= i.x + i.w && y >= i.y && y <= i.y + (i.h || 40));
+      const hit = [...page.items].reverse().find((i) => i.type === "text" && String(i.text || "").trim() && x >= i.x && x <= i.x + i.w && y >= i.y && y <= i.y + (i.h || 40));
       if (hit) {
         // press and drag moves the text; a tap (no drag) opens it for typing
         setEditingText(null);
