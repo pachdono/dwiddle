@@ -30,6 +30,7 @@ export const TEMPLATES = [
   { id: "lined", name: "Lined" },
   { id: "wide", name: "Wide lined" },
   { id: "grid", name: "Squared" },
+  { id: "graph", name: "Graph paper" },
   { id: "dots", name: "Dotted" },
   { id: "cornell", name: "Cornell notes" },
   { id: "mindmap", name: "Mind map" },
@@ -161,6 +162,17 @@ function PaperView({ page }) {
         <text x="60" y={165 + (h - 190) / 2} fontSize="15" fill={L} fontWeight="700" letterSpacing="2">ANSWER</text>
       </>;
       break;
+    case "graph": {
+      // Millimetre graph paper, as maths and science papers use: a faint
+      // line every millimetre, a firmer one every centimetre, the firmest
+      // every five.
+      const mm = 96 / 25.4;
+      const out = [];
+      for (let i = 0, x = 0; x <= w; i++, x = i * mm) out.push(<line key={"x" + i} x1={x} x2={x} y1="0" y2={h} stroke={L} strokeWidth={i % 50 === 0 ? 1.6 : i % 10 === 0 ? 1 : 0.35} />);
+      for (let i = 0, y = 0; y <= h; i++, y = i * mm) out.push(<line key={"y" + i} y1={y} y2={y} x1="0" x2={w} stroke={L} strokeWidth={i % 50 === 0 ? 1.6 : i % 10 === 0 ? 1 : 0.35} />);
+      body = <>{out}</>;
+      break;
+    }
     case "dwiddle":
       body = <>
         {lines(32, 150)}
@@ -818,6 +830,36 @@ function BookDialog({ folders, folder: startFolder, book, onSave, onClose }) {
   );
 }
 
+const RULER_H = 64;
+const CM = 96 / 2.54;
+// A point's position along the ruler (lx) and away from its top edge (ly).
+function rulerLocal(r, x, y) {
+  const a = (r.angle * Math.PI) / 180, dx = x - r.x, dy = y - r.y;
+  return { lx: dx * Math.cos(a) + dy * Math.sin(a), ly: -dx * Math.sin(a) + dy * Math.cos(a) };
+}
+function rulerPoint(r, lx, ly) {
+  const a = (r.angle * Math.PI) / 180;
+  return [r.x + lx * Math.cos(a) - ly * Math.sin(a), r.y + lx * Math.sin(a) + ly * Math.cos(a)];
+}
+function Ruler({ r }) {
+  const ticks = [];
+  for (let i = 0; i * CM / 10 <= r.len - 64; i++) {
+    const x = (i * CM) / 10, big = i % 10 === 0, mid = i % 5 === 0;
+    ticks.push(<line key={i} x1={x + 8} x2={x + 8} y1="0" y2={big ? 18 : mid ? 12 : 7} stroke="#334" strokeWidth={big ? 1.3 : 0.8} />);
+    if (big) ticks.push(<text key={"t" + i} x={x + 8} y="31" fontSize="11" textAnchor="middle" fill="#334" fontFamily="Inter, system-ui, sans-serif">{i / 10}</text>);
+  }
+  const deg = ((Math.round(r.angle) % 360) + 360) % 360;
+  return (
+    <g transform={`translate(${r.x} ${r.y}) rotate(${r.angle})`} className="nb-ruler">
+      <rect x="0" y="0" width={r.len} height={RULER_H} rx="6" fill="rgba(235, 242, 255, 0.72)" stroke="rgba(59, 91, 253, 0.55)" strokeWidth="1.2" />
+      {ticks}
+      <text x={r.len / 2 - 20} y={RULER_H - 12} fontSize="12" fill="#3B5BFD" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">{deg}°</text>
+      <circle cx={r.len - 30} cy={RULER_H / 2} r="17" fill="#3B5BFD" opacity="0.9" />
+      <path d={`M${r.len - 38} ${RULER_H / 2 - 3} a8 8 0 1 1 8 11 M${r.len - 33} ${RULER_H / 2 + 8} l-3 -3 4 -2`} stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />
+    </g>
+  );
+}
+
 const SETTINGS = ["pen", "highlighter", "revealer", "eraser", "shape"];
 const MORE_INKS = ["#1b1d26", "#6b7280", "#3B5BFD", "#0891b2", "#16a34a", "#84cc16", "#f59e0b", "#f97316", "#e5484d", "#db2777", "#9333ea", "#7c4a2d"];
 const MORE_HIGHLIGHTS = ["#ffe066", "#fde68a", "#a7f3d0", "#bbf7d0", "#fbcfe8", "#fecdd3", "#bfdbfe", "#c7d2fe", "#fed7aa", "#e9d5ff"];
@@ -1016,6 +1058,7 @@ const TOOLS = [
   { id: "revealer", icon: "eyeoff", name: "Revealer pen: hide answers, then tap to reveal" },
   { id: "eraser", icon: "eraser", name: "Eraser" },
   { id: "shape", icon: "shape", name: "Shapes" },
+  { id: "compass", icon: "compass", name: "Compass: tap to place the point, then draw around it" },
   { id: "text", icon: "type", name: "Text" },
   { id: "select", icon: "select", name: "Select and move" },
 ];
@@ -1070,6 +1113,10 @@ function Editor({ id, go, onClose }) {
   // A stroke being drawn lives outside React state and is drawn straight
   // onto its own path, so nothing else re-renders while the pen moves.
   const liveStroke = useRef(null);
+  // A ruler laid on the page: strokes started along its edge come out
+  // perfectly straight. Measured in real centimetres (A4 at 96 dpi).
+  const [ruler, setRuler] = useState(null); // { pageId, x, y, angle, len }
+  const [compass, setCompass] = useState(null); // { pageId, x, y } the compass point
   const livePath = useRef(null);
   const [liveOn, setLiveOn] = useState(null); // { pageId, color, tool } while a stroke is drawn
   const frame = useRef(0);
@@ -1116,7 +1163,7 @@ function Editor({ id, go, onClose }) {
     };
     measure();
   }, []);
-  useEffect(() => { setEditingText(null); }, [tool]);
+  useEffect(() => { setEditingText(null); if (tool !== "compass") setCompass(null); }, [tool]);
 
   // Phones and iPads: one finger draws, two fingers scroll, and the hand
   // tool scrolls with one. The browser has to be told not to scroll on its
@@ -1148,6 +1195,7 @@ function Editor({ id, go, onClose }) {
       logRef.current("touchstart", e);
       if (toolRef.current === "hand") return; // the browser scrolls
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
+      if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return; // placing the caret in text being typed
       if (e.touches.length >= 2) {
@@ -1271,7 +1319,8 @@ function Editor({ id, go, onClose }) {
     log("pointerdown", e);
     if (e.button !== 0 && e.pointerType === "mouse") return;
     if (twoFinger.current) return;
-    if (e.pointerType === "touch" && !prefs.finger) return; // Pencil only: a finger scrolls
+    // Pencil only: a finger scrolls, though it can still move the ruler.
+    if (e.pointerType === "touch" && prefs.finger === false && !e.target.closest?.(".nb-ruler")) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
     if (tool === "hand") {
       if (e.pointerType === "mouse") { drag.current = { pan: { x: e.clientX, y: e.clientY } }; capture(e.currentTarget, e); }
@@ -1320,6 +1369,35 @@ function Editor({ id, go, onClose }) {
       return;
     }
 
+    // The ruler: drag its body to move it, its handle to turn it.
+    if (ruler && ruler.pageId === page.id) {
+      const { lx, ly } = rulerLocal(ruler, x, y);
+      if (lx >= 0 && lx <= ruler.len && ly >= 0 && ly <= RULER_H) {
+        const turning = lx > ruler.len - 60;
+        drag.current = { ruler: turning ? "turn" : "move", x, y, from: ruler };
+        capture(svg, e);
+        return;
+      }
+    }
+
+    // The compass: tap to place its point; press away from it and draw
+    // round to make an arc or a circle at that radius.
+    if (tool === "compass") {
+      capture(svg, e);
+      if (!compass || compass.pageId !== page.id || Math.hypot(x - compass.x, y - compass.y) < 18) {
+        setCompass({ pageId: page.id, x, y });
+        drag.current = { compassPoint: true };
+        return;
+      }
+      const r = Math.hypot(x - compass.x, y - compass.y);
+      const a0 = Math.atan2(y - compass.y, x - compass.x);
+      liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool: "pen", color: ink, size: widthOf("pen", size), pressure: false,
+        stab: 1, style: "ball", points: [[x, y, 0.5]], arc: { cx: compass.x, cy: compass.y, r, a0, last: a0, sweep: 0 } };
+      setLiveOn({ pageId: page.id, color: ink, tool: "pen" });
+      drawLive();
+      return;
+    }
+
     capture(svg, e);
     if (tool === "shape") {
       setLive({ pageId: page.id, item: { id: uid(), type: "shape", kind: shapeKind, x1: x, y1: y, x2: x, y2: y, color: ink, size: Math.max(2, size * 1.2) } });
@@ -1329,6 +1407,16 @@ function Editor({ id, go, onClose }) {
       liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool, color,
         size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
         ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
+      if (ruler && ruler.pageId === page.id && tool !== "revealer") {
+        const { lx, ly } = rulerLocal(ruler, x, y);
+        const edge = ly > -32 && ly < 10 ? 0 : ly > RULER_H - 10 && ly < RULER_H + 32 ? RULER_H : null;
+        if (edge !== null && lx > -30 && lx < ruler.len + 30) {
+          const s0 = rulerPoint(ruler, lx, edge);
+          liveStroke.current.ruler = { edge };
+          liveStroke.current.straight = true;
+          liveStroke.current.points = [[s0[0], s0[1], pressure], [s0[0], s0[1], pressure]];
+        }
+      }
       setLiveOn({ pageId: page.id, color, tool });
       drawLive();
     }
@@ -1368,6 +1456,24 @@ function Editor({ id, go, onClose }) {
     }
     const [x, y] = toPage(e, svg, page);
     if (drag.current?.erase) { erase(page, x, y); return; }
+    if (drag.current?.ruler) {
+      const d = drag.current, f = d.from;
+      if (d.ruler === "move") setRuler({ ...f, x: f.x + x - d.x, y: f.y + y - d.y });
+      else {
+        // turn about the ruler's middle, snapping to 0, 15, 30, 45 ... degrees
+        const c = rulerPoint(f, f.len / 2, RULER_H / 2);
+        const a0 = Math.atan2(d.y - c[1], d.x - c[0]), a1 = Math.atan2(y - c[1], x - c[0]);
+        let ang = f.angle + ((a1 - a0) * 180) / Math.PI;
+        const snap = Math.round(ang / 15) * 15;
+        if (Math.abs(ang - snap) < 2.5) ang = snap;
+        const rad = (ang * Math.PI) / 180, fr = (f.angle * Math.PI) / 180;
+        // keep the middle where it is while turning
+        const mx = f.x + Math.cos(fr) * f.len / 2 - Math.sin(fr) * RULER_H / 2, my = f.y + Math.sin(fr) * f.len / 2 + Math.cos(fr) * RULER_H / 2;
+        setRuler({ ...f, angle: ang, x: mx - Math.cos(rad) * f.len / 2 + Math.sin(rad) * RULER_H / 2, y: my - Math.sin(rad) * f.len / 2 - Math.cos(rad) * RULER_H / 2 });
+      }
+      return;
+    }
+    if (drag.current?.compassPoint) { setCompass({ pageId: page.id, x, y }); return; }
     if (drag.current && tool === "select") {
       const d = drag.current;
       const dx = x - d.x, dy = y - d.y;
@@ -1384,6 +1490,26 @@ function Editor({ id, go, onClose }) {
       return;
     }
     const ls = liveStroke.current;
+    if (ls && ls.pageId === page.id && ls.arc) {
+      const A = ls.arc;
+      const a = Math.atan2(y - A.cy, x - A.cx);
+      let da = a - A.last;
+      if (da > Math.PI) da -= 2 * Math.PI;
+      if (da < -Math.PI) da += 2 * Math.PI;
+      A.sweep = Math.max(-2 * Math.PI, Math.min(2 * Math.PI, A.sweep + da));
+      A.last = a;
+      const n = Math.max(2, Math.ceil(Math.abs(A.sweep) / 0.03));
+      ls.points = Array.from({ length: n + 1 }, (_, i) => { const t = A.a0 + (A.sweep * i) / n; return [A.cx + Math.cos(t) * A.r, A.cy + Math.sin(t) * A.r, 0.5]; });
+      drawLive();
+      return;
+    }
+    if (ls && ls.pageId === page.id && ls.ruler) {
+      const { lx } = rulerLocal(ruler, x, y);
+      const p1 = rulerPoint(ruler, lx, ls.ruler.edge);
+      ls.points = [ls.points[0], [p1[0], p1[1], ls.points[0][2]]];
+      drawLive();
+      return;
+    }
     if (ls && ls.pageId === page.id) {
       // Every point the pen reported since the last frame, not just the
       // last one, so fast strokes stay smooth.
@@ -1420,10 +1546,10 @@ function Editor({ id, go, onClose }) {
     const ls = liveStroke.current;
     if (ls) {
       liveStroke.current = null;
-      const { pageId, ...rest } = ls;
+      const { pageId, arc, ruler: onRuler, ...rest } = ls;
       let done = rest;
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
-      else if (prefs.refine && !done.straight) done = { ...done, points: refine(done.points) };
+      else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
       const item = { ...done, d: inkPath(done) };
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
       setLiveOn(null);
@@ -1559,6 +1685,11 @@ function Editor({ id, go, onClose }) {
             <Icon name="video" size={18} />
           </button>
         </div>
+        <button className={"nb-tool" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
+          aria-label="Ruler" aria-pressed={!!ruler}
+          onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
+          <Icon name="ruler" size={18} />
+        </button>
         <button className={"nb-pill nb-drawwith" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
           title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
           {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
@@ -1635,6 +1766,7 @@ function Editor({ id, go, onClose }) {
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />
+      {tool === "compass" && <div className="nb-hint">{compass ? "Press away from the red point and draw round it. Drag the point to move it." : "Tap where the compass point goes."}</div>}
       {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (
         <ToolPop tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize} savePen={savePen} removePen={removePen}
@@ -1714,6 +1846,13 @@ function Editor({ id, go, onClose }) {
                     onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === it.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} />
                 ))}
                 {live?.pageId === page.id && <Item it={live.item} />}
+                {ruler?.pageId === page.id && <Ruler r={ruler} />}
+                {compass?.pageId === page.id && tool === "compass" && (
+                  <g className="nb-compass" pointerEvents="none">
+                    <circle cx={compass.x} cy={compass.y} r="5" fill="#e5484d" />
+                    <circle cx={compass.x} cy={compass.y} r="12" fill="none" stroke="#e5484d" strokeWidth="1.5" strokeDasharray="3 3" />
+                  </g>
+                )}
                 {liveOn?.pageId === page.id && (
                   <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
                     style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />

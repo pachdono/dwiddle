@@ -6828,3 +6828,5 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-pop-case > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .nb-pop-casepen { position: relative; display: grid; place-items: center; width: 30px; height: 34px; border-radius: 8px; background: var(--sunken); color: var(--ink-3); }
 .nb-pop-casepen button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); font-size: 11px; line-height: 16px; padding: 0; cursor: pointer; }
+.nb-hint { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 72; padding: 8px 14px; border-radius: 999px;
+  background: rgba(20, 20, 28, 0.85); color: #fff; font-size: 13px; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
