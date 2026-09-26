@@ -6925,3 +6925,4 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-textbar .danger { color: #ff8a8a; }
 .nb-textwidth { position: absolute; z-index: 4; width: 16px; cursor: ew-resize; touch-action: none; }
 .nb-textwidth::after { content: ""; position: absolute; left: 5px; top: 50%; width: 6px; height: 28px; margin-top: -14px; border-radius: 3px; background: #3B5BFD; }
+.nb-textgrip { display: grid; place-items: center; width: 38px; color: #fff; font-size: 18px; cursor: move; touch-action: none; border-radius: 8px; background: rgba(255, 255, 255, 0.1); user-select: none; -webkit-user-select: none; }

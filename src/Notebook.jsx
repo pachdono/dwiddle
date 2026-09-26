@@ -1702,6 +1702,7 @@ function Editor({ id, go, onClose }) {
   const [group, setGroup] = useState(null); // { pageId, ids }
   const [cropping, setCropping] = useState(null); // id of a picture being cropped
   const widthDrag = useRef(null);
+  const moveDrag = useRef(null);
   const lasso = useRef(null);
   const lassoPath = useRef(null);
   const [lassoOn, setLassoOn] = useState(null); // pageId while a loop is drawn
@@ -1897,6 +1898,7 @@ function Editor({ id, go, onClose }) {
     const onStart = (e) => {
       logRef.current("touchstart", e);
       // the crop box holds the page still, except its buttons, which must stay tappable
+      if (e.target.closest?.(".nb-textgrip, .nb-textwidth")) { e.preventDefault(); return; } // moving or sizing the text box
       if (e.target.closest?.(".nb-textbar, .nb-textedit")) return; // typing, selecting words, the text bar
       if (e.target.closest?.(".nb-crop") && !e.target.closest("button")) { e.preventDefault(); return; }
       if (e.target.closest?.(".nb-crop-bar")) return;
@@ -1915,7 +1917,7 @@ function Editor({ id, go, onClose }) {
     };
     const onMove = (e) => {
       // moving, resizing or cropping something: the page must stay still
-      if ((e.target.closest?.(".nb-crop") && !e.target.closest("button")) || drag.current?.groupMove || drag.current?.groupResize || drag.current?.textMove || drag.current?.ruler || drag.current?.prot) { e.preventDefault(); return; }
+      if (e.target.closest?.(".nb-textgrip, .nb-textwidth") || (e.target.closest?.(".nb-crop") && !e.target.closest("button")) || drag.current?.groupMove || drag.current?.groupResize || drag.current?.textMove || drag.current?.ruler || drag.current?.prot) { e.preventDefault(); return; }
       const onPage = !!e.target.closest?.(".nb-svg");
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
@@ -2055,7 +2057,7 @@ function Editor({ id, go, onClose }) {
       if (hit?.type === "text") {
         setGroup(null);
         setSel({ pageId: page.id, itemId: hit.id });
-        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, moved: false, start: book };
+        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, sx: x, sy: y, moved: false, start: book };
         return;
       }
       if (hit) {
@@ -2077,7 +2079,7 @@ function Editor({ id, go, onClose }) {
         // press and drag moves the text; a tap (no drag) opens it for typing
         setEditingText(null);
         setSel({ pageId: page.id, itemId: hit.id });
-        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, moved: false, start: book };
+        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, sx: x, sy: y, moved: false, start: book };
         capture(e.currentTarget, e);
         return;
       }
@@ -2283,8 +2285,10 @@ function Editor({ id, go, onClose }) {
     }
     if (drag.current?.compassPoint) { setCompass({ pageId: page.id, x, y }); return; }
     if (drag.current?.textMove) {
-      const d = drag.current, dx = x - d.x, dy = y - d.y;
-      if (!d.moved && Math.hypot(dx, dy) < 5 / zoom) return;
+      const d = drag.current;
+      // a finger or Pencil wobbles a little on a tap; only a clear drag moves the text
+      if (!d.moved && Math.hypot(x - d.sx, y - d.sy) < 12 / zoom) return;
+      const dx = x - d.x, dy = y - d.y;
       d.moved = true; d.x = x; d.y = y;
       updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === d.id ? moveItem(i, dx, dy) : i)) }), { record: false });
       return;
@@ -2844,6 +2848,10 @@ function Editor({ id, go, onClose }) {
                 return (
                   <>
                     <div className="nb-textbar" style={{ left: ed.x * zoom, top: Math.max(4, ed.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                      <span className="nb-textgrip" aria-label="Drag to move the text box" title="Drag to move"
+                        onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ } moveDrag.current = { x: e.clientX, y: e.clientY, ox: ed.x, oy: ed.y }; }}
+                        onPointerMove={(e) => { const d = moveDrag.current; if (d) set({ x: d.ox + (e.clientX - d.x) / zoom, y: d.oy + (e.clientY - d.y) / zoom }); }}
+                        onPointerUp={() => { moveDrag.current = null; }}>✥</span>
                       <button onClick={() => { setEditingText(null); setSel(null); }}>Done</button>
                       <button onClick={() => setFontPop(true)} style={{ fontFamily: fontOf(ed.font).css }}>{fontOf(ed.font).name}</button>
                       <button onClick={() => set({ fontSize: Math.max(10, ed.fontSize - 2) })} aria-label="Smaller text">A−</button>
