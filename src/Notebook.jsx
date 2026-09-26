@@ -1983,6 +1983,8 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-crop") && !e.target.closest("button")) { e.preventDefault(); return; }
       if (e.target.closest?.(".nb-crop-bar")) return;
       const onPage = !!e.target.closest?.(".nb-svg");
+      // the ruler and protractor: a finger or Pencil on them moves them, whatever the tool
+      if (e.target.closest?.(".nb-ruler") && e.touches.length === 1) { if (stylus(e)) lastPen.current = Date.now(); e.preventDefault(); return; }
       if (stylus(e)) {
         lastPen.current = Date.now();
         if (onPage && (toolRef.current !== "hand" || onSomething(e.changedTouches[0]))) e.preventDefault();
@@ -2125,13 +2127,38 @@ function Editor({ id, go, onClose }) {
     if (e.pointerType === "pen") lastPen.current = Date.now();
     // a resting hand while the Pencil writes: ignored for drawing tools only,
     // so a finger can still lasso, type, pick and scroll
-    else if (e.pointerType === "touch" && Date.now() - lastPen.current < 1500 && DRAWING_TOOLS.includes(tool)) return;
+    else if (e.pointerType === "touch" && Date.now() - lastPen.current < 1500 && DRAWING_TOOLS.includes(tool) && !e.target.closest?.(".nb-ruler")) return;
     // Pencil only: a finger scrolls, though it can still move the ruler.
     // Pencil only means a finger never draws; it can still select, move and type.
     if (e.pointerType === "touch" && prefs.finger === false && DRAWING_TOOLS.includes(tool) && !e.target.closest?.(".nb-ruler")) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
     const svg = e.currentTarget;
     const [x, y] = toPage(e, svg, page);
+
+    // The ruler and protractor move with any tool: press the body and drag,
+    // or the round handle to turn. With a pen or the eraser, a press right on
+    // an edge draws or rubs along it instead.
+    const drawing = DRAWING_TOOLS.includes(tool);
+    if (ruler && ruler.pageId === page.id) {
+      const { lx, ly } = rulerLocal(ruler, x, y);
+      const inner = drawing ? ly > 10 && ly < RULER_H - 10 : ly >= 0 && ly <= RULER_H;
+      if (lx >= 0 && lx <= ruler.len && inner) {
+        const turning = lx > ruler.len - 60;
+        drag.current = { ruler: turning ? "turn" : "move", x, y, from: ruler };
+        capture(svg, e);
+        return;
+      }
+    }
+    if (prot && prot.pageId === page.id) {
+      const { lx, ly } = protLocal(prot, x, y);
+      if (ly <= 2 && ly >= -prot.r && Math.hypot(lx, ly) <= prot.r && !(drawing && guideAt(null, prot, page.id, x, y))) {
+        const turning = Math.hypot(lx - (prot.r - 24), ly + 16) < 22;
+        drag.current = { prot: turning ? "turn" : "move", x, y, from: prot };
+        capture(svg, e);
+        return;
+      }
+    }
+
     // The hand: a pointer. Tap text to type, tap anything else to select it
     // (then move, resize, crop, delete); drag on nothing to scroll.
     if (tool === "hand") {
@@ -2174,6 +2201,13 @@ function Editor({ id, go, onClose }) {
         setSel({ pageId: page.id, itemId: hit.id });
         drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, sx: x, sy: y, moved: false, start: book };
         capture(e.currentTarget, e);
+        return;
+      }
+      // Tapping away from a box being typed in finishes it and goes back to
+      // the hand, rather than starting another box.
+      if (editingText) {
+        setEditingText(null); setSel(null); setTool("hand");
+        e.preventDefault();
         return;
       }
       const it = { id: uid(), type: "text", x, y: y - 20, w: 40, h: 40, fit: true, text: "", font, fontSize: 22, color: ink, tilt: (Math.random() - 0.5) * 1.2 };
@@ -2223,27 +2257,6 @@ function Editor({ id, go, onClose }) {
       capture(svg, e);
       erase(page, ex, ey);
       return;
-    }
-
-    // The ruler: drag its body to move it, its handle to turn it.
-    if (ruler && ruler.pageId === page.id) {
-      const { lx, ly } = rulerLocal(ruler, x, y);
-      if (lx >= 0 && lx <= ruler.len && ly >= 0 && ly <= RULER_H) {
-        const turning = lx > ruler.len - 60;
-        drag.current = { ruler: turning ? "turn" : "move", x, y, from: ruler };
-        capture(svg, e);
-        return;
-      }
-    }
-
-    if (prot && prot.pageId === page.id) {
-      const { lx, ly } = protLocal(prot, x, y);
-      if (ly <= 2 && ly >= -prot.r && Math.hypot(lx, ly) <= prot.r && !guideAt(null, prot, page.id, x, y)) {
-        const turning = Math.hypot(lx - (prot.r - 24), ly + 16) < 22;
-        drag.current = { prot: turning ? "turn" : "move", x, y, from: prot };
-        capture(svg, e);
-        return;
-      }
     }
 
     // The compass: tap to place its point; press away from it and draw
@@ -2992,7 +3005,7 @@ function Editor({ id, go, onClose }) {
                         onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ } moveDrag.current = { x: e.clientX, y: e.clientY, ox: ed.x, oy: ed.y }; }}
                         onPointerMove={(e) => { const d = moveDrag.current; if (d) set({ x: d.ox + (e.clientX - d.x) / zoom, y: d.oy + (e.clientY - d.y) / zoom }); }}
                         onPointerUp={() => { moveDrag.current = null; }}>✥</span>
-                      <button onClick={() => { setEditingText(null); setSel(null); }}>Done</button>
+                      <button onClick={() => { setEditingText(null); setSel(null); if (tool === "text") setTool("hand"); }}>Done</button>
                       <button onClick={() => setFontPop(true)} style={{ fontFamily: fontOf(ed.font).css }}>{fontOf(ed.font).name}</button>
                       <button onClick={() => set({ fontSize: Math.max(10, ed.fontSize - 2) })} aria-label="Smaller text">A−</button>
                       <button onClick={() => set({ fontSize: Math.min(96, ed.fontSize + 2) })} aria-label="Bigger text">A+</button>
