@@ -340,6 +340,41 @@ function boxOf(it) {
   }
   return { x: it.x, y: it.y, w: it.w, h: it.h || 40 };
 }
+// Grows or shrinks anything about a corner, for resizing a lasso selection.
+function scaleItem(it, ox, oy, k) {
+  const X = (v) => ox + (v - ox) * k, Y = (v) => oy + (v - oy) * k;
+  if (it.type === "stroke") { const { d, ...rest } = it; return { ...rest, size: it.size * k, points: it.points.map(([x, y, p]) => [X(x), Y(y), p]) }; }
+  if (it.type === "shape") return { ...it, x1: X(it.x1), y1: Y(it.y1), x2: X(it.x2), y2: Y(it.y2), size: Math.max(1, it.size * k) };
+  if (it.type === "text") return { ...it, x: X(it.x), y: Y(it.y), w: it.w * k, h: (it.h || 40) * k, fontSize: Math.max(8, Math.round(it.fontSize * k)) };
+  return { ...it, x: X(it.x), y: Y(it.y), w: it.w * k, h: it.h * k };
+}
+function unionBox(items) {
+  if (!items.length) return null;
+  const bs = items.map(boxOf);
+  const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
+  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+}
+function insidePoly(poly, x, y) {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}
+// Whether the lasso loop takes in an item: most of a stroke, or the middle
+// of anything else.
+function lassoTakes(poly, it) {
+  if (it.type === "stroke") {
+    const P = it.points, step = Math.max(1, Math.floor(P.length / 40));
+    let n = 0, inn = 0;
+    for (let i = 0; i < P.length; i += step) { n++; if (insidePoly(poly, P[i][0], P[i][1])) inn++; }
+    return inn / n >= 0.6;
+  }
+  const b = boxOf(it);
+  return insidePoly(poly, b.x + b.w / 2, b.y + b.h / 2);
+}
+
 function moveItem(it, dx, dy) {
   if (it.type === "stroke") { const { d, ...rest } = it; return { ...rest, points: it.points.map(([x, y, p]) => [x + dx, y + dy, p]) }; }
   if (it.type === "shape") return { ...it, x1: it.x1 + dx, y1: it.y1 + dy, x2: it.x2 + dx, y2: it.y2 + dy };
@@ -1165,6 +1200,9 @@ function VideoFloat({ id, onId, onClose }) {
   const [pos, setPos] = useState(() => ({ x: Math.max(16, innerWidth - 460), y: 120 }));
   const [file, setFile] = useState(null); // { url, name, audio }
   const [rate, setRate] = useState(1);
+  // Sized to taste by dragging the corner; remembered for next time.
+  const [width, setWidth] = useState(() => { try { return Number(localStorage.getItem("dwiddle-nb-video-w")) || 420; } catch { return 420; } });
+  const sizing = useRef(null);
   const media = useRef(null);
   const fileInput = useRef(null);
   const drag = useRef(null);
@@ -1183,7 +1221,7 @@ function VideoFloat({ id, onId, onClose }) {
   };
   const showing = file ? "file" : id ? "yt" : "ask";
   return (
-    <div className={"nb-video" + (file?.audio ? " audio" : "")} style={{ left: pos.x, top: pos.y }}>
+    <div className={"nb-video" + (file?.audio ? " audio" : "") + (sizing.current ? " sizing" : "")} style={{ left: pos.x, top: pos.y, width }}>
       <div className="nb-video-bar"
         onPointerDown={(e) => { if (e.target.closest("button")) return; drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } }}
         onPointerMove={(e) => { if (drag.current) setPos({ x: Math.max(0, Math.min(innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(0, Math.min(innerHeight - 60, e.clientY - drag.current.dy)) }); }}
@@ -1217,6 +1255,10 @@ function VideoFloat({ id, onId, onClose }) {
           <button type="button" className="btn ghost small" onClick={() => fileInput.current?.click()}><Icon name="file" size={14} /> Open an audio or video file</button>
         </form>
       )}
+      <div className="nb-video-size" aria-label="Drag to resize" title="Drag to resize"
+        onPointerDown={(e) => { sizing.current = { x: e.clientX, w: width }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } e.preventDefault(); }}
+        onPointerMove={(e) => { if (sizing.current) setWidth(Math.round(Math.max(240, Math.min(innerWidth - 16, sizing.current.w + e.clientX - sizing.current.x)))); }}
+        onPointerUp={() => { sizing.current = null; try { localStorage.setItem("dwiddle-nb-video-w", String(width)); } catch { /* private mode */ } }} />
     </div>
   );
 }
@@ -1398,7 +1440,7 @@ const TOOLS = [
   { id: "shape", icon: "shape", name: "Shapes" },
   { id: "compass", icon: "compass", name: "Compass: tap to place the point, then draw around it" },
   { id: "text", icon: "type", name: "Text" },
-  { id: "select", icon: "select", name: "Select and move" },
+  { id: "select", icon: "lasso", name: "Lasso: circle things to move, resize or delete them" },
 ];
 const INKS = ["#1b1d26", "#3B5BFD", "#e5484d", "#16a34a", "#9333ea", "#f59e0b"];
 const HIGHLIGHTS = ["#ffe066", "#a7f3d0", "#fbcfe8", "#bfdbfe", "#fed7aa"];
@@ -1479,6 +1521,11 @@ function Editor({ id, go, onClose }) {
   const [ruler, setRuler] = useState(null); // { pageId, x, y, angle, len }
   const [compass, setCompass] = useState(null); // { pageId, x, y } the compass point
   const [prot, setProt] = useState(null); // { pageId, x, y, angle, r } a protractor
+  // The lasso: a loop being drawn, then what it took in.
+  const [group, setGroup] = useState(null); // { pageId, ids }
+  const lasso = useRef(null);
+  const lassoPath = useRef(null);
+  const [lassoOn, setLassoOn] = useState(null); // pageId while a loop is drawn
   const livePath = useRef(null);
   const [liveOn, setLiveOn] = useState(null); // { pageId, color, tool } while a stroke is drawn
   const frame = useRef(0);
@@ -1527,7 +1574,7 @@ function Editor({ id, go, onClose }) {
     };
     measure();
   }, []);
-  useEffect(() => { setEditingText(null); if (tool !== "compass") setCompass(null); }, [tool]);
+  useEffect(() => { setEditingText(null); if (tool !== "compass") setCompass(null); if (tool !== "select") setGroup(null); }, [tool]);
 
   // Phones and iPads: one finger draws, two fingers scroll, and the hand
   // tool scrolls with one. The browser has to be told not to scroll on its
@@ -1648,10 +1695,11 @@ function Editor({ id, go, onClose }) {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
       else if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
-      else if ((e.key === "Backspace" || e.key === "Delete") && sel) {
-        updatePage(sel.pageId, (p) => ({ ...p, items: p.items.filter((i) => i.id !== sel.itemId) }));
-        setSel(null);
-      } else if (!mod) {
+      else if ((e.key === "Backspace" || e.key === "Delete") && (group || sel)) {
+        if (group) groupDelete();
+        else { updatePage(sel.pageId, (p) => ({ ...p, items: p.items.filter((i) => i.id !== sel.itemId) })); setSel(null); }
+      } else if (e.key === "Escape" && group) { setGroup(null); setSel(null); }
+      else if (!mod) {
         const k = e.key.toLowerCase();
         const map = { p: "pen", h: "highlighter", e: "eraser", s: "shape", t: "text", v: "select" };
         if (map[k]) setTool(map[k]);
@@ -1722,14 +1770,24 @@ function Editor({ id, go, onClose }) {
     setEditingText(null);
 
     if (tool === "select") {
-      const hit = [...page.items].reverse().find((i) => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; });
-      setSel(hit ? { pageId: page.id, itemId: hit.id } : null);
-      if (hit) {
-        const b = boxOf(hit);
-        const resize = (hit.type === "image" || hit.type === "text") && x > b.x + b.w - 26 && y > b.y + b.h - 26;
-        drag.current = { pageId: page.id, id: hit.id, x, y, resize, start: book };
-        capture(svg, e);
+      capture(svg, e);
+      if (group && group.pageId === page.id) {
+        const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
+        if (gb) {
+          if (Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < 26 / zoom + 6) {
+            drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
+            return;
+          }
+          if (x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
+            drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+            return;
+          }
+        }
       }
+      setGroup(null);
+      setSel(null);
+      lasso.current = { pageId: page.id, pts: [[x, y]] };
+      setLassoOn(page.id);
       return;
     }
 
@@ -1897,19 +1955,22 @@ function Editor({ id, go, onClose }) {
       return;
     }
     if (drag.current?.compassPoint) { setCompass({ pageId: page.id, x, y }); return; }
-    if (drag.current && tool === "select") {
-      const d = drag.current;
-      const dx = x - d.x, dy = y - d.y;
+    if (drag.current?.groupMove && group) {
+      const d = drag.current, dx = x - d.x, dy = y - d.y;
       d.x = x; d.y = y;
-      updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => {
-        if (i.id !== d.id) return i;
-        if (d.resize) {
-          const ratio = i.type === "image" ? (i.h / i.w) : null;
-          const w = Math.max(40, i.w + dx);
-          return { ...i, w, h: ratio ? w * ratio : Math.max(30, (i.h || 40) + dy) };
-        }
-        return moveItem(i, dx, dy);
-      }) }), { record: false });
+      updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => (group.ids.includes(i.id) ? moveItem(i, dx, dy) : i)) }), { record: false });
+      return;
+    }
+    if (drag.current?.groupResize) {
+      const d = drag.current, b = d.box;
+      const k = Math.max(0.15, Math.min(6, ((x - b.x) / b.w + (y - b.y) / b.h) / 2));
+      const scaled = new Map(d.base.map((i) => [i.id, scaleItem(i, b.x, b.y, k)]));
+      updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => scaled.get(i.id) || i) }), { record: false });
+      return;
+    }
+    if (lasso.current && lasso.current.pageId === page.id) {
+      lasso.current.pts.push([x, y]);
+      lassoPath.current?.setAttribute("d", "M" + lasso.current.pts.map((q) => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L") + " Z");
       return;
     }
     const ls = liveStroke.current;
@@ -1965,6 +2026,27 @@ function Editor({ id, go, onClose }) {
       drag.current = null;
       return;
     }
+    if (lasso.current) {
+      const L = lasso.current;
+      lasso.current = null;
+      setLassoOn(null);
+      const page = pageOf(L.pageId);
+      if (!page) return;
+      let len = 0;
+      for (let i = 1; i < L.pts.length; i++) len += Math.hypot(L.pts[i][0] - L.pts[i - 1][0], L.pts[i][1] - L.pts[i - 1][1]);
+      let ids;
+      if (len < 14) {
+        // a tap picks the one thing under it
+        const [x, y] = L.pts[0];
+        const hit = [...page.items].reverse().find((i) => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; });
+        ids = hit ? [hit.id] : [];
+      } else ids = page.items.filter((i) => lassoTakes(L.pts, i)).map((i) => i.id);
+      if (ids.length) {
+        setGroup({ pageId: page.id, ids });
+        setSel(ids.length === 1 ? { pageId: page.id, itemId: ids[0] } : null);
+      }
+      return;
+    }
     clearTimeout(holdT.current);
     const ls = liveStroke.current;
     if (ls) {
@@ -1999,6 +2081,24 @@ function Editor({ id, go, onClose }) {
     } catch {
       alert("That picture could not be added.");
     }
+  }
+
+  // What the lasso bar does to everything selected.
+  function groupDelete() {
+    if (!group) return;
+    updatePage(group.pageId, (p) => ({ ...p, items: p.items.filter((i) => !group.ids.includes(i.id)) }));
+    setGroup(null); setSel(null);
+  }
+  function groupDuplicate() {
+    if (!group) return;
+    const page = pageOf(group.pageId);
+    const copies = page.items.filter((i) => group.ids.includes(i.id)).map((i) => ({ ...moveItem(i, 24, 24), id: uid() }));
+    updatePage(group.pageId, (p) => ({ ...p, items: [...p.items, ...copies] }));
+    setGroup({ pageId: group.pageId, ids: copies.map((c) => c.id) });
+  }
+  function groupColor(c) {
+    if (!group) return;
+    updatePage(group.pageId, (p) => ({ ...p, items: p.items.map((i) => (group.ids.includes(i.id) && i.type !== "image" && i.tool !== "highlighter" ? (() => { const { d, ...rest } = i; return { ...rest, color: c }; })() : i)) }));
   }
 
   // A text box of words from elsewhere, dropped near the top of this page.
@@ -2314,11 +2414,21 @@ function Editor({ id, go, onClose }) {
                       opacity={liveOn.tool === "highlighter" ? 0.38 : 1} style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />
                   : <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
                       style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />)}
-                {sel?.pageId === page.id && selected && (() => {
-                  const b = boxOf(selected);
+                {lassoOn === page.id && <path ref={lassoPath} fill="rgba(59, 91, 253, 0.06)" stroke="#3B5BFD" strokeWidth={1.5 / zoom} strokeDasharray={`${6 / zoom} ${5 / zoom}`} />}
+                {group?.pageId === page.id && (() => {
+                  const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
+                  if (!b) return null;
+                  const u = 1 / zoom;
                   return <g className="nb-sel">
-                    <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="4" fill="none" stroke="#3B5BFD" strokeWidth="1.5" strokeDasharray="6 4" />
-                    {(selected.type === "image" || selected.type === "text") && <rect x={b.x + b.w - 12} y={b.y + b.h - 12} width="16" height="16" rx="4" fill="#3B5BFD" />}
+                    <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={4 * u} fill="rgba(59, 91, 253, 0.04)" stroke="#3B5BFD" strokeWidth={1.5 * u} strokeDasharray={`${6 * u} ${4 * u}`} />
+                    <circle cx={b.x + b.w} cy={b.y + b.h} r={9 * u} fill="#fff" stroke="#3B5BFD" strokeWidth={2 * u} />
+                    <foreignObject x={b.x} y={Math.max(0, b.y - 52 * u)} width={330 * u} height={46 * u} style={{ overflow: "visible" }}>
+                      <div className="nb-lassobar" style={{ transform: `scale(${u})`, transformOrigin: "0 0" }} onPointerDown={(e) => e.stopPropagation()}>
+                        <button onClick={groupDuplicate}>Duplicate</button>
+                        {INKS.slice(0, 5).map((c) => <button key={c} className="nb-lassocolor" style={{ background: c }} onClick={() => groupColor(c)} aria-label="Colour" />)}
+                        <button className="danger" onClick={groupDelete}>Delete</button>
+                      </div>
+                    </foreignObject>
                   </g>;
                 })()}
               </svg>

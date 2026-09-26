@@ -6632,8 +6632,8 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-pop .danger { color: var(--warn); }
 .nb-pop p { margin: 0; }
 .nb-swatches button, .nb-color { box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.45); }
-.nb-video { position: fixed; z-index: 74; width: 420px; max-width: calc(100vw - 24px); border-radius: 14px; overflow: hidden; background: var(--surface);
-  border: 1px solid var(--line); box-shadow: var(--shadow-lift); resize: horizontal; }
+.nb-video { position: fixed; z-index: 74; max-width: calc(100vw - 16px); border-radius: 14px; overflow: hidden; background: var(--surface);
+  border: 1px solid var(--line); box-shadow: var(--shadow-lift); }
 .nb-video-bar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; cursor: grab; user-select: none; touch-action: none; font-size: 13px; }
 .nb-video-bar b { flex: 1; }
 .nb-video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; background: #000; }
@@ -6641,7 +6641,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-video-ask p { margin: 0; }
 .nb-video-row { display: flex; gap: 8px; }
 .nb-video-row input { flex: 1; min-width: 0; min-height: 38px; padding: 7px 11px; }
-@media (max-width: 700px) { .nb-video { width: calc(100vw - 24px); left: 12px !important; } }
+@media (max-width: 700px) { .nb-video { left: 8px !important; } }
 .nb-bar { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
 .nb-toolrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
 @media (max-width: 1280px) {
@@ -6861,3 +6861,12 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 /* the page's own cursor: a dot the size of the pen, a circle for the eraser */
 .nb-ring.dot { border-width: 0; opacity: 0.9; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 0 2px rgba(0, 0, 0, 0.25); min-width: 5px; min-height: 5px; }
 .nb-svg { shape-rendering: geometricPrecision; }
+.nb-svg.tool-select { cursor: crosshair; }
+.nb-lassobar { display: inline-flex; align-items: center; gap: 4px; padding: 5px; border-radius: 12px; background: #1b1d26; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); white-space: nowrap; }
+.nb-lassobar button { border: 0; background: none; color: #fff; font: 600 13px Inter, system-ui, sans-serif; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+.nb-lassobar button:hover { background: rgba(255, 255, 255, 0.12); }
+.nb-lassobar .danger { color: #ff8a8a; }
+.nb-lassobar .nb-lassocolor { width: 20px; height: 20px; padding: 0; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
+.nb-video-size { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; z-index: 2;
+  background: linear-gradient(135deg, transparent 50%, rgba(120, 120, 140, 0.55) 50% 58%, transparent 58% 68%, rgba(120, 120, 140, 0.55) 68% 76%, transparent 76%); }
+.nb-video.sizing iframe { pointer-events: none; }
