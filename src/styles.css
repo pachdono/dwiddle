@@ -6820,3 +6820,11 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-drawwith { white-space: nowrap; background: var(--sunken); }
 .nb-drawwith.on { background: var(--accent-soft); color: var(--accent); }
 .nb-pop-hint { margin: -6px 0 0 !important; font-size: 12px; }
+.nb-case { gap: 2px; }
+.nb-casepen { width: 30px; height: 36px; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; cursor: pointer; color: var(--ink-3); }
+.nb-casepen:hover { background: var(--hover); }
+.nb-casepen.on { background: var(--surface); box-shadow: 0 0 0 1.5px var(--accent); }
+.nb-pop-case { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.nb-pop-case > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nb-pop-casepen { position: relative; display: grid; place-items: center; width: 30px; height: 34px; border-radius: 8px; background: var(--sunken); color: var(--ink-3); }
+.nb-pop-casepen button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); font-size: 11px; line-height: 16px; padding: 0; cursor: pointer; }

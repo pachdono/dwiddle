@@ -848,7 +848,7 @@ function StrokeSample({ tool, size, color, style, tip }) {
   );
 }
 
-function ToolPop({ tool, prefs, setPrefs, size, setSize, colors, color, setColor, shapeKind, setShapeKind, onShowAll, onHideAll, onClearPage, onClose }) {
+function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, colors, color, setColor, shapeKind, setShapeKind, onShowAll, onHideAll, onClearPage, onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     addEventListener("keydown", onKey);
@@ -917,6 +917,18 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, colors, color, setColor
             <p className="small muted">Rubs out whole strokes it touches. The circle on the page shows how big it is.</p>
             <div className="nb-pop-row"><button className="btn ghost small danger" onClick={() => { if (window.confirm("Clear everything on this page?")) { onClearPage(); onClose(); } }}>Clear this page</button></div>
           </>
+        )}
+        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
+          <div className="nb-pop-case">
+            <span className="small muted">Pencil case</span>
+            <div>
+              {(prefs.pens || []).map((pn) => (
+                <span key={pn.id} className="nb-pop-casepen"><ToolTip tool={pn.tool} color={pn.color} />
+                  <button onClick={() => removePen(pn.id)} aria-label="Take out of the pencil case">×</button></span>
+              ))}
+              <button className="btn ghost small" onClick={savePen}>+ Add this pen</button>
+            </div>
+          </div>
         )}
         {(tool === "pen" || tool === "highlighter") && <p className="small muted nb-pop-tip">Tip: draw a line and hold still to make it straight.</p>}
       </div>
@@ -1023,12 +1035,32 @@ function Editor({ id, go, onClose }) {
   // Each tool keeps its own size and style, remembered between visits.
   const [prefs, setPrefs] = useState(() => {
     const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
-      stab: { pen: 2, highlighter: 5, revealer: 5 }, refine: true, finger: true };
+      stab: { pen: 2, highlighter: 5, revealer: 5 }, refine: true, finger: true,
+      // The pencil case: favourite pens, one tap away.
+      pens: [
+        { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
+        { id: "p2", tool: "pen", color: "#3B5BFD", size: 2, style: "ball", stab: 2 },
+        { id: "p3", tool: "pen", color: "#e5484d", size: 2, style: "ball", stab: 2 },
+        { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
+        { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "flat", stab: 5 },
+      ] };
     try { const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}"); return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } }; } catch { return base; }
   });
   useEffect(() => { try { localStorage.setItem("dwiddle-nb-tools", JSON.stringify(prefs)); } catch { /* private mode */ } }, [prefs]);
   const size = prefs.size[tool] ?? 3;
   const setSize = (v) => setPrefs((o) => ({ ...o, size: { ...o.size, [tool]: v } }));
+  function pickPen(pn) {
+    setTool(pn.tool);
+    if (pn.tool === "highlighter") setHl(pn.color); else if (pn.tool === "revealer") setCov(pn.color); else setInk(pn.color);
+    setPrefs((o) => ({ ...o, size: { ...o.size, [pn.tool]: pn.size }, stab: { ...o.stab, [pn.tool]: pn.stab ?? o.stab?.[pn.tool] },
+      ...(pn.style ? { style: pn.style } : {}), ...(pn.tip ? { tip: pn.tip } : {}) }));
+  }
+  function savePen() {
+    const pn = { id: uid(), tool, color: tool === "highlighter" ? hl : tool === "revealer" ? cov : ink, size, stab: prefs.stab?.[tool],
+      ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
+    setPrefs((o) => ({ ...o, pens: [...(o.pens || []), pn].slice(-10) }));
+  }
+  const removePen = (id) => setPrefs((o) => ({ ...o, pens: (o.pens || []).filter((x) => x.id !== id) }));
   const [pop, setPop] = useState(null); // the tool whose settings are open
   const ring = useRef(null); // the circle that shows a tool's size under the pointer
   const holdT = useRef(null);
@@ -1531,6 +1563,20 @@ function Editor({ id, go, onClose }) {
           title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
           {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
         </button>
+        {(prefs.pens || []).length > 0 && (
+          <div className="nb-group nb-case" aria-label="Pencil case">
+            {prefs.pens.map((pn) => {
+              const on = tool === pn.tool && (pn.tool === "highlighter" ? hl : pn.tool === "revealer" ? cov : ink) === pn.color && size === pn.size
+                && (pn.tool !== "pen" || prefs.style === pn.style);
+              return (
+                <button key={pn.id} className={"nb-casepen" + (on ? " on" : "")} onClick={() => pickPen(pn)}
+                  title={`${pn.tool === "pen" ? (PEN_STYLES.find((x) => x.id === pn.style)?.name || "Pen") : pn.tool === "highlighter" ? "Highlighter" : "Revealer"}, size ${pn.size}`}>
+                  <ToolTip tool={pn.tool} color={pn.color} />
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="nb-group nb-colors">
           {colors.map((c) => (
             <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />
@@ -1591,7 +1637,7 @@ function Editor({ id, go, onClose }) {
       <div ref={ring} className="nb-ring" aria-hidden="true" />
       {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (
-        <ToolPop tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize}
+        <ToolPop tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize} savePen={savePen} removePen={removePen}
           colors={colors} color={color} setColor={setColor} shapeKind={shapeKind} setShapeKind={setShapeKind}
           onShowAll={() => setShown(new Set(book.pages.flatMap((p) => p.items.filter((i) => i.tool === "revealer").map((i) => i.id))))}
           onHideAll={() => setShown(new Set())}
