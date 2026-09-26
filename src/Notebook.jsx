@@ -1812,6 +1812,10 @@ function Editor({ id, go, onClose }) {
   // own, which only a non-passive touch listener can do.
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  const bookRef = useRef(book);
+  bookRef.current = book;
+  const groupRef = useRef(group);
+  groupRef.current = group;
   const fingerRef = useRef(true);
   fingerRef.current = prefs.finger !== false;
   const twoFinger = useRef(null); // { x, y, d, z } while two fingers pinch or scroll
@@ -1901,12 +1905,33 @@ function Editor({ id, go, onClose }) {
         setZoom(z);
         requestAnimationFrame(() => { el.scrollLeft = cx * (z / old) - (m.x - r.left); el.scrollTop = cy * (z / old) - (m.y - r.top); });
       }
+      const now = performance.now(), dt = Math.max(1, now - (t.t || now - 16));
       el.scrollBy(t.x - m.x, t.y - m.y);
+      t.vx = (t.vx || 0) * 0.6 + ((t.x - m.x) / dt) * 0.4; t.vy = (t.vy || 0) * 0.6 + ((t.y - m.y) / dt) * 0.4; t.t = now;
       t.x = m.x; t.y = m.y;
       e.preventDefault();
     };
     // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
     // hand tool, it scrolls. Two fingers always scroll.
+    // With the hand, a touch that lands on something takes it (select, move,
+    // resize); a touch on bare paper is left to the iPad's own smooth scrolling.
+    const onSomething = (t) => {
+      const pageEl = t.target.closest?.(".nb-page");
+      const b = bookRef.current;
+      if (!pageEl || !b) return false;
+      const pg = b.pages[Number(pageEl.dataset.index)];
+      const svgEl = pageEl.querySelector(".nb-svg");
+      if (!pg || !svgEl) return false;
+      const r = svgEl.getBoundingClientRect(), k = r.width / pg.w;
+      const x = (t.clientX - r.left) / k, y = (t.clientY - r.top) / k;
+      const g = groupRef.current;
+      if (g && g.pageId === pg.id) {
+        const gb = unionBox(pg.items.filter((i) => g.ids.includes(i.id)));
+        if (gb && x >= gb.x - 30 / k && x <= gb.x + gb.w + 30 / k && y >= gb.y - 30 / k && y <= gb.y + gb.h + 30 / k) return true;
+      }
+      return pg.items.some((i) => (i.type === "stroke" ? strokeDist(i, x, y) < i.size / 2 + 8 / k
+        : (() => { const bb = boxOf(i); return x >= bb.x && x <= bb.x + bb.w && y >= bb.y && y <= bb.y + bb.h; })()));
+    };
     const fingers = (e) => [...e.touches].filter((t) => t.touchType !== "stylus");
     const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
@@ -1922,7 +1947,7 @@ function Editor({ id, go, onClose }) {
       // never taken for a pinch. Buttons around the page still work.
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
       if (fingers(e).length >= 2) { pinchStart(e); return; }
-      if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg")) e.preventDefault(); return; } // the hand handles its own scrolling
+      if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg") && onSomething(e.changedTouches[0])) e.preventDefault(); return; }
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
       if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
@@ -1936,14 +1961,27 @@ function Editor({ id, go, onClose }) {
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
       if (twoFinger.current && fingers(e).length >= 2) { pinchMove(e); return; }
-      if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg")) e.preventDefault(); return; }
+      if (toolRef.current === "hand") return;
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-textedit")) return;
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onEnd = (e) => {
       logRef.current("touchend", e);
-      if (e.touches.length === 0) twoFinger.current = null;
+      if (e.touches.length === 0 && twoFinger.current) {
+        // let a two-finger flick glide on, like normal scrolling
+        let { vx = 0, vy = 0 } = twoFinger.current;
+        twoFinger.current = null;
+        let last = performance.now();
+        const glide = (now) => {
+          const dt = now - last; last = now;
+          vx *= Math.pow(0.93, dt / 16); vy *= Math.pow(0.93, dt / 16);
+          if (Math.abs(vx) < 0.02 && Math.abs(vy) < 0.02) return;
+          el.scrollBy(vx * dt, vy * dt);
+          requestAnimationFrame(glide);
+        };
+        if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) requestAnimationFrame(glide);
+      }
       // iPhones and iPads only bring up the keyboard when focus happens
       // during the tap itself, so a new text box is focused here.
       if (toolRef.current === "text") {
@@ -2083,7 +2121,8 @@ function Editor({ id, go, onClose }) {
         return;
       }
       setGroup(null); setSel(null); setEditingText(null);
-      drag.current = { pan: { x: e.clientX, y: e.clientY, t: performance.now(), vx: 0, vy: 0 } };
+      // a mouse drags the paper; a finger or Pencil scrolls it natively
+      if (e.pointerType === "mouse") drag.current = { pan: { x: e.clientX, y: e.clientY, t: performance.now(), vx: 0, vy: 0 } };
       return;
     }
     const pressure = e.pointerType === "pen" ? penPressure(e.pressure) : 0.5;

@@ -6777,7 +6777,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   display: grid; place-items: center; transition: transform 0.12s ease; }
 .nb-stickers .nb-sticker-set button:hover { transform: scale(1.1); }
 .nb-stickers .nb-sticker-set button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
-.nb-svg.tool-hand { cursor: default; touch-action: none; }
+.nb-svg.tool-hand { cursor: default; touch-action: pan-x pan-y; }
 .nb-svg.tool-hand:active { cursor: grabbing; }
 /* Phones: one tidy row of document controls, one row of tools, and a
    compact page bar, so the page gets the room. */
@@ -6811,7 +6811,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .more-in .rec-btn:not(.on):hover { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
 /* Safari can ignore touch-action on SVG, so the page around it says it too. */
 .nb-page { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-.nb-pages.hand .nb-page, .nb-pages.hand .nb-svg { touch-action: none; }
+.nb-pages.hand .nb-page, .nb-pages.hand .nb-svg { touch-action: pan-x pan-y; }
 .nb-text.editing { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .nb-debug { position: fixed; left: 8px; bottom: 8px; z-index: 90; margin: 0; padding: 8px 10px; max-width: 70vw; border-radius: 10px;
   background: rgba(0, 0, 0, 0.8); color: #9f9; font: 11px/1.4 ui-monospace, monospace; pointer-events: none; white-space: pre-wrap; }
