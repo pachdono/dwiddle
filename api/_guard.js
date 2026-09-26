@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 // Who is allowed to call the AI endpoints, and how often.
 //
 // These endpoints spend real quota on every call, so without a gate anyone who
@@ -28,11 +30,16 @@ function allowedOrigin(value) {
   if (!value) return true; // same origin browser requests often send nothing
   try {
     const host = new URL(value).host;
-    const site = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "";
+    // Only this project's own addresses. Any *.vercel.app used to pass, which
+    // let anyone's Vercel site spend this one's AI quota from their visitors.
+    const own = [
+      "dwiddle.vercel.app",
+      process.env.VERCEL_PROJECT_PRODUCTION_URL,
+      process.env.VERCEL_URL,
+      process.env.VERCEL_BRANCH_URL,
+    ].filter(Boolean);
     return (
-      host === site ||
-      host.endsWith(".vercel.app") ||
-      host === "localhost:5180" ||
+      own.includes(host) ||
       host.startsWith("localhost:") ||
       host.startsWith("127.0.0.1:")
     );
@@ -81,8 +88,10 @@ export function admin(req, res) {
     res.status(404).json({ error: "Not found" });
     return false;
   }
-  const given = req.headers["x-admin-token"] || req.query?.token;
-  if (given !== token) {
+  // Header only: a token in the address ends up in logs and browser history.
+  const given = String(req.headers["x-admin-token"] || "");
+  const a = Buffer.from(given), b = Buffer.from(token);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
     res.status(404).json({ error: "Not found" });
     return false;
   }

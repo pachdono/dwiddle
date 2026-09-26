@@ -378,6 +378,13 @@ function FontPop({ current, custom, onPick, onImport, onClose }) {
     </>
   );
 }
+// Wikipedia search snippets arrive as HTML. Shown as plain text, never as
+// markup, so nothing in a snippet can run on the page.
+function plainSnippet(html) {
+  const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+  return doc.body.textContent || "";
+}
+
 // Imported fonts are named "custom:Their Name".
 const fontOf = (id) => (String(id).startsWith("custom:")
   ? { id, name: id.slice(7), css: `"${id.slice(7)}", Inter, sans-serif`, scale: 1 }
@@ -1589,7 +1596,7 @@ function WikiPanel({ onAddImage, onAddText }) {
             {results.length === 0 && <li className="small muted">Nothing found.</li>}
             {results.map((r) => (
               <li key={r.pageid}><button onClick={() => open(r.title)}><b>{r.title}</b>
-                <span className="small muted" dangerouslySetInnerHTML={{ __html: r.snippet.replace(/<(?!\/?span)[^>]*>/g, "") + "…" }} /></button></li>
+                <span className="small muted">{plainSnippet(r.snippet)}…</span></button></li>
             ))}
           </ul>
         )}
