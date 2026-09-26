@@ -6958,3 +6958,18 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   .nb-textbar button:nth-of-type(2) { max-width: 96px; }
 }
 @keyframes nb-sheet-in { from { transform: translateY(24px); opacity: 0; } }
+
+/* Notebooks list on a phone: the heading and its words on top, the two
+   buttons side by side under them, then the folder controls, then two
+   notebooks to a row. */
+@media (max-width: 700px) {
+  .nb-home .dash-top { flex-direction: column; align-items: stretch; gap: 12px; }
+  .nb-home .dash-top .page-head { flex: none; }
+  .nb-home .dash-top > .row { margin-top: 0 !important; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .nb-home .dash-top > .row .btn { width: 100%; justify-content: center; white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+  .nb-home .nb-folders { gap: 8px 10px; }
+  .nb-home .nb-sync { font-size: 12px; }
+  .nb-home .nb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
+}
+/* A text box as wide as its words, growing as you type up to the page edge. */
+.nb-textedit.fit { width: max-content; min-width: 2em; }

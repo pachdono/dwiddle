@@ -325,6 +325,7 @@ const FONTS = [
   { id: "apple", name: "Joined up", css: '"Homemade Apple", cursive', scale: 0.9, hand: true, load: () => import("@fontsource/homemade-apple/400.css") },
   { id: "kalam", name: "Marker", css: '"Kalam", cursive', scale: 1.05, hand: true },
   { id: "shadows", name: "Light scribble", css: '"Shadows Into Light", cursive', scale: 1.15, hand: true },
+  { id: "arial", name: "Arial", css: 'Arial, Helvetica, "Liberation Sans", sans-serif', scale: 1 },
   { id: "sans", name: "Typed", css: 'Inter, -apple-system, system-ui, sans-serif', scale: 1 },
   { id: "serif", name: "Book", css: 'Georgia, serif', scale: 1 },
   { id: "roboto", name: "Roboto", css: '"Roboto", sans-serif', scale: 1, load: () => import("@fontsource/roboto/400.css") },
@@ -515,7 +516,7 @@ function ItemView({ it, editing, onText, shown }) {
     const f = fontOf(it.font);
     // The slight tilt of handwriting is turned by the drawing itself: a CSS
     // transform inside it lands in the wrong place in Safari.
-    const tilt = f.id !== "sans" && f.id !== "serif" ? it.tilt || 0 : 0;
+    const tilt = f.hand ? it.tilt || 0 : 0;
     const h = Math.max(it.h || 60, 40);
     return (
       <g transform={tilt ? `rotate(${tilt} ${it.x + it.w / 2} ${it.y + h / 2})` : undefined}>
@@ -549,7 +550,7 @@ function FitBar({ className, x, y, children }) {
 // Typing happens in an ordinary box laid over the page, not inside the
 // drawing: Safari on iPad does not show text being typed inside SVG. The box
 // keeps its own contents while typed into, so the caret never jumps.
-function TextEditor({ it, zoom, onText }) {
+function TextEditor({ it, zoom, maxW, onText }) {
   const el = useRef(null);
   const f = fontOf(it.font);
   useFont(f);
@@ -557,6 +558,7 @@ function TextEditor({ it, zoom, onText }) {
     const d = el.current;
     if (!d) return;
     d.innerText = it.text || "";
+    if (it.fit) onText(d.innerText, d.scrollHeight, d.offsetWidth);
     try { d.focus({ preventScroll: true }); } catch { d.focus(); }
     // keep the box in sight above the on-screen keyboard
     setTimeout(() => { try { d.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* old browsers */ } }, 350);
@@ -568,9 +570,9 @@ function TextEditor({ it, zoom, onText }) {
     sel.addRange(r);
   }, [it.id]);
   return (
-    <div ref={el} className="nb-textedit" contentEditable suppressContentEditableWarning spellCheck
-      style={{ left: it.x * zoom, top: it.y * zoom, width: it.w * zoom, minHeight: 40 * zoom, fontFamily: f.css, fontSize: it.fontSize * f.scale * zoom, color: it.color, lineHeight: 1.35 }}
-      onInput={(e) => onText(e.currentTarget.innerText, e.currentTarget.scrollHeight)}
+    <div ref={el} className={"nb-textedit" + (it.fit ? " fit" : "")} contentEditable suppressContentEditableWarning spellCheck
+      style={{ left: it.x * zoom, top: it.y * zoom, width: it.fit ? undefined : it.w * zoom, maxWidth: it.fit ? Math.max(60, maxW - it.x) * zoom : undefined, minHeight: it.fit ? undefined : 40 * zoom, fontFamily: f.css, fontSize: it.fontSize * f.scale * zoom, color: it.color, lineHeight: 1.35 }}
+      onInput={(e) => onText(e.currentTarget.innerText, e.currentTarget.scrollHeight, e.currentTarget.offsetWidth)}
       onPointerDown={(e) => e.stopPropagation()} />
   );
 }
@@ -1717,7 +1719,9 @@ function Editor({ id, go, onClose }) {
   const [pop, setPop] = useState(null); // the tool whose settings are open
   const ring = useRef(null); // the circle that shows a tool's size under the pointer
   const holdT = useRef(null);
-  const [font, setFont] = useState("caveat");
+  // Plain Arial unless the student picks another; their last pick is kept.
+  const [font, setFontState] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "arial"; } catch { return "arial"; } });
+  const setFont = (id) => { setFontState(id); try { localStorage.setItem("dwiddle-nb-font", id); } catch { /* private mode */ } };
   const [zoom, setZoom] = useState(1);
   const [live, setLive] = useState(null); // { pageId, item }: a shape being drawn
   // A stroke being drawn lives outside React state and is drawn straight
@@ -2165,7 +2169,7 @@ function Editor({ id, go, onClose }) {
         capture(e.currentTarget, e);
         return;
       }
-      const it = { id: uid(), type: "text", x, y: y - 20, w: 360, h: 60, text: "", font, fontSize: 22, color: ink, tilt: (Math.random() - 0.5) * 1.2 };
+      const it = { id: uid(), type: "text", x, y: y - 20, w: 40, h: 40, fit: true, text: "", font, fontSize: 22, color: ink, tilt: (Math.random() - 0.5) * 1.2 };
       updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
       setEditingText(it.id);
       setSel({ pageId: page.id, itemId: it.id });
@@ -2987,12 +2991,14 @@ function Editor({ id, go, onClose }) {
                       <button onClick={() => set({ fontSize: Math.min(96, ed.fontSize + 2) })} aria-label="Bigger text">A+</button>
                       <button className="danger" onClick={() => { updatePage(page.id, (p) => ({ ...p, items: p.items.filter((x) => x.id !== ed.id) })); setEditingText(null); setSel(null); }}>Delete</button>
                     </FitBar>
-                    <TextEditor it={ed} zoom={zoom}
-                      onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} />
-                    <div className="nb-textwidth" style={{ left: (ed.x + ed.w) * zoom - 8, top: ed.y * zoom, height: Math.max(40, ed.h || 40) * zoom }}
+                    <TextEditor it={ed} zoom={zoom} maxW={page.w}
+                      onText={(text, hPx, wPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: x.fit ? Math.max(16, hPx / zoom + 2) : Math.max(40, hPx / zoom + 8),
+                        // a box that fits its words, with a little room for handwriting's wobble
+                        ...(x.fit ? { w: Math.max(24, (wPx / zoom) * (fontOf(x.font).hand ? 1.06 : 1) + 6) } : {}) } : x)) }), { record: false })} />
+                    <div className="nb-textwidth" style={{ left: (ed.x + ed.w) * zoom - 8, top: ed.y * zoom, height: Math.max(16, ed.h || 40) * zoom }}
                       aria-label="Drag to change the width" title="Drag to change the width"
                       onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ } widthDrag.current = { x: e.clientX, w: ed.w }; }}
-                      onPointerMove={(e) => { const d = widthDrag.current; if (d) set({ w: Math.max(60, d.w + (e.clientX - d.x) / zoom) }); }}
+                      onPointerMove={(e) => { const d = widthDrag.current; if (d) set({ w: Math.max(60, d.w + (e.clientX - d.x) / zoom), fit: false }); }}
                       onPointerUp={() => { widthDrag.current = null; }} />
                   </>
                 );
