@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { activeAnnouncement, publicReviews, latestUpdates } from "./supabase.js";
 import { ThemeMark } from "./ThemeMark.jsx";
+import { UserIcon } from "./Profile.jsx";
 import { THEMES } from "./themes.js";
 import { DuckTalk } from "./Chat.jsx";
 import shotNotes from "./assets/shots/desktop-notes.webp";
@@ -713,19 +714,18 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           <div className="reviews">
             {reviews.map((r) => (
               <figure className="review-card" key={r.id}>
+                {r.title && <h3 className="review-title">{r.title}</h3>}
                 {r.rating ? (
                   <div className="review-stars" aria-label={`${r.rating} out of 5`}>
                     {"★".repeat(r.rating)}
                     <span style={{ color: "var(--line)" }}>{"★".repeat(5 - r.rating)}</span>
                   </div>
                 ) : null}
-                <p>{r.message}</p>
-                {r.name && (
-                  <figcaption className="review-by">
-                    <ReviewAvatar name={r.name} src={r.avatar} />
-                    <span>{r.name}</span>
-                  </figcaption>
-                )}
+                <blockquote className="review-quote">“<Highlighted text={r.message} mark={r.highlight} />”</blockquote>
+                <figcaption className="review-by">
+                  <UserIcon avatar={r.avatar} size={30} />
+                  <span>{r.name || "A Dwiddle user"}</span>
+                </figcaption>
               </figure>
             ))}
           </div>
@@ -818,14 +818,12 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   );
 }
 
-// The reviewer's Google picture, or their first letter when there is none
-// or it fails to load.
-function ReviewAvatar({ name, src }) {
-  const [broken, setBroken] = useState(false);
-  if (src && !broken && /^https:\/\//.test(src)) {
-    return <img className="review-avatar" src={src} alt="" width={28} height={28} referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
-  }
-  return <span className="review-avatar" aria-hidden="true">{String(name).trim().charAt(0).toUpperCase()}</span>;
+// A review with the phrase staff picked marked, the way a highlighter would.
+function Highlighted({ text, mark }) {
+  const t = String(text || "");
+  const i = mark ? t.toLowerCase().indexOf(String(mark).toLowerCase()) : -1;
+  if (i < 0) return t;
+  return <>{t.slice(0, i)}<mark className="review-mark">{t.slice(i, i + mark.length)}</mark>{t.slice(i + mark.length)}</>;
 }
 
 // An update log: lines starting with "- " become a list, anything else a line of text.

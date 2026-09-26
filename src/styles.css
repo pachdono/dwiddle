@@ -7023,3 +7023,29 @@ a.nav-item { text-decoration: none; color: inherit; }
   background: var(--accent-soft, #e6ebff); color: var(--accent); font-size: 12.5px; font-weight: 700; }
 .review-card { display: flex; flex-direction: column; }
 .review-card p { flex: 1; }
+
+/* ---------- profile pictures ---------- */
+.uicon { display: inline-grid; place-items: center; flex: 0 0 auto; border-radius: 50%; overflow: hidden; object-fit: cover; vertical-align: middle; }
+.uicon svg { display: block; }
+.uicon-duck { background: #fff4c7; }
+.profile-card { padding: 4px 24px 20px; display: grid; gap: 16px; }
+.profile-top { display: flex; align-items: flex-start; gap: 16px; }
+.profile-top .uicon { box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--line); }
+.profile-top input { width: 100%; }
+.profile-top small { display: block; margin-top: 6px; font-size: 12px; }
+.icon-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.icon-pick { width: 52px; height: 52px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: none; display: grid; place-items: center; cursor: pointer; }
+.icon-pick:hover { border-color: var(--line); }
+.icon-pick.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.icon-upload { border: 2px dashed var(--line); color: var(--ink-3); font-size: 22px; font-weight: 500; }
+.icon-upload:hover { color: var(--accent); border-color: var(--accent); }
+.profile-card .profile-actions { align-items: center; margin-top: 0; }
+.warn-text { color: var(--warn); }
+.fb-title { margin-top: 10px; width: 100%; }
+
+/* ---------- reviews on the front page ---------- */
+.review-card { padding: 22px 24px 20px; border-radius: 18px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04); }
+.review-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.review-quote { flex: 1; margin: 10px 0 0; font-size: 15px; line-height: 1.7; color: var(--ink-3); }
+.review-mark { padding: 1px 5px; border-radius: 6px; background: #fbf1b8; color: #1b1d26; font-weight: 700; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.review-by { margin-top: 18px; font-weight: 600; color: var(--ink-2); }

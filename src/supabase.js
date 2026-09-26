@@ -259,7 +259,7 @@ export async function userCount() {
 // Written straight to the table, which is insert only and readable only once
 // approved, so nothing anyone submits can appear anywhere until it is approved
 // in the dashboard.
-export async function submitFeedback({ kind, rating, message, contact }) {
+export async function submitFeedback({ kind, rating, message, contact, title }) {
   if (!supabase) return { stored: false, reason: "Accounts are not configured" };
 
   const { data: session } = await supabase.auth.getSession();
@@ -271,6 +271,7 @@ export async function submitFeedback({ kind, rating, message, contact }) {
     rating: kind === "review" ? rating : null,
     message,
     contact: contact || user?.email || null,
+    ...(title ? { title } : {}),
   });
 
   if (error) {
@@ -302,7 +303,7 @@ export async function approvedReviews(limit = 6) {
 export async function getProfile(userId) {
   if (!supabase) return undefined;
   const { data, error } = await supabase
-    .from("profiles").select("first_name, last_name, birth_date, country").eq("user_id", userId).maybeSingle();
+    .from("profiles").select("*").eq("user_id", userId).maybeSingle();
   if (error) { console.warn("[profile] read failed", error.message); return undefined; }
   return data ?? null;
 }
@@ -317,6 +318,14 @@ export async function saveProfile(userId, p) {
     country: p.country?.trim() || null,
   }, { onConflict: "user_id" });
   return error ? { ok: false, reason: error.message } : { ok: true };
+}
+
+// The name and picture shown for them, changed in Settings.
+export async function saveLook(userId, { display_name, avatar }) {
+  if (!supabase) return { ok: false, reason: "Accounts are not configured" };
+  const { data, error } = await supabase.from("profiles").update({ display_name, avatar }).eq("user_id", userId).select("user_id");
+  if (error) return { ok: false, reason: /column/.test(error.message) ? "Profiles are being set up. Try again soon." : error.message };
+  return data?.length ? { ok: true } : { ok: false, reason: "Fill in your details first." };
 }
 
 export async function activeAnnouncement() {

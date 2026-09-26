@@ -9,7 +9,8 @@ import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
-import { useAuth, Account, SignInPage, Avatar, ProfileGate } from "./Account.jsx";
+import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
+import { useMyProfile, UserIcon } from "./Profile.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
@@ -388,6 +389,7 @@ export default function App() {
     return () => { live = false; };
   }, [auth.user]);
   const staff = !!access.role;
+  const profile = useMyProfile(auth.user);
 
   // Session storage, so closing the tab brings the landing page back. Anyone
   // signed in skips it entirely, because their work is already safe.
@@ -745,9 +747,9 @@ export default function App() {
         <div className="sidebar-foot">
           {auth.user ? (
             <div className="user">
-              <Avatar user={auth.user} size={26} initials={initialsOf(auth.user)} />
+              <UserIcon avatar={profile?.avatar} user={auth.user} size={26} />
               <div style={{ minWidth: 0 }}>
-                <div className="user-name">{displayName(auth.user)}</div>
+                <div className="user-name">{profile?.display_name || displayName(auth.user)}</div>
                 <div className="user-sub">Synced{access.role ? ` · ${access.role === "admin" ? "Admin" : "Moderator"}` : access.tester ? " · Tester" : ""}</div>
               </div>
             </div>
@@ -1072,7 +1074,8 @@ const SHORTCUTS = [
 function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
   customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {} }) {
   const [pick] = useState(() => Math.random());
-  const hello = greeting(nameFor(auth?.user), pick);
+  const me = useMyProfile(auth?.user);
+  const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
   const tip = tipOfDay();
   const week = lastWeek(stats.days);
   const toFix = bank.filter((q) => missed.includes(q.id)).length;
@@ -4810,6 +4813,7 @@ function FeedbackPage({ auth }) {
   const [rating, setRating] = useState(0);
   const [message, setMessage] = useState("");
   const [contact, setContact] = useState("");
+  const [title, setTitle] = useState("");
   const [state, setState] = useState("idle"); // idle | sending | done | error
   const [note, setNote] = useState("");
 
@@ -4827,6 +4831,7 @@ function FeedbackPage({ auth }) {
       rating: rating || null,
       message: message.trim(),
       contact: contact.trim(),
+      title: kind === "review" ? title.trim().slice(0, 80) : "",
     });
 
     let emailed = false, thanked = false;
@@ -4900,6 +4905,8 @@ function FeedbackPage({ auth }) {
           <div className="card card-pad">
             <b className="small">How is it?</b>
             <Stars value={rating} onPick={setRating} />
+            <input type="text" className="fb-title" maxLength={80} value={title} placeholder="Sum it up in a few words (optional), like: Literally a life saver"
+              onChange={(e) => setTitle(e.target.value)} />
             <p className="small muted" style={{ margin: "10px 0 0" }}>
               Reviews are read before they appear anywhere, so nothing goes public automatically. If yours
               is picked for the front page, your first name and profile picture show with it.

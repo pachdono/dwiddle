@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
+import { ProfileCard, setMyProfile } from "./Profile.jsx";
 
 // Google supplies a profile picture; an email link sign in does not. Either
 // way the caller gets something to show.
@@ -309,7 +310,7 @@ export function ProfileGate({ user }) {
       <div className="gate profile-gate" role="dialog" aria-modal="true" aria-labelledby="pf-title">
         <h2 id="pf-title">Finish setting up your account</h2>
         <p className="gate-sub">A few details so your account is yours. Only you and the Dwiddle team can see them.</p>
-        <ProfileForm user={user} initial={{ first_name: first, last_name: rest.join(" ") }} submitLabel="Continue" onSaved={() => setNeed(false)} />
+        <ProfileForm user={user} initial={{ first_name: first, last_name: rest.join(" ") }} submitLabel="Continue" onSaved={(x) => { setMyProfile(x); setNeed(false); }} />
       </div>
     </div>
   );
@@ -322,7 +323,7 @@ function YourDetails({ user }) {
   if (p === undefined) return null;
   if (editing || p === null) {
     return <div className="card-pad" style={{ paddingTop: 0 }}>
-      <ProfileForm user={user} initial={p} onSaved={(x) => { setP(x); setEditing(false); }} onCancel={p ? () => setEditing(false) : undefined} />
+      <ProfileForm user={user} initial={p} onSaved={(x) => { setP(x); setMyProfile(x); setEditing(false); }} onCancel={p ? () => setEditing(false) : undefined} />
     </div>;
   }
   return (
@@ -368,6 +369,8 @@ export function Account({ user, syncedAt, signOut }) {
           <button className="btn ghost" onClick={signOut}>Sign out</button>
         </div>
         <YourDetails user={user} />
+        <div className="card-head" style={{ borderTop: "1px solid var(--line-soft)" }}><h3>Profile</h3></div>
+        <ProfileCard user={user} />
       </div>
     );
   }
