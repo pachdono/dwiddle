@@ -5,14 +5,13 @@
 import { useEffect, useState } from "react";
 import { getProfile, saveLook } from "./supabase.js";
 import { ThemeMark } from "./ThemeMark.jsx";
-import { DuckMark } from "./Duck.jsx";
 import { avatarUrl } from "./Account.jsx";
+import { CHARACTERS, DuckAvatar } from "./DuckAvatars.jsx";
 
-// Dwiddle's own pictures: the plain duck and the duck from every theme.
-export const DUCKS = [
-  ["classic", "Dwiddle"], ["sakura", "Sakura"], ["cottage", "Cottage"], ["matcha", "Matcha"], ["violet", "Violet"],
-  ["ocean", "Ocean"], ["prismarine", "Prismarine"], ["sunset", "Sunset"], ["autumn", "Autumn"], ["midnight", "Midnight"],
-];
+// Dwiddle's own pictures: Dwiddle, Puddle and Dwiddle dressed up.
+export const DUCKS = CHARACTERS.map((c) => [c.id, c.name]);
+// Older picks from before the characters: the theme ducks.
+const SCENE_IDS = ["sakura", "cottage", "matcha", "violet", "ocean", "prismarine", "sunset", "autumn", "midnight"];
 
 /* ---------- one copy of the signed in person's profile, shared ---------- */
 
@@ -47,14 +46,15 @@ export function iconSource(avatar, user) {
   if (avatar?.startsWith("duck:")) return { duck: avatar.slice(5) };
   if (avatar?.startsWith("data:image/") || /^https:\/\//.test(avatar || "")) return { src: avatar };
   const g = avatarUrl(user);
-  return g ? { src: g } : { duck: "classic" };
+  return g ? { src: g } : { duck: "dwiddle" };
 }
 
-export function DuckIcon({ theme = "classic", size = 32, dark = false }) {
-  if (theme === "classic" || !DUCKS.some(([id]) => id === theme)) {
-    return <span className="uicon uicon-duck" style={{ width: size, height: size }}><DuckMark size={size * 0.68} /></span>;
+export function DuckIcon({ theme = "dwiddle", size = 32, dark = false }) {
+  if (SCENE_IDS.includes(theme)) {
+    return <span className="uicon" style={{ width: size, height: size }}><ThemeMark theme={theme} dark={dark} size={size} /></span>;
   }
-  return <span className="uicon" style={{ width: size, height: size }}><ThemeMark theme={theme} dark={dark} size={size} /></span>;
+  if (theme === "classic") theme = "dwiddle";
+  return <span className="uicon" style={{ width: size, height: size }}><DuckAvatar id={theme} size={size} /></span>;
 }
 
 // The round picture for a person. Falls back to the Dwiddle duck.
@@ -65,7 +65,7 @@ export function UserIcon({ avatar, user, size = 32 }) {
     return <img className="uicon" src={s.src} alt="" width={size} height={size} style={{ width: size, height: size }}
       referrerPolicy="no-referrer" onError={() => setBroken(true)} />;
   }
-  return <DuckIcon theme={s.duck || "classic"} size={size} />;
+  return <DuckIcon theme={s.duck || "dwiddle"} size={size} />;
 }
 
 /* ---------- choosing them, in Settings ---------- */
