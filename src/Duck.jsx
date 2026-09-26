@@ -307,7 +307,8 @@ export function DuckCouch({ size = 300, className = "" }) {
 // beak: only a raised wing and a placard are new. The board is left mostly
 // empty on purpose, because the sentence beside it does the talking and a
 // second copy of it painted into a drawing would be one too many.
-export function DuckSign({ size = 190, className = "" }) {
+// The sign says whatever it is given: infinity for the free gate, 404 for a lost page.
+export function DuckSign({ size = 190, className = "", label = "\u221e" }) {
   return (
     <svg
       className={className}
@@ -362,8 +363,8 @@ export function DuckSign({ size = 190, className = "" }) {
       {/* the board, tilted so it reads as held rather than mounted */}
       <g transform="rotate(-7 148 30)">
         <rect x="106" y="8" width="84" height="46" rx="7" fill="#fff" stroke="#E3E3DF" strokeWidth="2" />
-        <text x="148" y="40" textAnchor="middle" fontSize="30" fontWeight="700"
-          fill={BAND} fontFamily="Inter, system-ui, sans-serif">&#8734;</text>
+        <text x="148" y={label.length > 1 ? 39 : 40} textAnchor="middle" fontSize={label.length > 1 ? 24 : 30} fontWeight="800"
+          fill={BAND} fontFamily="Inter, system-ui, sans-serif">{label}</text>
       </g>
     </svg>
   );

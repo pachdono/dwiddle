@@ -7016,3 +7016,5 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .update-card li::marker { color: var(--accent); }
 .updates-list { align-items: start; }
 .updates-more { display: flex; margin: 14px auto 0; }
+a.nav-item { text-decoration: none; color: inherit; }
+.notfound svg { margin-bottom: 4px; }

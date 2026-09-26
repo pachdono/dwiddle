@@ -334,3 +334,11 @@ export async function latestUpdates(limit = 4) {
     .order("published_at", { ascending: false }).limit(limit);
   return error ? [] : data || [];
 }
+
+// Whether the signed in account is on the staff list. Only decides whether a
+// link shows; the staff site and the database check again for themselves.
+export async function amStaff() {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("is_staff");
+  return !error && data === true;
+}

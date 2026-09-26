@@ -10,7 +10,7 @@ import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, Avatar, ProfileGate } from "./Account.jsx";
-import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
+import { pushProgress, localSnapshot, configured, userCount, submitFeedback, amStaff } from "./supabase.js";
 import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
@@ -22,7 +22,7 @@ import { FullscreenButton } from "./ContextMenu.jsx";
 import { loadSrs, recordReview, dueFrom, reviewOn, setReviewOn } from "./srs.js";
 import { TooMuch } from "./TooMuch.jsx";
 import { buildFresh, unseenCount, clearSeen, bankFor } from "./bank.js";
-import { Duck, DuckMark } from "./Duck.jsx";
+import { Duck, DuckMark, DuckSign } from "./Duck.jsx";
 import { ThemeMark } from "./ThemeMark.jsx";
 import { THEMES, loadLook, saveLook, applyLook } from "./themes.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
@@ -98,7 +98,7 @@ function routeOf(pathname) {
 function NotFound({ onHome }) {
   return (
     <div className="notfound">
-      <Duck size={128} />
+      <DuckSign size={210} label="404" />
       <h1>This page does not exist</h1>
       <p>
         There is nothing at <code>{window.location.pathname}</code>. It may have been a typo, or a
@@ -245,6 +245,8 @@ const ALL_NAV = [
   { id: "install-all", label: "Every platform" },
 ];
 
+const STAFF_URL = import.meta.env.VITE_STAFF_URL || "https://dwiddle-staff.vercel.app";
+
 export default function App() {
   const [page, setPage] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).page : null) || "home");
   const lastInGroup = useRef({});
@@ -362,6 +364,13 @@ export default function App() {
     clearSession(KEYS.entered);
     setEnteredRaw(false);
   });
+  const [staff, setStaff] = useState(false);
+  useEffect(() => {
+    if (!auth.user) { setStaff(false); return; }
+    let live = true;
+    amStaff().then((v) => live && setStaff(v));
+    return () => { live = false; };
+  }, [auth.user]);
 
   // Session storage, so closing the tab brings the landing page back. Anyone
   // signed in skips it entirely, because their work is already safe.
@@ -703,6 +712,13 @@ export default function App() {
             <Icon name="chat" />
             Feedback
           </button>
+          {/* Only staff accounts see this, and only the database decides who is staff. */}
+          {staff && (
+            <a className="nav-item nav-staff" href={STAFF_URL} target="_blank" rel="noreferrer">
+              <Icon name="flag" />
+              Staff
+            </a>
+          )}
         </nav>
 
         <div className="sidebar-foot">
