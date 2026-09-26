@@ -405,11 +405,11 @@ function ItemView({ it, editing, onText, shown }) {
   }
   if (it.type === "stroke" && it.uniform) {
     return <path d={linePath(it.points)} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
-      opacity={it.tool === "highlighter" ? 0.38 : 1} style={it.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />;
+      opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
     return <path d={it.d || inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1}
-      style={it.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />;
+      />;
   }
   if (it.type === "shape") return <Shape it={it} />;
   if (it.type === "image") return <image href={it.src} x={it.x} y={it.y} width={it.w} height={it.h} preserveAspectRatio="xMidYMid meet" />;
@@ -1583,7 +1583,17 @@ function Editor({ id, go, onClose }) {
   toolRef.current = tool;
   const fingerRef = useRef(true);
   fingerRef.current = prefs.finger !== false;
-  const twoFinger = useRef(null); // { x, y } midpoint while two fingers scroll
+  const twoFinger = useRef(null); // { x, y, d, z } while two fingers pinch or scroll
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  // Safari's own pinch zoom would scale the page as a picture; the notebook
+  // does its own.
+  useEffect(() => {
+    const stop = (e) => e.preventDefault();
+    document.addEventListener("gesturestart", stop);
+    document.addEventListener("gesturechange", stop);
+    return () => { document.removeEventListener("gesturestart", stop); document.removeEventListener("gesturechange", stop); };
+  }, []);
   // Add ?nbdebug to the address to see what the device sends while drawing.
   const [debug, setDebug] = useState(() => (/nbdebug/.test(location.search) ? [] : null));
   const log = (type, e) => {
@@ -1614,38 +1624,54 @@ function Editor({ id, go, onClose }) {
     const el = pagesRef.current;
     if (!el) return;
     const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+    const span = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    // Two fingers pinch to zoom and drag to scroll, whatever the tool. The
+    // notebook zooms itself, redrawing the ink sharp at every size, rather
+    // than letting the browser blow the page up like a photo.
+    const pinchStart = (e) => {
+      twoFinger.current = { ...mid(e.touches), d: span(e.touches), z: zoomRef.current };
+      setLive(null);
+      liveStroke.current = null;
+      setLiveOn(null);
+      lasso.current = null;
+      setLassoOn(null);
+      drag.current = null;
+      e.preventDefault();
+    };
+    const pinchMove = (e) => {
+      const m = mid(e.touches), t = twoFinger.current;
+      const r = el.getBoundingClientRect();
+      const z = Math.max(0.4, Math.min(3, t.z * (span(e.touches) / t.d)));
+      const old = zoomRef.current;
+      if (Math.abs(z - old) > 0.004) {
+        // keep the spot between the fingers where it is
+        const cx = el.scrollLeft + (m.x - r.left), cy = el.scrollTop + (m.y - r.top);
+        zoomRef.current = z;
+        setZoom(z);
+        requestAnimationFrame(() => { el.scrollLeft = cx * (z / old) - (m.x - r.left); el.scrollTop = cy * (z / old) - (m.y - r.top); });
+      }
+      el.scrollBy(t.x - m.x, t.y - m.y);
+      t.x = m.x; t.y = m.y;
+      e.preventDefault();
+    };
     // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
     // hand tool, it scrolls. Two fingers always scroll.
     const stylus = (e) => [...e.changedTouches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
+      if (e.touches.length >= 2) { pinchStart(e); return; }
       if (toolRef.current === "hand") return; // the browser scrolls
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
       if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return; // placing the caret in text being typed
-      if (e.touches.length >= 2) {
-        twoFinger.current = mid(e.touches);
-        setLive(null);
-        liveStroke.current = null;
-        setLiveOn(null);
-        drag.current = null;
-        e.preventDefault();
-        return;
-      }
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onMove = (e) => {
+      if (twoFinger.current && e.touches.length >= 2) { pinchMove(e); return; }
       if (toolRef.current === "hand") return;
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return;
-      if (twoFinger.current && e.touches.length >= 2) {
-        const m = mid(e.touches);
-        el.scrollBy(twoFinger.current.x - m.x, twoFinger.current.y - m.y);
-        twoFinger.current = m;
-        e.preventDefault();
-        return;
-      }
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onEnd = (e) => {
@@ -2421,9 +2447,9 @@ function Editor({ id, go, onClose }) {
                 )}
                 {liveOn?.pageId === page.id && (liveOn.uniform
                   ? <path ref={livePath} fill="none" stroke={liveOn.color} strokeWidth={liveOn.size} strokeLinecap="round" strokeLinejoin="round"
-                      opacity={liveOn.tool === "highlighter" ? 0.38 : 1} style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />
+                      opacity={liveOn.tool === "highlighter" ? 0.38 : 1} />
                   : <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
-                      style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />)}
+                      />)}
                 {lassoOn === page.id && <path ref={lassoPath} fill="rgba(59, 91, 253, 0.06)" stroke="#3B5BFD" strokeWidth={1.5 / zoom} strokeDasharray={`${6 / zoom} ${5 / zoom}`} />}
                 {group?.pageId === page.id && (() => {
                   const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
