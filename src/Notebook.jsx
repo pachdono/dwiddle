@@ -7,7 +7,7 @@
 // from the pen's pressure the way a real nib spreads, and a pen being used
 // switches touch to scrolling, so a resting palm does not draw.
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getStroke } from "perfect-freehand";
 import "@fontsource/caveat/400.css";
 import "@fontsource/caveat/600.css";
@@ -392,7 +392,10 @@ function HandText({ text, seed }) {
         if (ch === " ") return " ";
         const k = seed + ":" + li + ":" + i;
         const r = (rand(k + "r") - 0.5) * 5, dy = (rand(k + "y") - 0.5) * 0.09, sc = 0.94 + rand(k + "s") * 0.12;
-        return <span key={i} style={{ display: "inline-block", transform: `translateY(${dy}em) rotate(${r}deg) scale(${sc})` }}>{ch}</span>;
+        // No CSS transforms here: inside the drawing, Safari paints transformed
+        // text in the wrong place (far off on a phone), so each letter is
+        // nudged with its line position and size instead.
+        return <span key={i} style={{ verticalAlign: `${(-dy - r * 0.004).toFixed(3)}em`, fontSize: `${sc.toFixed(3)}em` }}>{ch}</span>;
       })}
     </span>
   ));
@@ -423,6 +426,16 @@ function unionBox(items) {
   const bs = items.map(boxOf);
   const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
   return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+}
+// The top thing under a spot. A fingertip is wide and a phone shows the
+// page small, so touches get some room around each thing.
+function itemAt(items, x, y, pad) {
+  return [...items].reverse().find((i) => {
+    if (i.type === "text" && !String(i.text || "").trim()) return false;
+    if (i.type === "stroke") return strokeDist(i, x, y) < i.size / 2 + pad;
+    const b = boxOf(i);
+    return x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad;
+  });
 }
 function insidePoly(poly, x, y) {
   let hit = false;
@@ -500,10 +513,16 @@ function ItemView({ it, editing, onText, shown }) {
   if (it.type === "text") {
     if (editing) return null; // shown by the editor over the page while typing
     const f = fontOf(it.font);
+    // The slight tilt of handwriting is turned by the drawing itself: a CSS
+    // transform inside it lands in the wrong place in Safari.
+    const tilt = f.id !== "sans" && f.id !== "serif" ? it.tilt || 0 : 0;
+    const h = Math.max(it.h || 60, 40);
     return (
-      <foreignObject x={it.x} y={it.y} width={it.w} height={Math.max(it.h || 60, 40)} style={{ overflow: "visible", pointerEvents: "none" }}>
-        <TextBox it={it} f={f} />
-      </foreignObject>
+      <g transform={tilt ? `rotate(${tilt} ${it.x + it.w / 2} ${it.y + h / 2})` : undefined}>
+        <foreignObject x={it.x} y={it.y} width={it.w} height={h} style={{ overflow: "visible", pointerEvents: "none" }}>
+          <TextBox it={it} f={f} />
+        </foreignObject>
+      </g>
     );
   }
   return null;
@@ -511,9 +530,20 @@ function ItemView({ it, editing, onText, shown }) {
 
 function TextBox({ it, f }) {
   useFont(f);
-  const style = { fontFamily: f.css, fontSize: it.fontSize * f.scale, color: it.color, lineHeight: 1.35,
-    transform: f.id !== "sans" && f.id !== "serif" ? `rotate(${it.tilt || 0}deg)` : undefined };
+  const style = { fontFamily: f.css, fontSize: it.fontSize * f.scale, color: it.color, lineHeight: 1.35 };
   return <div className="nb-text" style={style}>{f.hand && it.wobble !== false ? <HandText text={it.text} seed={it.id} /> : (it.text || " ")}</div>;
+}
+
+// A bar that floats over the page by what it acts on, kept inside the
+// page's edges: on a phone the page is narrow and it would run off.
+function FitBar({ className, x, y, children }) {
+  const el = useRef(null);
+  useLayoutEffect(() => {
+    const d = el.current, p = d?.parentElement;
+    if (!d || !p) return;
+    d.style.left = Math.max(4, Math.min(x, p.clientWidth - d.offsetWidth - 4)) + "px";
+  });
+  return <div ref={el} className={className} style={{ left: x, top: y }} onPointerDown={(e) => e.stopPropagation()}>{children}</div>;
 }
 
 // Typing happens in an ordinary box laid over the page, not inside the
@@ -1775,6 +1805,7 @@ function Editor({ id, go, onClose }) {
   const [split, setSplit] = useState(false); // research beside the notebook
   const [adding, setAdding] = useState(false); // the add page menu
   const [pageMenu, setPageMenu] = useState(false); // paper, add, remove, print
+  const [more, setMore] = useState(false); // on a phone: pictures, split screen, video, ruler, protractor
   const [fontPop, setFontPop] = useState(false);
   const [thumbMenu, setThumbMenu] = useState(null); // { i, top } options for a page in the sidebar
   const past = useRef([]);
@@ -1929,8 +1960,7 @@ function Editor({ id, go, onClose }) {
         const gb = unionBox(pg.items.filter((i) => g.ids.includes(i.id)));
         if (gb && x >= gb.x - 30 / k && x <= gb.x + gb.w + 30 / k && y >= gb.y - 30 / k && y <= gb.y + gb.h + 30 / k) return true;
       }
-      return pg.items.some((i) => (i.type === "stroke" ? strokeDist(i, x, y) < i.size / 2 + 8 / k
-        : (() => { const bb = boxOf(i); return x >= bb.x && x <= bb.x + bb.w && y >= bb.y && y <= bb.y + bb.h; })()));
+      return !!itemAt(pg.items, x, y, 16 / k);
     };
     const fingers = (e) => [...e.touches].filter((t) => t.touchType !== "stylus");
     const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
@@ -1954,7 +1984,7 @@ function Editor({ id, go, onClose }) {
       if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg") && onSomething(e.changedTouches[0])) e.preventDefault(); return; }
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
       if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
-      if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
+      if (!fingerRef.current && DRAWING_TOOLS.includes(toolRef.current)) return; // Pencil only: a finger scrolls instead of drawing
       if (e.target.closest?.(".nb-textedit")) return; // placing the caret in text being typed
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
@@ -1966,7 +1996,7 @@ function Editor({ id, go, onClose }) {
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
       if (twoFinger.current && fingers(e).length >= 2) { pinchMove(e); return; }
       if (toolRef.current === "hand") return;
-      if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
+      if (!fingerRef.current && DRAWING_TOOLS.includes(toolRef.current)) return; // Pencil only: a finger scrolls instead of drawing
       if (e.target.closest?.(".nb-textedit")) return;
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
@@ -2101,16 +2131,13 @@ function Editor({ id, go, onClose }) {
           drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
           return;
         }
-        if (gb && x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
+        const gp = (e.pointerType === "mouse" ? 0 : 12) / zoom;
+        if (gb && x >= gb.x - gp && x <= gb.x + gb.w + gp && y >= gb.y - gp && y <= gb.y + gb.h + gp) {
           drag.current = { groupMove: true, pageId: page.id, x, y, sx: x, sy: y, moved: false, start: book };
           return;
         }
       }
-      const hit = [...page.items].reverse().find((i) => {
-        if (i.type === "stroke") return strokeDist(i, x, y) < i.size / 2 + 8 / zoom;
-        const b = boxOf(i);
-        return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
-      });
+      const hit = itemAt(page.items, x, y, (e.pointerType === "mouse" ? 6 : 16) / zoom);
       log("hand hit " + (hit ? hit.type : "nothing"), e);
       // (a second tap on the same text, counted when the finger lifts, opens it for typing)
       if (hit) {
@@ -2156,7 +2183,8 @@ function Editor({ id, go, onClose }) {
             drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
             return;
           }
-          if (x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
+          const gp = (e.pointerType === "mouse" ? 0 : 12) / zoom;
+          if (x >= gb.x - gp && x <= gb.x + gb.w + gp && y >= gb.y - gp && y <= gb.y + gb.h + gp) {
             drag.current = { groupMove: true, pageId: page.id, x, y, sx: x, sy: y, moved: false, start: book };
             return;
           }
@@ -2164,7 +2192,7 @@ function Editor({ id, go, onClose }) {
       }
       setGroup(null);
       setSel(null);
-      lasso.current = { pageId: page.id, pts: [[x, y]] };
+      lasso.current = { pageId: page.id, pts: [[x, y]], mouse: e.pointerType === "mouse" };
       setLassoOn(page.id);
       return;
     }
@@ -2482,7 +2510,7 @@ function Editor({ id, go, onClose }) {
       if (far < 16 / zoom) {
         // a tap picks the one thing under it; a second tap on text opens it
         const [x, y] = L.pts[0];
-        const hit = [...page.items].reverse().find((i) => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; });
+        const hit = itemAt(page.items, x, y, (L.mouse ? 6 : 16) / zoom);
         log("lasso tap " + (hit ? hit.type : "nothing"), {});
         if (hit?.type === "text") {
           const now = Date.now(), again = lastTextTap.current.id === hit.id && now - lastTextTap.current.t < 450;
@@ -2681,35 +2709,41 @@ function Editor({ id, go, onClose }) {
                 : <Icon name={t.icon} size={18} />}
             </button>
           ))}
-          <label className="nb-tool" title="Add a picture" aria-label="Add a picture">
+          <label className="nb-tool nb-extra" title="Add a picture" aria-label="Add a picture">
             <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addImage(f); }} />
             <Icon name="image" size={18} />
           </label>
-          <button className={"nb-tool" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
+          <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
             onClick={() => setSplit((v) => !v)}>
             <Icon name="split" size={18} />
           </button>
-          <button className={"nb-tool" + (video !== null ? " on" : "")} title="Watch a video or listen to a recording while you write" aria-label="Watch or listen while you write"
+          <button className={"nb-tool nb-extra" + (video !== null ? " on" : "")} title="Watch a video or listen to a recording while you write" aria-label="Watch or listen while you write"
             onClick={() => setVideo((v) => (v === null ? "" : null))}>
             <Icon name="video" size={18} />
           </button>
+          {/* On a phone the rarer tools live in here, so every tool you
+              write with fits on one row without scrolling. */}
+          <button className={"nb-tool nb-morebtn" + (more ? " on" : "")} aria-label="More tools" aria-expanded={more} title="More tools"
+            onClick={() => setMore((v) => !v)}>
+            <Icon name="more" size={18} />
+          </button>
         </div>
-        <button className={"nb-tool" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
+        <button className={"nb-tool nb-extra" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
           aria-label="Ruler" aria-pressed={!!ruler}
           onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
           <Icon name="ruler" size={18} />
         </button>
-        <button className={"nb-tool" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
+        <button className={"nb-tool nb-extra" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
           aria-label="Protractor" aria-pressed={!!prot}
           onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}>
           <Icon name="protractor" size={18} />
         </button>
-        <button className={"nb-pill nb-drawwith" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
+        <button className={"nb-pill nb-drawwith nb-extra" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
           title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
           {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
         </button>
         {(prefs.pens || []).length > 0 && (
-          <div className="nb-group nb-case" aria-label="Pencil case">
+          <div className="nb-group nb-case nb-extra" aria-label="Pencil case">
             {prefs.pens.map((pn) => {
               const on = tool === pn.tool && (pn.tool === "highlighter" ? hl : pn.tool === "revealer" ? cov : ink) === pn.color && size === pn.size
                 && (pn.tool !== "pen" || prefs.style === pn.style);
@@ -2722,7 +2756,7 @@ function Editor({ id, go, onClose }) {
             })}
           </div>
         )}
-        <div className="nb-group nb-colors">
+        <div className={"nb-group nb-colors" + (tool === "hand" || tool === "select" || tool === "compass" ? " nb-idle" : "")}>
           {colors.map((c) => (
             <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />
           ))}
@@ -2782,6 +2816,21 @@ function Editor({ id, go, onClose }) {
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />
+      {more && (
+        <>
+          <div className="nb-pop-scrim" onPointerDown={() => setMore(false)} />
+          <div className="nb-menu nb-moremenu" role="menu" onClick={() => setMore(false)}>
+            <button onClick={() => imgInput.current?.click()}><span><Icon name="image" size={16} /> Add a picture</span></button>
+            <button className={split ? "on" : ""} onClick={() => setSplit((v) => !v)}><span><Icon name="split" size={16} /> Split screen</span>{split && "✓"}</button>
+            <button className={video !== null ? "on" : ""} onClick={() => setVideo((v) => (v === null ? "" : null))}><span><Icon name="video" size={16} /> Video or audio</span>{video !== null && "✓"}</button>
+            <button className={ruler ? "on" : ""} onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}><span><Icon name="ruler" size={16} /> Ruler</span>{ruler && "✓"}</button>
+            <button className={prot ? "on" : ""} onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}><span><Icon name="protractor" size={16} /> Protractor</span>{prot && "✓"}</button>
+            <button onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}>
+              <span>{prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}</span><small className="muted">change</small>
+            </button>
+          </div>
+        </>
+      )}
       {fontPop && <FontPop current={selected?.type === "text" ? selected.font : font} custom={customFonts}
         onPick={(id) => {
           setFont(id);
@@ -2875,7 +2924,7 @@ function Editor({ id, go, onClose }) {
           <button className="nb-thumb nb-thumb-add" onClick={() => addPage(book.pages.length - 1)} aria-label="Add a page"><Icon name="plus" size={18} /></button>
         </aside>
 
-        <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false ? " pencil-only" : "")} ref={pagesArea}
+        <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false && DRAWING_TOOLS.includes(tool) ? " pencil-only" : "")} ref={pagesArea}
           onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list")) e.preventDefault(); }}
           onDrop={async (e) => {
             e.preventDefault();
@@ -2927,7 +2976,7 @@ function Editor({ id, go, onClose }) {
                 const set = (ch) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, ...ch } : x)) }));
                 return (
                   <>
-                    <div className="nb-textbar" style={{ left: ed.x * zoom, top: Math.max(4, ed.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                    <FitBar className="nb-textbar" x={ed.x * zoom} y={Math.max(4, ed.y * zoom - 50)}>
                       <span className="nb-textgrip" aria-label="Drag to move the text box" title="Drag to move"
                         onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ } moveDrag.current = { x: e.clientX, y: e.clientY, ox: ed.x, oy: ed.y }; }}
                         onPointerMove={(e) => { const d = moveDrag.current; if (d) set({ x: d.ox + (e.clientX - d.x) / zoom, y: d.oy + (e.clientY - d.y) / zoom }); }}
@@ -2937,7 +2986,7 @@ function Editor({ id, go, onClose }) {
                       <button onClick={() => set({ fontSize: Math.max(10, ed.fontSize - 2) })} aria-label="Smaller text">A−</button>
                       <button onClick={() => set({ fontSize: Math.min(96, ed.fontSize + 2) })} aria-label="Bigger text">A+</button>
                       <button className="danger" onClick={() => { updatePage(page.id, (p) => ({ ...p, items: p.items.filter((x) => x.id !== ed.id) })); setEditingText(null); setSel(null); }}>Delete</button>
-                    </div>
+                    </FitBar>
                     <TextEditor it={ed} zoom={zoom}
                       onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} />
                     <div className="nb-textwidth" style={{ left: (ed.x + ed.w) * zoom - 8, top: ed.y * zoom, height: Math.max(40, ed.h || 40) * zoom }}
@@ -2956,7 +3005,7 @@ function Editor({ id, go, onClose }) {
                 const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
                 if (!b) return null;
                 return (
-                  <div className="nb-lassobar" style={{ left: b.x * zoom, top: Math.max(4, b.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                  <FitBar className="nb-lassobar" x={b.x * zoom} y={Math.max(4, b.y * zoom - 50)}>
                     {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "text" && (
                       <button onClick={() => { const id = group.ids[0]; setGroup(null); setEditingText(id); setSel({ pageId: page.id, itemId: id }); }}>Edit text</button>
                     )}
@@ -2967,7 +3016,7 @@ function Editor({ id, go, onClose }) {
                     {page.items.some((i) => group.ids.includes(i.id) && i.type !== "image") &&
                       INKS.slice(0, 5).map((c) => <button key={c} className="nb-lassocolor" style={{ background: c }} onClick={() => groupColor(c)} aria-label="Colour" />)}
                     <button className="danger" onClick={groupDelete}>Delete</button>
-                  </div>
+                  </FitBar>
                 );
               })()}
               {wetPage === page.id && (

@@ -6926,3 +6926,35 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-textwidth { position: absolute; z-index: 4; width: 16px; cursor: ew-resize; touch-action: none; }
 .nb-textwidth::after { content: ""; position: absolute; left: 5px; top: 50%; width: 6px; height: 28px; margin-top: -14px; border-radius: 3px; background: #3B5BFD; }
 .nb-textgrip { display: grid; place-items: center; width: 38px; color: #fff; font-size: 18px; cursor: move; touch-action: none; border-radius: 8px; background: rgba(255, 255, 255, 0.1); user-select: none; -webkit-user-select: none; }
+
+/* ---------- notebook on a phone ----------
+   Row one: back, name, undo, page, Dwiddle. Row two: every tool you write
+   with, no scrolling, with the rarer ones behind "More". Row three, only for
+   tools that draw: colours and sizes. Settings open as a sheet from the
+   bottom, so the page stays in view. */
+.nb-morebtn { display: none; }
+.nb-moremenu { position: fixed; top: 112px; right: 8px; z-index: 78; min-width: 230px; }
+.nb-moremenu > button { padding: 12px; font-size: 15px; }
+.nb-moremenu > button span { display: inline-flex; align-items: center; gap: 10px; }
+.nb-moremenu > button.on { color: var(--accent); }
+@media (max-width: 700px) {
+  .nb-morebtn { display: grid; }
+  .nb-extra { display: none !important; }
+  .nb-toolrow { flex-wrap: wrap; overflow: visible; row-gap: 6px; column-gap: 6px; justify-content: flex-start; }
+  .nb-tools { width: 100%; justify-content: space-between; gap: 0; padding: 2px; }
+  .nb-tools .nb-tool { width: auto; flex: 1 1 0; min-width: 0; max-width: 44px; height: 40px; }
+  .nb-colors.nb-idle { display: none; }
+  .nb-colors, .nb-size { flex: 0 0 auto; }
+  .nb-colors { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .nb-colors::-webkit-scrollbar { display: none; }
+  .nb-color { width: 26px; height: 26px; flex: 0 0 auto; }
+  .nb-dot { width: 34px; height: 34px; }
+  .nb-pop { top: auto; bottom: 0; left: 0; right: 0; width: auto; transform: none; max-height: 72vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); animation: nb-sheet-in 0.2s ease; }
+  .nb-lassobar, .nb-textbar { max-width: calc(100% - 8px); overflow-x: auto; scrollbar-width: none; }
+  .nb-lassobar::-webkit-scrollbar, .nb-textbar::-webkit-scrollbar { display: none; }
+  .nb-lassobar button { padding: 8px 9px; }
+  .nb-textbar button { padding: 8px 9px; }
+  .nb-textbar button:nth-of-type(2) { max-width: 96px; }
+}
+@keyframes nb-sheet-in { from { transform: translateY(24px); opacity: 0; } }
