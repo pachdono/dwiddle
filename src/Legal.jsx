@@ -4,7 +4,7 @@ import { DuckMark } from "./Duck.jsx";
    bodies live in arrays so the numbering and the contents list are generated
    from one source and cannot drift apart. */
 
-const EFFECTIVE = "10 September 2026";
+const EFFECTIVE = "26 September 2026";
 const EMAIL = "dwiddle36@gmail.com";
 
 function Mail() {
@@ -69,10 +69,22 @@ const PRIVACY = [
             received. Dwiddle uses email sign in links and federated sign in only. No password
             is created, requested or stored at any time.
           </dd>
+          <dt>Your details</dt>
+          <dd>
+            After creating an account you are asked for your first name, last name and date of
+            birth, and optionally your country. These identify your account, let us confirm that
+            you meet the minimum age to use Dwiddle, and help us understand who uses it. They are
+            visible only to you and to the small Dwiddle team, are never shown publicly, and are
+            never sold or shared with third parties. You can change them at any time in Settings,
+            and they are deleted with your account.
+          </dd>
           <dt>Feedback and reviews</dt>
           <dd>
-            The content of any message you submit through the feedback form, any star rating you
-            give, and a contact address where you provide one.
+            The content of any feedback, bug report or review you submit, any star rating you
+            give, and a contact address where you provide one. If you are signed in, the message
+            is linked to your account so that the Dwiddle team can reply to you by email. Reviews
+            appear publicly only after the team approves them, and only the rating and text are
+            shown, never your name or email.
           </dd>
           <dt>Preferences</dt>
           <dd>
@@ -366,7 +378,9 @@ const PRIVACY = [
           use.
         </p>
         <p>
-          We do not knowingly collect personal data from a child under 13. If we become aware
+          The date of birth asked for when an account is set up is used to check this: an account
+          cannot be completed with a date of birth under 13. We do not knowingly collect personal
+          data from a child under 13. If we become aware
           that we have done so, the account and associated data will be deleted without delay. A
           parent or guardian who believes a child under 13 has provided personal data to us
           should contact <Mail /> and the data will be removed.

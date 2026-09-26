@@ -254,7 +254,11 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
   const [err, setErr] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const set = (k) => (e) => setF((o) => ({ ...o, [k]: e.target.value }));
-  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01";
+  // Dwiddle is for 13 and over (see the privacy policy), so a younger date
+  // of birth cannot complete an account.
+  const thirteen = new Date(); thirteen.setFullYear(thirteen.getFullYear() - 13);
+  const young = !!f.birth_date && f.birth_date > thirteen.toISOString().slice(0, 10);
+  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young;
 
   async function submit(e) {
     e.preventDefault();
@@ -277,6 +281,7 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
         <input required type="date" autoComplete="bday" min="1900-01-02" max={today} value={f.birth_date} onChange={set("birth_date")} /></label>
       <label className="field"><span>Country <em className="muted">(optional)</em></span>
         <input autoComplete="country-name" maxLength={60} value={f.country || ""} onChange={set("country")} /></label>
+      {young && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>Dwiddle is for people aged 13 and over, so an account can't be set up with this date of birth.</p>}
       {err && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>{err}</p>}
       <div className="profile-actions">
         {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>}
