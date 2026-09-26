@@ -215,7 +215,7 @@ function pathFrom(stroke) {
 // pen's swell with pressure and speed, a brush's thick-to-thin.
 const PEN_STYLES = [
   { id: "ball", name: "Ballpoint", thinning: 0.12, taper: 0 },
-  { id: "fountain", name: "Fountain", thinning: 0.55, taper: 8 },
+  { id: "fountain", name: "Fountain", thinning: 0.38, taper: 8 },
   { id: "brush", name: "Brush", thinning: 0.8, taper: 22 },
 ];
 
@@ -229,7 +229,12 @@ function smoothPts(points) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const [x, y] of points) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   const extent = Math.hypot(x1 - x0, y1 - y0);
-  if (extent < 24) return points;
+  if (extent < 24) {
+    // small writing: only neighbouring readings averaged, which removes the
+    // shimmer without changing the letter
+    return points.map((p, i) => (i === 0 || i === points.length - 1 ? p
+      : [(points[i - 1][0] + 2 * p[0] + points[i + 1][0]) / 4, (points[i - 1][1] + 2 * p[1] + points[i + 1][1]) / 4, (points[i - 1][2] + 2 * p[2] + points[i + 1][2]) / 4]));
+  }
   const step = Math.min(1.4, Math.max(0.35, extent / 100));
   const even = [points[0]];
   let carry = 0;
@@ -1625,6 +1630,7 @@ function Editor({ id, go, onClose }) {
   fingerRef.current = prefs.finger !== false;
   const twoFinger = useRef(null); // { x, y, d, z } while two fingers pinch or scroll
   const zoomRef = useRef(zoom);
+  const lastPen = useRef(0); // when the Pencil last touched: fingers are a resting hand for a moment after
   zoomRef.current = zoom;
   // Safari's own pinch zoom would scale the page as a picture; the notebook
   // does its own.
@@ -1663,13 +1669,15 @@ function Editor({ id, go, onClose }) {
   useEffect(() => {
     const el = pagesRef.current;
     if (!el) return;
+    const stylus = (e) => [...e.changedTouches].some((t) => t.touchType === "stylus");
     const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
     const span = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
     // Two fingers pinch to zoom and drag to scroll, whatever the tool. The
     // notebook zooms itself, redrawing the ink sharp at every size, rather
     // than letting the browser blow the page up like a photo.
     const pinchStart = (e) => {
-      twoFinger.current = { ...mid(e.touches), d: span(e.touches), z: zoomRef.current };
+      const f = fingers(e);
+      twoFinger.current = { ...mid(f), d: span(f), z: zoomRef.current };
       setLive(null);
       liveStroke.current = null;
       setLiveOn(null);
@@ -1679,9 +1687,9 @@ function Editor({ id, go, onClose }) {
       e.preventDefault();
     };
     const pinchMove = (e) => {
-      const m = mid(e.touches), t = twoFinger.current;
+      const f = fingers(e), m = mid(f), t = twoFinger.current;
       const r = el.getBoundingClientRect();
-      const z = Math.max(0.4, Math.min(3, t.z * (span(e.touches) / t.d)));
+      const z = Math.max(0.4, Math.min(3, t.z * (span(f) / t.d)));
       const old = zoomRef.current;
       if (Math.abs(z - old) > 0.004) {
         // keep the spot between the fingers where it is
@@ -1696,10 +1704,15 @@ function Editor({ id, go, onClose }) {
     };
     // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
     // hand tool, it scrolls. Two fingers always scroll.
-    const stylus = (e) => [...e.changedTouches].some((t) => t.touchType === "stylus");
+    const fingers = (e) => [...e.touches].filter((t) => t.touchType !== "stylus");
+    const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
-      if (e.touches.length >= 2) { pinchStart(e); return; }
+      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand") e.preventDefault(); return; }
+      // A hand resting on the screen while the Pencil writes: ignored, and
+      // never taken for a pinch.
+      if (penOn(e) || Date.now() - lastPen.current < 2000) { if (e.target.closest?.(".nb-pages")) e.preventDefault(); return; }
+      if (fingers(e).length >= 2) { pinchStart(e); return; }
       if (toolRef.current === "hand") return; // the browser scrolls
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
       if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
@@ -1708,7 +1721,9 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onMove = (e) => {
-      if (twoFinger.current && e.touches.length >= 2) { pinchMove(e); return; }
+      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand") e.preventDefault(); return; }
+      if (penOn(e) || Date.now() - lastPen.current < 2000) { e.preventDefault(); return; }
+      if (twoFinger.current && fingers(e).length >= 2) { pinchMove(e); return; }
       if (toolRef.current === "hand") return;
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return;
@@ -1812,6 +1827,8 @@ function Editor({ id, go, onClose }) {
     log("pointerdown", e);
     if (e.button !== 0 && e.pointerType === "mouse") return;
     if (twoFinger.current) return;
+    if (e.pointerType === "pen") lastPen.current = Date.now();
+    else if (e.pointerType === "touch" && Date.now() - lastPen.current < 2000) return; // a resting hand, not a finger writing
     // Pencil only: a finger scrolls, though it can still move the ruler.
     if (e.pointerType === "touch" && prefs.finger === false && !e.target.closest?.(".nb-ruler")) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
@@ -1919,7 +1936,7 @@ function Editor({ id, go, onClose }) {
     } else {
       const isHl = tool === "highlighter" || tool === "revealer";
       const color = tool === "revealer" ? cov : isHl ? hl : ink;
-      liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool, color,
+      liveStroke.current = { pageId: page.id, pointerId: e.pointerId, id: uid(), type: "stroke", tool, color,
         size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
         ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
       const guide = tool !== "revealer" ? guideAt(ruler, prot, page.id, x, y) : null;
@@ -2040,6 +2057,7 @@ function Editor({ id, go, onClose }) {
       return;
     }
     const ls = liveStroke.current;
+    if (ls && ls.pointerId !== undefined && e.pointerId !== ls.pointerId) return;
     if (ls && ls.pageId === page.id && ls.arc) {
       const A = ls.arc;
       const a = Math.atan2(y - A.cy, x - A.cx);
@@ -2071,7 +2089,7 @@ function Editor({ id, go, onClose }) {
         // A Pencil's pressure flickers from one reading to the next; eased,
         // the line swells and thins smoothly instead of looking grainy.
         const raw = ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5;
-        const pr = last[2] * 0.75 + raw * 0.25;
+        const pr = last[2] * 0.85 + raw * 0.15;
         // Movements smaller than the screen can show are just the pen
         // trembling; the last point is nudged instead of adding a new one.
         if (Math.hypot(px - last[0], py - last[1]) < 0.5 / zoom && ls.points.length > 1) { ls.points[ls.points.length - 1] = [px, py, pr]; continue; }
@@ -2100,6 +2118,8 @@ function Editor({ id, go, onClose }) {
 
   function up(e) {
     if (e?.type) log(e.type, e);
+    // Lifting a resting hand must not end the Pencil's stroke.
+    if (e?.pointerId !== undefined && liveStroke.current?.pointerId !== undefined && e.pointerId !== liveStroke.current.pointerId) return;
     if (drag.current) {
       const start = drag.current.start;
       if (start && start !== book) { past.current.push(start); future.current = []; }
