@@ -4,7 +4,7 @@ import { DuckMark } from "./Duck.jsx";
    bodies live in arrays so the numbering and the contents list are generated
    from one source and cannot drift apart. */
 
-const EFFECTIVE = "26 September 2026";
+const EFFECTIVE = "27 September 2026";
 const EMAIL = "dwiddle36@gmail.com";
 
 function Mail() {
@@ -19,16 +19,18 @@ const PRIVACY = [
     body: (
       <>
         <p>
-          Dwiddle ("Dwiddle", "we", "us") provides a web based study tool that converts study
-          material supplied by a user into practice questions, study sheets and timed practice
-          papers. The service is available at dwiddle.vercel.app.
+          Dwiddle ("Dwiddle", "we", "us") provides a study service that converts study material
+          supplied by a user into notes, short lessons, practice questions, flashcards, study
+          sheets and timed practice papers, together with a digital notebook for handwritten and
+          typed notes. The service is available as a website at dwiddle.vercel.app and as
+          desktop applications for macOS and Windows (together, the "service").
         </p>
         <p>
           For the purposes of the UK General Data Protection Regulation and Regulation (EU)
           2016/679, Dwiddle is the controller of the personal data described in this policy.
-          Dwiddle is operated by an individual rather than an incorporated company. Enquiries,
-          including requests to exercise the rights set out in section 13, should be sent to{" "}
-          <Mail />.
+          Dwiddle is operated by an individual rather than an incorporated company, assisted by
+          a small team of staff. Enquiries, including requests to exercise the rights set out in
+          section 15, should be sent to <Mail />.
         </p>
       </>
     ),
@@ -40,12 +42,12 @@ const PRIVACY = [
         <p>
           This policy explains what personal data we collect, why we collect it, who we share it
           with, how long we keep it and the rights available to you. It applies to all visitors
-          and account holders.
+          to the website, to users of the desktop applications, and to account holders.
         </p>
         <p>
-          It does not apply to any third party website reached from Dwiddle, nor to the separate
-          privacy practices of the service providers listed in section 9, each of which operates
-          under its own policy.
+          It does not apply to any third party website reached from Dwiddle, including websites
+          opened in the split screen browser, nor to the separate privacy practices of the
+          service providers listed in section 10, each of which operates under its own policy.
         </p>
       </>
     ),
@@ -57,39 +59,72 @@ const PRIVACY = [
         <dl className="legal-list">
           <dt>Study material</dt>
           <dd>
-            Text you paste into the application and the extracted text of any PDF document you
-            add. This material is the input from which questions, explanations and study sheets
-            are produced. PDF files are read in your browser and the extracted text, rather than
-            the original file, is what the service processes.
+            Text you type or paste; the extracted text of PDF, Word and PowerPoint documents you
+            add; photographs and images of notes or questions; links to YouTube videos, from
+            which the available captions are retrieved; questions you submit to Solve; messages
+            you send in the chat with Dwiddle; and written answers submitted for marking. This
+            material is the input from which the service produces its content. Documents are
+            read in your browser and their extracted text, rather than the original file, is what
+            the service processes. Images you submit for reading are transmitted as images.
+          </dd>
+          <dt>Lecture recordings</dt>
+          <dd>
+            Where you record a lecture, the audio is kept on your device so that you can play it
+            back. The words spoken are turned into text by your browser's own speech recognition
+            service, as described in section 6, and that text is then treated as study material.
+          </dd>
+          <dt>Notebooks</dt>
+          <dd>
+            The contents of your notebooks, including handwriting, typed text, drawings, pictures,
+            imported PDF pages, covers, folders and any fonts you import. Notebooks are stored in
+            your browser. Where you are signed in, they are also stored with your account so that
+            they are available on your other devices.
           </dd>
           <dt>Account information</dt>
           <dd>
             If you create an account, your email address. If you choose to sign in through
             Google, the name and profile picture associated with your Google account are also
-            received. Dwiddle uses email sign in links and federated sign in only. No password
-            is created, requested or stored at any time.
+            received. Dwiddle uses email sign in links and federated sign in only. No password is
+            created, requested or stored at any time.
           </dd>
           <dt>Your details</dt>
           <dd>
             After creating an account you are asked for your first name, last name and date of
-            birth, and optionally your country. These identify your account, let us confirm that
-            you meet the minimum age to use Dwiddle, and help us understand who uses it. They are
-            visible only to you and to the small Dwiddle team, are never shown publicly, and are
-            never sold or shared with third parties. You can change them at any time in Settings,
-            and they are deleted with your account.
+            birth, and optionally your country. These identify your account, allow us to confirm
+            that you meet the minimum age to use Dwiddle, and help us understand who uses it. They
+            are visible to you and to Dwiddle staff, are never shown publicly, and are never sold
+            or shared with third parties for their own purposes.
           </dd>
-          <dt>Feedback and reviews</dt>
+          <dt>Profile</dt>
           <dd>
-            The content of any feedback, bug report or review you submit, any star rating you
-            give, and a contact address where you provide one. If you are signed in, the message
-            is linked to your account so that the Dwiddle team can reply to you by email. Reviews
-            appear publicly only after the team approves them, shown with your first name, the
-            initial of your last name and your profile picture if you have one, never your email.
+            The name you choose to be shown under, and your profile picture, which may be one of
+            Dwiddle's own illustrations, the picture from your Google account, or an image you
+            upload. An uploaded image is reduced in size and stored with your account. Your
+            profile name and picture are shown to you, to Dwiddle staff, and publicly beside any
+            review of yours that we publish.
+          </dd>
+          <dt>Feedback, bug reports and reviews</dt>
+          <dd>
+            The content of any feedback, bug report or review you submit, any headline and star
+            rating you give, and a contact address where you provide one. If you are signed in,
+            the submission is linked to your account so that Dwiddle staff can reply to you by
+            email. Reviews appear publicly only after staff approve them, shown with your profile
+            name or, if you have not chosen one, your first name and the initial of your last
+            name, together with your profile picture. Your email address is never shown. Staff may
+            add a headline to, or highlight a phrase within, a review they publish, but do not
+            alter its wording.
+          </dd>
+          <dt>Correspondence</dt>
+          <dd>
+            When you submit feedback, a bug report or a review, we send an acknowledgement to
+            your account email address or the contact address you give. Replies from Dwiddle
+            staff are sent by email and a copy of each reply is kept with the submission it
+            answers. Any email you send to us is held in our mailbox.
           </dd>
           <dt>Preferences</dt>
           <dd>
-            Settings you choose, including theme, daily goal, question style, notification
-            preferences and display name.
+            Settings you choose, including theme, colours and customisation, daily goal, question
+            style, notebook pens and tools, spoken voice and notification preferences.
           </dd>
         </dl>
       </>
@@ -102,11 +137,19 @@ const PRIVACY = [
         <p>
           Using Dwiddle produces a record of your study activity. This comprises the questions
           you have answered and whether each was answered correctly, aggregate counts of
-          questions answered and correct, the dates on which you studied, which are used to
-          calculate a study streak, per topic performance figures, questions you have saved after
-          answering incorrectly, flashcards you have marked as known, topics you have hidden, and
-          the set of generated questions retained so that a later practice paper does not repeat
-          material you have already seen.
+          questions answered and correct, experience points and level, the dates on which you
+          studied, which are used to calculate a study streak, per topic performance figures,
+          questions you have saved after answering incorrectly, flashcards you have marked as
+          known and their review schedule, topics you have hidden, and the set of generated
+          questions retained so that a later practice paper does not repeat material you have
+          already seen. The notes, lessons and other content generated from your material form
+          part of this record.
+        </p>
+        <p>
+          We also hold records relating to the administration of accounts: whether an account
+          belongs to a member of staff or to a tester given early access to features, and, where
+          an account has been suspended for breach of our Terms of Service, the fact of the
+          suspension, the reason given and the member of staff who applied it.
         </p>
       </>
     ),
@@ -126,7 +169,37 @@ const PRIVACY = [
         <p>
           Our hosting and database providers maintain their own operational and security logs in
           the ordinary course of providing infrastructure, which are governed by their respective
-          policies.
+          policies. The desktop applications check GitHub for new versions when they start, in
+          the course of which GitHub receives your IP address.
+        </p>
+        <p>
+          Certain features load content directly from a third party at your request, in which
+          case that third party receives your IP address and the details of the request under
+          its own policy: videos you choose to watch beside your notes are played from YouTube
+          in its privacy enhanced mode, searches made in the notebook split screen are sent to
+          Wikipedia and Wikimedia Commons, and profile pictures from Google accounts are loaded
+          from Google.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: "Processing on your device",
+    body: (
+      <>
+        <p>
+          Some processing takes place entirely within your browser or the desktop application
+          and is not transmitted to us. This includes the extraction of text from documents, the
+          separation of a subject from its background when you make a notebook cover from a
+          photograph, the reduction in size of an uploaded profile picture before it is saved,
+          and the drawing and storage of notebook ink.
+        </p>
+        <p>
+          Speech recognition used when recording a lecture or speaking to Dwiddle, and the
+          voices used to read content aloud, are provided by your browser or operating system.
+          Depending on your browser and settings, your browser's provider, such as Google or
+          Apple, may process that audio or text on its own servers under its own terms. We do not
+          receive the audio.
         </p>
       </>
     ),
@@ -140,10 +213,11 @@ const PRIVACY = [
           service is provided free of charge. It does not use advertising, advertising
           identifiers, or third party tracking or profiling technologies, and it does not track
           you across other websites or applications. At the date of this policy Dwiddle does not
-          operate any analytics or product measurement service. It does not sell, rent or
-          otherwise make personal data available to third parties for their own purposes, and it
-          does not build marketing profiles or engage in automated decision making producing
-          legal or similarly significant effects.
+          operate any analytics or product measurement service; the figures shown on the front
+          page are counts drawn from the service itself and contain no personal data. It does not
+          sell, rent or otherwise make personal data available to third parties for their own
+          purposes, and it does not build marketing profiles or engage in automated decision
+          making producing legal or similarly significant effects.
         </p>
       </>
     ),
@@ -163,7 +237,7 @@ const PRIVACY = [
             </thead>
             <tbody>
               <tr>
-                <td>Generating questions, explanations and study sheets</td>
+                <td>Generating notes, lessons, questions, explanations and marks</td>
                 <td>Study material</td>
                 <td>Performance of a contract</td>
               </tr>
@@ -173,19 +247,39 @@ const PRIVACY = [
                 <td>Performance of a contract</td>
               </tr>
               <tr>
-                <td>Storing progress and synchronising it between your devices</td>
-                <td>Study activity record</td>
+                <td>Storing progress and notebooks and synchronising them between your devices</td>
+                <td>Study activity record, notebooks</td>
                 <td>Performance of a contract</td>
               </tr>
               <tr>
-                <td>Responding to feedback and support enquiries</td>
-                <td>Feedback content, contact address</td>
+                <td>Confirming that you meet the minimum age and identifying your account</td>
+                <td>Your details</td>
+                <td>Legitimate interests; legal obligation where it applies</td>
+              </tr>
+              <tr>
+                <td>Showing your chosen name and picture in the service</td>
+                <td>Profile</td>
+                <td>Performance of a contract</td>
+              </tr>
+              <tr>
+                <td>Acknowledging and responding to feedback, bug reports and support enquiries</td>
+                <td>Feedback content, contact address, correspondence</td>
                 <td>Legitimate interests</td>
               </tr>
               <tr>
                 <td>Publishing a review you have submitted</td>
-                <td>Rating and review text</td>
+                <td>Review, rating, profile name and picture</td>
                 <td>Consent</td>
+              </tr>
+              <tr>
+                <td>Enforcing our Terms of Service, moderating content and suspending accounts</td>
+                <td>Account information, feedback, account administration records</td>
+                <td>Legitimate interests</td>
+              </tr>
+              <tr>
+                <td>Giving testers early access to features in development</td>
+                <td>Account administration records</td>
+                <td>Legitimate interests</td>
               </tr>
               <tr>
                 <td>Rate limiting, abuse prevention and service security</td>
@@ -202,8 +296,8 @@ const PRIVACY = [
         </div>
         <p>
           Where we rely on legitimate interests, those interests are in operating a secure,
-          functioning and financially sustainable service. We have considered the effect on your
-          rights and freedoms and consider the processing proportionate. Where we rely on
+          functioning, safe and financially sustainable service. We have considered the effect on
+          your rights and freedoms and consider the processing proportionate. Where we rely on
           consent, you may withdraw it at any time by contacting us, which does not affect the
           lawfulness of processing carried out beforehand.
         </p>
@@ -219,13 +313,19 @@ const PRIVACY = [
           you to read it in full.
         </p>
         <p>
-          To generate questions, explanations, study sheets and marks for written answers,
-          material you supply is transmitted to a third party artificial intelligence provider,
+          To generate notes, lessons, questions, explanations, study sheets and marks for written
+          answers, to answer questions in Solve and in the chat with Dwiddle, to read the text in
+          photographs and notebook pages, and to turn a notebook page into questions, the
+          relevant material is transmitted to a third party artificial intelligence provider,
           which processes it and returns generated content. The provider used for a given request
-          is whichever of OpenRouter, Inc., Groq, Inc. or NVIDIA Corporation is available at the
+          is whichever of Groq, Inc., OpenRouter, Inc. or NVIDIA Corporation is available at the
           time, and the request may in turn be served by a model operator engaged by that
           provider. Requests are made through commercial application programming interfaces whose
           terms provide that submitted content is not used to train the provider's models.
+        </p>
+        <p>
+          Where you add a YouTube link, our server retrieves the video's captions from YouTube and
+          treats them as study material. The video itself is not downloaded.
         </p>
         <p>
           We cannot guarantee the internal practices of these providers, and their handling of
@@ -256,10 +356,11 @@ const PRIVACY = [
             </thead>
             <tbody>
               <tr><td>Vercel Inc.</td><td>Website hosting and execution of server functions</td></tr>
-              <tr><td>Supabase, Inc.</td><td>Database, authentication and delivery of sign in emails</td></tr>
-              <tr><td>OpenRouter, Inc., Groq, Inc., NVIDIA Corporation</td><td>Generation of questions and marking of written answers</td></tr>
-              <tr><td>Resend (Plus Five Five, Inc.)</td><td>Delivery of feedback notifications to the operator</td></tr>
-              <tr><td>Google LLC</td><td>Federated sign in, where you choose to use it</td></tr>
+              <tr><td>Supabase, Inc.</td><td>Database, file storage for notebooks, authentication and delivery of sign in emails</td></tr>
+              <tr><td>Groq, Inc., OpenRouter, Inc., NVIDIA Corporation</td><td>Generation of content, reading of images and marking of written answers</td></tr>
+              <tr><td>Google LLC</td><td>Federated sign in, where you choose to use it; delivery of acknowledgement and reply emails through Gmail; retrieval of YouTube captions</td></tr>
+              <tr><td>Resend (Plus Five Five, Inc.)</td><td>Delivery of feedback notifications to Dwiddle staff</td></tr>
+              <tr><td>GitHub, Inc.</td><td>Distribution of the desktop applications and their updates</td></tr>
             </tbody>
           </table>
         </div>
@@ -275,11 +376,34 @@ const PRIVACY = [
     ),
   },
   {
+    title: "Access by Dwiddle staff",
+    body: (
+      <>
+        <p>
+          A small number of staff help to operate Dwiddle. Staff use a separate staff site, access
+          to which is restricted to named accounts with a confirmed email address and is enforced
+          by the database itself. Through it staff can see account email addresses, your details,
+          your profile, the date an account was created and last used, feedback, bug reports,
+          reviews and the correspondence relating to them, and account administration records.
+          Staff use this information only to support users, moderate reviews, enforce our Terms of
+          Service and improve the service.
+        </p>
+        <p>
+          The staff site does not display your study material, generated content, progress or
+          notebooks. The operator holds administrative access to the database and file storage
+          for the purpose of maintaining the service, and will access that content only where
+          necessary to operate the service, to investigate a fault or a suspected breach of our
+          Terms of Service, or to comply with the law.
+        </p>
+      </>
+    ),
+  },
+  {
     title: "International transfers",
     body: (
       <>
         <p>
-          The providers listed in section 9 are established in, or process data in, the United
+          The providers listed in section 10 are established in, or process data in, the United
           States and other countries outside the United Kingdom and the European Economic Area.
           Where personal data is transferred to such a country, the transfer is made under the
           Standard Contractual Clauses adopted by the European Commission, the United Kingdom
@@ -299,11 +423,12 @@ const PRIVACY = [
               <tr><th>Category</th><th>Retention period</th></tr>
             </thead>
             <tbody>
-              <tr><td>Account information</td><td>For the life of the account, then deleted within 30 days of a deletion request</td></tr>
-              <tr><td>Study material and progress</td><td>Until you delete it, or with the account</td></tr>
-              <tr><td>Data held only in your browser</td><td>Until you clear your browser storage</td></tr>
-              <tr><td>Feedback and unapproved reviews</td><td>Up to 24 months from submission</td></tr>
+              <tr><td>Account information, your details and profile</td><td>For the life of the account, then deleted within 30 days of a deletion request</td></tr>
+              <tr><td>Study material, generated content, progress and notebooks held with your account</td><td>Until you delete them, or with the account</td></tr>
+              <tr><td>Data held only on your device, including lecture recordings</td><td>Until you delete it or clear your browser storage</td></tr>
+              <tr><td>Feedback, bug reports, unapproved reviews and related correspondence</td><td>Up to 24 months from submission</td></tr>
               <tr><td>Published reviews</td><td>Until withdrawn by you or removed by us</td></tr>
+              <tr><td>Records of suspension</td><td>For the life of the account, and up to 12 months after its deletion where needed to prevent repeated abuse</td></tr>
               <tr><td>IP address in the rate limiter</td><td>Minutes, in memory only</td></tr>
             </tbody>
           </table>
@@ -321,14 +446,17 @@ const PRIVACY = [
       <>
         <p>
           We maintain technical and organisational measures appropriate to the risk. All traffic
-          between your browser and the service is encrypted in transit using industry standard
-          transport layer security. Data stored in our database is subject to row level security
-          policies enforced by the database itself rather than by application code, with the
-          effect that one account cannot read the records of another even if an application
-          fault were to occur. Credentials for third party services are held only in server side
-          environment variables and are never transmitted to the browser. Authentication is by
-          single use email link or federated provider, so no password is stored and no password
-          can be disclosed in a breach.
+          between your device and the service is encrypted in transit using industry standard
+          transport layer security, and browsers are instructed to connect only over encrypted
+          connections. Data stored in our database is subject to row level security policies
+          enforced by the database itself rather than by application code, with the effect that
+          one account cannot read the records of another even if an application fault were to
+          occur. Staff access is limited to named accounts with confirmed email addresses and to
+          the functions described in section 11. Credentials for third party services are held
+          only in server side environment variables and are never transmitted to the browser. The
+          website restricts the sources from which it will load content, to reduce the risk of
+          malicious code. Authentication is by single use email link or federated provider, so no
+          password is stored and no password can be disclosed in a breach.
         </p>
         <p>
           No method of transmission or storage is completely secure, and we do not warrant
@@ -353,10 +481,12 @@ const PRIVACY = [
           based on consent.
         </p>
         <p>
-          To exercise any of these rights, email <Mail /> from the address associated with your
-          account. We will respond within one month of receipt, which may be extended by up to
-          two further months for complex requests, and we will tell you if an extension applies.
-          No fee is charged unless a request is manifestly unfounded or excessive.
+          You can correct your details and change your profile at any time in Settings, and
+          delete material, notebooks and pages within the service. To delete your account, or to
+          exercise any other right, email <Mail /> from the address associated with your account.
+          We will respond within one month of receipt, which may be extended by up to two further
+          months for complex requests, and we will tell you if an extension applies. No fee is
+          charged unless a request is manifestly unfounded or excessive.
         </p>
         <p>
           You also have the right to lodge a complaint with a supervisory authority. In the
@@ -383,8 +513,8 @@ const PRIVACY = [
           cannot be completed with a date of birth under 8. We do not knowingly keep personal data
           from a child under 8, or from a younger child without a parent or guardian's consent. If
           we become aware that we have, the account and associated data will be deleted without
-          delay. A parent or guardian who wants their child's account and data removed
-          should contact <Mail /> and the data will be removed.
+          delay. A parent or guardian who wants their child's account and data removed should
+          contact <Mail /> and the data will be removed.
         </p>
       </>
     ),
@@ -395,17 +525,21 @@ const PRIVACY = [
       <>
         <p>
           Dwiddle does not use cookies for advertising, analytics or cross site tracking. It uses
-          your browser's local storage and session storage, which are strictly necessary to
-          operate the service. These hold your settings, your progress while signed out, and,
-          where you are signed in, the authentication token that keeps you signed in between
-          visits.
+          your browser's local storage, session storage and IndexedDB database, and a service
+          worker cache, all of which are strictly necessary to operate the service. These hold
+          your settings, your progress and material while signed out, your notebooks, imported
+          fonts and lecture recordings, a copy of the website's own files so that it loads
+          quickly and works offline, and, where you are signed in, the authentication token that
+          keeps you signed in between visits. The desktop applications store the same
+          information in their own application data folder.
         </p>
         <p>
-          If you use Dwiddle without an account, your material and progress are held in your
-          browser only. They are not transmitted to or stored in our database, we cannot access
-          them, and they cannot be recovered by us if lost. Clearing your browser storage deletes
-          them permanently. The exception is material submitted for question generation, which is
-          transmitted as described in section 8.
+          If you use Dwiddle without an account, your material, progress and notebooks are held
+          on your device only. They are not transmitted to or stored in our database, we cannot
+          access them, and they cannot be recovered by us if lost. Clearing your browser storage,
+          or removing the desktop application and its data, deletes them permanently. The
+          exception is material submitted for processing, which is transmitted as described in
+          section 9.
         </p>
       </>
     ),
@@ -485,8 +619,8 @@ const TERMS = [
           authorisation.
         </p>
         <p>
-          You may use the Service without an account. If you do, your material and progress are
-          stored only in your browser, are not synchronised between devices, and cannot be
+          You may use the Service without an account. If you do, your material, progress and notebooks
+          are stored only on your device, are not synchronised between devices, and cannot be
           recovered by us if they are lost.
         </p>
       </>
@@ -497,8 +631,9 @@ const TERMS = [
     body: (
       <>
         <p>
-          The Service generates practice questions, explanations, study sheets, flashcards and
-          timed practice papers from material you supply, and provides practice papers modelled on
+          The Service generates notes, short lessons, practice questions, explanations, study sheets,
+          flashcards and timed practice papers from material you supply, provides a digital notebook
+          for handwritten and typed notes, and provides practice papers modelled on
           the published structure of certain standardised examinations. It is a study aid. It is
           not a tutoring service, an examination, an accredited course of instruction, or a
           substitute for materials issued by an examination board or an educational institution.
@@ -661,8 +796,10 @@ const TERMS = [
     body: (
       <>
         <p>
-          Where you submit a review, you consent to its publication on the Service together with
-          the rating and the text you provide. Your email address is never published. Reviews are
+          Where you submit a review, you consent to its publication on the Service together with the rating, headline and text
+          you provide, and your profile name and picture. Your email address is never published. We
+          may add a headline to a review, or highlight a phrase within it, but will not alter its
+          wording. Reviews are
           moderated before publication and we may decline to publish, or subsequently remove, any
           review at our discretion, including where it is inaccurate, offensive, unlawful, or not
           a genuine account of use of the Service. You may withdraw a published review at any
@@ -708,9 +845,10 @@ const TERMS = [
           associated data by contacting <Mail />.
         </p>
         <p>
-          We may suspend or terminate your access, with or without notice, where you have breached
-          these Terms, where your use presents a risk to the Service, other users or a third
-          party, or where we are required to do so by law. On termination the licence granted in
+          We may suspend or terminate your access, with or without notice, where you have breached these Terms, where your use presents a risk to the Service, other
+          users or a third party, or where we are required to do so by law. A suspended account can
+          still be signed in to, but cannot use the Service, save or submit anything, and is shown
+          the reason for its suspension. On termination the licence granted in
           section 5 ends immediately. Sections 6, 8, 9, 10, 14, 15, 16 and 17 survive termination.
         </p>
       </>
