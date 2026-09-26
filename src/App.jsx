@@ -1,4 +1,5 @@
-import { dwiddleSays, talksOn, setTalksOn } from "./voice.js";
+import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { Podcast, notesText } from "./Podcast.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -343,7 +344,7 @@ export default function App() {
     const firstToday = !stats.days.includes(new Date().toISOString().slice(0, 10));
     const gainedNow = (correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0);
     announceXp(gainedNow, firstToday ? "first study today" : "");
-    if (levelOf((stats.xp || 0) + gainedNow).level > levelOf(stats.xp || 0).level) dwiddleSays("levelup");
+    if (levelOf((stats.xp || 0) + gainedNow).level > levelOf(stats.xp || 0).level) playCue("levelup");
   }
 
   // Clicking the nav item for the page you are already on resets it, which is
@@ -2110,6 +2111,7 @@ function Practice(props) {
   const dueCount = dueFrom([...pool, ...drillPool], props.srs).length;
 
   const [playing, setPlaying] = useState(false);
+  const [pod, setPod] = useState(false);
   const open = (id) => { setPMode(id); setPlaying(true); };
   useEffect(() => {
     if (!playing) return;
@@ -2184,6 +2186,17 @@ function Practice(props) {
         </div>
       )}
 
+      {/* The podcast lives with the notes; this makes it easy to find. */}
+      {notesText(props.made).trim() && (
+        <div role="button" tabIndex={0} className="pz-pod" onClick={() => setPod(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPod(true); } }}>
+          <span className="pz-icon"><Icon name="mic" size={22} /></span>
+          <div><b>Podcast</b><p>Dwiddle and Puddle talk through your notes. Listen on a walk or on the bus.</p></div>
+          <span className="pz-go">Listen <Icon name="arrow" size={14} /></span>
+        </div>
+      )}
+      {pod && <Podcast made={props.made} onClose={() => setPod(false)} />}
+
       {playing && !empty && (
         <Portal>
           <div className="pz-full" role="dialog" aria-modal="true" aria-label={active.label}>
@@ -2246,7 +2259,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false }) {
 
   function next() {
     if (i + 1 >= QUIZ.length) {
-      dwiddleSays(score / QUIZ.length >= 0.7 ? "done-great" : "done-okay");
+      playCue(score / QUIZ.length >= 0.7 ? "done-great" : "done-okay");
       return setFinished(true);
     }
     setI(i + 1);
@@ -2514,7 +2527,7 @@ function SetRow({ label, hint, children }) {
 function VoiceCard() {
   const [list, setList] = useState([]);
   const [name, setName] = useState(savedVoiceName());
-  const [talks, setTalks] = useState(talksOn);
+  const [talks, setTalks] = useState(soundsOn);
   useEffect(() => onVoices(() => setList(allVoices())), []);
   if (!("speechSynthesis" in window)) return null;
   const current = list.find((v) => v.name === name) || list[0];
@@ -2523,10 +2536,10 @@ function VoiceCard() {
   return (
     <div className="card">
       <div className="card-head"><h3>Voice</h3></div>
-      <SetRow label="Dwiddle talks" hint="Dwiddle cheers out loud when you finish a quiz or level up.">
-        <Switch on={talks} onClick={() => { setTalksOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => dwiddleSays("levelup"), 50); }} />
+      <SetRow label="Sound effects" hint="A short sound when you finish a quiz or level up.">
+        <Switch on={talks} onClick={() => { setSoundsOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => playCue("done-great"), 50); }} />
       </SetRow>
-      <SetRow label="Reading voice" hint="Used for lessons, listening tests, audio overviews and Dwiddle's replies. Natural voices are listed first.">
+      <SetRow label="Reading voice" hint="Used for lessons, listening tests, the podcast and Dwiddle's replies. Natural voices are listed first.">
         <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
           <select value={current?.name || ""} onChange={(e) => pick(e.target.value)} style={{ maxWidth: 240 }}>
             {list.map((v) => <option key={v.name} value={v.name}>{v.name.replace(/^Microsoft /, "").replace(/ - English.*$/, "")}{isNatural(v) ? " ✦" : ""}</option>)}

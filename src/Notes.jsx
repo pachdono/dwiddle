@@ -108,7 +108,7 @@ export function Notes({ made, saveNotes }) {
           <HighlightFilters on={on} setOn={setOn} counts={counts} />
           <div className="row nt-tools">
             <button className="btn ghost small" onClick={() => setShowMap(true)}><Icon name="topics" size={14} /> Mind map</button>
-            <button className="btn ghost small" onClick={() => setShowPod(true)}><Icon name="mic" size={14} /> Audio overview</button>
+            <button className="btn ghost small" onClick={() => setShowPod(true)}><Icon name="mic" size={14} /> Podcast</button>
             <button className="btn ghost small nt-print" onClick={() => window.print()}>
               <Icon name="sheet" size={14} /> Print
             </button>

@@ -1,36 +1,53 @@
-// Dwiddle's own voice for the big moments: finishing a quiz and levelling
-// up, recorded ahead of time with real feeling and played as little clips.
-//
-// They are few and small, so they ship with the app and play instantly,
-// even offline. Anything Dwiddle says that is not fixed, like a chat reply,
-// is read by the voice in tts.js instead.
+// A short sound for the big moments: a "duh-dun" when a quiz ends and a
+// little run of notes on levelling up. Made on the spot with the browser's
+// audio, so there is nothing to download, and it can be switched off in
+// Settings for anyone who would rather study in quiet.
 
-import CLIPS from "./voiceClips.json";
+const KEY = "dwiddle-sounds";
+export const soundsOn = () => { try { return localStorage.getItem(KEY) !== "false"; } catch { return true; } };
+export const setSoundsOn = (on) => { try { localStorage.setItem(KEY, on ? "true" : "false"); } catch { /* private mode */ } };
 
-const KEY = "dwiddle-talks";
-export const talksOn = () => { try { return localStorage.getItem(KEY) !== "false"; } catch { return true; } };
-export const setTalksOn = (on) => { try { localStorage.setItem(KEY, on ? "true" : "false"); } catch { /* private mode */ } };
+let ctx = null;
+const audio = () => {
+  const C = window.AudioContext || window.webkitAudioContext;
+  return C ? (ctx ||= new C()) : null;
+};
 
-let playing = null;
-let lastFile = "";
-const important = new Set(["levelup", "done-great", "done-okay"]);
-
-// Plays one of Dwiddle's lines of this kind, never over another one.
-export function dwiddleSays(kind, { chance = 1 } = {}) {
-  if (!talksOn() || !CLIPS[kind]) return;
-  if (Math.random() > chance) return;
-  if (playing && !playing.ended && !playing.paused) {
-    if (!important.has(kind)) return;
-    playing.pause();
+// One soft, bell like note: a triangle wave with a quieter octave above it.
+function note(ac, freq, at, length, loud) {
+  const out = ac.createGain();
+  out.gain.setValueAtTime(0.0001, at);
+  out.gain.exponentialRampToValueAtTime(loud, at + 0.015);
+  out.gain.exponentialRampToValueAtTime(0.0001, at + length);
+  out.connect(ac.destination);
+  for (const [type, mult, level] of [["triangle", 1, 1], ["sine", 2, 0.25]]) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq * mult, at);
+    g.gain.value = level;
+    o.connect(g).connect(out);
+    o.start(at);
+    o.stop(at + length + 0.05);
   }
-  const options = CLIPS[kind].filter((c) => c.file !== lastFile);
-  const pick = options[Math.floor(Math.random() * options.length)] || CLIPS[kind][0];
-  lastFile = pick.file;
+}
+
+const CUES = {
+  // duh-dun, up a fourth: a good score
+  "done-great": [[392, 0, 0.16], [523.25, 0.14, 0.55]],
+  // the same shape, lower and gentler: a score to build on
+  "done-okay": [[329.63, 0, 0.16], [440, 0.14, 0.45]],
+  // a quick run up the chord
+  levelup: [[523.25, 0, 0.14], [659.25, 0.09, 0.14], [783.99, 0.18, 0.14], [1046.5, 0.27, 0.6]],
+};
+
+export function playCue(kind) {
+  if (!soundsOn() || !CUES[kind]) return;
   try {
-    const a = new Audio(new URL("voice/" + pick.file, document.baseURI).href);
-    a.volume = 0.9;
-    playing = a;
-    window.dispatchEvent(new CustomEvent("dwiddle:talk", { detail: { text: pick.text, kind } }));
-    a.play().catch(() => {}); // a browser may refuse sound before the first tap
+    const ac = audio();
+    if (!ac) return;
+    if (ac.state === "suspended") ac.resume().catch(() => {});
+    const t = ac.currentTime + 0.02;
+    const loud = kind === "done-okay" ? 0.14 : 0.2;
+    for (const [f, at, len] of CUES[kind]) note(ac, f, t + at, len, loud);
   } catch { /* no audio here */ }
 }

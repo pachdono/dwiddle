@@ -90,9 +90,9 @@ export function Podcast({ made, onClose }) {
 
   return (
     <Portal>
-      <div className="pod" role="dialog" aria-modal="true" aria-label="Audio overview">
+      <div className="pod" role="dialog" aria-modal="true" aria-label="Podcast">
         <div className="pod-top">
-          <span className="qv-label">Audio overview</span>
+          <span className="qv-label">Podcast</span>
           <button className="icon-btn" onClick={() => { pause(); onClose(); }} aria-label="Close"><Icon name="close" size={18} /></button>
         </div>
 
