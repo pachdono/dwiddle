@@ -5,7 +5,7 @@
 // questions still calls the deployment, because that is where the model key
 // lives and it must never be shipped to a user's machine.
 
-const { app, BrowserWindow, shell, Menu, session, ipcMain, screen, dialog } = require("electron");
+const { app, BrowserWindow, shell, Menu, session, ipcMain, screen, dialog, net } = require("electron");
 const fs = require("node:fs");
 const updates = require("./update.cjs");
 const uninstall = require("./uninstall.cjs");
@@ -85,6 +85,8 @@ function create() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // The notebook's split screen browser.
+      webviewTag: true,
       // A sandboxed preload cannot ask the app its version, so it is handed
       // over on the command line instead.
       additionalArguments: [`--dwiddle-version=${app.getVersion()}`],
@@ -136,9 +138,9 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.googleusercontent.com",
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://upload.wikimedia.org",
   "font-src 'self' data:",
-  `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co`,
+  `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org`,
   "media-src 'self' blob:",
   "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
   "object-src 'none'",
@@ -218,6 +220,24 @@ async function offerToMoveMac() {
   }
 }
 
+// The split screen browser: a plain web page with no access to the app,
+// its links opening inside it rather than in new windows.
+app.on("web-contents-created", (_e, contents) => {
+  contents.on("will-attach-webview", (event, prefs, params) => {
+    delete prefs.preload;
+    prefs.nodeIntegration = false;
+    prefs.contextIsolation = true;
+    prefs.sandbox = true;
+    if (!/^https?:\/\//.test(params.src || "")) event.preventDefault();
+  });
+  if (contents.getType() === "webview") {
+    contents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//.test(url)) contents.loadURL(url);
+      return { action: "deny" };
+    });
+  }
+});
+
 app.whenReady().then(async () => {
   await offerToMoveMac();
   if (quitting) { app.exit(0); return; }
@@ -240,6 +260,20 @@ app.whenReady().then(async () => {
   // Registers what the page can ask about updates straight away, and checks
   // for one itself once the window has had a moment to settle.
   updates.start();
+  // Pictures dragged or pasted from the split screen browser are fetched
+  // here, so the notebook page does not need to be allowed to reach any site.
+  ipcMain.handle("dwiddle:fetch-image", async (_e, url) => {
+    if (!/^https?:\/\//.test(String(url))) return null;
+    try {
+      const res = await net.fetch(url);
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !type.startsWith("image/")) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 12e6) return null;
+      return `data:${type.split(";")[0]};base64,${buf.toString("base64")}`;
+    } catch { return null; }
+  });
+
   ipcMain.handle("dwiddle:youtube", (_e, url, lang) => require("./youtube.cjs").read(url, lang).catch(() => ({
     error: "The video could not be read just now. Check your connection and try again.",
   })));

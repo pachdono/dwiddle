@@ -6830,3 +6830,31 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-pop-casepen button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); font-size: 11px; line-height: 16px; padding: 0; cursor: pointer; }
 .nb-hint { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 72; padding: 8px 14px; border-radius: 999px;
   background: rgba(20, 20, 28, 0.85); color: #fff; font-size: 13px; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
+.nb-media { display: grid; gap: 8px; padding: 0 10px 10px; }
+.nb-media video { width: 100%; border-radius: 10px; background: #000; }
+.nb-media audio { width: 100%; }
+.nb-rate { justify-self: start; }
+.nb-video-ask .btn.ghost { justify-self: start; }
+/* split screen */
+.nb-work { position: relative; }
+.nb-split { flex: 0 0 min(44%, 560px); min-width: 300px; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--surface); }
+.nb-split-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.nb-split-tip { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-web, .nb-wiki { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.nb-web-bar { display: flex; gap: 6px; padding: 8px 10px; align-items: center; }
+.nb-web-bar input { flex: 1; min-width: 0; min-height: 36px; padding: 6px 12px; border-radius: 999px; font-size: 13.5px; }
+.nb-wiki-body { flex: 1; overflow-y: auto; padding: 0 10px 20px; }
+.nb-wiki-pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin: 4px 0 12px; }
+.nb-wiki-pic { position: relative; aspect-ratio: 1; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--sunken); cursor: pointer; }
+.nb-wiki-pic img { width: 100%; height: 100%; object-fit: cover; }
+.nb-wiki-pic span { position: absolute; right: 4px; bottom: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; display: grid; place-items: center; font-size: 15px; }
+.nb-wiki-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.nb-wiki-results button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px; border: 0; border-radius: 10px; background: none; cursor: pointer; font: inherit; color: var(--ink); }
+.nb-wiki-results button:hover { background: var(--hover); }
+.nb-wiki-results .searchmatch { font-weight: 700; color: var(--ink); }
+.nb-wiki-head { display: flex; justify-content: space-between; gap: 8px; position: sticky; top: 0; background: var(--surface); padding: 6px 0; }
+.nb-wiki-article h3 { margin: 6px 0 8px; }
+.nb-wiki-text p { font-size: 14px; line-height: 1.6; margin: 0 0 10px; user-select: text; -webkit-user-select: text; }
+@media (max-width: 800px) {
+  .nb-split { position: fixed; left: 0; right: 0; bottom: 0; height: 62vh; min-width: 0; z-index: 73; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2); }
+}

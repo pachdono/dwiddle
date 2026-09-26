@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld("DWIDDLE_DESKTOP", {
   version: (process.argv.find((a) => a.startsWith("--dwiddle-version=")) || "").split("=")[1] || "",
 });
 
+contextBridge.exposeInMainWorld("DWIDDLE_WEB", {
+  fetchImage: (url) => ipcRenderer.invoke("dwiddle:fetch-image", url),
+});
+
 // The sign in link comes back through the app's own scheme, and the page is
 // handed only the URL, never the ipc channel itself.
 contextBridge.exposeInMainWorld("DWIDDLE_AUTH", {

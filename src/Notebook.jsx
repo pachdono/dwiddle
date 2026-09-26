@@ -1027,39 +1027,198 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
   );
 }
 
-// A YouTube video floating over the notebook, to take notes while it plays.
-// Drag it by its bar; it stays where it is left.
+// Something to watch or listen to while writing: a YouTube video, or a
+// lecture recording, video or audio file from the device. It floats over
+// the notebook and can be dragged anywhere.
 function VideoFloat({ id, onId, onClose }) {
   const [link, setLink] = useState("");
   const [pos, setPos] = useState(() => ({ x: Math.max(16, innerWidth - 460), y: 120 }));
+  const [file, setFile] = useState(null); // { url, name, audio }
+  const [rate, setRate] = useState(1);
+  const media = useRef(null);
+  const fileInput = useRef(null);
   const drag = useRef(null);
   const [bad, setBad] = useState(false);
+  useEffect(() => () => { if (file?.url) URL.revokeObjectURL(file.url); }, [file]);
+  useEffect(() => { if (media.current) media.current.playbackRate = rate; }, [rate, file]);
   const submit = () => {
     const m = link.match(/(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([\w-]{11})/) || link.trim().match(/^([\w-]{11})$/);
-    if (m) onId(m[1]); else setBad(true);
+    if (m) { setFile(null); onId(m[1]); } else setBad(true);
   };
+  const pick = (f) => {
+    if (!f) return;
+    if (file?.url) URL.revokeObjectURL(file.url);
+    setFile({ url: URL.createObjectURL(f), name: f.name, audio: f.type.startsWith("audio") || /\.(mp3|m4a|wav|aac|ogg)$/i.test(f.name) });
+    onId("file");
+  };
+  const showing = file ? "file" : id ? "yt" : "ask";
   return (
-    <div className="nb-video" style={{ left: pos.x, top: pos.y }}>
+    <div className={"nb-video" + (file?.audio ? " audio" : "")} style={{ left: pos.x, top: pos.y }}>
       <div className="nb-video-bar"
         onPointerDown={(e) => { if (e.target.closest("button")) return; drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } }}
         onPointerMove={(e) => { if (drag.current) setPos({ x: Math.max(0, Math.min(innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(0, Math.min(innerHeight - 60, e.clientY - drag.current.dy)) }); }}
         onPointerUp={() => { drag.current = null; }}>
-        <Icon name="video" size={15} /><b>Video</b>
-        {id && <button className="nb-pill" onClick={() => onId("")}>Change</button>}
-        <button className="icon-btn" onClick={onClose} aria-label="Close the video"><Icon name="close" size={15} /></button>
+        <Icon name="video" size={15} /><b>{file ? file.name : "Watch or listen"}</b>
+        {showing !== "ask" && <button className="nb-pill" onClick={() => { setFile(null); onId(""); }}>Change</button>}
+        <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button>
       </div>
-      {id ? (
+      {showing === "yt" && (
         <iframe title="Video" src={`https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" />
-      ) : (
+      )}
+      {showing === "file" && (
+        <div className="nb-media">
+          {file.audio
+            ? <audio ref={media} src={file.url} controls autoPlay />
+            : <video ref={media} src={file.url} controls autoPlay playsInline />}
+          <div className="seg tight nb-rate">
+            {[0.75, 1, 1.25, 1.5, 2].map((r) => <button key={r} className={rate === r ? "on" : ""} onClick={() => setRate(r)}>{r}×</button>)}
+          </div>
+        </div>
+      )}
+      {showing === "ask" && (
         <form className="nb-video-ask" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <p className="small muted">Paste a YouTube link to watch it here while you write.</p>
+          <p className="small muted">Paste a YouTube link, or open a lecture recording, video or audio file.</p>
           <div className="nb-video-row">
             <input autoFocus value={link} onChange={(e) => { setLink(e.target.value); setBad(false); }} placeholder="https://youtu.be/..." />
             <button className="btn cta small" type="submit">Play</button>
           </div>
           {bad && <p className="small" style={{ color: "var(--warn)" }}>That does not look like a YouTube link.</p>}
+          <input ref={fileInput} type="file" accept="audio/*,video/*" hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+          <button type="button" className="btn ghost small" onClick={() => fileInput.current?.click()}><Icon name="file" size={14} /> Open an audio or video file</button>
         </form>
       )}
+    </div>
+  );
+}
+
+// Split screen: research beside the notebook. The desktop app has a real
+// browser; websites cannot show most other sites inside them, so on the web
+// there is Wikipedia, with its articles and pictures, to read and take from.
+const WIKI = "https://en.wikipedia.org/w/api.php";
+const COMMONS = "https://commons.wikimedia.org/w/api.php";
+async function imageFile(url) {
+  let src = null;
+  if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
+  const blob = src ? await (await fetch(src)).blob() : await (await fetch(url)).blob();
+  if (!blob.type.startsWith("image/")) throw new Error("not a picture");
+  return new File([blob], "picture", { type: blob.type });
+}
+
+function SplitPanel({ onClose, onAddImage, onAddText }) {
+  const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
+  const [tab, setTab] = useState(desktop ? "web" : "wiki");
+  return (
+    <aside className="nb-split" aria-label="Research">
+      <div className="nb-split-bar">
+        <div className="seg tight">
+          {desktop && <button className={tab === "web" ? "on" : ""} onClick={() => setTab("web")}>Browser</button>}
+          <button className={tab === "wiki" ? "on" : ""} onClick={() => setTab("wiki")}>Wikipedia</button>
+        </div>
+        <span className="small muted nb-split-tip">Drag pictures onto your page, or copy and paste.</span>
+        <button className="icon-btn" onClick={onClose} aria-label="Close split screen"><Icon name="close" size={16} /></button>
+      </div>
+      {tab === "web" && desktop ? <WebView /> : <WikiPanel onAddImage={onAddImage} onAddText={onAddText} />}
+    </aside>
+  );
+}
+
+function WebView() {
+  const view = useRef(null);
+  const [addr, setAddr] = useState("https://www.google.com");
+  const [src] = useState("https://www.google.com");
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const on = (e) => setAddr(e.url);
+    v.addEventListener("did-navigate", on);
+    v.addEventListener("did-navigate-in-page", on);
+    return () => { v.removeEventListener("did-navigate", on); v.removeEventListener("did-navigate-in-page", on); };
+  }, []);
+  const go = (e) => {
+    e.preventDefault();
+    const t = addr.trim();
+    const url = /^https?:\/\//.test(t) ? t : /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(t) ? "https://" + t : "https://www.google.com/search?q=" + encodeURIComponent(t);
+    view.current?.loadURL(url);
+  };
+  return (
+    <div className="nb-web">
+      <form className="nb-web-bar" onSubmit={go}>
+        <button type="button" className="icon-btn" onClick={() => view.current?.goBack()} aria-label="Back"><Icon name="back" size={15} /></button>
+        <button type="button" className="icon-btn" onClick={() => view.current?.reload()} aria-label="Reload"><Icon name="refresh" size={15} /></button>
+        <input value={addr} onChange={(e) => setAddr(e.target.value)} onFocus={(e) => e.target.select()} aria-label="Address or search" />
+      </form>
+      <webview ref={view} src={src} partition="persist:dwiddle-browse" style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+function WikiPanel({ onAddImage, onAddText }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [article, setArticle] = useState(null); // { title, text }
+  const [pics, setPics] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const textRef = useRef(null);
+  async function search(e) {
+    e?.preventDefault();
+    if (!q.trim()) return;
+    setBusy(true); setArticle(null);
+    try {
+      const [r, p] = await Promise.all([
+        fetch(`${WIKI}?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=8&format=json&origin=*`).then((x) => x.json()),
+        fetch(`${COMMONS}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|mime&iiurlwidth=360&format=json&origin=*`).then((x) => x.json()),
+      ]);
+      setResults(r.query?.search || []);
+      setPics(Object.values(p.query?.pages || {}).map((x) => x.imageinfo?.[0]).filter((x) => x && /image\/(png|jpe?g|gif|webp|svg)/.test(x.mime)).map((x) => x.thumburl));
+    } catch { setResults([]); } finally { setBusy(false); }
+  }
+  async function open(title) {
+    setBusy(true);
+    try {
+      const r = await fetch(`${WIKI}?action=query&prop=extracts&explaintext=1&exsectionformat=plain&titles=${encodeURIComponent(title)}&format=json&origin=*`).then((x) => x.json());
+      const page = Object.values(r.query?.pages || {})[0];
+      setArticle({ title, text: page?.extract || "" });
+    } finally { setBusy(false); }
+  }
+  const addSelected = () => {
+    const sel = String(window.getSelection() || "").trim();
+    onAddText(sel || (article?.text || "").split("\n").find((l) => l.trim().length > 40) || "");
+  };
+  return (
+    <div className="nb-wiki">
+      <form className="nb-web-bar" onSubmit={search}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search Wikipedia, e.g. mitochondria" aria-label="Search Wikipedia" />
+        <button className="btn small cta" disabled={busy}>{busy ? "…" : "Search"}</button>
+      </form>
+      <div className="nb-wiki-body">
+        {pics.length > 0 && (
+          <div className="nb-wiki-pics">
+            {pics.map((u) => (
+              <button key={u} className="nb-wiki-pic" draggable onDragStart={(e) => e.dataTransfer.setData("text/uri-list", u)}
+                onClick={async () => { try { onAddImage(await imageFile(u)); } catch { alert("That picture could not be added."); } }} title="Add to the page">
+                <img src={u} alt="" loading="lazy" /><span>+</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {article ? (
+          <div className="nb-wiki-article">
+            <div className="nb-wiki-head"><button className="btn quiet small" onClick={() => setArticle(null)}><Icon name="back" size={13} /> Results</button>
+              <button className="btn ghost small" onClick={addSelected}>Add selected text to page</button></div>
+            <h3>{article.title}</h3>
+            <div ref={textRef} className="nb-wiki-text">{article.text.split("\n").filter(Boolean).slice(0, 80).map((l, i) => <p key={i}>{l}</p>)}</div>
+          </div>
+        ) : results && (
+          <ul className="nb-wiki-results">
+            {results.length === 0 && <li className="small muted">Nothing found.</li>}
+            {results.map((r) => (
+              <li key={r.pageid}><button onClick={() => open(r.title)}><b>{r.title}</b>
+                <span className="small muted" dangerouslySetInnerHTML={{ __html: r.snippet.replace(/<(?!\/?span)[^>]*>/g, "") + "…" }} /></button></li>
+            ))}
+          </ul>
+        )}
+        {!results && !article && <p className="small muted" style={{ padding: 12 }}>Look anything up without leaving your notes. Tap a picture to add it, or drag it onto the page.</p>}
+      </div>
     </div>
   );
 }
@@ -1206,6 +1365,7 @@ function Editor({ id, go, onClose }) {
   const [cov, setCov] = useState(COVERS_INK[0]);
   const [shown, setShown] = useState(() => new Set()); // revealer strokes tapped open
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
+  const [split, setSplit] = useState(false); // research beside the notebook
   const [adding, setAdding] = useState(false); // the add page menu
   const past = useRef([]);
   const future = useRef([]);
@@ -1256,6 +1416,21 @@ function Editor({ id, go, onClose }) {
   const logRef = useRef(log);
   logRef.current = log;
   const loaded = !!book;
+  // Paste a picture (or some text) straight onto the page.
+  const pasteRef = useRef(null);
+  pasteRef.current = (e) => {
+    const t = e.target;
+    if (t.closest?.("input, textarea, [contenteditable=true], .nb-text.editing")) return;
+    const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
+    if (f) { e.preventDefault(); addImage(f); return; }
+    const text = e.clipboardData?.getData("text/plain");
+    if (text?.trim()) { e.preventDefault(); addText(text); }
+  };
+  useEffect(() => {
+    const on = (e) => pasteRef.current?.(e);
+    window.addEventListener("paste", on);
+    return () => window.removeEventListener("paste", on);
+  }, []);
   useEffect(() => {
     const el = pagesRef.current;
     if (!el) return;
@@ -1650,6 +1825,16 @@ function Editor({ id, go, onClose }) {
     }
   }
 
+  // A text box of words from elsewhere, dropped near the top of this page.
+  function addText(text) {
+    const t = String(text || "").trim().slice(0, 1200);
+    if (!t) return;
+    const page = book.pages[current] || book.pages[0];
+    const it = { id: uid(), type: "text", x: 60, y: 140, w: 660, h: 80, text: t, font: "sans", fontSize: 18, color: "#1b1d26", tilt: 0 };
+    updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
+    setSel({ pageId: page.id, itemId: it.id });
+  }
+
   function addPage(after = current, template, ready) {
     const ref = book.pages[after] || book.pages[book.pages.length - 1];
     const made = ready || [newPage(template || ref?.template || book.template, ref?.paper || book.paper)];
@@ -1752,7 +1937,11 @@ function Editor({ id, go, onClose }) {
             <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addImage(f); }} />
             <Icon name="image" size={18} />
           </label>
-          <button className={"nb-tool" + (video !== null ? " on" : "")} title="Watch a video while you write" aria-label="Watch a video while you write"
+          <button className={"nb-tool" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
+            onClick={() => setSplit((v) => !v)}>
+            <Icon name="split" size={18} />
+          </button>
+          <button className={"nb-tool" + (video !== null ? " on" : "")} title="Watch a video or listen to a recording while you write" aria-label="Watch or listen while you write"
             onClick={() => setVideo((v) => (v === null ? "" : null))}>
             <Icon name="video" size={18} />
           </button>
@@ -1866,7 +2055,15 @@ function Editor({ id, go, onClose }) {
           <button className="nb-thumb nb-thumb-add" onClick={() => addPage(book.pages.length - 1)} aria-label="Add a page"><Icon name="plus" size={18} /></button>
         </aside>
 
-        <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false ? " pencil-only" : "")} ref={pagesArea}>
+        <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false ? " pencil-only" : "")} ref={pagesArea}
+          onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list")) e.preventDefault(); }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
+            if (f) { addImage(f); return; }
+            const url = (e.dataTransfer.getData("text/uri-list") || "").split("\n")[0].trim();
+            if (url) { try { addImage(await imageFile(url)); } catch { alert("That picture could not be added. Try copying it and pasting instead."); } }
+          }}>
           <div className="nb-page-opts">
             <span className="small muted">Page {current + 1} of {book.pages.length}</span>
             <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
@@ -1946,6 +2143,7 @@ function Editor({ id, go, onClose }) {
           ))}
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
         </div>
+        {split && <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />}
       </div>
 
       {/* What prints: every page, one to a sheet. */}
