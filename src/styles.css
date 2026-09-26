@@ -6816,3 +6816,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-text.editing { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .nb-debug { position: fixed; left: 8px; bottom: 8px; z-index: 90; margin: 0; padding: 8px 10px; max-width: 70vw; border-radius: 10px;
   background: rgba(0, 0, 0, 0.8); color: #9f9; font: 11px/1.4 ui-monospace, monospace; pointer-events: none; white-space: pre-wrap; }
+.nb-pages.pencil-only .nb-page, .nb-pages.pencil-only .nb-svg { touch-action: pan-x pan-y; }
+.nb-drawwith { white-space: nowrap; background: var(--sunken); }
+.nb-drawwith.on { background: var(--accent-soft); color: var(--accent); }
+.nb-pop-hint { margin: -6px 0 0 !important; font-size: 12px; }

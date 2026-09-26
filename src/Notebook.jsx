@@ -48,7 +48,10 @@ export const PAPERS = [
 ];
 const paperOf = (id) => PAPERS.find((p) => p.id === id) || PAPERS[0];
 
-function Paper({ page }) {
+const Paper = memo(PaperView, (a, b) => a.page.id === b.page.id && a.page.template === b.page.template && a.page.paper === b.page.paper
+  && a.page.bg === b.page.bg && a.page.w === b.page.w && a.page.h === b.page.h);
+
+function PaperView({ page }) {
   const p = paperOf(page.paper);
   const { w, h } = page;
   const L = p.line;
@@ -209,15 +212,33 @@ function inkPath(item) {
   // A round highlighter has round ends, a flat one square ends like a chisel tip.
   const round = hl && item.tip !== "flat";
   const pen = PEN_STYLES.find((p) => p.id === item.style) || PEN_STYLES[1];
+  // Stability 1 follows the pen exactly (handwriting); 10 irons out every
+  // wobble (graphs and diagrams). Strokes from before the setting are 4.
+  const st = Math.max(1, Math.min(10, item.stab ?? 4));
   return pathFrom(getStroke(item.points, {
     size: item.size,
     thinning: hl ? 0 : pen.thinning,
-    smoothing: 0.55,
-    streamline: item.straight ? 0 : 0.45,
+    smoothing: 0.35 + st * 0.05,
+    streamline: item.straight ? 0 : 0.06 + (st - 1) * 0.09,
+    last: true,
     simulatePressure: !item.pressure && !hl,
     start: { cap: !hl || round, taper: hl ? 0 : pen.taper * 0.7 },
     end: { cap: !hl || round, taper: hl ? 0 : pen.taper },
   }));
+}
+
+// Auto refine: once a stroke is finished, its corners are rounded off a
+// little (one pass of Chaikin's method), so shaky writing comes out neat.
+function refine(points) {
+  const pts = points.filter((p, i) => i === 0 || Math.hypot(p[0] - points[i - 1][0], p[1] - points[i - 1][1]) > 0.6);
+  if (pts.length < 4) return pts;
+  const out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0, p0] = pts[i], [x1, y1, p1] = pts[i + 1];
+    out.push([x0 * 0.75 + x1 * 0.25, y0 * 0.75 + y1 * 0.25, p0 * 0.75 + p1 * 0.25], [x0 * 0.25 + x1 * 0.75, y0 * 0.25 + y1 * 0.75, p0 * 0.25 + p1 * 0.75]);
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
 }
 
 // How wide each tool draws, in page units, from its size setting of 1 to 12.
@@ -867,6 +888,18 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, colors, color, setColor
           <input type="range" min="1" max="12" step="0.5" value={size} onChange={(e) => setSize(Number(e.target.value))} />
           <b>{size}</b>
         </label>
+        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
+          <>
+            <label className="nb-pop-size">
+              <span>Stability</span>
+              <input type="range" min="1" max="10" step="1" value={prefs.stab?.[tool] ?? 4}
+                onChange={(e) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: Number(e.target.value) } }))} />
+              <b>{prefs.stab?.[tool] ?? 4}</b>
+            </label>
+            <p className="small muted nb-pop-hint">Low follows your hand exactly, good for writing (try 2). High smooths out wobble, good for graphs and curves (try 8).</p>
+            {tool === "pen" && <label className="nb-pop-check"><input type="checkbox" checked={prefs.refine !== false} onChange={(e) => setPrefs((o) => ({ ...o, refine: e.target.checked }))} /> Auto refine: tidy each stroke when you lift the pen</label>}
+          </>
+        )}
         {tool !== "eraser" && (
           <div className="nb-pop-colors">
             {palette.map((c) => <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />)}
@@ -989,8 +1022,9 @@ function Editor({ id, go, onClose }) {
   const [hl, setHl] = useState(HIGHLIGHTS[0]);
   // Each tool keeps its own size and style, remembered between visits.
   const [prefs, setPrefs] = useState(() => {
-    const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false };
-    try { return { ...base, ...JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}") }; } catch { return base; }
+    const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
+      stab: { pen: 2, highlighter: 5, revealer: 5 }, refine: true, finger: true };
+    try { const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}"); return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } }; } catch { return base; }
   });
   useEffect(() => { try { localStorage.setItem("dwiddle-nb-tools", JSON.stringify(prefs)); } catch { /* private mode */ } }, [prefs]);
   const size = prefs.size[tool] ?? 3;
@@ -1000,7 +1034,20 @@ function Editor({ id, go, onClose }) {
   const holdT = useRef(null);
   const [font, setFont] = useState("caveat");
   const [zoom, setZoom] = useState(1);
-  const [live, setLive] = useState(null); // { pageId, item } being drawn
+  const [live, setLive] = useState(null); // { pageId, item }: a shape being drawn
+  // A stroke being drawn lives outside React state and is drawn straight
+  // onto its own path, so nothing else re-renders while the pen moves.
+  const liveStroke = useRef(null);
+  const livePath = useRef(null);
+  const [liveOn, setLiveOn] = useState(null); // { pageId, color, tool } while a stroke is drawn
+  const frame = useRef(0);
+  const drawLive = () => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      if (liveStroke.current && livePath.current) livePath.current.setAttribute("d", inkPath(liveStroke.current));
+    });
+  };
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
   const [current, setCurrent] = useState(0); // page index in view
@@ -1044,6 +1091,8 @@ function Editor({ id, go, onClose }) {
   // own, which only a non-passive touch listener can do.
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  const fingerRef = useRef(true);
+  fingerRef.current = prefs.finger !== false;
   const twoFinger = useRef(null); // { x, y } midpoint while two fingers scroll
   // Add ?nbdebug to the address to see what the device sends while drawing.
   const [debug, setDebug] = useState(() => (/nbdebug/.test(location.search) ? [] : null));
@@ -1062,13 +1111,18 @@ function Editor({ id, go, onClose }) {
     const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
     // Simple rule: with a drawing tool, a finger or a Pencil writes; with the
     // hand tool, it scrolls. Two fingers always scroll.
+    const stylus = (e) => [...e.changedTouches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
       if (toolRef.current === "hand") return; // the browser scrolls
+      // "Pencil only": fingers scroll, and only an Apple Pencil writes.
+      if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return; // placing the caret in text being typed
       if (e.touches.length >= 2) {
         twoFinger.current = mid(e.touches);
         setLive(null);
+        liveStroke.current = null;
+        setLiveOn(null);
         drag.current = null;
         e.preventDefault();
         return;
@@ -1077,6 +1131,7 @@ function Editor({ id, go, onClose }) {
     };
     const onMove = (e) => {
       if (toolRef.current === "hand") return;
+      if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-text.editing")) return;
       if (twoFinger.current && e.touches.length >= 2) {
         const m = mid(e.touches);
@@ -1184,6 +1239,7 @@ function Editor({ id, go, onClose }) {
     log("pointerdown", e);
     if (e.button !== 0 && e.pointerType === "mouse") return;
     if (twoFinger.current) return;
+    if (e.pointerType === "touch" && !prefs.finger) return; // Pencil only: a finger scrolls
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
     if (tool === "hand") {
       if (e.pointerType === "mouse") { drag.current = { pan: { x: e.clientX, y: e.clientY } }; capture(e.currentTarget, e); }
@@ -1237,9 +1293,12 @@ function Editor({ id, go, onClose }) {
       setLive({ pageId: page.id, item: { id: uid(), type: "shape", kind: shapeKind, x1: x, y1: y, x2: x, y2: y, color: ink, size: Math.max(2, size * 1.2) } });
     } else {
       const isHl = tool === "highlighter" || tool === "revealer";
-      setLive({ pageId: page.id, item: { id: uid(), type: "stroke", tool, color: tool === "revealer" ? cov : isHl ? hl : ink,
-        size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]],
-        ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) } });
+      const color = tool === "revealer" ? cov : isHl ? hl : ink;
+      liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool, color,
+        size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
+        ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
+      setLiveOn({ pageId: page.id, color, tool });
+      drawLive();
     }
   }
 
@@ -1292,24 +1351,29 @@ function Editor({ id, go, onClose }) {
       }) }), { record: false });
       return;
     }
-    if (!live || live.pageId !== page.id) return;
-    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-    // Draw and hold still for a moment: the line snaps straight, then
-    // follows the pen from its start, as in GoodNotes.
-    clearTimeout(holdT.current);
-    holdT.current = setTimeout(() => setLive((l) => (l && l.item.type === "stroke" && !l.item.straight && l.item.points.length > 4
-      ? { ...l, item: { ...l.item, straight: true, points: [l.item.points[0], l.item.points[l.item.points.length - 1]] } } : l)), 600);
-    setLive((l) => {
-      if (!l) return l;
-      if (l.item.type === "shape") return { ...l, item: { ...l.item, x2: x, y2: y } };
-      if (l.item.straight) return { ...l, item: { ...l.item, points: [l.item.points[0], [x, y, l.item.points[0][2]]] } };
-      const pts = [...l.item.points];
-      for (const ev of events) {
+    const ls = liveStroke.current;
+    if (ls && ls.pageId === page.id) {
+      // Every point the pen reported since the last frame, not just the
+      // last one, so fast strokes stay smooth.
+      const list = e.nativeEvent?.getCoalescedEvents?.();
+      const events = list && list.length ? list : [e];
+      if (ls.straight) ls.points = [ls.points[0], [x, y, ls.points[0][2]]];
+      else for (const ev of events) {
         const [px, py] = toPage(ev, svg, page);
-        pts.push([px, py, ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5]);
+        ls.points.push([px, py, ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5]);
       }
-      return { ...l, item: { ...l.item, points: pts } };
-    });
+      drawLive();
+      // Draw and hold still for a moment: the line snaps straight, then
+      // follows the pen from its start, as in GoodNotes.
+      clearTimeout(holdT.current);
+      holdT.current = setTimeout(() => {
+        const l = liveStroke.current;
+        if (l && !l.straight && l.points.length > 4) { l.straight = true; l.points = [l.points[0], l.points[l.points.length - 1]]; drawLive(); }
+      }, 600);
+      return;
+    }
+    if (!live || live.pageId !== page.id) return;
+    setLive((l) => (l && l.item.type === "shape" ? { ...l, item: { ...l.item, x2: x, y2: y } } : l));
   }
 
   function up(e) {
@@ -1321,12 +1385,20 @@ function Editor({ id, go, onClose }) {
       return;
     }
     clearTimeout(holdT.current);
-    if (!live) return;
-    let done = live.item;
-    if (done.type === "stroke" && done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) {
-      done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
+    const ls = liveStroke.current;
+    if (ls) {
+      liveStroke.current = null;
+      const { pageId, ...rest } = ls;
+      let done = rest;
+      if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
+      else if (prefs.refine && !done.straight) done = { ...done, points: refine(done.points) };
+      const item = { ...done, d: inkPath(done) };
+      updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
+      setLiveOn(null);
+      return;
     }
-    const item = done.type === "stroke" ? { ...done, d: inkPath(done) } : done;
+    if (!live) return;
+    const item = live.item;
     const tiny = item.type === "shape" && Math.hypot(item.x2 - item.x1, item.y2 - item.y1) < 4;
     if (!tiny) updatePage(live.pageId, (p) => ({ ...p, items: [...p.items, item] }));
     setLive(null);
@@ -1455,6 +1527,10 @@ function Editor({ id, go, onClose }) {
             <Icon name="video" size={18} />
           </button>
         </div>
+        <button className={"nb-pill nb-drawwith" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
+          title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
+          {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
+        </button>
         <div className="nb-group nb-colors">
           {colors.map((c) => (
             <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />
@@ -1535,7 +1611,7 @@ function Editor({ id, go, onClose }) {
           <button className="nb-thumb nb-thumb-add" onClick={() => addPage(book.pages.length - 1)} aria-label="Add a page"><Icon name="plus" size={18} /></button>
         </aside>
 
-        <div className={"nb-pages" + (tool === "hand" ? " hand" : "")} ref={pagesArea}>
+        <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false ? " pencil-only" : "")} ref={pagesArea}>
           <div className="nb-page-opts">
             <span className="small muted">Page {current + 1} of {book.pages.length}</span>
             <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
@@ -1591,7 +1667,11 @@ function Editor({ id, go, onClose }) {
                   <Item key={it.id} it={it} editing={editingText === it.id} shown={shown.has(it.id)}
                     onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === it.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} />
                 ))}
-                {live?.pageId === page.id && <Item it={live.item.type === "stroke" ? { ...live.item } : live.item} />}
+                {live?.pageId === page.id && <Item it={live.item} />}
+                {liveOn?.pageId === page.id && (
+                  <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
+                    style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />
+                )}
                 {sel?.pageId === page.id && selected && (() => {
                   const b = boxOf(selected);
                   return <g className="nb-sel">
