@@ -6438,8 +6438,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-page-opts select { min-height: 0; padding: 5px 8px; font-size: 12.5px; width: auto; }
 .nb-page { flex: 0 0 auto; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04); border-radius: 3px; overflow: hidden; background: #fff; }
 .nb-svg { display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
-.nb-svg.tool-pen, .nb-svg.tool-highlighter { cursor: crosshair; }
-.nb-svg.tool-eraser { cursor: cell; }
+.nb-svg.tool-pen, .nb-svg.tool-highlighter, .nb-svg.tool-revealer, .nb-svg.tool-eraser { cursor: none; }
 .nb-svg.tool-text { cursor: text; }
 .nb-svg.tool-select { cursor: default; }
 .nb-text { white-space: pre-wrap; word-break: break-word; outline: none; min-height: 1.35em; padding: 2px 4px; border-radius: 4px; }
@@ -6858,3 +6857,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 @media (max-width: 800px) {
   .nb-split { position: fixed; left: 0; right: 0; bottom: 0; height: 62vh; min-width: 0; z-index: 73; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2); }
 }
+
+/* the page's own cursor: a dot the size of the pen, a circle for the eraser */
+.nb-ring.dot { border-width: 0; opacity: 0.9; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 0 2px rgba(0, 0, 0, 0.25); min-width: 5px; min-height: 5px; }
+.nb-svg { shape-rendering: geometricPrecision; }

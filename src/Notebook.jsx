@@ -208,7 +208,7 @@ function pathFrom(stroke) {
     return acc;
   }, ["M", ...stroke[0], "Q"]);
   d.push("Z");
-  return d.map((n) => (typeof n === "number" ? Math.round(n * 10) / 10 : n)).join(" ");
+  return d.map((n) => (typeof n === "number" ? Math.round(n * 100) / 100 : n)).join(" ");
 }
 
 // Pens write like three real ones: a ballpoint's even line, a fountain
@@ -231,12 +231,26 @@ function inkPath(item) {
     size: item.size,
     thinning: hl ? 0 : pen.thinning,
     smoothing: 0.35 + st * 0.05,
-    streamline: item.straight ? 0 : 0.06 + (st - 1) * 0.09,
+    streamline: item.straight ? 0 : (st - 1) * 0.095,
     last: true,
     simulatePressure: !item.pressure && !hl,
-    start: { cap: !hl || round, taper: hl ? 0 : pen.taper * 0.7 },
-    end: { cap: !hl || round, taper: hl ? 0 : pen.taper },
+    start: { cap: !hl || round, taper: hl || item.cut ? 0 : pen.taper * 0.7 },
+    end: { cap: !hl || round, taper: hl || item.cut ? 0 : pen.taper },
   }));
+}
+
+// A smooth, even line through points, for arcs and ruler lines: drawn as a
+// real stroke, so it stays crisp at any zoom.
+function linePath(points) {
+  if (!points.length) return "";
+  if (points.length < 3) return `M${points[0][0]} ${points[0][1]} L${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
+  let d = `M${points[0][0].toFixed(2)} ${points[0][1].toFixed(2)}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const [x0, y0] = points[i], [x1, y1] = points[i + 1];
+    d += ` Q${x0.toFixed(2)} ${y0.toFixed(2)} ${((x0 + x1) / 2).toFixed(2)} ${((y0 + y1) / 2).toFixed(2)}`;
+  }
+  const last = points[points.length - 1];
+  return d + ` L${last[0].toFixed(2)} ${last[1].toFixed(2)}`;
 }
 
 // Auto refine: once a stroke is finished, its corners are rounded off a
@@ -327,7 +341,7 @@ function boxOf(it) {
   return { x: it.x, y: it.y, w: it.w, h: it.h || 40 };
 }
 function moveItem(it, dx, dy) {
-  if (it.type === "stroke") return { ...it, points: it.points.map(([x, y, p]) => [x + dx, y + dy, p]) };
+  if (it.type === "stroke") { const { d, ...rest } = it; return { ...rest, points: it.points.map(([x, y, p]) => [x + dx, y + dy, p]) }; }
   if (it.type === "shape") return { ...it, x1: it.x1 + dx, y1: it.y1 + dy, x2: it.x2 + dx, y2: it.y2 + dy };
   return { ...it, x: it.x + dx, y: it.y + dy };
 }
@@ -353,6 +367,10 @@ function ItemView({ it, editing, onText, shown }) {
     // Hides what is under it until tapped. Revealed ones stay faint so the
     // answer shows through.
     return <path d={it.d || inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
+  }
+  if (it.type === "stroke" && it.uniform) {
+    return <path d={linePath(it.points)} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
+      opacity={it.tool === "highlighter" ? 0.38 : 1} style={it.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />;
   }
   if (it.type === "stroke") {
     return <path d={it.d || inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1}
@@ -879,6 +897,114 @@ function BookDialog({ folders, folder: startFolder, book, onSave, onClose }) {
   );
 }
 
+// Distance from a point to a stroke's line (not just its points, so a long
+// straight line is hit in the middle too).
+function strokeDist(it, x, y) {
+  const P = it.points;
+  if (P.length === 1) return Math.hypot(P[0][0] - x, P[0][1] - y);
+  let best = Infinity;
+  for (let i = 0; i < P.length - 1; i++) {
+    const [ax, ay] = P[i], [bx, by] = P[i + 1];
+    const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L));
+    best = Math.min(best, Math.hypot(ax + t * dx - x, ay + t * dy - y));
+  }
+  return best;
+}
+// Points no more than a step apart, so a stroke can be cut anywhere.
+function densify(P, step = 1.5) {
+  const out = [P[0]];
+  for (let i = 1; i < P.length; i++) {
+    const [ax, ay, ap] = P[i - 1], [bx, by, bp] = P[i];
+    const n = Math.ceil(Math.hypot(bx - ax, by - ay) / step);
+    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n, ap + ((bp - ap) * k) / n]);
+  }
+  return out;
+}
+// Rubs out under a circle: whole strokes, or (like a real eraser) only
+// the parts of strokes the circle passes over.
+function eraseItems(items, x, y, r, whole) {
+  let changed = false;
+  const out = [];
+  for (const it of items) {
+    if (it.type === "stroke") {
+      const lim = r + it.size * 0.4;
+      if (strokeDist(it, x, y) > lim) { out.push(it); continue; }
+      changed = true;
+      if (whole) continue;
+      const runs = [];
+      let run = [];
+      for (const pt of densify(it.points)) {
+        if (Math.hypot(pt[0] - x, pt[1] - y) < lim) { if (run.length) runs.push(run); run = []; } else run.push(pt);
+      }
+      if (run.length) runs.push(run);
+      const { d, ...rest } = it;
+      for (const pts of runs) if (pts.length > 1) out.push({ ...rest, id: uid(), points: pts, straight: false, cut: true });
+      continue;
+    }
+    if (it.type === "shape") {
+      const b = boxOf(it);
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) { changed = true; continue; }
+    }
+    out.push(it);
+  }
+  return changed ? out : items;
+}
+
+// Guides: a ruler's edges, a protractor's curve and base. A stroke or the
+// eraser started on one follows it.
+function guideAt(ruler, prot, pageId, x, y) {
+  if (ruler && ruler.pageId === pageId) {
+    const { lx, ly } = rulerLocal(ruler, x, y);
+    const edge = ly > -32 && ly < 10 ? 0 : ly > RULER_H - 10 && ly < RULER_H + 32 ? RULER_H : null;
+    if (edge !== null && lx > -30 && lx < ruler.len + 30) {
+      const a = (ruler.angle * Math.PI) / 180, o = rulerPoint(ruler, 0, edge);
+      return { kind: "line", ox: o[0], oy: o[1], ux: Math.cos(a), uy: Math.sin(a) };
+    }
+  }
+  if (prot && prot.pageId === pageId) {
+    const { lx, ly } = protLocal(prot, x, y);
+    const d = Math.hypot(lx, ly);
+    if (Math.abs(d - prot.r) < 22 && ly < 12) return { kind: "arc", cx: prot.x, cy: prot.y, r: prot.r };
+    if (Math.abs(ly) < 16 && Math.abs(lx) < prot.r + 20) {
+      const a = (prot.angle * Math.PI) / 180;
+      return { kind: "line", ox: prot.x, oy: prot.y, ux: Math.cos(a), uy: Math.sin(a) };
+    }
+  }
+  return null;
+}
+function onGuide(g, x, y) {
+  if (g.kind === "line") { const t = (x - g.ox) * g.ux + (y - g.oy) * g.uy; return [g.ox + t * g.ux, g.oy + t * g.uy]; }
+  const a = Math.atan2(y - g.cy, x - g.cx);
+  return [g.cx + Math.cos(a) * g.r, g.cy + Math.sin(a) * g.r];
+}
+
+// A protractor: a half circle over its base, marked in degrees.
+function protLocal(p, x, y) {
+  const a = (p.angle * Math.PI) / 180, dx = x - p.x, dy = y - p.y;
+  return { lx: dx * Math.cos(a) + dy * Math.sin(a), ly: -dx * Math.sin(a) + dy * Math.cos(a) };
+}
+function Protractor({ p }) {
+  const marks = [];
+  for (let d = 0; d <= 180; d++) {
+    const t = Math.PI - (d * Math.PI) / 180, c = Math.cos(t), sn = -Math.sin(t);
+    const len = d % 10 === 0 ? 16 : d % 5 === 0 ? 10 : 5;
+    marks.push(<line key={d} x1={c * p.r} y1={sn * p.r} x2={c * (p.r - len)} y2={sn * (p.r - len)} stroke="#334" strokeWidth={d % 10 === 0 ? 1.1 : 0.6} />);
+    if (d % 10 === 0) marks.push(<text key={"t" + d} x={c * (p.r - 28)} y={sn * (p.r - 28) + 4} fontSize="10" textAnchor="middle" fill="#334" fontFamily="Inter, system-ui, sans-serif">{d}</text>);
+  }
+  const deg = ((Math.round(p.angle) % 360) + 360) % 360;
+  return (
+    <g transform={`translate(${p.x} ${p.y}) rotate(${p.angle})`} className="nb-ruler nb-protractor">
+      <path d={`M${-p.r} 0 A${p.r} ${p.r} 0 0 1 ${p.r} 0 Z`} fill="rgba(235, 242, 255, 0.72)" stroke="rgba(59, 91, 253, 0.55)" strokeWidth="1.2" />
+      {marks}
+      <line x1="-8" x2="8" y1="0" y2="0" stroke="#e5484d" strokeWidth="1.5" /><line x1="0" x2="0" y1="-8" y2="0" stroke="#e5484d" strokeWidth="1.5" />
+      <text x="0" y={-p.r / 2.6} fontSize="12" textAnchor="middle" fill="#3B5BFD" fontWeight="700" fontFamily="Inter, system-ui, sans-serif">{deg}°</text>
+      <circle cx={p.r - 24} cy="-16" r="13" fill="#3B5BFD" opacity="0.9" />
+      <path d={`M${p.r - 30} -18 a6 6 0 1 1 6 8`} stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+    </g>
+  );
+}
+
 const RULER_H = 64;
 const CM = 96 / 2.54;
 // A point's position along the ruler (lx) and away from its top edge (ly).
@@ -1005,7 +1131,11 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
         )}
         {tool === "eraser" && (
           <>
-            <p className="small muted">Rubs out whole strokes it touches. The circle on the page shows how big it is.</p>
+            <div className="seg tight nb-pop-seg">
+              <button className={prefs.eraseWhole !== true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: false }))}>Part of a stroke</button>
+              <button className={prefs.eraseWhole === true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: true }))}>Whole strokes</button>
+            </div>
+            <p className="small muted">The circle on the page shows how big it is. Start on the ruler's edge or the protractor to rub out in a straight line or a curve.</p>
             <div className="nb-pop-row"><button className="btn ghost small danger" onClick={() => { if (window.confirm("Clear everything on this page?")) { onClearPage(); onClose(); } }}>Clear this page</button></div>
           </>
         )}
@@ -1286,7 +1416,7 @@ function Editor({ id, go, onClose }) {
   // Each tool keeps its own size and style, remembered between visits.
   const [prefs, setPrefs] = useState(() => {
     const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
-      stab: { pen: 2, highlighter: 5, revealer: 5 }, refine: true, finger: true,
+      stab: { pen: 1, highlighter: 4, revealer: 4 }, refine: true, finger: true,
       // The pencil case: favourite pens, one tap away.
       pens: [
         { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
@@ -1348,15 +1478,17 @@ function Editor({ id, go, onClose }) {
   // perfectly straight. Measured in real centimetres (A4 at 96 dpi).
   const [ruler, setRuler] = useState(null); // { pageId, x, y, angle, len }
   const [compass, setCompass] = useState(null); // { pageId, x, y } the compass point
+  const [prot, setProt] = useState(null); // { pageId, x, y, angle, r } a protractor
   const livePath = useRef(null);
   const [liveOn, setLiveOn] = useState(null); // { pageId, color, tool } while a stroke is drawn
   const frame = useRef(0);
-  const drawLive = () => {
-    if (frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = 0;
-      if (liveStroke.current && livePath.current) livePath.current.setAttribute("d", inkPath(liveStroke.current));
-    });
+  // Drawn at once, on every pen event, with where the pen is about to be
+  // added on the end (the browser predicts it) so the ink keeps up.
+  const drawLive = (ahead = []) => {
+    const ls = liveStroke.current, el = livePath.current;
+    if (!ls || !el) { if (ls && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; drawLive(); }); return; }
+    const pts = ahead.length && !ls.straight && !ls.arc ? ls.points.concat(ahead) : ls.points;
+    el.setAttribute("d", ls.uniform ? linePath(pts) : inkPath({ ...ls, points: pts }));
   };
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
@@ -1610,9 +1742,11 @@ function Editor({ id, go, onClose }) {
     }
 
     if (tool === "eraser") {
-      drag.current = { pageId: page.id, erase: true, start: book };
+      const guide = guideAt(ruler, prot, page.id, x, y);
+      const [ex, ey] = guide ? onGuide(guide, x, y) : [x, y];
+      drag.current = { pageId: page.id, erase: true, start: book, guide, last: [ex, ey] };
       capture(svg, e);
-      erase(page, x, y);
+      erase(page, ex, ey);
       return;
     }
 
@@ -1622,6 +1756,16 @@ function Editor({ id, go, onClose }) {
       if (lx >= 0 && lx <= ruler.len && ly >= 0 && ly <= RULER_H) {
         const turning = lx > ruler.len - 60;
         drag.current = { ruler: turning ? "turn" : "move", x, y, from: ruler };
+        capture(svg, e);
+        return;
+      }
+    }
+
+    if (prot && prot.pageId === page.id) {
+      const { lx, ly } = protLocal(prot, x, y);
+      if (ly <= 2 && ly >= -prot.r && Math.hypot(lx, ly) <= prot.r && !guideAt(null, prot, page.id, x, y)) {
+        const turning = Math.hypot(lx - (prot.r - 24), ly + 16) < 22;
+        drag.current = { prot: turning ? "turn" : "move", x, y, from: prot };
         capture(svg, e);
         return;
       }
@@ -1639,8 +1783,8 @@ function Editor({ id, go, onClose }) {
       const r = Math.hypot(x - compass.x, y - compass.y);
       const a0 = Math.atan2(y - compass.y, x - compass.x);
       liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool: "pen", color: ink, size: widthOf("pen", size), pressure: false,
-        stab: 1, style: "ball", points: [[x, y, 0.5]], arc: { cx: compass.x, cy: compass.y, r, a0, last: a0, sweep: 0 } };
-      setLiveOn({ pageId: page.id, color: ink, tool: "pen" });
+        stab: 1, style: "ball", uniform: true, points: [[x, y, 0.5]], arc: { cx: compass.x, cy: compass.y, r, a0, last: a0, sweep: 0 } };
+      setLiveOn({ pageId: page.id, color: ink, tool: "pen", uniform: true, size: widthOf("pen", size) });
       drawLive();
       return;
     }
@@ -1654,26 +1798,39 @@ function Editor({ id, go, onClose }) {
       liveStroke.current = { pageId: page.id, id: uid(), type: "stroke", tool, color,
         size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
         ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
-      if (ruler && ruler.pageId === page.id && tool !== "revealer") {
-        const { lx, ly } = rulerLocal(ruler, x, y);
-        const edge = ly > -32 && ly < 10 ? 0 : ly > RULER_H - 10 && ly < RULER_H + 32 ? RULER_H : null;
-        if (edge !== null && lx > -30 && lx < ruler.len + 30) {
-          const s0 = rulerPoint(ruler, lx, edge);
-          liveStroke.current.ruler = { edge };
+      const guide = tool !== "revealer" ? guideAt(ruler, prot, page.id, x, y) : null;
+      if (guide) {
+        const s0 = onGuide(guide, x, y);
+        liveStroke.current.uniform = true;
+        if (guide.kind === "line") {
+          liveStroke.current.guide = guide;
           liveStroke.current.straight = true;
           liveStroke.current.points = [[s0[0], s0[1], pressure], [s0[0], s0[1], pressure]];
+        } else {
+          const a0 = Math.atan2(s0[1] - guide.cy, s0[0] - guide.cx);
+          liveStroke.current.arc = { cx: guide.cx, cy: guide.cy, r: guide.r, a0, last: a0, sweep: 0 };
+          liveStroke.current.points = [[s0[0], s0[1], pressure]];
         }
       }
-      setLiveOn({ pageId: page.id, color, tool });
+      setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform, size: liveStroke.current.size });
       drawLive();
     }
   }
 
-  function erase(page, x, y) {
+  // The eraser rubs along the path between the last spot and this one, so
+  // a quick swipe leaves no gaps.
+  function erase(page, x, y, from) {
     const r = widthOf("eraser", size) / 2;
-    const keep = page.items.filter((i) => !(i.type === "stroke" && nearStroke(i, x, y, r)) &&
-      !(i.type === "shape" && (() => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; })()));
-    if (keep.length !== page.items.length) updatePage(page.id, (p) => ({ ...p, items: keep }), { record: false });
+    const whole = prefs.eraseWhole === true;
+    updatePage(page.id, (p) => {
+      let items = p.items;
+      const steps = from ? Math.max(1, Math.ceil(Math.hypot(x - from[0], y - from[1]) / (r * 0.5))) : 1;
+      for (let k = 1; k <= steps; k++) {
+        const ex = from ? from[0] + ((x - from[0]) * k) / steps : x, ey = from ? from[1] + ((y - from[1]) * k) / steps : y;
+        items = eraseItems(items, ex, ey, r, whole);
+      }
+      return items === p.items ? p : { ...p, items };
+    }, { record: false });
   }
 
   // Draws the size circle under the pointer, straight on the page, without
@@ -1689,7 +1846,8 @@ function Editor({ id, go, onClose }) {
     el.style.width = el.style.height = d + "px";
     el.style.transform = `translate(${e.clientX - d / 2}px, ${e.clientY - d / 2}px)`;
     el.style.borderColor = tool === "eraser" ? "rgba(0,0,0,.55)" : c;
-    el.className = "nb-ring" + (tool === "eraser" ? " eraser" : "");
+    el.style.background = tool === "pen" ? c : "";
+    el.className = "nb-ring" + (tool === "eraser" ? " eraser" : tool === "pen" ? " dot" : "");
   }
 
   function move(e, page) {
@@ -1702,7 +1860,25 @@ function Editor({ id, go, onClose }) {
       return;
     }
     const [x, y] = toPage(e, svg, page);
-    if (drag.current?.erase) { erase(page, x, y); return; }
+    if (drag.current?.erase) {
+      const d = drag.current;
+      const [ex, ey] = d.guide ? onGuide(d.guide, x, y) : [x, y];
+      erase(page, ex, ey, d.last);
+      d.last = [ex, ey];
+      return;
+    }
+    if (drag.current?.prot) {
+      const d = drag.current, f = d.from;
+      if (d.prot === "move") setProt({ ...f, x: f.x + x - d.x, y: f.y + y - d.y });
+      else {
+        const a0 = Math.atan2(d.y - f.y, d.x - f.x), a1 = Math.atan2(y - f.y, x - f.x);
+        let ang = f.angle + ((a1 - a0) * 180) / Math.PI;
+        const snap = Math.round(ang / 15) * 15;
+        if (Math.abs(ang - snap) < 2.5) ang = snap;
+        setProt({ ...f, angle: ang });
+      }
+      return;
+    }
     if (drag.current?.ruler) {
       const d = drag.current, f = d.from;
       if (d.ruler === "move") setRuler({ ...f, x: f.x + x - d.x, y: f.y + y - d.y });
@@ -1750,9 +1926,8 @@ function Editor({ id, go, onClose }) {
       drawLive();
       return;
     }
-    if (ls && ls.pageId === page.id && ls.ruler) {
-      const { lx } = rulerLocal(ruler, x, y);
-      const p1 = rulerPoint(ruler, lx, ls.ruler.edge);
+    if (ls && ls.pageId === page.id && ls.guide) {
+      const p1 = onGuide(ls.guide, x, y);
       ls.points = [ls.points[0], [p1[0], p1[1], ls.points[0][2]]];
       drawLive();
       return;
@@ -1767,7 +1942,8 @@ function Editor({ id, go, onClose }) {
         const [px, py] = toPage(ev, svg, page);
         ls.points.push([px, py, ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5]);
       }
-      drawLive();
+      const predicted = (e.nativeEvent?.getPredictedEvents?.() || []).slice(0, 2).map((ev) => { const [px, py] = toPage(ev, svg, page); return [px, py, ls.points[ls.points.length - 1][2]]; });
+      drawLive(predicted);
       // Draw and hold still for a moment: the line snaps straight, then
       // follows the pen from its start, as in GoodNotes.
       clearTimeout(holdT.current);
@@ -1793,11 +1969,11 @@ function Editor({ id, go, onClose }) {
     const ls = liveStroke.current;
     if (ls) {
       liveStroke.current = null;
-      const { pageId, arc, ruler: onRuler, ...rest } = ls;
+      const { pageId, arc, guide, ...rest } = ls;
       let done = rest;
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
       else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
-      const item = { ...done, d: inkPath(done) };
+      const item = done.uniform ? done : { ...done, d: inkPath(done) };
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
       setLiveOn(null);
       return;
@@ -1950,6 +2126,11 @@ function Editor({ id, go, onClose }) {
           aria-label="Ruler" aria-pressed={!!ruler}
           onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
           <Icon name="ruler" size={18} />
+        </button>
+        <button className={"nb-tool" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
+          aria-label="Protractor" aria-pressed={!!prot}
+          onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}>
+          <Icon name="protractor" size={18} />
         </button>
         <button className={"nb-pill nb-drawwith" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
           title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
@@ -2121,16 +2302,18 @@ function Editor({ id, go, onClose }) {
                 ))}
                 {live?.pageId === page.id && <Item it={live.item} />}
                 {ruler?.pageId === page.id && <Ruler r={ruler} />}
+                {prot?.pageId === page.id && <Protractor p={prot} />}
                 {compass?.pageId === page.id && tool === "compass" && (
                   <g className="nb-compass" pointerEvents="none">
                     <circle cx={compass.x} cy={compass.y} r="5" fill="#e5484d" />
                     <circle cx={compass.x} cy={compass.y} r="12" fill="none" stroke="#e5484d" strokeWidth="1.5" strokeDasharray="3 3" />
                   </g>
                 )}
-                {liveOn?.pageId === page.id && (
-                  <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
-                    style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />
-                )}
+                {liveOn?.pageId === page.id && (liveOn.uniform
+                  ? <path ref={livePath} fill="none" stroke={liveOn.color} strokeWidth={liveOn.size} strokeLinecap="round" strokeLinejoin="round"
+                      opacity={liveOn.tool === "highlighter" ? 0.38 : 1} style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />
+                  : <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
+                      style={liveOn.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined} />)}
                 {sel?.pageId === page.id && selected && (() => {
                   const b = boxOf(selected);
                   return <g className="nb-sel">
