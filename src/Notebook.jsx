@@ -1895,6 +1895,7 @@ function Editor({ id, go, onClose }) {
     const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
+      if (e.target.closest?.(".nb-crop")) { e.preventDefault(); return; }
       const onPage = !!e.target.closest?.(".nb-svg");
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       // A hand resting on the page while the Pencil writes: ignored, and
@@ -1909,6 +1910,8 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onMove = (e) => {
+      // moving, resizing or cropping something: the page must stay still
+      if (e.target.closest?.(".nb-crop") || drag.current?.groupMove || drag.current?.groupResize || drag.current?.textMove || drag.current?.ruler || drag.current?.prot) { e.preventDefault(); return; }
       const onPage = !!e.target.closest?.(".nb-svg");
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
@@ -2031,7 +2034,7 @@ function Editor({ id, go, onClose }) {
       capture(svg, e);
       if (group && group.pageId === page.id) {
         const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
-        if (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < 26 / zoom + 6) {
+        if (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom) {
           drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
           return;
         }
@@ -2088,7 +2091,7 @@ function Editor({ id, go, onClose }) {
       if (group && group.pageId === page.id) {
         const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
         if (gb) {
-          if (Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < 26 / zoom + 6) {
+          if (Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom) {
             drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
             return;
           }
