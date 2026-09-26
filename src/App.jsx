@@ -9,7 +9,7 @@ import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
-import { useAuth, Account, SignInPage, Avatar } from "./Account.jsx";
+import { useAuth, Account, SignInPage, Avatar, ProfileGate } from "./Account.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback } from "./supabase.js";
 import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
@@ -657,6 +657,7 @@ export default function App() {
         </div>
       )}
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
+      <ProfileGate user={auth.user} />
 
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
         <button className="icon-btn drawer-close" aria-label="Close menu"
@@ -4850,6 +4851,9 @@ function FeedbackPage({ auth }) {
           <button type="button" className={kind === "review" ? "on" : ""} onClick={() => setKind("review")}>
             <Icon name="star" size={14} /> Leave a review
           </button>
+          <button type="button" className={kind === "bug" ? "on" : ""} onClick={() => setKind("bug")}>
+            <Icon name="flag" size={14} /> Report a bug
+          </button>
         </div>
 
         {kind === "review" && (
@@ -4867,7 +4871,7 @@ function FeedbackPage({ auth }) {
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name={kind === "review" ? "star" : "chat"} size={14} /></span>
-              <b className="small">{kind === "review" ? "Your review" : "What happened?"}</b>
+              <b className="small">{kind === "review" ? "Your review" : kind === "bug" ? "What went wrong?" : "What's on your mind?"}</b>
             </div>
           </div>
           <textarea
@@ -4878,7 +4882,9 @@ function FeedbackPage({ auth }) {
             placeholder={
               kind === "review"
                 ? "What is it good at, and what would make it better?"
-                : "What were you doing, what did you expect, and what happened instead? Specifics help most."
+                : kind === "bug"
+                  ? "What were you doing, what did you expect, and what happened instead? Say which device too (iPhone, iPad, Mac, Windows)."
+                  : "What's missing, what you'd like next, or anything else."
             }
             onChange={(e) => setMessage(e.target.value)}
           />

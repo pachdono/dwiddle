@@ -20,7 +20,7 @@ const escape = (v) =>
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 4 })) return;
 
-  const kind = req.body?.kind === "review" ? "review" : "feedback";
+  const kind = ["review", "bug"].includes(req.body?.kind) ? req.body.kind : "feedback";
   const message = String(req.body?.message || "").trim().slice(0, 4000);
   const contact = String(req.body?.contact || "").trim().slice(0, 200);
   const rating = Number(req.body?.rating);

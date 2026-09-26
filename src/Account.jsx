@@ -4,7 +4,7 @@
 // or to get wrong, and it needs no extra fields.
 
 import { useEffect, useState } from "react";
-import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge } from "./supabase.js";
+import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 
 // Google supplies a profile picture; an email link sign in does not. Either
@@ -244,6 +244,93 @@ export function SignInPage({ onClose }) {
   );
 }
 
+// ---------- your details ----------
+
+// First name, last name, date of birth and country. Asked once, straight
+// after signing up, and changeable in Settings.
+export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" }) {
+  const [f, setF] = useState({ first_name: "", last_name: "", birth_date: "", country: "", ...(initial || {}) });
+  const [state, setState] = useState("idle");
+  const [err, setErr] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const set = (k) => (e) => setF((o) => ({ ...o, [k]: e.target.value }));
+  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01";
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!ok) return;
+    setState("saving"); setErr("");
+    const r = await saveProfile(user.id, f);
+    if (!r.ok) { setState("idle"); setErr(r.reason || "It could not be saved. Try again."); return; }
+    onSaved?.({ ...f, country: f.country?.trim() || null });
+  }
+
+  return (
+    <form className="profile-form" onSubmit={submit}>
+      <div className="profile-row">
+        <label className="field"><span>First name</span>
+          <input required autoComplete="given-name" maxLength={60} value={f.first_name} onChange={set("first_name")} /></label>
+        <label className="field"><span>Last name</span>
+          <input required autoComplete="family-name" maxLength={60} value={f.last_name} onChange={set("last_name")} /></label>
+      </div>
+      <label className="field"><span>Date of birth</span>
+        <input required type="date" autoComplete="bday" min="1900-01-02" max={today} value={f.birth_date} onChange={set("birth_date")} /></label>
+      <label className="field"><span>Country <em className="muted">(optional)</em></span>
+        <input autoComplete="country-name" maxLength={60} value={f.country || ""} onChange={set("country")} /></label>
+      {err && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>{err}</p>}
+      <div className="profile-actions">
+        {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>}
+        <button className="btn cta" type="submit" disabled={!ok || state === "saving"}>{state === "saving" ? "Saving" : submitLabel}</button>
+      </div>
+    </form>
+  );
+}
+
+// Shown over the app to someone signed in who has not filled in their
+// details yet. If the details cannot be checked (offline), it stays away.
+export function ProfileGate({ user }) {
+  const [need, setNeed] = useState(false);
+  useEffect(() => {
+    if (!user) { setNeed(false); return; }
+    let live = true;
+    getProfile(user.id).then((p) => live && setNeed(p === null));
+    return () => { live = false; };
+  }, [user]);
+  if (!need || !user) return null;
+  const m = user.user_metadata || {};
+  const [first = "", ...rest] = String(m.full_name || m.name || "").split(" ");
+  return (
+    <div className="gate-scrim">
+      <div className="gate profile-gate" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+        <h2 id="pf-title">Finish setting up your account</h2>
+        <p className="gate-sub">A few details so your account is yours. Only you and the Dwiddle team can see them.</p>
+        <ProfileForm user={user} initial={{ first_name: first, last_name: rest.join(" ") }} submitLabel="Continue" onSaved={() => setNeed(false)} />
+      </div>
+    </div>
+  );
+}
+
+function YourDetails({ user }) {
+  const [p, setP] = useState(undefined);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { let live = true; getProfile(user.id).then((x) => live && setP(x)); return () => { live = false; }; }, [user]);
+  if (p === undefined) return null;
+  if (editing || p === null) {
+    return <div className="card-pad" style={{ paddingTop: 0 }}>
+      <ProfileForm user={user} initial={p} onSaved={(x) => { setP(x); setEditing(false); }} onCancel={p ? () => setEditing(false) : undefined} />
+    </div>;
+  }
+  return (
+    <div className="set-row">
+      <div className="sec-main">
+        <div className="list-title">{p.first_name} {p.last_name}</div>
+        <div className="small muted">Born {new Date(p.birth_date + "T00:00").toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}{p.country ? ` · ${p.country}` : ""}</div>
+      </div>
+      <button className="btn ghost" onClick={() => setEditing(true)}>Edit details</button>
+    </div>
+  );
+}
+
 export function Account({ user, syncedAt, signOut }) {
   if (!configured) {
     return (
@@ -275,6 +362,7 @@ export function Account({ user, syncedAt, signOut }) {
           </div>
           <button className="btn ghost" onClick={signOut}>Sign out</button>
         </div>
+        <YourDetails user={user} />
       </div>
     );
   }

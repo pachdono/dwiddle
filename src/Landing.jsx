@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
-import { approvedReviews } from "./supabase.js";
+import { activeAnnouncement, approvedReviews, latestUpdates } from "./supabase.js";
 import { ThemeMark } from "./ThemeMark.jsx";
 import { THEMES } from "./themes.js";
 import { DuckTalk } from "./Chat.jsx";
@@ -621,6 +621,16 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
     return () => { live = false; };
   }, []);
 
+  // Written by staff: one announcement at most, and the latest update logs.
+  const [news, setNews] = useState(null);
+  const [updates, setUpdates] = useState([]);
+  useEffect(() => {
+    let live = true;
+    activeAnnouncement().then((a) => live && setNews(a));
+    latestUpdates(4).then((u) => live && setUpdates(u));
+    return () => { live = false; };
+  }, []);
+
   return (
     <div className="landing">
       <header className="glassbar">
@@ -631,11 +641,20 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         <nav className="glass-nav">
           <button onClick={() => jump("features")}>Features</button>
           <button onClick={() => jump("analytics")}>Analytics</button>
+          {updates.length > 0 && <button onClick={() => jump("updates")}>What's new</button>}
           <button onClick={() => jump("faq")}>FAQ</button>
           <button onClick={onInstall}>Get the app</button>
         </nav>
         <button className="btn small glass-cta" onClick={onSignIn}>Sign in</button>
       </header>
+
+      {news && (
+        <div className="landing-news" role="status">
+          <span className="landing-news-tag">News</span>
+          <span>{news.message}</span>
+          {news.link && /^https?:\/\//.test(news.link) && <a href={news.link} target="_blank" rel="noreferrer">Read more</a>}
+        </div>
+      )}
 
       <main className="landing-hero">
         <div className="hero-copy">
@@ -713,6 +732,24 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
       <Build />
 
       <Compare />
+
+      {updates.length > 0 && (
+        <section className="landing-updates" id="updates">
+          <div className="marquee-label">What's new</div>
+          <div className="updates-list">
+            {updates.map((u) => (
+              <article className="update-card" key={u.id}>
+                <div className="update-meta">
+                  {u.version && <span className="update-ver">{u.version}</span>}
+                  <span>{new Date(u.published_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
+                </div>
+                <h3>{u.title}</h3>
+                <p>{u.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="landing-numbers" id="analytics">
         <h2>Analytics</h2>

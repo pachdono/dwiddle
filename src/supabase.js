@@ -293,3 +293,44 @@ export async function approvedReviews(limit = 6) {
   if (error) return [];
   return data || [];
 }
+
+// ---------- profile, announcements, update logs ----------
+
+// The person's profile, or null if they have not filled it in yet. Returns
+// undefined when it cannot be known (offline, or the table is not set up),
+// so the app never nags about a form it cannot save.
+export async function getProfile(userId) {
+  if (!supabase) return undefined;
+  const { data, error } = await supabase
+    .from("profiles").select("first_name, last_name, birth_date, country").eq("user_id", userId).maybeSingle();
+  if (error) { console.warn("[profile] read failed", error.message); return undefined; }
+  return data ?? null;
+}
+
+export async function saveProfile(userId, p) {
+  if (!supabase) return { ok: false, reason: "Accounts are not configured" };
+  const { error } = await supabase.from("profiles").upsert({
+    user_id: userId,
+    first_name: p.first_name.trim(),
+    last_name: p.last_name.trim(),
+    birth_date: p.birth_date,
+    country: p.country?.trim() || null,
+  }, { onConflict: "user_id" });
+  return error ? { ok: false, reason: error.message } : { ok: true };
+}
+
+export async function activeAnnouncement() {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("announcements").select("id, message, link").eq("active", true)
+    .order("created_at", { ascending: false }).limit(1);
+  return error ? null : data?.[0] ?? null;
+}
+
+export async function latestUpdates(limit = 4) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("updates").select("id, version, title, body, published_at")
+    .order("published_at", { ascending: false }).limit(limit);
+  return error ? [] : data || [];
+}
