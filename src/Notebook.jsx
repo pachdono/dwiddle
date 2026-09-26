@@ -222,25 +222,33 @@ const PEN_STYLES = [
 // Evens out a stroke before its ink shape is made: points spaced evenly
 // along the line, then position and pressure averaged with their
 // neighbours, so neither the edge nor the thickness can wobble.
-function smoothPts(points, step) {
+function smoothPts(points) {
   if (points.length < 4) return points;
+  // How big the stroke is: small handwriting keeps its exact shape, only
+  // long, large strokes are evened out, whatever the zoom.
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of points) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const extent = Math.hypot(x1 - x0, y1 - y0);
+  if (extent < 24) return points;
+  const step = Math.min(1.4, Math.max(0.35, extent / 100));
   const even = [points[0]];
   let carry = 0;
   for (let i = 1; i < points.length; i++) {
     const [ax, ay, ap] = points[i - 1], [bx, by, bp] = points[i];
     const len = Math.hypot(bx - ax, by - ay);
+    if (!len) continue;
     let t = step - carry;
     while (t <= len) { const k = t / len; even.push([ax + (bx - ax) * k, ay + (by - ay) * k, ap + (bp - ap) * k]); t += step; }
     carry = len - (t - step);
   }
   even.push(points[points.length - 1]);
-  if (even.length < 5) return even;
-  const W = [1, 4, 6, 4, 1];
+  const W = extent < 90 ? [1, 2, 1] : [1, 4, 6, 4, 1];
+  const h = (W.length - 1) / 2, sum = W.reduce((a, b) => a + b, 0);
   return even.map((p, i) => {
-    if (i < 2 || i > even.length - 3) return p;
+    if (i < h || i > even.length - 1 - h) return p;
     let x = 0, y = 0, pr = 0;
-    for (let j = -2; j <= 2; j++) { const q = even[i + j], w = W[j + 2]; x += q[0] * w; y += q[1] * w; pr += q[2] * w; }
-    return [x / 16, y / 16, pr / 16];
+    for (let j = -h; j <= h; j++) { const q = even[i + j], wt = W[j + h]; x += q[0] * wt; y += q[1] * wt; pr += q[2] * wt; }
+    return [x / sum, y / sum, pr / sum];
   });
 }
 
@@ -252,7 +260,7 @@ function inkPath(item) {
   // Stability 1 follows the pen exactly (handwriting); 10 irons out every
   // wobble (graphs and diagrams). Strokes from before the setting are 4.
   const st = Math.max(1, Math.min(10, item.stab ?? 4));
-  const pts = item.straight ? item.points : smoothPts(item.points, Math.max(1.2, item.size * 0.35));
+  const pts = item.straight ? item.points : smoothPts(item.points);
   return pathFrom(getStroke(pts, {
     size: item.size,
     thinning: hl ? 0 : pen.thinning,
@@ -430,7 +438,7 @@ function ItemView({ it, editing, onText, shown }) {
     return <path d={inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
   }
   if (it.type === "stroke" && (it.uniform || (it.tool === "pen" && it.style === "ball"))) {
-    return <path d={linePath(it.uniform ? it.points : smoothPts(it.points, Math.max(1.2, it.size * 0.35)))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
+    return <path d={linePath(it.uniform ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
@@ -1484,7 +1492,7 @@ function Editor({ id, go, onClose }) {
   // Each tool keeps its own size and style, remembered between visits.
   const [prefs, setPrefs] = useState(() => {
     const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
-      stab: { pen: 1, highlighter: 4, revealer: 4 }, refine: true, finger: true,
+      stab: { pen: 1, highlighter: 4, revealer: 4 }, refine: false, finger: true,
       // The pencil case: favourite pens, one tap away.
       pens: [
         { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
@@ -1493,7 +1501,12 @@ function Editor({ id, go, onClose }) {
         { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
         { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "flat", stab: 5 },
       ] };
-    try { const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}"); return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } }; } catch { return base; }
+    try {
+      const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}");
+      // Auto refine made small writing hard; it starts off for everyone once.
+      if (!saved.v2) { saved.refine = false; saved.v2 = true; }
+      return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } };
+    } catch { return base; }
   });
   useEffect(() => { try { localStorage.setItem("dwiddle-nb-tools", JSON.stringify(prefs)); } catch { /* private mode */ } }, [prefs]);
   const size = prefs.size[tool] ?? 3;
@@ -1562,7 +1575,7 @@ function Editor({ id, go, onClose }) {
     if (!ls || !el) { if (ls && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; drawLive(); }); return; }
     const pts = ahead.length && !ls.straight && !ls.arc ? ls.points.concat(ahead) : ls.points;
     const even = ls.tool === "pen" && ls.style === "ball";
-    el.setAttribute("d", ls.uniform ? linePath(pts) : even ? linePath(smoothPts(pts, Math.max(1.2, ls.size * 0.35))) : inkPath({ ...ls, points: pts }));
+    el.setAttribute("d", ls.uniform ? linePath(pts) : even ? linePath(smoothPts(pts)) : inkPath({ ...ls, points: pts }));
   };
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
@@ -2061,20 +2074,24 @@ function Editor({ id, go, onClose }) {
         const pr = last[2] * 0.75 + raw * 0.25;
         // Movements smaller than the screen can show are just the pen
         // trembling; the last point is nudged instead of adding a new one.
-        if (Math.hypot(px - last[0], py - last[1]) < 0.9 && ls.points.length > 1) { ls.points[ls.points.length - 1] = [px, py, pr]; continue; }
-        // A touch of smoothing on the position too: a fraction of one reading
-        // behind, which the eye cannot see but the ink edge can.
-        ls.points.push([last[0] * 0.35 + px * 0.65, last[1] * 0.35 + py * 0.65, pr]);
+        if (Math.hypot(px - last[0], py - last[1]) < 0.5 / zoom && ls.points.length > 1) { ls.points[ls.points.length - 1] = [px, py, pr]; continue; }
+        // Stability above 2 also steadies the position a little; at 1 or 2
+        // the ink goes exactly where the pen is.
+        const st = ls.stab ?? 1, keep = st <= 2 ? 0 : Math.min(0.6, (st - 2) * 0.08);
+        ls.points.push([last[0] * keep + px * (1 - keep), last[1] * keep + py * (1 - keep), pr]);
       }
-      const predicted = (e.nativeEvent?.getPredictedEvents?.() || []).slice(0, 2).map((ev) => { const [px, py] = toPage(ev, svg, page); return [px, py, ls.points[ls.points.length - 1][2]]; });
-      drawLive(predicted);
+      drawLive();
       // Draw and hold still for a moment: the line snaps straight, then
       // follows the pen from its start, as in GoodNotes.
       clearTimeout(holdT.current);
       holdT.current = setTimeout(() => {
         const l = liveStroke.current;
-        if (l && !l.straight && l.points.length > 4) { l.straight = true; l.points = [l.points[0], l.points[l.points.length - 1]]; drawLive(); }
-      }, 600);
+        if (!l || l.straight || l.points.length < 5) return;
+        // only a long stroke (a line, not a letter) held still snaps straight
+        const a = l.points[0], b = l.points[l.points.length - 1];
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) * zoom < 90) return;
+        l.straight = true; l.points = [a, b]; drawLive();
+      }, 850);
       return;
     }
     if (!live || live.pageId !== page.id) return;
@@ -2117,7 +2134,7 @@ function Editor({ id, go, onClose }) {
       const { pageId, arc, guide, ...rest } = ls;
       let done = rest;
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
-      else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(refine(done.points)) };
+      else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
       const item = done.uniform ? done : { ...done, d: inkPath(done) };
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
       setLiveOn(null);
