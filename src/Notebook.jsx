@@ -442,8 +442,8 @@ function ItemView({ it, editing, onText, shown }) {
     // answer shows through.
     return <path d={inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
   }
-  if (it.type === "stroke" && (it.uniform || (it.tool === "pen" && it.style === "ball"))) {
-    return <path d={linePath(it.uniform ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
+  if (it.type === "stroke" && (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball"))) {
+    return <path d={linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
@@ -1079,6 +1079,22 @@ function Protractor({ p }) {
   );
 }
 
+// Paints a stroke onto a canvas using the very same shape the page shows
+// once it is finished.
+function paintStroke(ctx, it) {
+  ctx.globalAlpha = 1;
+  if (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball")) {
+    ctx.strokeStyle = it.color;
+    ctx.lineWidth = it.size;
+    ctx.lineCap = it.tip === "flat" ? "butt" : "round";
+    ctx.lineJoin = "round";
+    ctx.stroke(new Path2D(linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))));
+    return;
+  }
+  ctx.fillStyle = it.color;
+  ctx.fill(new Path2D(inkPath(it)));
+}
+
 const RULER_H = 64;
 const CM = 96 / 2.54;
 // A point's position along the ruler (lx) and away from its top edge (ly).
@@ -1588,7 +1604,7 @@ function Editor({ id, go, onClose }) {
     let ctx = null;
     try { ctx = el.getContext("2d", { desynchronized: true }); } catch { /* older browsers */ }
     ctx ||= el.getContext("2d");
-    const k = (r.width / PAGE_W) * dpr;
+    const k = (r.width / (Number(el.dataset.w) || PAGE_W)) * dpr;
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -1601,35 +1617,18 @@ function Editor({ id, go, onClose }) {
     if (w.ctx) { w.ctx.save(); w.ctx.setTransform(1, 0, 0, 1, 0, 0); w.ctx.clearRect(0, 0, w.el.width, w.el.height); w.ctx.restore(); }
     w.drawn = 0;
   };
-  const wetWidth = (ls, p) => {
-    if (ls.tool !== "pen" || !ls.pressure) return ls.size;
-    const th = (PEN_STYLES.find((x) => x.id === ls.style) || PEN_STYLES[1]).thinning;
-    return Math.max(0.4, ls.size * (1 - th * (1 - 2 * p)));
-  };
+  // Painted with exactly the same shape the finished stroke will have, so
+  // nothing shifts when the pen lifts; redrawn once per screen refresh.
   const drawLive = () => {
-    const ls = liveStroke.current;
-    if (!ls) return;
-    // Straight lines, arcs and guide lines are only a few points: an SVG
-    // path is simple and exact for those.
-    if (ls.straight || ls.uniform || ls.arc) {
-      if (wet.current.drawn) clearWet();
-      livePath.current?.setAttribute("d", linePath(ls.points));
-      return;
-    }
-    const w = wet.current, ctx = w.ctx;
-    if (!ctx) return;
-    const P = ls.points;
-    ctx.strokeStyle = ls.color;
-    for (let i = Math.max(1, w.drawn); i < P.length; i++) {
-      const a = P[Math.max(0, i - 2)], b = P[i - 1], c = P[i];
-      ctx.lineWidth = wetWidth(ls, c[2]);
-      ctx.beginPath();
-      if (i === 1) ctx.moveTo(b[0], b[1]); else ctx.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      ctx.quadraticCurveTo(b[0], b[1], (b[0] + c[0]) / 2, (b[1] + c[1]) / 2);
-      ctx.stroke();
-    }
-    if (P.length === 1) { ctx.fillStyle = ls.color; ctx.beginPath(); ctx.arc(P[0][0], P[0][1], wetWidth(ls, P[0][2]) / 2, 0, Math.PI * 2); ctx.fill(); }
-    w.drawn = P.length;
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const ls = liveStroke.current, w = wet.current, ctx = w.ctx;
+      if (!ls || !ctx) return;
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w.el.width, w.el.height); ctx.restore();
+      paintStroke(ctx, ls);
+      w.drawn = ls.points.length;
+    });
   };
   drawLiveRef.current = drawLive;
   const [sel, setSel] = useState(null); // { pageId, itemId }
@@ -2032,7 +2031,9 @@ function Editor({ id, go, onClose }) {
     const el = ring.current;
     if (!el) return;
     const sized = ["pen", "highlighter", "revealer", "eraser"].includes(tool);
-    if (!sized || e.pointerType === "touch") { el.style.display = "none"; return; }
+    // While the pen is on the page the ink itself shows where it is; the
+    // dot is only for hovering.
+    if (!sized || e.pointerType === "touch" || (e.buttons & 1 && e.pointerType === "pen") || liveStroke.current) { el.style.display = "none"; return; }
     const d = Math.max(4, widthOf(tool, size) * (svg.getBoundingClientRect().width / page.w));
     const c = tool === "highlighter" ? hl : tool === "revealer" ? cov : ink;
     el.style.display = "block";
@@ -2207,7 +2208,8 @@ function Editor({ id, go, onClose }) {
       let done = rest;
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
       else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
-      const item = done.uniform ? done : { ...done, d: inkPath(done) };
+      const item = done.uniform || done.straight ? done : { ...done, d: inkPath(done) };
+      cancelAnimationFrame(frame.current); frame.current = 0;
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
       clearWet();
       setLiveOn(null);
@@ -2562,10 +2564,7 @@ function Editor({ id, go, onClose }) {
                     <circle cx={compass.x} cy={compass.y} r="12" fill="none" stroke="#e5484d" strokeWidth="1.5" strokeDasharray="3 3" />
                   </g>
                 )}
-                {liveOn?.pageId === page.id && (
-                  <path ref={livePath} fill="none" stroke={liveOn.color} strokeWidth={liveOn.size} strokeLinecap="round" strokeLinejoin="round"
-                    opacity={liveOn.tool === "highlighter" ? 0.38 : 1} />
-                )}
+
                 {lassoOn === page.id && <path ref={lassoPath} fill="rgba(59, 91, 253, 0.06)" stroke="#3B5BFD" strokeWidth={1.5 / zoom} strokeDasharray={`${6 / zoom} ${5 / zoom}`} />}
                 {group?.pageId === page.id && (() => {
                   const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
@@ -2585,7 +2584,7 @@ function Editor({ id, go, onClose }) {
                 })()}
               </svg>
               {wetPage === page.id && (
-                <canvas key={zoom} ref={wetCanvas} className="nb-wet" aria-hidden="true" style={{ opacity: liveOn?.tool === "highlighter" ? 0.38 : 1 }} />
+                <canvas key={zoom} ref={wetCanvas} data-w={page.w} className="nb-wet" aria-hidden="true" style={{ opacity: liveOn?.tool === "highlighter" ? 0.38 : 1 }} />
               )}
             </div>
           ))}
