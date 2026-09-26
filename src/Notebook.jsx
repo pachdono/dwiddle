@@ -16,7 +16,7 @@ import "@fontsource/kalam/400.css";
 import "@fontsource/shadows-into-light/400.css";
 import { Icon, PageHead, Loading, Portal } from "./ui.jsx";
 import { DuckMark } from "./Duck.jsx";
-import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H } from "./notebookStore.js";
+import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H, listFonts, putFont } from "./notebookStore.js";
 import { syncNotebooks, queueUpload, queueDelete } from "./notebookSync.js";
 import { readImage } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
@@ -256,15 +256,63 @@ function refine(points) {
 // How wide each tool draws, in page units, from its size setting of 1 to 12.
 const widthOf = (tool, s) => (tool === "highlighter" || tool === "revealer" ? s * 5 + 8 : tool === "eraser" ? 20 + s * 5 : s * 1.2 + 0.8);
 
+// Handwriting fonts get a natural wobble when shown (see HandText), so they
+// read as written rather than typed. Most load only when first used.
 const FONTS = [
-  { id: "caveat", name: "Handwriting", css: '"Caveat", cursive', scale: 1.25 },
-  { id: "patrick", name: "Neat hand", css: '"Patrick Hand", cursive', scale: 1.1 },
-  { id: "kalam", name: "Marker", css: '"Kalam", cursive', scale: 1.05 },
-  { id: "shadows", name: "Quick scribble", css: '"Shadows Into Light", cursive', scale: 1.15 },
+  { id: "caveat", name: "Handwriting", css: '"Caveat", cursive', scale: 1.25, hand: true },
+  { id: "nanum", name: "Pen script", css: '"Nanum Pen Script", cursive', scale: 1.45, hand: true, load: () => import("@fontsource/nanum-pen-script/400.css") },
+  { id: "patrick", name: "Neat hand", css: '"Patrick Hand", cursive', scale: 1.1, hand: true },
+  { id: "gochi", name: "Round hand", css: '"Gochi Hand", cursive', scale: 1.1, hand: true, load: () => import("@fontsource/gochi-hand/400.css") },
+  { id: "indie", name: "Bubbly hand", css: '"Indie Flower", cursive', scale: 1.1, hand: true, load: () => import("@fontsource/indie-flower/400.css") },
+  { id: "grace", name: "Casual hand", css: '"Covered By Your Grace", cursive', scale: 1.15, hand: true, load: () => import("@fontsource/covered-by-your-grace/400.css") },
+  { id: "another", name: "Tall hand", css: '"Just Another Hand", cursive', scale: 1.5, hand: true, load: () => import("@fontsource/just-another-hand/400.css") },
+  { id: "reenie", name: "Quick scrawl", css: '"Reenie Beanie", cursive', scale: 1.45, hand: true, load: () => import("@fontsource/reenie-beanie/400.css") },
+  { id: "apple", name: "Joined up", css: '"Homemade Apple", cursive', scale: 0.9, hand: true, load: () => import("@fontsource/homemade-apple/400.css") },
+  { id: "kalam", name: "Marker", css: '"Kalam", cursive', scale: 1.05, hand: true },
+  { id: "shadows", name: "Light scribble", css: '"Shadows Into Light", cursive', scale: 1.15, hand: true },
   { id: "sans", name: "Typed", css: 'Inter, -apple-system, system-ui, sans-serif', scale: 1 },
   { id: "serif", name: "Book", css: 'Georgia, serif', scale: 1 },
+  { id: "roboto", name: "Roboto", css: '"Roboto", sans-serif', scale: 1, load: () => import("@fontsource/roboto/400.css") },
+  { id: "opensans", name: "Open Sans", css: '"Open Sans", sans-serif', scale: 1, load: () => import("@fontsource/open-sans/400.css") },
+  { id: "lato", name: "Lato", css: '"Lato", sans-serif', scale: 1, load: () => import("@fontsource/lato/400.css") },
+  { id: "montserrat", name: "Montserrat", css: '"Montserrat", sans-serif', scale: 0.95, load: () => import("@fontsource/montserrat/400.css") },
+  { id: "poppins", name: "Poppins", css: '"Poppins", sans-serif', scale: 0.95, load: () => import("@fontsource/poppins/400.css") },
+  { id: "nunito", name: "Nunito", css: '"Nunito", sans-serif', scale: 1, load: () => import("@fontsource/nunito/400.css") },
+  { id: "lexend", name: "Lexend", css: '"Lexend", sans-serif', scale: 0.95, load: () => import("@fontsource/lexend/400.css") },
+  { id: "atkinson", name: "Easy to read", css: '"Atkinson Hyperlegible", sans-serif', scale: 1, load: () => import("@fontsource/atkinson-hyperlegible/400.css") },
+  { id: "comic", name: "Comic Neue", css: '"Comic Neue", cursive', scale: 1.05, load: () => import("@fontsource/comic-neue/400.css") },
+  { id: "lora", name: "Lora", css: '"Lora", serif', scale: 1, load: () => import("@fontsource/lora/400.css") },
+  { id: "merriweather", name: "Merriweather", css: '"Merriweather", serif', scale: 0.92, load: () => import("@fontsource/merriweather/400.css") },
+  { id: "playfair", name: "Playfair", css: '"Playfair Display", serif', scale: 1, load: () => import("@fontsource/playfair-display/400.css") },
+  { id: "sourceserif", name: "Source Serif", css: '"Source Serif 4", serif', scale: 1, load: () => import("@fontsource/source-serif-4/400.css") },
+  { id: "mono", name: "Code", css: '"Roboto Mono", monospace', scale: 0.92, load: () => import("@fontsource/roboto-mono/400.css") },
 ];
-const fontOf = (id) => FONTS.find((f) => f.id === id) || FONTS[0];
+const loadedFonts = new Set();
+function useFont(f) {
+  useEffect(() => {
+    if (f.load && !loadedFonts.has(f.id)) { loadedFonts.add(f.id); f.load().catch(() => loadedFonts.delete(f.id)); }
+  }, [f]);
+}
+// Imported fonts are named "custom:Their Name".
+const fontOf = (id) => (String(id).startsWith("custom:")
+  ? { id, name: id.slice(7), css: `"${id.slice(7)}", Inter, sans-serif`, scale: 1 }
+  : FONTS.find((f) => f.id === id) || FONTS[0]);
+
+// Handwriting drawn letter by letter, each sitting a little differently,
+// the way real writing never repeats a letter exactly.
+function rand(seed) { let h = 2166136261; for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
+function HandText({ text, seed }) {
+  return String(text || " ").split("\n").map((line, li) => (
+    <span key={li} style={{ display: "block", minHeight: "1.2em" }}>
+      {[...line].map((ch, i) => {
+        if (ch === " ") return " ";
+        const k = seed + ":" + li + ":" + i;
+        const r = (rand(k + "r") - 0.5) * 5, dy = (rand(k + "y") - 0.5) * 0.09, sc = 0.94 + rand(k + "s") * 0.12;
+        return <span key={i} style={{ display: "inline-block", transform: `translateY(${dy}em) rotate(${r}deg) scale(${sc})` }}>{ch}</span>;
+      })}
+    </span>
+  ));
+}
 
 // Bounding box of anything on a page, in page units.
 function boxOf(it) {
@@ -327,6 +375,7 @@ function ItemView({ it, editing, onText, shown }) {
 // not jump back to the start each time the page saves what was typed.
 function TextBox({ it, f, editing, onText }) {
   const el = useRef(null);
+  useFont(f);
   useEffect(() => {
     if (!editing || !el.current) return;
     el.current.innerText = it.text || "";
@@ -345,7 +394,7 @@ function TextBox({ it, f, editing, onText }) {
       onInput={(e) => onText?.(e.currentTarget.innerText, e.currentTarget.scrollHeight)}
       onPointerDown={(e) => e.stopPropagation()} />;
   }
-  return <div className="nb-text" style={style}>{it.text || " "}</div>;
+  return <div className="nb-text" style={style}>{f.hand && it.wobble !== false ? <HandText text={it.text} seed={it.id} /> : (it.text || " ")}</div>;
 }
 
 /* ---------- the list of notebooks ---------- */
@@ -1104,6 +1153,29 @@ function Editor({ id, go, onClose }) {
     setPrefs((o) => ({ ...o, pens: [...(o.pens || []), pn].slice(-10) }));
   }
   const removePen = (id) => setPrefs((o) => ({ ...o, pens: (o.pens || []).filter((x) => x.id !== id) }));
+
+  // Fonts the student imported: kept on this device and loaded here.
+  const [customFonts, setCustomFonts] = useState([]);
+  const fontInput = useRef(null);
+  useEffect(() => {
+    listFonts().then(async (fonts) => {
+      for (const f of fonts) { try { document.fonts.add(await new FontFace(f.name, f.data).load()); } catch { /* a broken font file */ } }
+      setCustomFonts(fonts.map((f) => f.name));
+    }).catch(() => {});
+  }, []);
+  async function importFont(file) {
+    const name = file.name.replace(/\.(ttf|otf|woff2?)$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 40) || "My font";
+    try {
+      const data = await file.arrayBuffer();
+      document.fonts.add(await new FontFace(name, data).load());
+      await putFont({ name, data });
+      setCustomFonts((c) => [...new Set([...c, name])]);
+      setFont("custom:" + name);
+      if (selected?.type === "text") updatePage(sel.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === selected.id ? { ...i, font: "custom:" + name } : i)) }));
+    } catch {
+      alert("That file could not be used as a font. Try a .ttf, .otf or .woff file.");
+    }
+  }
   const [pop, setPop] = useState(null); // the tool whose settings are open
   const ring = useRef(null); // the circle that shows a tool's size under the pointer
   const holdT = useRef(null);
@@ -1736,11 +1808,16 @@ function Editor({ id, go, onClose }) {
           <div className="nb-group">
             <select className="nb-font" value={selected?.type === "text" ? selected.font : font}
               onChange={(e) => {
+                if (e.target.value === "__import") { fontInput.current?.click(); return; }
                 setFont(e.target.value);
                 if (selected?.type === "text") updatePage(sel.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === selected.id ? { ...i, font: e.target.value } : i)) }));
               }} aria-label="Writing style">
-              {FONTS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              <optgroup label="Handwriting">{FONTS.filter((f) => f.hand).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</optgroup>
+              <optgroup label="Typed">{FONTS.filter((f) => !f.hand).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</optgroup>
+              {customFonts.length > 0 && <optgroup label="Your fonts">{customFonts.map((n) => <option key={n} value={"custom:" + n}>{n}</option>)}</optgroup>}
+              <option value="__import">＋ Import a font…</option>
             </select>
+            <input ref={fontInput} type="file" accept=".ttf,.otf,.woff,.woff2,font/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFont(f); }} />
             {selected?.type === "text" && (
               <select className="nb-font" value={selected.fontSize} aria-label="Text size"
                 onChange={(e) => updatePage(sel.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === selected.id ? { ...i, fontSize: Number(e.target.value) } : i)) }))}>

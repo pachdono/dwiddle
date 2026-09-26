@@ -10,18 +10,23 @@ const STORE = "books";
 
 function open() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id" });
+    const req = indexedDB.open(DB, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
+      // Fonts the student imported, kept with their notebooks.
+      if (!db.objectStoreNames.contains("fonts")) db.createObjectStore("fonts", { keyPath: "name" });
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function run(mode, fn) {
+async function run(mode, fn, store = STORE) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const out = fn(tx.objectStore(STORE));
+    const tx = db.transaction(store, mode);
+    const out = fn(tx.objectStore(store));
     tx.oncomplete = () => resolve(out?.result ?? out);
     tx.onerror = () => reject(tx.error);
   });
@@ -37,6 +42,10 @@ export const putBook = (book) => run("readwrite", (s) => s.put({ ...book, update
 // arrive from the account.
 export const putRaw = (book) => run("readwrite", (s) => s.put(book));
 export const deleteBook = (id) => run("readwrite", (s) => s.delete(id));
+
+export const listFonts = () => run("readonly", (s) => s.getAll(), "fonts").then((f) => f || []);
+export const putFont = (font) => run("readwrite", (s) => s.put(font), "fonts");
+export const deleteFont = (name) => run("readwrite", (s) => s.delete(name), "fonts");
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
