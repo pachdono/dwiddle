@@ -1573,15 +1573,65 @@ function Editor({ id, go, onClose }) {
   const livePath = useRef(null);
   const [liveOn, setLiveOn] = useState(null); // { pageId, color, tool } while a stroke is drawn
   const frame = useRef(0);
-  // Drawn at once, on every pen event, with where the pen is about to be
-  // added on the end (the browser predicts it) so the ink keeps up.
-  const drawLive = (ahead = []) => {
-    const ls = liveStroke.current, el = livePath.current;
-    if (!ls || !el) { if (ls && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; drawLive(); }); return; }
-    const pts = ahead.length && !ls.straight && !ls.arc ? ls.points.concat(ahead) : ls.points;
-    const even = ls.tool === "pen" && ls.style === "ball";
-    el.setAttribute("d", ls.uniform ? linePath(pts) : even ? linePath(smoothPts(pts)) : inkPath({ ...ls, points: pts }));
+  // "Wet ink", as note apps do it: while the pen moves, only the newest
+  // piece of line is painted onto a canvas over the page, the same small
+  // job however long the stroke gets. The finished, smoothed ink ("dry
+  // ink") is worked out once, when the pen lifts.
+  const wet = useRef({ ctx: null, drawn: 0, el: null });
+  const [wetPage, setWetPage] = useState(null); // the page the ink canvas sits on, kept between strokes
+  const wetCanvas = useCallback((el) => {
+    if (!el) { wet.current = { ctx: null, drawn: 0, el: null }; return; }
+    const r = el.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    el.width = Math.max(1, Math.round(r.width * dpr));
+    el.height = Math.max(1, Math.round(r.height * dpr));
+    let ctx = null;
+    try { ctx = el.getContext("2d", { desynchronized: true }); } catch { /* older browsers */ }
+    ctx ||= el.getContext("2d");
+    const k = (r.width / PAGE_W) * dpr;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    wet.current = { ctx, drawn: 0, el };
+    drawLiveRef.current?.();
+  }, []);
+  const drawLiveRef = useRef(null);
+  const clearWet = () => {
+    const w = wet.current;
+    if (w.ctx) { w.ctx.save(); w.ctx.setTransform(1, 0, 0, 1, 0, 0); w.ctx.clearRect(0, 0, w.el.width, w.el.height); w.ctx.restore(); }
+    w.drawn = 0;
   };
+  const wetWidth = (ls, p) => {
+    if (ls.tool !== "pen" || !ls.pressure) return ls.size;
+    const th = (PEN_STYLES.find((x) => x.id === ls.style) || PEN_STYLES[1]).thinning;
+    return Math.max(0.4, ls.size * (1 - th * (1 - 2 * p)));
+  };
+  const drawLive = () => {
+    const ls = liveStroke.current;
+    if (!ls) return;
+    // Straight lines, arcs and guide lines are only a few points: an SVG
+    // path is simple and exact for those.
+    if (ls.straight || ls.uniform || ls.arc) {
+      if (wet.current.drawn) clearWet();
+      livePath.current?.setAttribute("d", linePath(ls.points));
+      return;
+    }
+    const w = wet.current, ctx = w.ctx;
+    if (!ctx) return;
+    const P = ls.points;
+    ctx.strokeStyle = ls.color;
+    for (let i = Math.max(1, w.drawn); i < P.length; i++) {
+      const a = P[Math.max(0, i - 2)], b = P[i - 1], c = P[i];
+      ctx.lineWidth = wetWidth(ls, c[2]);
+      ctx.beginPath();
+      if (i === 1) ctx.moveTo(b[0], b[1]); else ctx.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      ctx.quadraticCurveTo(b[0], b[1], (b[0] + c[0]) / 2, (b[1] + c[1]) / 2);
+      ctx.stroke();
+    }
+    if (P.length === 1) { ctx.fillStyle = ls.color; ctx.beginPath(); ctx.arc(P[0][0], P[0][1], wetWidth(ls, P[0][2]) / 2, 0, Math.PI * 2); ctx.fill(); }
+    w.drawn = P.length;
+  };
+  drawLiveRef.current = drawLive;
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
   const [current, setCurrent] = useState(0); // page index in view
@@ -1953,6 +2003,8 @@ function Editor({ id, go, onClose }) {
           liveStroke.current.points = [[s0[0], s0[1], pressure]];
         }
       }
+      setWetPage(page.id);
+      clearWet();
       setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform || (tool === "pen" && prefs.style === "ball"), size: liveStroke.current.size });
       drawLive();
     }
@@ -2157,6 +2209,7 @@ function Editor({ id, go, onClose }) {
       else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
       const item = done.uniform ? done : { ...done, d: inkPath(done) };
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
+      clearWet();
       setLiveOn(null);
       return;
     }
@@ -2509,11 +2562,10 @@ function Editor({ id, go, onClose }) {
                     <circle cx={compass.x} cy={compass.y} r="12" fill="none" stroke="#e5484d" strokeWidth="1.5" strokeDasharray="3 3" />
                   </g>
                 )}
-                {liveOn?.pageId === page.id && (liveOn.uniform
-                  ? <path ref={livePath} fill="none" stroke={liveOn.color} strokeWidth={liveOn.size} strokeLinecap="round" strokeLinejoin="round"
-                      opacity={liveOn.tool === "highlighter" ? 0.38 : 1} />
-                  : <path ref={livePath} fill={liveOn.color} opacity={liveOn.tool === "highlighter" ? 0.38 : 1}
-                      />)}
+                {liveOn?.pageId === page.id && (
+                  <path ref={livePath} fill="none" stroke={liveOn.color} strokeWidth={liveOn.size} strokeLinecap="round" strokeLinejoin="round"
+                    opacity={liveOn.tool === "highlighter" ? 0.38 : 1} />
+                )}
                 {lassoOn === page.id && <path ref={lassoPath} fill="rgba(59, 91, 253, 0.06)" stroke="#3B5BFD" strokeWidth={1.5 / zoom} strokeDasharray={`${6 / zoom} ${5 / zoom}`} />}
                 {group?.pageId === page.id && (() => {
                   const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
@@ -2532,6 +2584,9 @@ function Editor({ id, go, onClose }) {
                   </g>;
                 })()}
               </svg>
+              {wetPage === page.id && (
+                <canvas key={zoom} ref={wetCanvas} className="nb-wet" aria-hidden="true" style={{ opacity: liveOn?.tool === "highlighter" ? 0.38 : 1 }} />
+              )}
             </div>
           ))}
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
