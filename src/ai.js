@@ -323,7 +323,17 @@ export const generateTestQuestions = ({ test, section, skills, count, passage, a
   post("/api/testgen", { test, section, skills, count, passage, audio, avoid });
 
 // Emails a copy of feedback. Storing it is the client's job; this only notifies.
-export const notifyFeedback = (payload) => post("/api/feedback", payload);
+// Sent with the sign in token, so the server can check who it is from.
+export async function notifyFeedback(payload) {
+  const { supabase } = await import("./supabase.js");
+  const token = supabase ? (await supabase.auth.getSession()).data?.session?.access_token : null;
+  const r = await fetch(API + "/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(payload),
+  });
+  return r.json().catch(() => ({}));
+}
 
 // A photograph or scan is transcribed on the server by a model that reads
 // images, and the text then goes through generateFromNotes like anything else.

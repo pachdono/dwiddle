@@ -4829,16 +4829,16 @@ function FeedbackPage({ auth }) {
       contact: contact.trim(),
     });
 
-    let emailed = false;
+    let emailed = false, thanked = false;
     try {
       const res = await notifyFeedback({
         kind,
         rating: rating || null,
         message: message.trim(),
         contact: contact.trim(),
-        from: stored.from || auth?.user?.email || "",
       });
       emailed = Boolean(res?.emailed);
+      thanked = Boolean(res?.thanked);
     } catch {
       // the stored copy is what matters
     }
@@ -4851,9 +4851,12 @@ function FeedbackPage({ auth }) {
 
     setState("done");
     setNote(
-      kind === "review"
+      (kind === "review"
         ? "Thank you. Reviews are read before they appear, so it will not show up straight away."
-        : "Thank you. This goes straight to the person who builds it.",
+        : kind === "bug"
+          ? "Thank you. The bug goes straight to the people who build Dwiddle."
+          : "Thank you. This goes straight to the people who build Dwiddle.")
+      + (thanked ? " We've emailed you a copy, and any reply will come to that email." : ""),
     );
   }
 
