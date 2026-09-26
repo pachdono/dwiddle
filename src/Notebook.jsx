@@ -231,7 +231,7 @@ function smoothPts(points) {
   const extent = Math.hypot(x1 - x0, y1 - y0);
   // Small writing is evened out over about half a millimetre: enough to
   // remove a Pencil's shimmer, far too little to change a letter.
-  const step = Math.min(1.5, Math.max(0.45, extent / 45));
+  const step = Math.min(1.8, Math.max(0.5, extent / 36));
   const even = [points[0]];
   let carry = 0;
   for (let i = 1; i < points.length; i++) {
@@ -243,7 +243,7 @@ function smoothPts(points) {
     carry = len - (t - step);
   }
   even.push(points[points.length - 1]);
-  const W = [1, 4, 6, 4, 1];
+  const W = [1, 6, 15, 20, 15, 6, 1];
   const h = (W.length - 1) / 2, sum = W.reduce((a, b) => a + b, 0);
   return even.map((p, i) => {
     if (i < h || i > even.length - 1 - h) return p;
@@ -1655,6 +1655,7 @@ function Editor({ id, go, onClose }) {
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
   const [split, setSplit] = useState(false); // research beside the notebook
   const [adding, setAdding] = useState(false); // the add page menu
+  const [pageMenu, setPageMenu] = useState(false); // paper, add, remove, print
   const past = useRef([]);
   const future = useRef([]);
   const drag = useRef(null);
@@ -2475,6 +2476,9 @@ function Editor({ id, go, onClose }) {
         )}
         </div>
         <div className="nb-spacer" />
+        <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
+          <Icon name="pagesadd" size={15} /> {current + 1} / {book.pages.length}
+        </button>
         <div className="nb-group nb-zoom">
           <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
           <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
@@ -2490,6 +2494,51 @@ function Editor({ id, go, onClose }) {
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />
+      {pageMenu && (
+        <>
+          <div className="nb-pop-scrim" onPointerDown={() => { setPageMenu(false); setAdding(false); }} />
+          <div className="nb-pop nb-pagemenu" role="dialog" aria-label="Page">
+            <div className="nb-pop-head"><b>Page {current + 1} of {book.pages.length}</b><button className="icon-btn" onClick={() => { setPageMenu(false); setAdding(false); }} aria-label="Close"><Icon name="close" size={15} /></button></div>
+            <label className="nb-pm-row"><span>Paper</span>            <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
+              {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select></label>
+            <div className="nb-pm-row"><span>Colour</span><div className="nb-swatches small">{PAPERS.map((pp) => (
+              <button key={pp.id} className={book.pages[current]?.paper === pp.id ? "on" : ""} style={{ background: pp.bg }} onClick={() => setPagePaper(pp.id)} aria-label={pp.name} title={pp.name} />
+            ))}</div></div>
+            <div className="nb-addwrap">
+              <button className="btn ghost small nb-pm-add" onClick={() => setAdding((v) => !v)} aria-expanded={adding}><Icon name="pagesadd" size={14} /> Add page</button>
+              {adding && (
+                <div className="nb-addmenu">
+                  <span className="qv-label">Paper</span>
+                  <div className="nb-addpapers">
+                    {TEMPLATES.map((t) => (
+                      <button key={t.id} className="nb-paper" onClick={() => { addPage(current, t.id); setAdding(false); setPageMenu(false); }}>
+                        <PagePreview page={{ ...newPage(t.id, book.pages[current]?.paper || "white"), id: "a-" + t.id }} />
+                        <span>{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="nb-addmore">
+                    <label className="btn ghost small"><input type="file" accept="image/*" hidden onChange={async (e) => {
+                      const f = e.target.files?.[0]; e.target.value = ""; setAdding(false);
+                      if (f) { try { addPage(current, null, [await imagePage(f)]); } catch { alert("That picture could not be added."); } }
+                    }} /><Icon name="image" size={14} /> A picture as a page</label>
+                    <label className="btn ghost small"><input type="file" accept="application/pdf,.pdf" hidden onChange={async (e) => {
+                      const f = e.target.files?.[0]; e.target.value = ""; setAdding(false);
+                      if (f) { setBusy("Adding the PDF"); try { addPage(current, null, await pdfPages(f)); } catch { alert("That PDF could not be added."); } finally { setBusy(""); } }
+                    }} /><Icon name="file" size={14} /> Pages from a PDF</label>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="nb-pm-row nb-pm-actions">
+            <button className="btn quiet small" onClick={() => { removePage(current); setPageMenu(false); }} disabled={book.pages.length === 1}><Icon name="trash" size={13} /> <span className="nb-lbl">Remove page</span></button>
+            <button className="btn quiet small" onClick={() => window.print()}><Icon name="sheet" size={13} /> <span className="nb-lbl">Print or PDF</span></button>
+            </div>
+          </div>
+        </>
+      )}
+
       {tool === "compass" && <div className="nb-hint">{compass ? "Press away from the red point and draw round it. Drag the point to move it." : "Tap where the compass point goes."}</div>}
       {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (
@@ -2522,44 +2571,6 @@ function Editor({ id, go, onClose }) {
             const url = (e.dataTransfer.getData("text/uri-list") || "").split("\n")[0].trim();
             if (url) { try { addImage(await imageFile(url)); } catch { alert("That picture could not be added. Try copying it and pasting instead."); } }
           }}>
-          <div className="nb-page-opts">
-            <span className="small muted">Page {current + 1} of {book.pages.length}</span>
-            <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
-              {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-            <div className="nb-swatches small">{PAPERS.map((pp) => (
-              <button key={pp.id} className={book.pages[current]?.paper === pp.id ? "on" : ""} style={{ background: pp.bg }} onClick={() => setPagePaper(pp.id)} aria-label={pp.name} title={pp.name} />
-            ))}</div>
-            <div className="nb-addwrap">
-              <button className="btn quiet small" onClick={() => setAdding((v) => !v)} aria-expanded={adding}><Icon name="pagesadd" size={14} /> Add page</button>
-              {adding && (
-                <div className="nb-addmenu" onMouseLeave={() => setAdding(false)}>
-                  <span className="qv-label">Paper</span>
-                  <div className="nb-addpapers">
-                    {TEMPLATES.map((t) => (
-                      <button key={t.id} className="nb-paper" onClick={() => { addPage(current, t.id); setAdding(false); }}>
-                        <PagePreview page={{ ...newPage(t.id, book.pages[current]?.paper || "white"), id: "a-" + t.id }} />
-                        <span>{t.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="nb-addmore">
-                    <label className="btn ghost small"><input type="file" accept="image/*" hidden onChange={async (e) => {
-                      const f = e.target.files?.[0]; e.target.value = ""; setAdding(false);
-                      if (f) { try { addPage(current, null, [await imagePage(f)]); } catch { alert("That picture could not be added."); } }
-                    }} /><Icon name="image" size={14} /> A picture as a page</label>
-                    <label className="btn ghost small"><input type="file" accept="application/pdf,.pdf" hidden onChange={async (e) => {
-                      const f = e.target.files?.[0]; e.target.value = ""; setAdding(false);
-                      if (f) { setBusy("Adding the PDF"); try { addPage(current, null, await pdfPages(f)); } catch { alert("That PDF could not be added."); } finally { setBusy(""); } }
-                    }} /><Icon name="file" size={14} /> Pages from a PDF</label>
-                  </div>
-                </div>
-              )}
-            </div>
-            <button className="btn quiet small" onClick={() => removePage(current)} disabled={book.pages.length === 1}><Icon name="trash" size={13} /> <span className="nb-lbl">Remove page</span></button>
-            <button className="btn quiet small" onClick={() => window.print()}><Icon name="sheet" size={13} /> <span className="nb-lbl">Print or PDF</span></button>
-          </div>
-
           {book.pages.map((page, i) => (
             <div key={page.id} className="nb-page" data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
               <svg viewBox={`0 0 ${page.w} ${page.h}`} width={page.w * zoom} height={page.h * zoom}

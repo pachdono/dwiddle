@@ -6872,3 +6872,15 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-video.sizing iframe { pointer-events: none; }
 .nb-page { position: relative; }
 .nb-wet { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* the page menu, opened from the Page button in the top bar */
+.nb-pagebtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--sunken); }
+.nb-pagebtn.on { background: var(--accent-soft); color: var(--accent); }
+.nb-pagemenu { width: min(380px, calc(100vw - 24px)); left: auto; right: 12px; transform: none; animation: none; }
+.nb-pm-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; }
+.nb-pm-row select { width: auto; min-height: 36px; padding: 4px 10px; }
+.nb-pm-actions { justify-content: flex-start; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; }
+.nb-pagemenu .nb-addwrap { position: static; }
+.nb-pagemenu .nb-addmenu { position: static; transform: none; width: auto; margin-top: 8px; box-shadow: none; }
+.nb-pagemenu .nb-addpapers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nb-pm-add { width: 100%; justify-content: center; }
+.nb-pagemenu .nb-lbl { display: inline !important; }
