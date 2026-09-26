@@ -7011,3 +7011,8 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .profile-form input[type="date"] { color-scheme: light dark; display: block; }
 .profile-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .profile-gate { background: var(--surface); }
+.update-card ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+.update-card li { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.update-card li::marker { color: var(--accent); }
+.updates-list { align-items: start; }
+.updates-more { display: flex; margin: 14px auto 0; }

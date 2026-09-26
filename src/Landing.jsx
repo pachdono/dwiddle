@@ -624,10 +624,11 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   // Written by staff: one announcement at most, and the latest update logs.
   const [news, setNews] = useState(null);
   const [updates, setUpdates] = useState([]);
+  const [allUpdates, setAllUpdates] = useState(false);
   useEffect(() => {
     let live = true;
     activeAnnouncement().then((a) => live && setNews(a));
-    latestUpdates(4).then((u) => live && setUpdates(u));
+    latestUpdates(60).then((u) => live && setUpdates(u));
     return () => { live = false; };
   }, []);
 
@@ -737,17 +738,22 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         <section className="landing-updates" id="updates">
           <div className="marquee-label">What's new</div>
           <div className="updates-list">
-            {updates.map((u) => (
+            {(allUpdates ? updates : updates.slice(0, 3)).map((u) => (
               <article className="update-card" key={u.id}>
                 <div className="update-meta">
                   {u.version && <span className="update-ver">{u.version}</span>}
                   <span>{new Date(u.published_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
                 </div>
                 <h3>{u.title}</h3>
-                <p>{u.body}</p>
+                <UpdateBody text={u.body} />
               </article>
             ))}
           </div>
+          {updates.length > 3 && (
+            <button className="btn ghost updates-more" onClick={() => setAllUpdates((v) => !v)}>
+              {allUpdates ? "Show fewer" : `Show all ${updates.length} updates`}
+            </button>
+          )}
         </section>
       )}
 
@@ -803,6 +809,19 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         <span>Not affiliated with any exam board.</span>
       </footer>
     </div>
+  );
+}
+
+// An update log: lines starting with "- " become a list, anything else a line of text.
+function UpdateBody({ text }) {
+  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const items = lines.filter((l) => /^[-•*]\s+/.test(l));
+  if (!items.length) return <p>{text}</p>;
+  return (
+    <>
+      {lines.filter((l) => !/^[-•*]\s+/.test(l)).map((l, i) => <p key={i}>{l}</p>)}
+      <ul>{items.map((l, i) => <li key={i}>{l.replace(/^[-•*]\s+/, "")}</li>)}</ul>
+    </>
   );
 }
 
