@@ -230,7 +230,7 @@ function inkPath(item) {
   return pathFrom(getStroke(item.points, {
     size: item.size,
     thinning: hl ? 0 : pen.thinning,
-    smoothing: 0.35 + st * 0.05,
+    smoothing: Math.min(0.95, 0.62 + st * 0.03),
     streamline: item.straight ? 0 : (st - 1) * 0.095,
     last: true,
     simulatePressure: !item.pressure && !hl,
@@ -2001,7 +2001,17 @@ function Editor({ id, go, onClose }) {
       if (ls.straight) ls.points = [ls.points[0], [x, y, ls.points[0][2]]];
       else for (const ev of events) {
         const [px, py] = toPage(ev, svg, page);
-        ls.points.push([px, py, ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5]);
+        const last = ls.points[ls.points.length - 1];
+        // A Pencil's pressure flickers from one reading to the next; eased,
+        // the line swells and thins smoothly instead of looking grainy.
+        const raw = ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5;
+        const pr = last[2] * 0.75 + raw * 0.25;
+        // Movements smaller than the screen can show are just the pen
+        // trembling; the last point is nudged instead of adding a new one.
+        if (Math.hypot(px - last[0], py - last[1]) < 0.9 && ls.points.length > 1) { ls.points[ls.points.length - 1] = [px, py, pr]; continue; }
+        // A touch of smoothing on the position too: a fraction of one reading
+        // behind, which the eye cannot see but the ink edge can.
+        ls.points.push([last[0] * 0.35 + px * 0.65, last[1] * 0.35 + py * 0.65, pr]);
       }
       const predicted = (e.nativeEvent?.getPredictedEvents?.() || []).slice(0, 2).map((ev) => { const [px, py] = toPage(ev, svg, page); return [px, py, ls.points[ls.points.length - 1][2]]; });
       drawLive(predicted);
@@ -2054,7 +2064,7 @@ function Editor({ id, go, onClose }) {
       const { pageId, arc, guide, ...rest } = ls;
       let done = rest;
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
-      else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
+      else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(refine(done.points)) };
       const item = done.uniform ? done : { ...done, d: inkPath(done) };
       updatePage(pageId, (p) => ({ ...p, items: [...p.items, item] }));
       setLiveOn(null);
