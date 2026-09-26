@@ -45,7 +45,7 @@ export function Learn({ made, go, setTopic, saveLesson, finishLesson }) {
       <div className="page fade">
         <PageHead title="Learn" sub="Every topic in your material as a short lesson, one idea at a time." />
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={84} />
+          <Duck size={84} outfit="graduate" />
           <b style={{ display: "block", marginTop: 10 }}>Nothing to learn yet</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
             Add your notes, or pick a course topic, and every topic in it becomes a lesson here.
@@ -267,7 +267,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
 
         {error && (
           <div className="lp-wait fade">
-            <Duck size={96} />
+            <Duck size={96} outfit="pirate" />
             <h2>That lesson did not come through</h2>
             <p>{error}</p>
             <button className="btn cta" onClick={load}>Try again</button>

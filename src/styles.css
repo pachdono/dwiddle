@@ -7049,3 +7049,16 @@ a.nav-item { text-decoration: none; color: inherit; }
 .review-quote { flex: 1; margin: 10px 0 0; font-size: 15px; line-height: 1.7; color: var(--ink-3); }
 .review-mark { padding: 1px 5px; border-radius: 6px; background: #fbf1b8; color: #1b1d26; font-weight: 700; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .review-by { margin-top: 18px; font-weight: 600; color: var(--ink-2); }
+
+/* The lesson scrolls in the whole window, so its scrollbar sits at the edge
+   of the screen, thin and quiet, not in the middle beside the words. */
+.lp-stage {
+  width: 100%;
+  padding-left: max(20px, calc((100% - 760px) / 2));
+  padding-right: max(20px, calc((100% - 760px) / 2));
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 16%, transparent) transparent;
+}
+.lp-stage::-webkit-scrollbar { width: 8px; }
+.lp-stage::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 16%, transparent); border-radius: 8px; }
+.lp-stage::-webkit-scrollbar-track { background: transparent; }

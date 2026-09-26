@@ -8,6 +8,8 @@
 // The colours are deliberately fixed rather than themed. A mascot that changes
 // colour in dark mode stops being the same character.
 
+import { CHARACTERS as OUTFITS } from "./DuckAvatars.jsx";
+
 const YELLOW = "#F8DC6E";
 const BELLY = "#FAE491";
 const WING = "#EFC94E";
@@ -21,13 +23,15 @@ const BAND = "#C0563A";
 const BLACK = "#1A1A1A";
 const LENS = "#4A4A4A";
 
-export function Duck({ size = 120, className = "", shadow = true }) {
+export function Duck({ size = 120, className = "", shadow = true, outfit }) {
+  const dress = outfit && OUTFITS.find((c) => c.id === outfit);
+  const top = dress ? -14 : 0; // room for taller hats
   return (
     <svg
       className={className}
       width={size}
-      height={size * (140 / 120)}
-      viewBox="0 0 120 140"
+      height={size * ((140 - top) / 120)}
+      viewBox={`0 ${top} 120 ${140 - top}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
@@ -35,7 +39,9 @@ export function Duck({ size = 120, className = "", shadow = true }) {
     >
       {shadow && <ellipse cx="61" cy="126" rx="38" ry="6" fill="#000" opacity="0.055" />}
 
-      <DuckParts />
+      {dress
+        ? <><DuckParts hat={false} shades={!dress.eyes} />{dress.eyes}{dress.hat}</>
+        : <DuckParts />}
     </svg>
   );
 }
@@ -74,7 +80,8 @@ export function PuddleParts() {
   );
 }
 
-export function DuckParts() {
+// hat and shades can be left off, for a duck wearing something else.
+export function DuckParts({ hat = true, shades = true }) {
   return (
     <>
       {/* feet, splayed slightly outward */}
@@ -96,6 +103,7 @@ export function DuckParts() {
       <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
       <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
 
+      {shades && (<>
       {/* sunglasses: arms, then lenses, sitting clear of the brim above */}
       <rect x="27" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
       <rect x="87" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
@@ -104,7 +112,9 @@ export function DuckParts() {
       <rect x="59" y="43" width="9" height="4" rx="1.6" fill={BLACK} />
       <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
       <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
+      </>)}
 
+      {hat && (<>
       {/* straw hat: wide flat brim, band, then the crown on top */}
       <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} />
       <ellipse cx="64" cy="25" rx="27" ry="6" fill={STRAW_LIGHT} />
@@ -112,6 +122,7 @@ export function DuckParts() {
       <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
       <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
       <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </>)}
     </>
   );
 }

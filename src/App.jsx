@@ -1467,7 +1467,7 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
         {live.length === 0 && (
           <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
-            <Duck size={80} />
+            <Duck size={80} outfit="viking" />
             <b style={{ display: "block", marginTop: 10 }}>
               {hidden.length > 0 ? "You have removed every topic" : "No topics yet"}
             </b>
@@ -2008,7 +2008,7 @@ function Library({ go, made, materials, deleteMaterial }) {
       <PageHead title="Library" sub="Everything you have added so far." />
       {materials.length === 0 ? (
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={84} />
+          <Duck size={84} outfit="detective" />
           <b style={{ display: "block", marginTop: 10 }}>Your library is empty</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
             Anything you add shows up here, along with the topics and questions written from it.
@@ -2148,7 +2148,7 @@ function Practice(props) {
 
       {empty ? (
         <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
-          <Duck size={80} />
+          <Duck size={80} outfit="ninja" />
           <b style={{ display: "block", marginTop: 10 }}>Nothing to practise</b>
           <p className="muted small" style={{ margin: "6px 0 18px" }}>
             {topic
@@ -2348,7 +2348,7 @@ function ReviewMode({ grade, pool, drillPool = [], srs }) {
   if (!due.length) {
     return (
       <div className="card card-pad fade" style={{ textAlign: "center", padding: 36 }}>
-        <Duck size={80} />
+        <Duck size={80} outfit="winter" />
         <b style={{ display: "block", marginTop: 10 }}>Nothing due today</b>
         <p className="muted small" style={{ margin: "6px auto 0", maxWidth: 420, lineHeight: 1.6 }}>
           Every question you answer comes back here just before you would forget it: tomorrow if you
@@ -2393,7 +2393,7 @@ function StudySheet({ made, go, saveNotes }) {
       <div className="page fade">
         <PageHead title="Notes" sub="Everything in your material, topic by topic." />
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={84} />
+          <Duck size={84} outfit="wizard" />
           <b style={{ display: "block", marginTop: 10 }}>No notes yet</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
             Add a PDF, a document or your own notes, and complete notes are written from it,
@@ -2848,7 +2848,7 @@ function Flashcards({ pool }) {
       <div className="fade">
         {decks}
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={92} />
+          <Duck size={92} outfit="party" />
           <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>Deck clear</h3>
           <p className="muted small" style={{ margin: "0 0 20px" }}>
             You retired all {inDeck.length} cards in this deck. They will not come back until you reset it.
@@ -3090,7 +3090,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
   if (list.length === 0) {
     return (
       <div className="fade card card-pad" style={{ textAlign: "center", padding: 44 }}>
-        <Duck size={92} />
+        <Duck size={92} outfit="king" />
         <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>Nothing missed yet</h3>
         <p className="muted small" style={{ margin: "0 0 20px" }}>
           Questions you get wrong in any mode are saved here, and leave the list once you get them right.
@@ -4870,7 +4870,7 @@ function FeedbackPage({ auth }) {
       <div className="page fade">
         <PageHead title="Thank you" sub="" />
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
-          <Duck size={84} />
+          <Duck size={84} outfit="cowboy" />
           <b style={{ display: "block", marginTop: 10 }}>Sent</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>{note}</p>
           <button className="btn ghost" onClick={() => { setState("idle"); setMessage(""); setRating(0); }}>
