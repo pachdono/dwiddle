@@ -1895,7 +1895,9 @@ function Editor({ id, go, onClose }) {
     const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
-      if (e.target.closest?.(".nb-crop")) { e.preventDefault(); return; }
+      // the crop box holds the page still, except its buttons, which must stay tappable
+      if (e.target.closest?.(".nb-crop") && !e.target.closest("button")) { e.preventDefault(); return; }
+      if (e.target.closest?.(".nb-crop-bar")) return;
       const onPage = !!e.target.closest?.(".nb-svg");
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       // A hand resting on the page while the Pencil writes: ignored, and
@@ -1911,7 +1913,7 @@ function Editor({ id, go, onClose }) {
     };
     const onMove = (e) => {
       // moving, resizing or cropping something: the page must stay still
-      if (e.target.closest?.(".nb-crop") || drag.current?.groupMove || drag.current?.groupResize || drag.current?.textMove || drag.current?.ruler || drag.current?.prot) { e.preventDefault(); return; }
+      if ((e.target.closest?.(".nb-crop") && !e.target.closest("button")) || drag.current?.groupMove || drag.current?.groupResize || drag.current?.textMove || drag.current?.ruler || drag.current?.prot) { e.preventDefault(); return; }
       const onPage = !!e.target.closest?.(".nb-svg");
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
