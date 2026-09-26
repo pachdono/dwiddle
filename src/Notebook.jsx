@@ -485,7 +485,18 @@ function ItemView({ it, editing, onText, shown }) {
       />;
   }
   if (it.type === "shape") return <Shape it={it} />;
-  if (it.type === "image") return <image href={it.src} x={it.x} y={it.y} width={it.w} height={it.h} preserveAspectRatio="xMidYMid meet" />;
+  if (it.type === "image") {
+    // A cropped picture keeps the whole original; only the chosen part shows.
+    if (it.crop) {
+      const c = it.crop;
+      return (
+        <svg x={it.x} y={it.y} width={it.w} height={it.h} viewBox={`${c.x} ${c.y} ${c.w} ${c.h}`} preserveAspectRatio="none" overflow="hidden">
+          <image href={it.src} x="0" y="0" width="1" height="1" preserveAspectRatio="none" />
+        </svg>
+      );
+    }
+    return <image href={it.src} x={it.x} y={it.y} width={it.w} height={it.h} preserveAspectRatio="xMidYMid meet" />;
+  }
   if (it.type === "text") {
     if (editing) return null; // shown by the editor over the page while typing
     const f = fontOf(it.font);
@@ -531,6 +542,56 @@ function TextEditor({ it, zoom, onText }) {
       style={{ left: it.x * zoom, top: it.y * zoom, width: it.w * zoom, minHeight: 40 * zoom, fontFamily: f.css, fontSize: it.fontSize * f.scale * zoom, color: it.color, lineHeight: 1.35 }}
       onInput={(e) => onText(e.currentTarget.innerText, e.currentTarget.scrollHeight)}
       onPointerDown={(e) => e.stopPropagation()} />
+  );
+}
+
+// Cropping a picture: the whole original shown faintly, the kept part
+// bright, with handles on its corners and edges.
+function CropBox({ it, zoom, onDone, onCancel }) {
+  const c0 = it.crop || { x: 0, y: 0, w: 1, h: 1 };
+  // the whole original's place on the page
+  const full = { w: it.w / c0.w, h: it.h / c0.h };
+  full.x = it.x - c0.x * full.w; full.y = it.y - c0.y * full.h;
+  const [c, setC] = useState(c0);
+  const drag = useRef(null);
+  const start = (e, edge) => {
+    e.stopPropagation(); e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    drag.current = { edge, x: e.clientX, y: e.clientY, c };
+  };
+  const moveC = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = (e.clientX - d.x) / (full.w * zoom), dy = (e.clientY - d.y) / (full.h * zoom);
+    let { x, y, w, h } = d.c;
+    const min = 0.05;
+    if (d.edge === "move") { x = Math.min(1 - w, Math.max(0, x + dx)); y = Math.min(1 - h, Math.max(0, y + dy)); }
+    if (d.edge.includes("l")) { const nx = Math.min(x + w - min, Math.max(0, x + dx)); w += x - nx; x = nx; }
+    if (d.edge.includes("r")) w = Math.min(1 - x, Math.max(min, w + dx));
+    if (d.edge.includes("t")) { const ny = Math.min(y + h - min, Math.max(0, y + dy)); h += y - ny; y = ny; }
+    if (d.edge.includes("b")) h = Math.min(1 - y, Math.max(min, h + dy));
+    setC({ x, y, w, h });
+  };
+  const done = () => {
+    const whole = c.x < 0.001 && c.y < 0.001 && c.w > 0.999 && c.h > 0.999;
+    onDone({ ...it, x: full.x + c.x * full.w, y: full.y + c.y * full.h, w: c.w * full.w, h: c.h * full.h, crop: whole ? undefined : c });
+  };
+  const pct = (v) => v * 100 + "%";
+  return (
+    <div className="nb-crop" style={{ left: full.x * zoom, top: full.y * zoom, width: full.w * zoom, height: full.h * zoom }}
+      onPointerMove={moveC} onPointerUp={() => { drag.current = null; }} onPointerDown={(e) => e.stopPropagation()}>
+      <img src={it.src} alt="" draggable={false} />
+      <div className="nb-crop-keep" style={{ left: pct(c.x), top: pct(c.y), width: pct(c.w), height: pct(c.h) }} onPointerDown={(e) => start(e, "move")}>
+        <span className="nb-crop-clip"><img className="nb-crop-bright" src={it.src} alt="" draggable={false}
+          style={{ left: pct(-c.x / c.w), top: pct(-c.y / c.h), width: pct(1 / c.w), height: pct(1 / c.h) }} /></span>
+        {["tl", "tr", "bl", "br", "t", "b", "l", "r"].map((k) => <i key={k} className={"nb-crop-h h-" + k} onPointerDown={(e) => start(e, k)} />)}
+      </div>
+      <div className="nb-crop-bar" onPointerDown={(e) => e.stopPropagation()}>
+        <button onClick={() => setC({ x: 0, y: 0, w: 1, h: 1 })}>Reset</button>
+        <button onClick={onCancel}>Cancel</button>
+        <button className="on" onClick={done}>Done</button>
+      </div>
+    </div>
   );
 }
 
@@ -1639,6 +1700,7 @@ function Editor({ id, go, onClose }) {
   const [prot, setProt] = useState(null); // { pageId, x, y, angle, r } a protractor
   // The lasso: a loop being drawn, then what it took in.
   const [group, setGroup] = useState(null); // { pageId, ids }
+  const [cropping, setCropping] = useState(null); // id of a picture being cropped
   const lasso = useRef(null);
   const lassoPath = useRef(null);
   const [lassoOn, setLassoOn] = useState(null); // pageId while a loop is drawn
@@ -1727,7 +1789,7 @@ function Editor({ id, go, onClose }) {
     };
     measure();
   }, []);
-  useEffect(() => { setEditingText(null); if (tool !== "compass") setCompass(null); if (tool !== "select") setGroup(null); }, [tool]);
+  useEffect(() => { setEditingText(null); if (tool !== "compass") setCompass(null); if (tool !== "select" && tool !== "hand") setGroup(null); }, [tool]);
 
   // Phones and iPads: one finger draws, two fingers scroll, and the hand
   // tool scrolls with one. The browser has to be told not to scroll on its
@@ -1839,7 +1901,7 @@ function Editor({ id, go, onClose }) {
       // never taken for a pinch. Buttons around the page still work.
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
       if (fingers(e).length >= 2) { pinchStart(e); return; }
-      if (toolRef.current === "hand") return; // the browser scrolls
+      if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg")) e.preventDefault(); return; } // the hand handles its own scrolling
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
       if (e.target.closest?.(".nb-ruler")) { e.preventDefault(); return; }
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
@@ -1851,7 +1913,7 @@ function Editor({ id, go, onClose }) {
       if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
       if (twoFinger.current && fingers(e).length >= 2) { pinchMove(e); return; }
-      if (toolRef.current === "hand") return;
+      if (toolRef.current === "hand") { if (e.target.closest?.(".nb-svg")) e.preventDefault(); return; }
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
       if (e.target.closest?.(".nb-textedit")) return;
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
@@ -1961,12 +2023,45 @@ function Editor({ id, go, onClose }) {
     // Pencil only: a finger scrolls, though it can still move the ruler.
     if (e.pointerType === "touch" && prefs.finger === false && !e.target.closest?.(".nb-ruler")) return;
     // With the hand tool a mouse drags the pages around; fingers scroll natively.
-    if (tool === "hand") {
-      if (e.pointerType === "mouse") { drag.current = { pan: { x: e.clientX, y: e.clientY } }; capture(e.currentTarget, e); }
-      return;
-    }
     const svg = e.currentTarget;
     const [x, y] = toPage(e, svg, page);
+    // The hand: a pointer. Tap text to type, tap anything else to select it
+    // (then move, resize, crop, delete); drag on nothing to scroll.
+    if (tool === "hand") {
+      capture(svg, e);
+      if (group && group.pageId === page.id) {
+        const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
+        if (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < 26 / zoom + 6) {
+          drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
+          return;
+        }
+        if (gb && x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
+          drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+          return;
+        }
+      }
+      const hit = [...page.items].reverse().find((i) => {
+        if (i.type === "stroke") return strokeDist(i, x, y) < i.size / 2 + 8 / zoom;
+        const b = boxOf(i);
+        return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+      });
+      if (hit?.type === "text") {
+        setGroup(null);
+        setSel({ pageId: page.id, itemId: hit.id });
+        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, moved: false, start: book };
+        return;
+      }
+      if (hit) {
+        setEditingText(null);
+        setGroup({ pageId: page.id, ids: [hit.id] });
+        setSel({ pageId: page.id, itemId: hit.id });
+        drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+        return;
+      }
+      setGroup(null); setSel(null); setEditingText(null);
+      drag.current = { pan: { x: e.clientX, y: e.clientY, t: performance.now(), vx: 0, vy: 0 } };
+      return;
+    }
     const pressure = e.pointerType === "pen" ? penPressure(e.pressure) : 0.5;
 
     if (tool === "text") {
@@ -2136,8 +2231,10 @@ function Editor({ id, go, onClose }) {
     showRing(e, svg, page);
     if (twoFinger.current) return;
     if (drag.current?.pan) {
-      pagesRef.current?.scrollBy(drag.current.pan.x - e.clientX, drag.current.pan.y - e.clientY);
-      drag.current.pan = { x: e.clientX, y: e.clientY };
+      const p = drag.current.pan, now = performance.now(), dt = Math.max(1, now - p.t);
+      const dx = p.x - e.clientX, dy = p.y - e.clientY;
+      pagesRef.current?.scrollBy(dx, dy);
+      drag.current.pan = { x: e.clientX, y: e.clientY, t: now, vx: p.vx * 0.6 + (dx / dt) * 0.4, vy: p.vy * 0.6 + (dy / dt) * 0.4 };
       return;
     }
     const [x, y] = toPage(e, svg, page);
@@ -2268,6 +2365,22 @@ function Editor({ id, go, onClose }) {
     // Lifting a resting hand must not end the Pencil's stroke.
     if (e?.pointerId !== undefined && liveStroke.current?.pointerId !== undefined && e.pointerId !== liveStroke.current.pointerId) return;
     if (drag.current?.textMove && !drag.current.moved) { const id = drag.current.id; drag.current = null; setEditingText(id); return; }
+    if (drag.current?.pan) {
+      // a flick keeps the page gliding for a moment, like normal scrolling
+      let { vx, vy } = drag.current.pan;
+      drag.current = null;
+      const el = pagesRef.current;
+      let last = performance.now();
+      const glide = (now) => {
+        const dt = now - last; last = now;
+        vx *= Math.pow(0.92, dt / 16); vy *= Math.pow(0.92, dt / 16);
+        if (!el || (Math.abs(vx) < 0.02 && Math.abs(vy) < 0.02)) return;
+        el.scrollBy(vx * dt, vy * dt);
+        requestAnimationFrame(glide);
+      };
+      if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) requestAnimationFrame(glide);
+      return;
+    }
     if (drag.current) {
       const start = drag.current.start;
       if (start && start !== book) { past.current.push(start); future.current = []; }
@@ -2721,13 +2834,21 @@ function Editor({ id, go, onClose }) {
                 return ed ? <TextEditor it={ed} zoom={zoom}
                   onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} /> : null;
               })()}
-              {group?.pageId === page.id && (() => {
+              {cropping && page.items.some((i) => i.id === cropping) && (
+                <CropBox it={page.items.find((i) => i.id === cropping)} zoom={zoom} onCancel={() => setCropping(null)}
+                  onDone={(next) => { updatePage(page.id, (p) => ({ ...p, items: p.items.map((i) => (i.id === next.id ? next : i)) })); setCropping(null); }} />
+              )}
+              {group?.pageId === page.id && !cropping && (() => {
                 const b = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
                 if (!b) return null;
                 return (
                   <div className="nb-lassobar" style={{ left: b.x * zoom, top: Math.max(4, b.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                    {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "image" && (
+                      <button onClick={() => setCropping(group.ids[0])}>Crop</button>
+                    )}
                     <button onClick={groupDuplicate}>Duplicate</button>
-                    {INKS.slice(0, 5).map((c) => <button key={c} className="nb-lassocolor" style={{ background: c }} onClick={() => groupColor(c)} aria-label="Colour" />)}
+                    {page.items.some((i) => group.ids.includes(i.id) && i.type !== "image") &&
+                      INKS.slice(0, 5).map((c) => <button key={c} className="nb-lassocolor" style={{ background: c }} onClick={() => groupColor(c)} aria-label="Colour" />)}
                     <button className="danger" onClick={groupDelete}>Delete</button>
                   </div>
                 );

@@ -6777,7 +6777,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
   display: grid; place-items: center; transition: transform 0.12s ease; }
 .nb-stickers .nb-sticker-set button:hover { transform: scale(1.1); }
 .nb-stickers .nb-sticker-set button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
-.nb-svg.tool-hand { cursor: grab; touch-action: pan-x pan-y; }
+.nb-svg.tool-hand { cursor: default; touch-action: none; }
 .nb-svg.tool-hand:active { cursor: grabbing; }
 /* Phones: one tidy row of document controls, one row of tools, and a
    compact page bar, so the page gets the room. */
@@ -6811,7 +6811,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .more-in .rec-btn:not(.on):hover { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
 /* Safari can ignore touch-action on SVG, so the page around it says it too. */
 .nb-page { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-.nb-pages.hand .nb-page, .nb-pages.hand .nb-svg { touch-action: pan-x pan-y; }
+.nb-pages.hand .nb-page, .nb-pages.hand .nb-svg { touch-action: none; }
 .nb-text.editing { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 .nb-debug { position: fixed; left: 8px; bottom: 8px; z-index: 90; margin: 0; padding: 8px 10px; max-width: 70vw; border-radius: 10px;
   background: rgba(0, 0, 0, 0.8); color: #9f9; font: 11px/1.4 ui-monospace, monospace; pointer-events: none; white-space: pre-wrap; }
@@ -6898,3 +6898,21 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-thumbmenu b { padding: 6px 10px 2px; color: var(--ink-3); }
 .nb-thumbmenu button:disabled { opacity: 0.4; cursor: default; }
 .nb-lassobar { position: absolute; z-index: 4; }
+
+/* cropping a picture */
+.nb-crop { position: absolute; z-index: 5; touch-action: none; }
+.nb-crop img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.35; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.nb-crop-keep { position: absolute; background-image: inherit; outline: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 0 9999px rgba(0, 0, 0, 0.25); cursor: move; touch-action: none; }
+.nb-crop-keep::before { content: ""; position: absolute; inset: 0; background: rgba(255, 255, 255, 0.0); }
+.nb-crop-h { position: absolute; width: 22px; height: 22px; background: #fff; border: 2px solid #3B5BFD; border-radius: 6px; touch-action: none; }
+.nb-crop-h.h-tl { left: -11px; top: -11px; cursor: nwse-resize; } .nb-crop-h.h-br { right: -11px; bottom: -11px; cursor: nwse-resize; }
+.nb-crop-h.h-tr { right: -11px; top: -11px; cursor: nesw-resize; } .nb-crop-h.h-bl { left: -11px; bottom: -11px; cursor: nesw-resize; }
+.nb-crop-h.h-t { left: calc(50% - 11px); top: -11px; cursor: ns-resize; } .nb-crop-h.h-b { left: calc(50% - 11px); bottom: -11px; cursor: ns-resize; }
+.nb-crop-h.h-l { top: calc(50% - 11px); left: -11px; cursor: ew-resize; } .nb-crop-h.h-r { top: calc(50% - 11px); right: -11px; cursor: ew-resize; }
+.nb-crop-bar { position: absolute; left: 50%; bottom: -52px; transform: translateX(-50%); display: flex; gap: 4px; padding: 5px; border-radius: 12px; background: #1b1d26; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+.nb-crop-bar button { border: 0; background: none; color: #fff; font: 600 13px Inter, system-ui, sans-serif; padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.nb-crop-bar button.on { background: #3B5BFD; }
+.nb-crop-keep { overflow: visible; }
+.nb-crop-keep > .nb-crop-bright { position: absolute; opacity: 1; max-width: none; pointer-events: none; clip-path: inset(0); }
+.nb-crop-keep { clip-path: none; }
+.nb-crop-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
