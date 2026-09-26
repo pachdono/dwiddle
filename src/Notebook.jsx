@@ -229,13 +229,9 @@ function smoothPts(points) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const [x, y] of points) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   const extent = Math.hypot(x1 - x0, y1 - y0);
-  if (extent < 24) {
-    // small writing: only neighbouring readings averaged, which removes the
-    // shimmer without changing the letter
-    return points.map((p, i) => (i === 0 || i === points.length - 1 ? p
-      : [(points[i - 1][0] + 2 * p[0] + points[i + 1][0]) / 4, (points[i - 1][1] + 2 * p[1] + points[i + 1][1]) / 4, (points[i - 1][2] + 2 * p[2] + points[i + 1][2]) / 4]));
-  }
-  const step = Math.min(1.4, Math.max(0.35, extent / 100));
+  // Small writing is evened out over about half a millimetre: enough to
+  // remove a Pencil's shimmer, far too little to change a letter.
+  const step = extent < 24 ? 0.45 : Math.min(1.4, Math.max(0.35, extent / 100));
   const even = [points[0]];
   let carry = 0;
   for (let i = 1; i < points.length; i++) {
@@ -247,7 +243,7 @@ function smoothPts(points) {
     carry = len - (t - step);
   }
   even.push(points[points.length - 1]);
-  const W = extent < 90 ? [1, 2, 1] : [1, 4, 6, 4, 1];
+  const W = [1, 4, 6, 4, 1];
   const h = (W.length - 1) / 2, sum = W.reduce((a, b) => a + b, 0);
   return even.map((p, i) => {
     if (i < h || i > even.length - 1 - h) return p;
@@ -266,15 +262,21 @@ function inkPath(item) {
   // wobble (graphs and diagrams). Strokes from before the setting are 4.
   const st = Math.max(1, Math.min(10, item.stab ?? 4));
   const pts = item.straight ? item.points : smoothPts(item.points);
+  // The pen thins in and out over part of the stroke, never more than it
+  // has: short strokes and dots keep their ink.
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  const dot = L < 1.5;
+  const tStart = dot ? 0 : Math.min(pen.taper * 0.7, L * 0.18), tEnd = dot ? 0 : Math.min(pen.taper, L * 0.22);
   return pathFrom(getStroke(pts, {
     size: item.size,
-    thinning: hl ? 0 : pen.thinning,
+    thinning: hl || dot ? 0 : pen.thinning,
     smoothing: Math.min(0.95, 0.62 + st * 0.03),
     streamline: item.straight ? 0 : (st - 1) * 0.095,
     last: true,
     simulatePressure: !item.pressure && !hl,
-    start: { cap: !hl || round, taper: hl || item.cut ? 0 : pen.taper * 0.7 },
-    end: { cap: !hl || round, taper: hl || item.cut ? 0 : pen.taper },
+    start: { cap: !hl || round, taper: hl || item.cut ? 0 : tStart },
+    end: { cap: !hl || round, taper: hl || item.cut ? 0 : tEnd },
   }));
 }
 
@@ -441,6 +443,9 @@ function ItemView({ it, editing, onText, shown }) {
     // Hides what is under it until tapped. Revealed ones stay faint so the
     // answer shows through.
     return <path d={inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
+  }
+  if (it.type === "stroke" && (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball")) && isDot(it.points)) {
+    return <circle cx={it.points[0][0]} cy={it.points[0][1]} r={it.size / 2} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke" && (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball"))) {
     return <path d={linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
@@ -1079,11 +1084,25 @@ function Protractor({ p }) {
   );
 }
 
+// An Apple Pencil in normal writing presses lightly (around a quarter of
+// its range), so pressure is lifted to make everyday writing a normal line
+// and pressing hard a thick one.
+const penPressure = (p) => (p > 0 ? Math.min(1, 0.22 + p * 1.05) : 0.5);
+
+// A tap with an even pen is a dot, drawn as a circle (a line of no length
+// does not show in every browser).
+function isDot(points) {
+  let L = 0;
+  for (let i = 1; i < points.length; i++) L += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+  return L < 1.5;
+}
+
 // Paints a stroke onto a canvas using the very same shape the page shows
 // once it is finished.
 function paintStroke(ctx, it) {
   ctx.globalAlpha = 1;
   if (it.uniform || it.straight || (it.tool === "pen" && it.style === "ball")) {
+    if (isDot(it.points)) { ctx.fillStyle = it.color; ctx.beginPath(); ctx.arc(it.points[0][0], it.points[0][1], it.size / 2, 0, Math.PI * 2); ctx.fill(); return; }
     ctx.strokeStyle = it.color;
     ctx.lineWidth = it.size;
     ctx.lineCap = it.tip === "flat" ? "butt" : "round";
@@ -1757,10 +1776,11 @@ function Editor({ id, go, onClose }) {
     const penOn = (e) => [...e.touches].some((t) => t.touchType === "stylus");
     const onStart = (e) => {
       logRef.current("touchstart", e);
-      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand") e.preventDefault(); return; }
-      // A hand resting on the screen while the Pencil writes: ignored, and
-      // never taken for a pinch.
-      if (penOn(e) || Date.now() - lastPen.current < 2000) { if (e.target.closest?.(".nb-pages")) e.preventDefault(); return; }
+      const onPage = !!e.target.closest?.(".nb-svg");
+      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
+      // A hand resting on the page while the Pencil writes: ignored, and
+      // never taken for a pinch. Buttons around the page still work.
+      if (penOn(e) || Date.now() - lastPen.current < 2000) { if (onPage) e.preventDefault(); return; }
       if (fingers(e).length >= 2) { pinchStart(e); return; }
       if (toolRef.current === "hand") return; // the browser scrolls
       // "Pencil only": fingers scroll, and only an Apple Pencil writes.
@@ -1770,8 +1790,9 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-svg")) e.preventDefault();
     };
     const onMove = (e) => {
-      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand") e.preventDefault(); return; }
-      if (penOn(e) || Date.now() - lastPen.current < 2000) { e.preventDefault(); return; }
+      const onPage = !!e.target.closest?.(".nb-svg");
+      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
+      if (penOn(e) || Date.now() - lastPen.current < 2000) { if (onPage) e.preventDefault(); return; }
       if (twoFinger.current && fingers(e).length >= 2) { pinchMove(e); return; }
       if (toolRef.current === "hand") return;
       if (!fingerRef.current) { if (stylus(e)) e.preventDefault(); return; }
@@ -1887,7 +1908,7 @@ function Editor({ id, go, onClose }) {
     }
     const svg = e.currentTarget;
     const [x, y] = toPage(e, svg, page);
-    const pressure = e.pointerType === "pen" ? e.pressure || 0.5 : 0.5;
+    const pressure = e.pointerType === "pen" ? penPressure(e.pressure) : 0.5;
 
     if (tool === "text") {
       const hit = page.items.find((i) => i.type === "text" && x >= i.x && x <= i.x + i.w && y >= i.y && y <= i.y + (i.h || 40));
@@ -2141,7 +2162,7 @@ function Editor({ id, go, onClose }) {
         const last = ls.points[ls.points.length - 1];
         // A Pencil's pressure flickers from one reading to the next; eased,
         // the line swells and thins smoothly instead of looking grainy.
-        const raw = ev.pointerType === "pen" ? ev.pressure || 0.5 : 0.5;
+        const raw = ev.pointerType === "pen" ? penPressure(ev.pressure) : 0.5;
         const pr = last[2] * 0.85 + raw * 0.15;
         // Movements smaller than the screen can show are just the pen
         // trembling; the last point is nudged instead of adding a new one.
