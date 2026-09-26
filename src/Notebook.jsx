@@ -1701,6 +1701,7 @@ function Editor({ id, go, onClose }) {
   // The lasso: a loop being drawn, then what it took in.
   const [group, setGroup] = useState(null); // { pageId, ids }
   const [cropping, setCropping] = useState(null); // id of a picture being cropped
+  const widthDrag = useRef(null);
   const lasso = useRef(null);
   const lassoPath = useRef(null);
   const [lassoOn, setLassoOn] = useState(null); // pageId while a loop is drawn
@@ -1896,6 +1897,7 @@ function Editor({ id, go, onClose }) {
     const onStart = (e) => {
       logRef.current("touchstart", e);
       // the crop box holds the page still, except its buttons, which must stay tappable
+      if (e.target.closest?.(".nb-textbar, .nb-textedit")) return; // typing, selecting words, the text bar
       if (e.target.closest?.(".nb-crop") && !e.target.closest("button")) { e.preventDefault(); return; }
       if (e.target.closest?.(".nb-crop-bar")) return;
       const onPage = !!e.target.closest?.(".nb-svg");
@@ -2699,7 +2701,8 @@ function Editor({ id, go, onClose }) {
       {fontPop && <FontPop current={selected?.type === "text" ? selected.font : font} custom={customFonts}
         onPick={(id) => {
           setFont(id);
-          if (selected?.type === "text") updatePage(sel.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === selected.id ? { ...i, font: id } : i)) }));
+          const target = editingText || (selected?.type === "text" ? selected.id : null);
+          if (target) book.pages.forEach((pg) => { if (pg.items.some((i) => i.id === target)) updatePage(pg.id, (p) => ({ ...p, items: p.items.map((i) => (i.id === target ? { ...i, font: id } : i)) })); });
           setFontPop(false);
         }}
         onImport={() => { setFontPop(false); fontInput.current?.click(); }} onClose={() => setFontPop(false)} />}
@@ -2798,7 +2801,7 @@ function Editor({ id, go, onClose }) {
             if (url) { try { addImage(await imageFile(url)); } catch { alert("That picture could not be added. Try copying it and pasting instead."); } }
           }}>
           {book.pages.map((page, i) => (
-            <div key={page.id} className="nb-page" data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
+            <div key={page.id} className={"nb-page" + (editingText && page.items.some((it) => it.id === editingText) ? " typing" : "")} data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
               <svg viewBox={`0 0 ${page.w} ${page.h}`} width={page.w * zoom} height={page.h * zoom}
                 className={"nb-svg tool-" + tool}
                 onPointerDown={(e) => down(e, page)} onPointerMove={(e) => move(e, page)}
@@ -2836,8 +2839,26 @@ function Editor({ id, go, onClose }) {
               </svg>
               {(() => {
                 const ed = editingText && page.items.find((i) => i.id === editingText && i.type === "text");
-                return ed ? <TextEditor it={ed} zoom={zoom}
-                  onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} /> : null;
+                if (!ed) return null;
+                const set = (ch) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, ...ch } : x)) }));
+                return (
+                  <>
+                    <div className="nb-textbar" style={{ left: ed.x * zoom, top: Math.max(4, ed.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                      <button onClick={() => { setEditingText(null); setSel(null); }}>Done</button>
+                      <button onClick={() => setFontPop(true)} style={{ fontFamily: fontOf(ed.font).css }}>{fontOf(ed.font).name}</button>
+                      <button onClick={() => set({ fontSize: Math.max(10, ed.fontSize - 2) })} aria-label="Smaller text">A−</button>
+                      <button onClick={() => set({ fontSize: Math.min(96, ed.fontSize + 2) })} aria-label="Bigger text">A+</button>
+                      <button className="danger" onClick={() => { updatePage(page.id, (p) => ({ ...p, items: p.items.filter((x) => x.id !== ed.id) })); setEditingText(null); setSel(null); }}>Delete</button>
+                    </div>
+                    <TextEditor it={ed} zoom={zoom}
+                      onText={(text, hPx) => updatePage(page.id, (p) => ({ ...p, items: p.items.map((x) => (x.id === ed.id ? { ...x, text, h: Math.max(40, hPx / zoom + 8) } : x)) }), { record: false })} />
+                    <div className="nb-textwidth" style={{ left: (ed.x + ed.w) * zoom - 8, top: ed.y * zoom, height: Math.max(40, ed.h || 40) * zoom }}
+                      aria-label="Drag to change the width" title="Drag to change the width"
+                      onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* fine */ } widthDrag.current = { x: e.clientX, w: ed.w }; }}
+                      onPointerMove={(e) => { const d = widthDrag.current; if (d) set({ w: Math.max(60, d.w + (e.clientX - d.x) / zoom) }); }}
+                      onPointerUp={() => { widthDrag.current = null; }} />
+                  </>
+                );
               })()}
               {cropping && page.items.some((i) => i.id === cropping) && (
                 <CropBox it={page.items.find((i) => i.id === cropping)} zoom={zoom} onCancel={() => setCropping(null)}

@@ -6916,3 +6916,12 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-crop-keep > .nb-crop-bright { position: absolute; opacity: 1; max-width: none; pointer-events: none; clip-path: inset(0); }
 .nb-crop-keep { clip-path: none; }
 .nb-crop-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* typing: normal text gestures (long press, selection handles) work */
+.nb-pages .nb-page.typing, .nb-pages.hand .nb-page.typing, .nb-pages.pencil-only .nb-page.typing { touch-action: auto !important; -webkit-user-select: auto; user-select: auto; -webkit-touch-callout: default; }
+.nb-textedit { -webkit-user-select: text !important; user-select: text !important; }
+.nb-textbar { position: absolute; z-index: 6; display: inline-flex; gap: 2px; padding: 4px; border-radius: 12px; background: #1b1d26; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); white-space: nowrap; }
+.nb-textbar button { border: 0; background: none; color: #fff; font: 600 14px Inter, system-ui, sans-serif; padding: 8px 12px; border-radius: 8px; cursor: pointer; touch-action: manipulation; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.nb-textbar button:hover { background: rgba(255, 255, 255, 0.12); }
+.nb-textbar .danger { color: #ff8a8a; }
+.nb-textwidth { position: absolute; z-index: 4; width: 16px; cursor: ew-resize; touch-action: none; }
+.nb-textwidth::after { content: ""; position: absolute; left: 5px; top: 50%; width: 6px; height: 28px; margin-top: -14px; border-radius: 3px; background: #3B5BFD; }
