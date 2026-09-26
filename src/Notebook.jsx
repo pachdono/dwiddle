@@ -219,6 +219,31 @@ const PEN_STYLES = [
   { id: "brush", name: "Brush", thinning: 0.8, taper: 22 },
 ];
 
+// Evens out a stroke before its ink shape is made: points spaced evenly
+// along the line, then position and pressure averaged with their
+// neighbours, so neither the edge nor the thickness can wobble.
+function smoothPts(points, step) {
+  if (points.length < 4) return points;
+  const even = [points[0]];
+  let carry = 0;
+  for (let i = 1; i < points.length; i++) {
+    const [ax, ay, ap] = points[i - 1], [bx, by, bp] = points[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    let t = step - carry;
+    while (t <= len) { const k = t / len; even.push([ax + (bx - ax) * k, ay + (by - ay) * k, ap + (bp - ap) * k]); t += step; }
+    carry = len - (t - step);
+  }
+  even.push(points[points.length - 1]);
+  if (even.length < 5) return even;
+  const W = [1, 4, 6, 4, 1];
+  return even.map((p, i) => {
+    if (i < 2 || i > even.length - 3) return p;
+    let x = 0, y = 0, pr = 0;
+    for (let j = -2; j <= 2; j++) { const q = even[i + j], w = W[j + 2]; x += q[0] * w; y += q[1] * w; pr += q[2] * w; }
+    return [x / 16, y / 16, pr / 16];
+  });
+}
+
 function inkPath(item) {
   const hl = item.tool === "highlighter" || item.tool === "revealer";
   // A round highlighter has round ends, a flat one square ends like a chisel tip.
@@ -227,7 +252,8 @@ function inkPath(item) {
   // Stability 1 follows the pen exactly (handwriting); 10 irons out every
   // wobble (graphs and diagrams). Strokes from before the setting are 4.
   const st = Math.max(1, Math.min(10, item.stab ?? 4));
-  return pathFrom(getStroke(item.points, {
+  const pts = item.straight ? item.points : smoothPts(item.points, Math.max(1.2, item.size * 0.35));
+  return pathFrom(getStroke(pts, {
     size: item.size,
     thinning: hl ? 0 : pen.thinning,
     smoothing: Math.min(0.95, 0.62 + st * 0.03),
@@ -401,14 +427,14 @@ function ItemView({ it, editing, onText, shown }) {
   if (it.type === "stroke" && it.tool === "revealer") {
     // Hides what is under it until tapped. Revealed ones stay faint so the
     // answer shows through.
-    return <path d={it.d || inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
+    return <path d={inkPath(it)} fill={it.color} opacity={shown ? 0.16 : 1} className="nb-cover-ink" />;
   }
-  if (it.type === "stroke" && it.uniform) {
-    return <path d={linePath(it.points)} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
+  if (it.type === "stroke" && (it.uniform || (it.tool === "pen" && it.style === "ball"))) {
+    return <path d={linePath(it.uniform ? it.points : smoothPts(it.points, Math.max(1.2, it.size * 0.35)))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap={it.tip === "flat" ? "butt" : "round"} strokeLinejoin="round"
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
-    return <path d={it.d || inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1}
+    return <path d={inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1}
       />;
   }
   if (it.type === "shape") return <Shape it={it} />;
@@ -1535,7 +1561,8 @@ function Editor({ id, go, onClose }) {
     const ls = liveStroke.current, el = livePath.current;
     if (!ls || !el) { if (ls && !frame.current) frame.current = requestAnimationFrame(() => { frame.current = 0; drawLive(); }); return; }
     const pts = ahead.length && !ls.straight && !ls.arc ? ls.points.concat(ahead) : ls.points;
-    el.setAttribute("d", ls.uniform ? linePath(pts) : inkPath({ ...ls, points: pts }));
+    const even = ls.tool === "pen" && ls.style === "ball";
+    el.setAttribute("d", ls.uniform ? linePath(pts) : even ? linePath(smoothPts(pts, Math.max(1.2, ls.size * 0.35))) : inkPath({ ...ls, points: pts }));
   };
   const [sel, setSel] = useState(null); // { pageId, itemId }
   const [editingText, setEditingText] = useState(null); // itemId
@@ -1896,7 +1923,7 @@ function Editor({ id, go, onClose }) {
           liveStroke.current.points = [[s0[0], s0[1], pressure]];
         }
       }
-      setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform, size: liveStroke.current.size });
+      setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform || (tool === "pen" && prefs.style === "ball"), size: liveStroke.current.size });
       drawLive();
     }
   }
