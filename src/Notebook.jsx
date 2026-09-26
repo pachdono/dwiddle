@@ -1703,6 +1703,7 @@ function Editor({ id, go, onClose }) {
   const [cropping, setCropping] = useState(null); // id of a picture being cropped
   const widthDrag = useRef(null);
   const moveDrag = useRef(null);
+  const lastTextTap = useRef({ id: null, t: 0 });
   const lasso = useRef(null);
   const lassoPath = useRef(null);
   const [lassoOn, setLassoOn] = useState(null); // pageId while a loop is drawn
@@ -2059,7 +2060,7 @@ function Editor({ id, go, onClose }) {
           return;
         }
         if (gb && x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
-          drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+          drag.current = { groupMove: true, pageId: page.id, x, y, sx: x, sy: y, moved: false, start: book };
           return;
         }
       }
@@ -2068,17 +2069,17 @@ function Editor({ id, go, onClose }) {
         const b = boxOf(i);
         return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
       });
+      log("hand hit " + (hit ? hit.type : "nothing"), e);
       if (hit?.type === "text") {
-        setGroup(null);
-        setSel({ pageId: page.id, itemId: hit.id });
-        drag.current = { textMove: true, pageId: page.id, id: hit.id, x, y, sx: x, sy: y, moved: false, start: book };
-        return;
+        const now = Date.now(), again = lastTextTap.current.id === hit.id && now - lastTextTap.current.t < 450;
+        lastTextTap.current = { id: hit.id, t: now };
+        if (again) { setGroup(null); setEditingText(hit.id); setSel({ pageId: page.id, itemId: hit.id }); return; }
       }
       if (hit) {
         setEditingText(null);
         setGroup({ pageId: page.id, ids: [hit.id] });
         setSel({ pageId: page.id, itemId: hit.id });
-        drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+        drag.current = { groupMove: true, pageId: page.id, x, y, sx: x, sy: y, moved: false, start: book };
         return;
       }
       setGroup(null); setSel(null); setEditingText(null);
@@ -2089,6 +2090,7 @@ function Editor({ id, go, onClose }) {
 
     if (tool === "text") {
       const hit = [...page.items].reverse().find((i) => i.type === "text" && String(i.text || "").trim() && x >= i.x && x <= i.x + i.w && y >= i.y && y <= i.y + (i.h || 40));
+      log("text tool hit " + (hit ? "text" : "nothing"), e);
       if (hit) {
         // press and drag moves the text; a tap (no drag) opens it for typing
         setEditingText(null);
@@ -2116,7 +2118,7 @@ function Editor({ id, go, onClose }) {
             return;
           }
           if (x >= gb.x && x <= gb.x + gb.w && y >= gb.y && y <= gb.y + gb.h) {
-            drag.current = { groupMove: true, pageId: page.id, x, y, start: book };
+            drag.current = { groupMove: true, pageId: page.id, x, y, sx: x, sy: y, moved: false, start: book };
             return;
           }
         }
@@ -2308,7 +2310,11 @@ function Editor({ id, go, onClose }) {
       return;
     }
     if (drag.current?.groupMove && group) {
-      const d = drag.current, dx = x - d.x, dy = y - d.y;
+      const d = drag.current;
+      // a tap wobbles a little; only a clear drag moves the selection
+      if (!d.moved && Math.hypot(x - d.sx, y - d.sy) < 10 / zoom) return;
+      d.moved = true;
+      const dx = x - d.x, dy = y - d.y;
       d.x = x; d.y = y;
       updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => (group.ids.includes(i.id) ? moveItem(i, dx, dy) : i)) }), { record: false });
       return;
@@ -2390,6 +2396,17 @@ function Editor({ id, go, onClose }) {
     // Lifting a resting hand must not end the Pencil's stroke.
     if (e?.pointerId !== undefined && liveStroke.current?.pointerId !== undefined && e.pointerId !== liveStroke.current.pointerId) return;
     if (drag.current?.textMove && !drag.current.moved) { const id = drag.current.id; drag.current = null; setEditingText(id); return; }
+    // tapping a selected text box again (without dragging) opens it for typing
+    if (drag.current?.groupMove && !drag.current.moved && group?.ids.length === 1) {
+      const id = group.ids[0], pg = pageOf(group.pageId), it = pg?.items.find((i) => i.id === id);
+      drag.current = null;
+      if (it?.type === "text") {
+        const now = Date.now(), again = lastTextTap.current.id === id && now - lastTextTap.current.t < 600;
+        lastTextTap.current = { id, t: now };
+        if (again) { setGroup(null); setEditingText(id); setSel({ pageId: pg.id, itemId: id }); }
+      }
+      return;
+    }
     if (drag.current?.pan) {
       // a flick keeps the page gliding for a moment, like normal scrolling
       let { vx, vy } = drag.current.pan;
@@ -2422,9 +2439,15 @@ function Editor({ id, go, onClose }) {
       for (let i = 1; i < L.pts.length; i++) len += Math.hypot(L.pts[i][0] - L.pts[i - 1][0], L.pts[i][1] - L.pts[i - 1][1]);
       let ids;
       if (len < 14) {
-        // a tap picks the one thing under it
+        // a tap picks the one thing under it; a second tap on text opens it
         const [x, y] = L.pts[0];
         const hit = [...page.items].reverse().find((i) => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; });
+        log("lasso tap " + (hit ? hit.type : "nothing"), {});
+        if (hit?.type === "text") {
+          const now = Date.now(), again = lastTextTap.current.id === hit.id && now - lastTextTap.current.t < 450;
+          lastTextTap.current = { id: hit.id, t: now };
+          if (again) { setGroup(null); setEditingText(hit.id); setSel({ pageId: page.id, itemId: hit.id }); return; }
+        }
         ids = hit ? [hit.id] : [];
       } else ids = page.items.filter((i) => lassoTakes(L.pts, i)).map((i) => i.id);
       if (ids.length) {
@@ -2891,6 +2914,9 @@ function Editor({ id, go, onClose }) {
                 if (!b) return null;
                 return (
                   <div className="nb-lassobar" style={{ left: b.x * zoom, top: Math.max(4, b.y * zoom - 50) }} onPointerDown={(e) => e.stopPropagation()}>
+                    {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "text" && (
+                      <button onClick={() => { const id = group.ids[0]; setGroup(null); setEditingText(id); setSel({ pageId: page.id, itemId: id }); }}>Edit text</button>
+                    )}
                     {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "image" && (
                       <button onClick={() => setCropping(group.ids[0])}>Crop</button>
                     )}
