@@ -1942,7 +1942,11 @@ function Editor({ id, go, onClose }) {
       if (e.target.closest?.(".nb-crop") && !e.target.closest("button")) { e.preventDefault(); return; }
       if (e.target.closest?.(".nb-crop-bar")) return;
       const onPage = !!e.target.closest?.(".nb-svg");
-      if (stylus(e)) { lastPen.current = Date.now(); if (toolRef.current !== "hand" && onPage) e.preventDefault(); return; }
+      if (stylus(e)) {
+        lastPen.current = Date.now();
+        if (onPage && (toolRef.current !== "hand" || onSomething(e.changedTouches[0]))) e.preventDefault();
+        return;
+      }
       // A hand resting on the page while the Pencil writes: ignored, and
       // never taken for a pinch. Buttons around the page still work.
       if (DRAWING_TOOLS.includes(toolRef.current) && (penOn(e) || Date.now() - lastPen.current < 1500)) { if (onPage) e.preventDefault(); return; }
@@ -2108,11 +2112,7 @@ function Editor({ id, go, onClose }) {
         return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
       });
       log("hand hit " + (hit ? hit.type : "nothing"), e);
-      if (hit?.type === "text") {
-        const now = Date.now(), again = lastTextTap.current.id === hit.id && now - lastTextTap.current.t < 450;
-        lastTextTap.current = { id: hit.id, t: now };
-        if (again) { setGroup(null); setEditingText(hit.id); setSel({ pageId: page.id, itemId: hit.id }); return; }
-      }
+      // (a second tap on the same text, counted when the finger lifts, opens it for typing)
       if (hit) {
         setEditingText(null);
         setGroup({ pageId: page.id, ids: [hit.id] });
@@ -2474,10 +2474,12 @@ function Editor({ id, go, onClose }) {
       setLassoOn(null);
       const page = pageOf(L.pageId);
       if (!page) return;
-      let len = 0;
-      for (let i = 1; i < L.pts.length; i++) len += Math.hypot(L.pts[i][0] - L.pts[i - 1][0], L.pts[i][1] - L.pts[i - 1][1]);
+      // A tap, however much a Pencil trembles on the glass, stays close to
+      // where it started; a loop goes somewhere.
+      let far = 0;
+      for (const q of L.pts) far = Math.max(far, Math.hypot(q[0] - L.pts[0][0], q[1] - L.pts[0][1]));
       let ids;
-      if (len < 14) {
+      if (far < 16 / zoom) {
         // a tap picks the one thing under it; a second tap on text opens it
         const [x, y] = L.pts[0];
         const hit = [...page.items].reverse().find((i) => { const b = boxOf(i); return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h; });
@@ -2744,7 +2746,9 @@ function Editor({ id, go, onClose }) {
             ))}
           </div>
         )}
-        {(tool === "text" || selected?.type === "text") && (
+        {/* Only while the text tool is picked, so selecting something never
+            reflows the toolbar and shifts the page under your finger. */}
+        {tool === "text" && (
           <div className="nb-group">
             {(() => { const cf = fontOf(selected?.type === "text" ? selected.font : font); return (
               <button className="nb-pill nb-fontbtn" onClick={() => setFontPop(true)} aria-label="Font" style={{ fontFamily: cf.css }}>{cf.name} ▾</button>
