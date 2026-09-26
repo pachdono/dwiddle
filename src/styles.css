@@ -7004,3 +7004,10 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .profile-form input { width: 100%; }
 .profile-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 @media (max-width: 520px) { .profile-row { grid-template-columns: 1fr; } .profile-gate { padding: 22px 18px; } }
+/* the details form uses the app's own fields, in light and dark */
+.profile-form input[type="text"], .profile-form input[type="date"] { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--ink); font: inherit; outline: none; -webkit-appearance: none; appearance: none; }
+.profile-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.profile-form input[type="date"] { color-scheme: light dark; display: block; }
+.profile-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+.profile-gate { background: var(--surface); }

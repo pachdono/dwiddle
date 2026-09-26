@@ -372,17 +372,18 @@ const PRIVACY = [
     body: (
       <>
         <p>
-          Dwiddle is not directed to and may not be used by children under the age of 13. If you
-          are aged between 13 and 15, you may use the service only with the knowledge and consent
-          of a parent or guardian, and the parent or guardian is responsible for supervising that
-          use.
+          Dwiddle may not be used by children under the age of 8. Children aged 8 to 12, and
+          anyone below the age at which their country allows them to consent to online services
+          themselves (between 13 and 16 in most countries), may use Dwiddle and create an account
+          only with the knowledge and consent of a parent or guardian, who is responsible for
+          supervising that use.
         </p>
         <p>
           The date of birth asked for when an account is set up is used to check this: an account
-          cannot be completed with a date of birth under 13. We do not knowingly collect personal
-          data from a child under 13. If we become aware
-          that we have done so, the account and associated data will be deleted without delay. A
-          parent or guardian who believes a child under 13 has provided personal data to us
+          cannot be completed with a date of birth under 8. We do not knowingly keep personal data
+          from a child under 8, or from a younger child without a parent or guardian's consent. If
+          we become aware that we have, the account and associated data will be deleted without
+          delay. A parent or guardian who wants their child's account and data removed
           should contact <Mail /> and the data will be removed.
         </p>
       </>
@@ -462,7 +463,7 @@ const TERMS = [
     body: (
       <>
         <p>
-          You must be at least 13 years old to use the Service. If you are under 16, you may use
+          You must be at least 8 years old to use the Service. If you are under 16, you may use
           the Service only with the consent and supervision of a parent or guardian, who accepts
           these Terms on your behalf and is responsible for your use of the Service. By using the
           Service you represent that you meet these requirements and that you are not barred from
