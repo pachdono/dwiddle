@@ -7953,17 +7953,32 @@ a.btn { text-decoration: none; }
 
 /* The panels over a scene are frosted glass, so the picture shows through
    but the words on them stay easy to read. */
-body:has(.theme-backdrop) .topbar { background: color-mix(in srgb, var(--bg) 62%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
-body:has(.theme-backdrop) .sidebar { background: color-mix(in srgb, var(--panel) 72%, transparent); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); }
+body:has(.theme-backdrop) .topbar { background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
+body:has(.theme-backdrop) .sidebar { background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); }
 body:has(.theme-backdrop) main .card,
-body:has(.theme-backdrop) main .stat { background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+body:has(.theme-backdrop) main .stat,
+body:has(.theme-backdrop) main .drop,
+body:has(.theme-backdrop) main .notes.glass { background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
 body:has(.theme-backdrop) main .card .card,
-body:has(.theme-backdrop) main .card .stat { backdrop-filter: none; -webkit-backdrop-filter: none; }
+body:has(.theme-backdrop) main .card .stat { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* A soft wash of the page colour over the picture, strongest up top where
+   headings sit, so words written straight on the page stay easy to read. */
+.tb-scrim { position: absolute; inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 62%, transparent) 0%, color-mix(in srgb, var(--bg) 45%, transparent) 50%, color-mix(in srgb, var(--bg) 22%, transparent) 100%); }
+/* Words straight on the picture get a faint halo in the page colour. */
+body:has(.theme-backdrop) main { text-shadow: 0 0 2px var(--bg), 0 0 12px var(--bg), 0 0 24px var(--bg); }
+body:has(.theme-backdrop) main :is(.card, .stat, .drop, .notes, button, input, textarea, select, [role="dialog"]) { text-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-backdrop *, .theme-backdrop *::before, .theme-backdrop *::after { animation: none !important; }
   .tb-fall, .tb-shooting, .tb-bubbles { display: none; }
 }
+/* Pulling past the top of the page bounces it and leaves a bare strip above
+   the picture; the page just stops instead. */
+html, body, .main { overscroll-behavior-y: none; }
+/* On phones the picture is sized to the tallest the screen gets, so no strip
+   opens up at the top or bottom when the browser's bars slide away. */
+.theme-backdrop { bottom: auto; height: 100lvh; min-height: 100%; }
 /* The painted scene replaces the little corner scenery: one place, not two. */
 body:has(.theme-backdrop) .side-scene { visibility: hidden; }
 body:has(.theme-backdrop) .home-scene { display: none; }

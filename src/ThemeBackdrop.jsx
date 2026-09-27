@@ -583,6 +583,7 @@ export function ThemeBackdrop({ theme, resolved }) {
   return (
     <div className={`theme-backdrop tb-${theme}`} aria-hidden="true">
       {draw(dark)}
+      <div className="tb-scrim" />
       <Grain opacity={dark ? 0.07 : 0.05} />
     </div>
   );
