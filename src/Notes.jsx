@@ -177,7 +177,7 @@ export function Notes({ made, saveNotes, go, early = false }) {
   const written = topics.filter((t) => notes[t.name]?.length);
 
   return (
-    <div className="page fade nt">
+    <div className={"page fade nt" + (early ? " nt-early" : "")}>
       <PageHead
         title={made?.title || "Notes"}
         sub={`Everything in your material, topic by topic.${total ? ` ${total} highlights.` : ""}`}
@@ -349,9 +349,10 @@ function Picture({ query }) {
 // Turning the notes into a notebook: pick a font and a paper, choose whether
 // to add pictures, and the notebook opens when it is ready.
 function ToNotebook({ made, go, onClose, early }) {
-  // Handwriting on squared paper by default, like a page of good notes.
-  const [font, setFont] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "patrick"; } catch { return "patrick"; } });
-  const [paper, setPaper] = useState("grid");
+  // Testers get handwriting on squared paper by default, like a page of good
+  // notes; everyone else the plain look it had before.
+  const [font, setFont] = useState(() => { const d = early ? "patrick" : "arial"; try { return localStorage.getItem("dwiddle-nb-font") || d; } catch { return d; } });
+  const [paper, setPaper] = useState(early ? "grid" : "lined");
   const [pictures, setPictures] = useState(true);
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
@@ -361,7 +362,8 @@ function ToNotebook({ made, go, onClose, early }) {
   async function make() {
     setErr(""); setBusy("Getting ready"); setProg(0.02);
     try {
-      const { notesToNotebook } = await import("./notesToNotebook.js");
+      // The hand drawn, two column pages are for testers for now.
+      const { notesToNotebook } = early ? await import("./notesToNotebook.js") : await import("./notesToNotebookClassic.js");
       const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, rich: early, onProgress: (t, p) => { setBusy(t); setProg(p); } });
       try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
       go?.("notebook");

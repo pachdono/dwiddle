@@ -7681,48 +7681,48 @@ a.btn { text-decoration: none; }
 .nb-sizestroke { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-3) 45%, transparent); }
 :root[data-theme="dark"] .nb-penpop .nb-pop-colors .nb-color { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
 :root[data-theme="dark"] .nb-penpop .nb-pop-colors .nb-color.on { box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 4.5px var(--ink); }
-.nb-pop-casepen { height: 52px; width: 32px; align-items: end; overflow: visible; padding-bottom: 2px; }
-.nb-pop-casepen .nb-penicon { transform: none; }
-.nb-pop-case > div { align-items: flex-end; row-gap: 12px; padding-top: 6px; }
+.nb-penpop .nb-pop-casepen { height: 52px; width: 32px; align-items: end; overflow: visible; padding-bottom: 2px; }
+.nb-penpop .nb-pop-casepen .nb-penicon { transform: none; }
+.nb-penpop .nb-pop-case > div { align-items: flex-end; row-gap: 12px; padding-top: 6px; }
 
 /* ---------- notes, laid out like a good page of handwritten notes ----------
    Compact but not cramped: tighter lines, underlined headings, ring bullets
    and definitions in a tidy two column list. On a wide screen the topics
    flow into two columns, like a full notebook page, each topic kept whole. */
-.nt-body { display: block; }
-.nt-sec { padding: 20px 22px 16px; margin: 0 0 14px; border-radius: 14px; break-inside: avoid; }
-.nt-sec h2 { gap: 10px; margin: 0 0 12px; padding-bottom: 8px; font-size: 18px; border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
-.nt-sec h2 span { flex: 0 0 24px; height: 24px; border-radius: 7px; font-size: 12.5px; }
-.nt-sec h3 {
+.nt-early .nt-body { display: block; }
+.nt-early .nt-sec { padding: 20px 22px 16px; margin: 0 0 14px; border-radius: 14px; break-inside: avoid; }
+.nt-early .nt-sec h2 { gap: 10px; margin: 0 0 12px; padding-bottom: 8px; font-size: 18px; border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.nt-early .nt-sec h2 span { flex: 0 0 24px; height: 24px; border-radius: 7px; font-size: 12.5px; }
+.nt-early .nt-sec h3 {
   display: inline-block; margin: 14px 0 6px; padding: 0 2px 1px;
   font-size: 12.5px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
   border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
-.nt-sec h2 + h3 { margin-top: 2px; }
-.nt-sec > p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; }
-.nt-sec > ul { margin: 0 0 8px; padding-left: 0; list-style: none; }
-.nt-sec > ul li { position: relative; margin: 0 0 3px; padding-left: 18px; font-size: 14.5px; line-height: 1.55; }
-.nt-sec > ul li::before {
+.nt-early .nt-sec h2 + h3 { margin-top: 2px; }
+.nt-early .nt-sec > p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; }
+.nt-early .nt-sec > ul { margin: 0 0 8px; padding-left: 0; list-style: none; }
+.nt-early .nt-sec > ul li { position: relative; margin: 0 0 3px; padding-left: 18px; font-size: 14.5px; line-height: 1.55; }
+.nt-early .nt-sec > ul li::before {
   content: ""; position: absolute; left: 2px; top: 0.52em;
   width: 7px; height: 7px; border-radius: 50%; border: 1.6px solid var(--accent);
 }
-.nt-term { grid-template-columns: minmax(110px, 170px) 1fr; gap: 12px; padding: 6px 0; font-size: 14px; line-height: 1.5; }
-.nt-term + :not(.nt-term) { margin-top: 8px; }
-.nt-aside { margin: 8px 0; padding: 9px 12px; border-radius: 10px; }
-.nt-aside p { font-size: 14px; line-height: 1.55; }
-.nt-label { margin-bottom: 2px; font-size: 10px; }
-.nt-table, .nt-flow, .nt-pic { margin: 10px 0 12px; }
-.nt-table th, .nt-table td { padding: 7px 10px; font-size: 13.5px; }
-.nt .hl { padding: 0 2px; }
+.nt-early .nt-term { grid-template-columns: minmax(110px, 170px) 1fr; gap: 12px; padding: 6px 0; font-size: 14px; line-height: 1.5; }
+.nt-early .nt-term + :not(.nt-term) { margin-top: 8px; }
+.nt-early .nt-aside { margin: 8px 0; padding: 9px 12px; border-radius: 10px; }
+.nt-early .nt-aside p { font-size: 14px; line-height: 1.55; }
+.nt-early .nt-label { margin-bottom: 2px; font-size: 10px; }
+.nt-early .nt-table, .nt-early .nt-flow, .nt-early .nt-pic { margin: 10px 0 12px; }
+.nt-early .nt-table th, .nt-early .nt-table td { padding: 7px 10px; font-size: 13.5px; }
+.nt-early .hl { padding: 0 2px; }
 @media (min-width: 1200px) {
-  .nt-body { columns: 2; column-gap: 14px; }
+  .nt-early .nt-body { columns: 2; column-gap: 14px; }
 }
 @media print {
-  .nt-body { columns: 1; }
+  .nt-early .nt-body { columns: 1; }
 }
 @media (max-width: 620px) {
-  .nt-sec { padding: 16px 16px 12px; }
-  .nt-term { grid-template-columns: 1fr; gap: 1px; }
+  .nt-early .nt-sec { padding: 16px 16px 12px; }
+  .nt-early .nt-term { grid-template-columns: 1fr; gap: 1px; }
 }
 
 /* The floating video: a grip on every corner, resizing from that corner. */

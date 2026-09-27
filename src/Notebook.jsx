@@ -677,7 +677,7 @@ export function PagePreview({ page, className = "" }) {
   );
 }
 
-export default function NotebookPage({ go }) {
+export default function NotebookPage({ go, early = false }) {
   const [books, setBooks] = useState(null);
   // a notebook just made from notes opens straight away
   const [openId, setOpenId] = useState(() => {
@@ -785,7 +785,7 @@ export default function NotebookPage({ go }) {
     }
   }
 
-  if (openId) return <Portal><Editor id={openId} go={go} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
+  if (openId) return <Portal><Editor id={openId} go={go} early={early} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
 
   return (
     <div className="page wide fade nb-home" onClick={() => setMenu(null)}>
@@ -1465,10 +1465,272 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
   );
 }
 
+/* ---------- the notebook as it was, for everyone but testers ---------- */
+
+const CLASSIC_STYLES = PEN_STYLES.filter((p) => ["ball", "fountain", "brush"].includes(p.id));
+const CLASSIC_PENS = [
+  { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
+  { id: "p2", tool: "pen", color: "#3B5BFD", size: 2, style: "ball", stab: 2 },
+  { id: "p3", tool: "pen", color: "#e5484d", size: 2, style: "ball", stab: 2 },
+  { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
+  { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "round", stab: 5 },
+];
+
+// The toolbar picture of a pen or highlighter, tipped in its colour.
+function ToolTip({ tool, color }) {
+  const hl = tool !== "pen";
+  return (
+    <svg width="20" height="22" viewBox="0 0 20 22" aria-hidden="true">
+      <path d={hl ? "M6 2h8v9l-2 5H8l-2-5Z" : "M7 2h6v11l-3 6-3-6Z"} fill="currentColor" opacity="0.28" />
+      <path d={hl ? "M8 16h4l-.5 4h-3Z" : "M8.2 14.5h3.6L10 19Z"} fill={color} stroke="rgba(0,0,0,.25)" strokeWidth="0.5" />
+      <rect x={hl ? 6 : 7} y="6" width={hl ? 8 : 6} height="2.5" fill={color} opacity="0.9" />
+    </svg>
+  );
+}
+
+// A sample stroke, drawn with the tool's real settings, so the size and style
+// can be seen before writing.
+function StrokeSample({ tool, size, color, style, tip }) {
+  const pts = Array.from({ length: 40 }, (_, i) => [14 + i * 5.4, 30 + Math.sin(i / 5.5) * 12, 0.3 + 0.5 * Math.sin((i / 39) * Math.PI)]);
+  const it = { tool, size: widthOf(tool, size), points: tool === "pen" ? pts : pts.map(([x, , p]) => [x, 30, p]), style, tip, pressure: tool === "pen" };
+  return (
+    <svg className="nb-sample" viewBox="0 0 240 60" aria-hidden="true">
+      {tool === "eraser"
+        ? <circle cx="120" cy="30" r={Math.min(28, widthOf("eraser", size) / 2.2)} fill="var(--surface)" stroke="var(--ink-3)" strokeWidth="1.5" />
+        : <path d={inkPath(it)} fill={color} opacity={tool === "highlighter" ? 0.55 : 1} />}
+    </svg>
+  );
+}
+
+function ToolPopClassic({ tool, prefs, setPrefs, size, setSize, savePen, removePen, colors, color, setColor, shapeKind, setShapeKind, onShowAll, onHideAll, onClearPage, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const palette = tool === "highlighter" ? MORE_HIGHLIGHTS : tool === "revealer" ? colors : MORE_INKS;
+  const names = { pen: "Pen", highlighter: "Highlighter", revealer: "Revealer pen", eraser: "Eraser", shape: "Shapes" };
+  return (
+    <>
+      <div className="nb-pop-scrim" onPointerDown={onClose} />
+      <div className="nb-pop" role="dialog" aria-label={names[tool] + " settings"}>
+        <div className="nb-pop-head"><b>{names[tool]}</b><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button></div>
+        {tool !== "shape" && <StrokeSample tool={tool} size={size} color={color} style={prefs.style} tip={prefs.tip} />}
+        {tool === "pen" && (
+          <div className="seg tight nb-pop-seg">
+            {CLASSIC_STYLES.map((p) => <button key={p.id} className={prefs.style === p.id ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, style: p.id }))}>{p.name}</button>)}
+          </div>
+        )}
+        {tool === "highlighter" && (
+          <>
+            <label className="nb-pop-check"><input type="checkbox" checked={!!prefs.hlStraight} onChange={(e) => setPrefs((o) => ({ ...o, hlStraight: e.target.checked }))} /> Always draw straight lines</label>
+          </>
+        )}
+        {tool === "shape" && (
+          <div className="seg tight nb-pop-seg">
+            {[["line", "Line"], ["arrow", "Arrow"], ["rect", "Box"], ["ellipse", "Circle"]].map(([k, n]) => (
+              <button key={k} className={shapeKind === k ? "on" : ""} onClick={() => setShapeKind(k)}>{n}</button>
+            ))}
+          </div>
+        )}
+        <label className="nb-pop-size">
+          <span>Size</span>
+          <input type="range" min="1" max="12" step="0.5" value={size} onChange={(e) => setSize(Number(e.target.value))} />
+          <b>{size}</b>
+        </label>
+        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
+          <>
+            <label className="nb-pop-size">
+              <span>Stability</span>
+              <input type="range" min="1" max="10" step="1" value={prefs.stab?.[tool] ?? 4}
+                onChange={(e) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: Number(e.target.value) } }))} />
+              <b>{prefs.stab?.[tool] ?? 4}</b>
+            </label>
+            <p className="small muted nb-pop-hint">Low follows your hand exactly, good for writing (try 2). High smooths out wobble, good for graphs and curves (try 8).</p>
+            {tool === "pen" && <label className="nb-pop-check"><input type="checkbox" checked={prefs.refine !== false} onChange={(e) => setPrefs((o) => ({ ...o, refine: e.target.checked }))} /> Auto refine: tidy each stroke when you lift the pen</label>}
+          </>
+        )}
+        {tool !== "eraser" && (
+          <div className="nb-pop-colors">
+            {palette.map((c) => <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />)}
+            <label className="nb-color nb-custom" title="Any colour"><input type="color" value={color} onChange={(e) => setColor(e.target.value)} /></label>
+          </div>
+        )}
+        {tool === "revealer" && (
+          <>
+            <p className="small muted">Cover answers, key words or labels. Tap a cover with this pen to peek, tap again to hide.</p>
+            <div className="nb-pop-row"><button className="btn ghost small" onClick={onShowAll}>Show all</button><button className="btn ghost small" onClick={onHideAll}>Hide all</button></div>
+          </>
+        )}
+        {tool === "eraser" && (
+          <>
+            <div className="seg tight nb-pop-seg">
+              <button className={prefs.eraseWhole !== true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: false }))}>Part of a stroke</button>
+              <button className={prefs.eraseWhole === true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: true }))}>Whole strokes</button>
+            </div>
+            <p className="small muted">The circle on the page shows how big it is. Start on the ruler's edge or the protractor to rub out in a straight line or a curve.</p>
+            <div className="nb-pop-row"><button className="btn ghost small danger" onClick={() => { if (window.confirm("Clear everything on this page?")) { onClearPage(); onClose(); } }}>Clear this page</button></div>
+          </>
+        )}
+        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
+          <div className="nb-pop-case">
+            <span className="small muted">Pencil case</span>
+            <div>
+              {(prefs.pens || []).map((pn) => (
+                <span key={pn.id} className="nb-pop-casepen"><ToolTip tool={pn.tool} color={pn.color} />
+                  <button onClick={() => removePen(pn.id)} aria-label="Take out of the pencil case">×</button></span>
+              ))}
+              <button className="btn ghost small" onClick={savePen}>+ Add this pen</button>
+            </div>
+          </div>
+        )}
+        {(tool === "pen" || tool === "highlighter") && <p className="small muted nb-pop-tip">Tip: draw a line and hold still to make it straight.</p>}
+      </div>
+    </>
+  );
+}
+
+function plainSnippet(html) {
+  const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+  return doc.body.textContent || "";
+}
+
+// Split screen: research beside the notebook. The desktop app has a real
+// browser; websites cannot show most other sites inside them, so on the web
+// there is Wikipedia, with its articles and pictures, to read and take from.
+const WIKI = "https://en.wikipedia.org/w/api.php";
+const COMMONS = "https://commons.wikimedia.org/w/api.php";
+async function imageFileClassic(url) {
+  let src = null;
+  if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
+  const blob = src ? await (await fetch(src)).blob() : await (await fetch(url)).blob();
+  if (!blob.type.startsWith("image/")) throw new Error("not a picture");
+  return new File([blob], "picture", { type: blob.type });
+}
+
+function SplitPanelClassic({ onClose, onAddImage, onAddText }) {
+  const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
+  const [tab, setTab] = useState(desktop ? "web" : "wiki");
+  return (
+    <aside className="nb-split" aria-label="Research">
+      <div className="nb-split-bar">
+        <div className="seg tight">
+          {desktop && <button className={tab === "web" ? "on" : ""} onClick={() => setTab("web")}>Browser</button>}
+          <button className={tab === "wiki" ? "on" : ""} onClick={() => setTab("wiki")}>Wikipedia</button>
+        </div>
+        <span className="small muted nb-split-tip">Drag pictures onto your page, or copy and paste.</span>
+        <button className="icon-btn" onClick={onClose} aria-label="Close split screen"><Icon name="close" size={16} /></button>
+      </div>
+      {tab === "web" && desktop ? <WebViewClassic /> : <WikiPanelClassic onAddImage={onAddImage} onAddText={onAddText} />}
+    </aside>
+  );
+}
+
+function WebViewClassic() {
+  const view = useRef(null);
+  const [addr, setAddr] = useState("https://www.google.com");
+  const [src] = useState("https://www.google.com");
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const on = (e) => setAddr(e.url);
+    v.addEventListener("did-navigate", on);
+    v.addEventListener("did-navigate-in-page", on);
+    return () => { v.removeEventListener("did-navigate", on); v.removeEventListener("did-navigate-in-page", on); };
+  }, []);
+  const go = (e) => {
+    e.preventDefault();
+    const t = addr.trim();
+    const url = /^https?:\/\//.test(t) ? t : /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(t) ? "https://" + t : "https://www.google.com/search?q=" + encodeURIComponent(t);
+    view.current?.loadURL(url);
+  };
+  return (
+    <div className="nb-web">
+      <form className="nb-web-bar" onSubmit={go}>
+        <button type="button" className="icon-btn" onClick={() => view.current?.goBack()} aria-label="Back"><Icon name="back" size={15} /></button>
+        <button type="button" className="icon-btn" onClick={() => view.current?.reload()} aria-label="Reload"><Icon name="refresh" size={15} /></button>
+        <input value={addr} onChange={(e) => setAddr(e.target.value)} onFocus={(e) => e.target.select()} aria-label="Address or search" />
+      </form>
+      <webview ref={view} src={src} partition="persist:dwiddle-browse" style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+function WikiPanelClassic({ onAddImage, onAddText }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [article, setArticle] = useState(null); // { title, text }
+  const [pics, setPics] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const textRef = useRef(null);
+  async function search(e) {
+    e?.preventDefault();
+    if (!q.trim()) return;
+    setBusy(true); setArticle(null);
+    try {
+      const [r, p] = await Promise.all([
+        fetch(`${WIKI}?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=8&format=json&origin=*`).then((x) => x.json()),
+        fetch(`${COMMONS}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|mime&iiurlwidth=360&format=json&origin=*`).then((x) => x.json()),
+      ]);
+      setResults(r.query?.search || []);
+      setPics(Object.values(p.query?.pages || {}).map((x) => x.imageinfo?.[0]).filter((x) => x && /image\/(png|jpe?g|gif|webp|svg)/.test(x.mime)).map((x) => x.thumburl));
+    } catch { setResults([]); } finally { setBusy(false); }
+  }
+  async function open(title) {
+    setBusy(true);
+    try {
+      const r = await fetch(`${WIKI}?action=query&prop=extracts&explaintext=1&exsectionformat=plain&titles=${encodeURIComponent(title)}&format=json&origin=*`).then((x) => x.json());
+      const page = Object.values(r.query?.pages || {})[0];
+      setArticle({ title, text: page?.extract || "" });
+    } finally { setBusy(false); }
+  }
+  const addSelected = () => {
+    const sel = String(window.getSelection() || "").trim();
+    onAddText(sel || (article?.text || "").split("\n").find((l) => l.trim().length > 40) || "");
+  };
+  return (
+    <div className="nb-wiki">
+      <form className="nb-web-bar" onSubmit={search}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search Wikipedia, e.g. mitochondria" aria-label="Search Wikipedia" />
+        <button className="btn small cta" disabled={busy}>{busy ? "…" : "Search"}</button>
+      </form>
+      <div className="nb-wiki-body">
+        {pics.length > 0 && (
+          <div className="nb-wiki-pics">
+            {pics.map((u) => (
+              <button key={u} className="nb-wiki-pic" draggable onDragStart={(e) => e.dataTransfer.setData("text/uri-list", u)}
+                onClick={async () => { try { onAddImage(await imageFileClassic(u)); } catch { alert("That picture could not be added."); } }} title="Add to the page">
+                <img src={u} alt="" loading="lazy" /><span>+</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {article ? (
+          <div className="nb-wiki-article">
+            <div className="nb-wiki-head"><button className="btn quiet small" onClick={() => setArticle(null)}><Icon name="back" size={13} /> Results</button>
+              <button className="btn ghost small" onClick={addSelected}>Add selected text to page</button></div>
+            <h3>{article.title}</h3>
+            <div ref={textRef} className="nb-wiki-text">{article.text.split("\n").filter(Boolean).slice(0, 80).map((l, i) => <p key={i}>{l}</p>)}</div>
+          </div>
+        ) : results && (
+          <ul className="nb-wiki-results">
+            {results.length === 0 && <li className="small muted">Nothing found.</li>}
+            {results.map((r) => (
+              <li key={r.pageid}><button onClick={() => open(r.title)}><b>{r.title}</b>
+                <span className="small muted">{plainSnippet(r.snippet)}…</span></button></li>
+            ))}
+          </ul>
+        )}
+        {!results && !article && <p className="small muted" style={{ padding: 12 }}>Look anything up without leaving your notes. Tap a picture to add it, or drag it onto the page.</p>}
+      </div>
+    </div>
+  );
+}
+
 // Something to watch or listen to while writing: a YouTube video, or a
 // lecture recording, video or audio file from the device. It floats over
 // the notebook and can be dragged anywhere.
-function VideoFloat({ id, onId, onClose }) {
+function VideoFloat({ id, onId, onClose, early = false }) {
   const [link, setLink] = useState("");
   const [pos, setPos] = useState(() => ({ x: Math.max(16, innerWidth - 460), y: 120 }));
   const [file, setFile] = useState(null); // { url, name, audio }
@@ -1560,7 +1822,7 @@ function VideoFloat({ id, onId, onClose }) {
         </form>
       )}
       {busyHands && <div className="nb-video-shield" aria-hidden="true" />}
-      {["tl", "tr", "bl", "br"].map((c) => (
+      {(early ? ["tl", "tr", "bl", "br"] : ["br"]).map((c) => (
         <div key={c} className={"nb-video-size " + c} aria-label="Drag to resize" title="Drag a corner to resize"
           onPointerDown={startSize(c)} onPointerMove={moveSize} onPointerUp={endSize} onPointerCancel={endSize} />
       ))}
@@ -1845,7 +2107,7 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
-function Editor({ id, go, onClose }) {
+function Editor({ id, go, onClose, early = false }) {
   const [book, setBook] = useState(null);
   const [tool, setTool] = useState("pen");
   const [shapeKind, setShapeKind] = useState("line");
@@ -1856,24 +2118,37 @@ function Editor({ id, go, onClose }) {
     const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
       stab: { pen: 1, highlighter: 4, revealer: 4 }, refine: false, finger: true,
       // The pencil case: favourite pens, one tap away.
-      pens: [
+      // Testers get a set of different instruments; everyone else the
+      // original pens.
+      pens: early ? [
         { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
         { id: "p2", tool: "pen", color: "#4a4a52", size: 2, style: "pencil", stab: 2 },
         { id: "p3", tool: "pen", color: "#3B5BFD", size: 1.5, style: "marker", stab: 2 },
         { id: "p6", tool: "pen", color: "#e5484d", size: 2.5, style: "crayon", stab: 3 },
         { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
         { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "round", stab: 5 },
-      ] };
+      ] : CLASSIC_PENS };
     try {
       const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}");
       // Auto refine made small writing hard; it starts off for everyone once.
       if (!saved.v2) { saved.refine = false; saved.v2 = true; }
       // The tray used to be the same pen in three colours; it becomes a set
       // of different instruments once, keeping any pens added since.
-      if (!saved.v3) {
+      if (early && !saved.v3) {
         saved.v3 = true;
         const old = ["p1", "p2", "p3", "p4", "p5"];
         if (Array.isArray(saved.pens)) saved.pens = [...base.pens, ...saved.pens.filter((pn) => !old.includes(pn.id))].slice(0, 10);
+      }
+      // Pencil, crayon and fineliner are for testers for now: anyone else
+      // who picked them up keeps the original pens instead.
+      if (!early) {
+        const NEW = ["pencil", "crayon", "marker"];
+        if (NEW.includes(saved.style)) saved.style = "fountain";
+        if (Array.isArray(saved.pens)) {
+          const kept = saved.pens.filter((pn) => !NEW.includes(pn.style) && pn.id !== "p6");
+          saved.pens = kept.some((pn) => pn.id === "p1") ? kept : [...CLASSIC_PENS, ...kept.filter((pn) => !/^p\d$/.test(pn.id))].slice(0, 10);
+        }
+        delete saved.v3;
       }
       return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } };
     } catch { return base; }
@@ -2897,6 +3172,7 @@ function Editor({ id, go, onClose }) {
   }
 
   const selected = sel && pageOf(sel.pageId)?.items.find((i) => i.id === sel.itemId);
+  const PenSettings = early ? ToolPop : ToolPopClassic;
   const colors = tool === "highlighter" ? HIGHLIGHTS : tool === "revealer" ? COVERS_INK : INKS;
   const color = tool === "highlighter" ? hl : tool === "revealer" ? cov : ink;
   const setColor = (c) => {
@@ -2908,6 +3184,7 @@ function Editor({ id, go, onClose }) {
 
   return (
     <div className="nb" ref={nbRef}>
+      {early ? (<>
       {/* Two rows, like a good note taking app: the page and its controls
           along the top, and a tray of pens and tools under it. Colours and
           sizes live in each pen's settings, opened by tapping it again. */}
@@ -3035,6 +3312,132 @@ function Editor({ id, go, onClose }) {
         </button>
       </div>
 
+      </>) : (<>
+      <div className="nb-bar">
+        <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
+        <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
+        <div className="nb-group">
+          <button className="icon-btn" onClick={undo} disabled={!past.current.length} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
+          <button className="icon-btn" onClick={redo} disabled={!future.current.length} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
+        </div>
+        <div className="nb-toolrow">
+        <div className="nb-group nb-tools" role="toolbar" aria-label="Tools">
+          {TOOLS.map((t) => (
+            <button key={t.id} className={"nb-tool" + (tool === t.id ? " on" : "") + (SETTINGS.includes(t.id) ? " has-opts" : "")}
+              onClick={() => { if (tool === t.id && SETTINGS.includes(t.id)) setPop((p) => (p ? null : t.id)); else { setTool(t.id); setPop(null); } }}
+              title={t.name + (SETTINGS.includes(t.id) ? ". Tap again for size and colour" : "")} aria-label={t.name} aria-pressed={tool === t.id}>
+              {t.id === "pen" || t.id === "highlighter" || t.id === "revealer"
+                ? <ToolTip tool={t.id} color={t.id === "pen" ? ink : t.id === "highlighter" ? hl : cov} />
+                : <Icon name={t.icon} size={18} />}
+            </button>
+          ))}
+          <label className="nb-tool nb-extra" title="Add a picture" aria-label="Add a picture">
+            <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addImage(f); }} />
+            <Icon name="image" size={18} />
+          </label>
+          <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
+            onClick={() => setSplit((v) => !v)}>
+            <Icon name="split" size={18} />
+          </button>
+          <button className={"nb-tool nb-extra" + (video !== null ? " on" : "")} title="Watch a video or listen to a recording while you write" aria-label="Watch or listen while you write"
+            onClick={() => setVideo((v) => (v === null ? "" : null))}>
+            <Icon name="video" size={18} />
+          </button>
+          {/* On a phone the rarer tools live in here, so every tool you
+              write with fits on one row without scrolling. */}
+          <button className={"nb-tool nb-morebtn" + (more ? " on" : "")} aria-label="More tools" aria-expanded={more} title="More tools"
+            onClick={() => setMore((v) => !v)}>
+            <Icon name="more" size={18} />
+          </button>
+        </div>
+        <button className={"nb-tool nb-extra" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
+          aria-label="Ruler" aria-pressed={!!ruler}
+          onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
+          <Icon name="ruler" size={18} />
+        </button>
+        <button className={"nb-tool nb-extra" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
+          aria-label="Protractor" aria-pressed={!!prot}
+          onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}>
+          <Icon name="protractor" size={18} />
+        </button>
+        <button className={"nb-pill nb-drawwith nb-extra" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
+          title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
+          {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
+        </button>
+        {(prefs.pens || []).length > 0 && (
+          <div className="nb-group nb-case nb-extra" aria-label="Pencil case">
+            {prefs.pens.map((pn) => {
+              const on = tool === pn.tool && (pn.tool === "highlighter" ? hl : pn.tool === "revealer" ? cov : ink) === pn.color && size === pn.size
+                && (pn.tool !== "pen" || prefs.style === pn.style);
+              return (
+                <button key={pn.id} className={"nb-casepen" + (on ? " on" : "")} onClick={() => pickPen(pn)}
+                  title={`${pn.tool === "pen" ? (PEN_STYLES.find((x) => x.id === pn.style)?.name || "Pen") : pn.tool === "highlighter" ? "Highlighter" : "Revealer"}, size ${pn.size}`}>
+                  <ToolTip tool={pn.tool} color={pn.color} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className={"nb-group nb-colors" + (tool === "hand" || tool === "select" || tool === "compass" ? " nb-idle" : "")}>
+          {colors.map((c) => (
+            <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />
+          ))}
+          <label className="nb-color nb-custom" title="Any colour">
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+          </label>
+        </div>
+        {(tool === "pen" || tool === "highlighter" || tool === "revealer" || tool === "eraser") && (
+          <div className="nb-group nb-size">
+            {[2, 4, 7].map((s) => (
+              <button key={s} className={"nb-dot" + (size === s ? " on" : "")} onClick={() => setSize(s)} aria-label={`Size ${s}`} title="Tap the tool again for any size">
+                <i style={{ width: Math.min(22, 3 + s * (tool === "pen" ? 1.6 : 2.4)), height: Math.min(22, 3 + s * (tool === "pen" ? 1.6 : 2.4)) }} />
+              </button>
+            ))}
+          </div>
+        )}
+        {tool === "shape" && (
+          <div className="nb-group">
+            {[["line", "Line"], ["arrow", "Arrow"], ["rect", "Box"], ["ellipse", "Circle"]].map(([k, n]) => (
+              <button key={k} className={"nb-pill" + (shapeKind === k ? " on" : "")} onClick={() => setShapeKind(k)}>{n}</button>
+            ))}
+          </div>
+        )}
+        {/* Only while the text tool is picked, so selecting something never
+            reflows the toolbar and shifts the page under your finger. */}
+        {tool === "text" && (
+          <div className="nb-group">
+            {(() => { const cf = fontOf(selected?.type === "text" ? selected.font : font); return (
+              <button className="nb-pill nb-fontbtn" onClick={() => setFontPop(true)} aria-label="Font" style={{ fontFamily: cf.css }}>{cf.name} ▾</button>
+            ); })()}
+            <input ref={fontInput} type="file" accept=".ttf,.otf,.woff,.woff2,font/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFont(f); }} />
+            {selected?.type === "text" && (
+              <select className="nb-font" value={selected.fontSize} aria-label="Text size"
+                onChange={(e) => updatePage(sel.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === selected.id ? { ...i, fontSize: Number(e.target.value) } : i)) }))}>
+                {[16, 20, 22, 26, 32, 40, 52].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
+          </div>
+        )}
+        </div>
+        <div className="nb-spacer" />
+        <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
+          <Icon name="pagesadd" size={15} /> {current + 1} / {book.pages.length}
+        </button>
+        <div className="nb-group nb-zoom">
+          <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
+          <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
+          <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
+          <FullscreenButton />
+        </div>
+        <div className="nb-group">
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
+            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
+          </button>
+        </div>
+      </div>
+
+      </>)}
       <div ref={ring} className="nb-ring" aria-hidden="true" />
       {busy && <BusyScreen title={busy === "Adding the PDF" ? "Adding your PDF" : "Dwiddle is reading the page"} detail={busy === "Adding the PDF" ? "Each page becomes a notebook page you can write on." : "Turning your writing into text Dwiddle can work with."} outfit={busy === "Adding the PDF" ? "detective" : "graduate"} />}
       {more && (
@@ -3122,14 +3525,14 @@ function Editor({ id, go, onClose }) {
       {tool === "compass" && <div className="nb-hint">{compass ? "Press away from the red point and draw round it. Drag the point to move it." : "Tap where the compass point goes."}</div>}
       {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (
-        <ToolPop tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize} savePen={savePen} removePen={removePen}
+        <PenSettings tool={tool} prefs={prefs} setPrefs={setPrefs} size={size} setSize={setSize} savePen={savePen} removePen={removePen}
           colors={colors} color={color} setColor={setColor} shapeKind={shapeKind} setShapeKind={setShapeKind}
           onShowAll={() => setShown(new Set(book.pages.flatMap((p) => p.items.filter((i) => i.tool === "revealer").map((i) => i.id))))}
           onHideAll={() => setShown(new Set())}
           onClearPage={() => updatePage(book.pages[current].id, (p) => ({ ...p, items: [] }))}
           onClose={() => setPop(null)} />
       )}
-      {video !== null && <VideoFloat id={video} onId={setVideo} onClose={() => setVideo(null)} />}
+      {video !== null && <VideoFloat id={video} early={early} onId={setVideo} onClose={() => setVideo(null)} />}
       <div className="nb-work">
         <aside className="nb-thumbs" aria-label="Pages">
           {book.pages.map((p, i) => (
@@ -3249,7 +3652,9 @@ function Editor({ id, go, onClose }) {
           ))}
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
         </div>
-        {split && <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />}
+        {split && (early
+          ? <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />
+          : <SplitPanelClassic onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />)}
       </div>
 
       {/* What prints: every page, one to a sheet. */}

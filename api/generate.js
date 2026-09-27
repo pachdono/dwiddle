@@ -170,7 +170,24 @@ const RICH_RULES = `Tables, diagrams and pictures, only where they genuinely hel
 - "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
 - These add to the notes; the facts in them still come only from the source.
 `;
-const notesPrompt = (rich) => NOTES.replace("__RICH_SHAPE__", rich ? RICH_SHAPE : "").replace("__RICH_RULES__", rich ? RICH_RULES : "");
+// Compact, note form writing with hard words marked, for staff and testers;
+// everyone else gets complete notes reorganised for clarity, as before.
+const NOTE_STYLE = `- {word|the word|what it means} around a technical, scientific or hard word, the first time it appears in a topic, with a plain meaning a 14 year old would follow in under 15 words. For example: {word|osmosis|the movement of water across a partially permeable membrane}. Never put | or braces inside the meaning.
+
+How the notes should read:
+- Like a top student's revision notes, not a textbook. Short bullet points, one idea each, mostly under 20 words. Note form is fine: drop "it is important to note that" and other filler.
+- Mostly "list" blocks under "h" subheadings. A "p" is at most two short sentences, and only for a link between ideas that a list cannot show.
+- Every definition goes in a "term" block. Steps of a process go in order in a list.
+- Highlight generously: nearly every bullet has at least one {key|...}, {def|...} or {word|...}, but mark the few words that matter, never a whole bullet.
+- Mark every technical or hard word with {word|...} the first time it appears in the topic, unless it is the "term" of a term block.
+`;
+const NOTE_STYLE_TAIL = "- Keep the facts, lose the padding.";
+const CLASSIC_TAIL = "- Do not summarise or shorten. Reorganise for clarity instead: put each definition in a \"term\" block, turn anything the source lists into a \"list\", and break long passages up under subheadings.";
+const notesPrompt = (rich) => NOTES
+  .replace("__RICH_SHAPE__", rich ? RICH_SHAPE : "")
+  .replace("__RICH_RULES__", rich ? RICH_RULES : "")
+  .replace("__STYLE_RULES__", rich ? NOTE_STYLE : "")
+  .replace("__STYLE_TAIL__", rich ? NOTE_STYLE_TAIL : CLASSIC_TAIL);
 
 const NOTES = `You turn a student's source material into complete, well organised study notes.
 
@@ -199,20 +216,13 @@ Marking, inside any text:
 - {def|...} around wording to learn word for word, usually the core of a definition.
 - {key|...} around a fact, figure, name or date to memorise.
 - {exam|...} around the part of a "watch" block where marks are lost.
-- {word|the word|what it means} around a technical, scientific or hard word, the first time it appears in a topic, with a plain meaning a 14 year old would follow in under 15 words. For example: {word|osmosis|the movement of water across a partially permeable membrane}. Never put | or braces inside the meaning.
-
-How the notes should read:
-- Like a top student's revision notes, not a textbook. Short bullet points, one idea each, mostly under 20 words. Note form is fine: drop "it is important to note that" and other filler.
-- Mostly "list" blocks under "h" subheadings. A "p" is at most two short sentences, and only for a link between ideas that a list cannot show.
-- Every definition goes in a "term" block. Steps of a process go in order in a list.
-- Highlight generously: nearly every bullet has at least one {key|...}, {def|...} or {word|...}, but mark the few words that matter, never a whole bullet.
-- Mark every technical or hard word with {word|...} the first time it appears in the topic, unless it is the "term" of a term block.
-
+__STYLE_RULES__
 __RICH_RULES__
 Rules:
 - Write a section for each topic you are given, in that order, and nothing on any other part of the source.
 - Stay strictly on topic. Leave out anything in the source that does not teach these topics: greetings, the speaker's life or channel, adverts and sponsors, requests to like or subscribe, course admin, homework reminders, jokes and tangents, page headers and footers, reference lists. If a point belongs to another topic, it goes there, not here.
-- Include every fact, definition, figure, date, name, formula, list item, reason, advantage, disadvantage and example that the source gives for these topics. If the source lists four things, all four appear. Keep the facts, lose the padding.
+- Include every fact, definition, figure, date, name, formula, list item, reason, advantage, disadvantage and example that the source gives for these topics. If the source lists four things, all four appear.
+__STYLE_TAIL__
 - Keep the source's own wording for definitions, marked with {def|...}.
 - Add a "watch" block only where the source makes a common mistake or a distinction clear.
 - Never add facts, examples or background that the source does not give.
@@ -720,3 +730,4 @@ export default async function handler(req, res) {
     fail(res, err);
   }
 }
+export { notesPrompt }; // for scripts/notes-prompt.test.mjs
