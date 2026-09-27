@@ -8,7 +8,8 @@
 // for every chapter and scene. The transcript sits beside it throughout.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { sayAs, stopSpeaking, prepareNarrator, naturalState, onNaturalProgress, narrate, playClip } from "./tts.js";
+import { sayAs, stopSpeaking } from "./tts.js";
+import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, BusyScreen, Boundary } from "./ui.jsx";
@@ -78,6 +79,10 @@ function VideosPage({ made, go }) {
 
   const video = saved[materialKey(made)];
   const parts = saved[partsKey(made)]?.list || [];
+  // The narration is made in the background as soon as there is a video,
+  // so it is ready, or nearly, by the time Watch is pressed.
+  const [narr, setNarr] = useState(null);
+  useEffect(() => (video ? onNarration(video, setNarr) : undefined), [video]);
   const withNotes = topics.filter((t) => (made?.notes?.[t.name] || []).map(blockPlain).join("\n").length >= 80);
 
   // A chapter per topic, one request each so every request stays small, one
@@ -102,8 +107,8 @@ function VideosPage({ made, go }) {
       const whole = joinChapters(made, ordered);
       saveOne(materialKey(made), whole);
       saveOne(partsKey(made), null);
+      prepareNarration(whole);
       setSaved(loadAll());
-      setOpen(whole);
     } catch (err) {
       setSaved(loadAll());
       setError(`${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}`);
@@ -143,7 +148,7 @@ function VideosPage({ made, go }) {
             <b>{video ? video.title : "Make the video"}</b>
             <p className="small muted" style={{ margin: "2px 0 0" }}>
               {video
-                ? `${video.chapters?.length || 1} chapters · about ${minutesOf(video)} min`
+                ? `${video.chapters?.length || 1} chapters · about ${minutesOf(video)} min${narr && narr.state === "making" ? ` · narration ${Math.round((narr.done / (narr.total || 1)) * 100)}% ready` : narr?.state === "ready" ? " · narration ready" : ""}`
                 : parts.length
                   ? `${parts.length} of ${withNotes.length} chapters made so far.`
                   : `${withNotes.length} chapter${withNotes.length === 1 ? "" : "s"}, one for each topic. Takes about half a minute a chapter.`}
@@ -157,6 +162,12 @@ function VideosPage({ made, go }) {
           </div>
         </div>
 
+        {video && narr?.state === "making" && (
+          <div className="vd-narr" aria-live="polite">
+            <div className="vd-voice-bar"><i style={{ width: `${Math.round((narr.done / (narr.total || 1)) * 100)}%` }} /></div>
+            <span className="small muted">Preparing the narration in the background: {narr.done} of {narr.total} lines. Carry on with anything else meanwhile; it keeps going while Dwiddle is open.</span>
+          </div>
+        )}
         {video?.chapters?.length > 0 && (
           <ol className="vd-chapters">
             {video.chapters.map((c, i) => (
@@ -230,9 +241,6 @@ export const minutesOf = (video) => Math.max(1, Math.round(video.scenes.reduce((
 
 export function VideoPlayer({ video, onClose }) {
   const beats = useMemo(() => video.scenes.flatMap((sc, si) => sc.lines.map((text, li) => ({ si, li, text }))), [video]);
-  // Where each line starts, in seconds, for the clock and the timestamps.
-  const at = useMemo(() => { let t = 0; return beats.map((b) => { const s = t; t += lineSeconds(b.text); return s; }); }, [beats]);
-  const total = beats.length ? at[at.length - 1] + lineSeconds(beats[beats.length - 1].text) : 0;
   const chapters = video.chapters || [];
   const chapterOf = (si) => { let c = -1; chapters.forEach((ch, i) => { if (ch.scene <= si) c = i; }); return c; };
 
@@ -243,87 +251,99 @@ export function VideoPlayer({ video, onClose }) {
   const [finished, setFinished] = useState(false);
   const [captions, setCaptions] = useState(true);
   const [rate, setRate] = useState(1);
-  const token = useRef(0);
   const list = useRef(null);
-  // Every video is read aloud by the model's British narrator. The first
-  // video waits for her to download. Only if she cannot load at all (no
-  // connection the first time) does the device's own British woman's voice
-  // read instead, and then for the whole video.
-  const [voice, setVoice] = useState(() => (naturalState() === "ready" ? "natural" : "pending"));
-  const [loadingVoice, setLoadingVoice] = useState(null); // 0..1 while the voice downloads
-  const [buffering, setBuffering] = useState(false); // a line is still being made
-  useEffect(() => onNaturalProgress((p) => setLoadingVoice(p)), []);
-  async function readyVoice() {
-    if (voice !== "pending") return;
-    setLoadingVoice(0);
-    const ok = await prepareNarrator();
-    setLoadingVoice(null);
-    setVoice(ok ? "natural" : "device");
-  }
 
-  // Each line's audio, made once per speed and kept while the video is open.
-  const clips = useRef(new Map());
-  const clipFor = useCallback((i, r) => {
-    const key = `${i}@${r}`;
-    if (!clips.current.has(key)) clips.current.set(key, narrate(beats[i].text, r).catch(() => null));
-    return clips.current.get(key);
-  }, [beats]);
+  // The narration is one recording, made in the background (see
+  // narration.js). Until it is ready, playing waits for it; only if the
+  // narrator cannot load at all does the device's own voice read, line by
+  // line, instead.
+  const [narr, setNarr] = useState({ state: "making", done: 0, total: beats.length });
+  const [track, setTrack] = useState(null); // { url, starts, duration }
+  const audio = useRef(null);
+  useEffect(() => onNarration(video, setNarr), [video]);
+  useEffect(() => {
+    if (narr.state !== "ready" || track) return;
+    let live = true;
+    narrationAudio(video).then((t) => { if (live && t) setTrack(t); });
+    return () => { live = false; };
+  }, [narr.state, track, video]);
+  useEffect(() => () => { if (track) URL.revokeObjectURL(track.url); }, [track]);
+  const mode = track ? "track" : narr.state === "failed" ? "device" : "waiting";
+
+  // Where each line starts, in seconds: from the recording when there is one.
+  const at = useMemo(() => {
+    if (track) return track.starts;
+    let t = 0;
+    return beats.map((b) => { const s = t; t += lineSeconds(b.text); return s; });
+  }, [beats, track]);
+  const total = track ? track.duration : beats.length ? at[at.length - 1] + lineSeconds(beats[beats.length - 1].text) : 0;
 
   const beat = beats[pos];
   const scene = video.scenes[beat.si];
 
-  const stop = useCallback(() => { token.current += 1; stopSpeaking(); }, []);
-  useEffect(() => stop, [stop]);
-
-  // Reads the current line, then moves on.
+  // With the recording: it plays straight through, and the line on screen
+  // follows its clock.
   useEffect(() => {
-    if (!playing || voice === "pending") return;
+    const el = audio.current;
+    if (mode !== "track" || !el) return;
+    el.playbackRate = rate;
+    el.preservesPitch = true;
+    if (playing) {
+      if (Math.abs(el.currentTime - at[pos]) > 0.6 && !(el.currentTime >= at[pos] && el.currentTime < (at[pos + 1] ?? Infinity))) el.currentTime = at[pos];
+      el.play().catch(() => setPlaying(false));
+      let raf = 0;
+      const tick = () => {
+        const t = el.currentTime;
+        let i = pos;
+        while (i + 1 < at.length && at[i + 1] <= t) i++;
+        while (i > 0 && at[i] > t) i--;
+        if (i !== pos) setPos(i);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }
+    el.pause();
+  }, [mode, playing, pos, at, rate]);
+
+  // Without it: the device's voice, a line at a time.
+  const token = useRef(0);
+  useEffect(() => {
+    if (mode !== "device" || !playing) return;
     const mine = ++token.current;
-    let timer = 0, guard = 0, stopClip = null;
+    let timer = 0, guard = 0, done = false;
     const next = () => {
-      if (token.current !== mine) return;
+      if (done || token.current !== mine) return;
+      done = true;
+      clearTimeout(guard);
       timer = setTimeout(() => {
         if (token.current !== mine) return;
         if (pos + 1 >= beats.length) { setPlaying(false); setFinished(true); return; }
         setPos(pos + 1);
       }, 450 / rate);
     };
-    if (voice === "natural") {
-      // The narrator's own voice: this line, with the next two being made
-      // meanwhile so there is no gap between them.
-      setBuffering(true);
-      clipFor(pos, rate).then((clip) => {
-        if (token.current !== mine) return;
-        setBuffering(false);
-        for (let k = 1; k <= 2 && pos + k < beats.length; k++) clipFor(pos + k, rate);
-        if (clip) stopClip = playClip(clip, { onEnd: next });
-        else sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
-      });
-    } else {
-      let done = false;
-      const once = () => { if (!done) { done = true; clearTimeout(guard); next(); } };
-      sayAs("narrator", beats[pos].text, { rate, onEnd: once, device: true });
-      // Some browsers never say when speech ends. Never wait forever on one.
-      guard = setTimeout(once, (8000 + wordsOf(beats[pos].text) * 700) / rate);
-    }
-    return () => {
-      clearTimeout(timer); clearTimeout(guard); stopClip?.(); setBuffering(false);
-      if (token.current === mine) { token.current += 1; stopSpeaking(); }
-    };
-  }, [playing, pos, rate, beats, voice, clipFor]);
+    sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
+    // Some browsers never say when speech ends. Never wait forever on one.
+    guard = setTimeout(next, (8000 + wordsOf(beats[pos].text) * 700) / rate);
+    return () => { clearTimeout(timer); clearTimeout(guard); if (token.current === mine) { token.current += 1; stopSpeaking(); } };
+  }, [mode, playing, pos, rate, beats]);
+  useEffect(() => () => { stopSpeaking(); audio.current?.pause(); }, []);
 
   useEffect(() => {
     list.current?.querySelector(`[data-beat="${pos}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [pos]);
 
   const play = () => {
-    if (finished) { setPos(0); setFinished(false); }
+    if (finished) { setPos(0); setFinished(false); if (audio.current) audio.current.currentTime = 0; }
     setStarted(true);
     setPlaying(true);
-    readyVoice();
   };
-  const pause = () => { setPlaying(false); stop(); };
-  const seek = (i) => { setFinished(false); setStarted(true); setPos(Math.max(0, Math.min(beats.length - 1, i))); };
+  const pause = () => { setPlaying(false); audio.current?.pause(); stopSpeaking(); };
+  const seek = (i) => {
+    const n = Math.max(0, Math.min(beats.length - 1, i));
+    setFinished(false); setStarted(true); setPos(n);
+    if (audio.current && track) audio.current.currentTime = at[n];
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -365,14 +385,12 @@ export function VideoPlayer({ video, onClose }) {
                 <Scene key={beat.si} scene={scene} line={beat.li} />
               )}
               {started && captions && <div className="vd-caption" aria-hidden="true">{beat.text}</div>}
-              {playing && buffering && voice === "natural" && (
-                <div className="vd-buffer" aria-live="polite"><span className="vd-spin" aria-hidden="true" />Preparing the narration</div>
-              )}
-              {playing && voice === "pending" && (
+              {track && <audio ref={audio} src={track.url} preload="auto" onEnded={() => { setPlaying(false); setFinished(true); }} />}
+              {playing && mode === "waiting" && (
                 <div className="vd-voice" onClick={(e) => e.stopPropagation()}>
-                  <b>Getting the narrator's voice ready</b>
-                  <span>Only the first time. It is kept on this device after.</span>
-                  <div className="vd-voice-bar"><i style={{ width: `${Math.round((loadingVoice || 0) * 100)}%` }} /></div>
+                  <b>Preparing the narration</b>
+                  <span>{narr.done} of {narr.total} lines ready. It plays straight through once it is done, and is kept on this device after.</span>
+                  <div className="vd-voice-bar"><i style={{ width: `${Math.round((narr.done / (narr.total || 1)) * 100)}%` }} /></div>
                 </div>
               )}
               {finished && (

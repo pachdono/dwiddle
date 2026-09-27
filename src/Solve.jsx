@@ -16,6 +16,7 @@ import { solveProblem, writeVideo } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, BusyScreen, Boundary } from "./ui.jsx";
 import { VideoPlayer } from "./Video.jsx";
+import { prepareNarration } from "./narration.js";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
 import { AskDwiddleButton, usePageContext } from "./Chat.jsx";
@@ -55,7 +56,10 @@ export function Solve({ go, auth, early }) {
     setFilming(true);
     setVideoError("");
     try {
-      setVideo(await writeVideo({ solution: result, problem }));
+      const made = await writeVideo({ solution: result, problem });
+      setVideo(made);
+      // The narration starts making straight away; the player waits for it.
+      prepareNarration(made);
       setWatching(true);
     } catch (err) {
       setVideoError(err.message || "The video could not be made.");
