@@ -619,6 +619,7 @@ export default function App() {
     learn: Learn,
     upload: AddMaterial,
     library: Library,
+    reader: Library,
     settings: Settings,
     tests: TestPrep,
     courses: Courses,
