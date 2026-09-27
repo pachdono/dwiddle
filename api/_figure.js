@@ -14,7 +14,7 @@ import { evaluate, compile } from "./_expr.js";
 const COLORS = ["ink", "blue", "green", "purple", "orange", "red"];
 const color = (c) => (COLORS.includes(c) ? c : "ink");
 const short = (s, n) => String(s ?? "").trim().slice(0, n);
-const TYPES = ["circle", "ellipse", "rect", "segment", "arrow", "point", "polygon", "path", "graph", "text", "callout"];
+const TYPES = ["circle", "ellipse", "rect", "segment", "arrow", "point", "polygon", "path", "graph", "text", "callout", "mover"];
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 function distToLine(p, a, b) {
@@ -62,7 +62,7 @@ export function buildFigure(fig) {
   (Array.isArray(fig?.shapes) ? fig.shapes : []).slice(0, 24).forEach((s, i) => {
     if (!s || !TYPES.includes(s.type)) return;
     const id = short(s.id, 40) || `shape${i + 1}`;
-    const base = { type: s.type, color: color(s.color), ...(s.label ? { label: short(s.label, 40) } : {}) };
+    const base = { type: s.type, color: color(s.color), ...(s.label ? { label: short(s.label, 40) } : {}), ...(s.pulse === true ? { pulse: true } : {}) };
     let out = null;
     const bad = (what) => problems.push(`shape ${id} (${s.type}): ${what}`);
     switch (s.type) {
@@ -96,7 +96,14 @@ export function buildFigure(fig) {
       case "segment": case "arrow": {
         const from = pt(s.from), to = pt(s.to);
         if (!from || !to) bad("its ends are not known points");
-        else out = { ...base, type: s.type, from, to, dashed: s.dashed === true };
+        else out = { ...base, type: s.type, from, to, dashed: s.dashed === true, flow: s.flow === true };
+        break;
+      }
+      case "mover": {
+        // Dots that travel along a path, over and over: particles, current.
+        const list = (Array.isArray(s.through) ? s.through : []).map(pt);
+        if (list.length < 2 || list.some((p) => !p)) bad("its path is not all known points");
+        else out = { ...base, points: list.slice(0, 40), closed: s.closed === true };
         break;
       }
       case "point": {

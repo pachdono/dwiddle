@@ -7,7 +7,7 @@
 // material becomes one long video with a chapter per topic, and timestamps
 // for every chapter and scene. The transcript sits beside it throughout.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
 import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
 import { writeVideo } from "./ai.js";
@@ -501,9 +501,7 @@ function Scene({ scene, line }) {
           </figure>
         )}
         <div className="vd-board">
-          {board.map((b, i) => (
-            <div key={i} className={`vd-b ${b.kind} c-${b.color}` + (b.at === line ? " fresh" : "")}>{b.text}</div>
-          ))}
+          {board.map((b, i) => <BoardItem key={i} b={b} fresh={b.at === line} />)}
         </div>
       </div>
     </div>
@@ -585,8 +583,90 @@ function organicPath(s, X, Y) {
   return d + " Z";
 }
 
+/* ---------- the board, with its animations ---------- */
+
+// The opposite operation, for a term carried across the equals sign.
+function flipped(term) {
+  const t = term.trim();
+  if (/^[+]/.test(t)) return "− " + t.replace(/^[+]\s*/, "");
+  if (/^[−-]/.test(t)) return "+ " + t.replace(/^[−-]\s*/, "");
+  if (/^[×*]/.test(t)) return "÷ " + t.replace(/^[×*]\s*/, "");
+  if (/^[÷/]/.test(t)) return "× " + t.replace(/^[÷/]\s*/, "");
+  return "− " + t;
+}
+
+// Text with one part ringed by hand, the ring drawing itself in.
+function Marked({ text, mark }) {
+  if (!mark || !text.includes(mark)) return text;
+  const i = text.indexOf(mark);
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="vd-ring">
+        {mark}
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+          <path pathLength="1" d="M8 22 C6 8 40 3 62 5 C88 7 97 14 95 23 C93 34 60 37 36 36 C14 35 3 29 9 17 C12 11 22 8 30 7" />
+        </svg>
+      </span>
+      {text.slice(i + mark.length)}
+    </>
+  );
+}
+
+// One item on the board. Plain working, or one of the animated steps:
+// a curved arrow from the line above saying what was done, a division
+// sliding in under both sides, or a term carried across the equals sign.
+function BoardItem({ b, fresh }) {
+  const cls = `vd-b ${b.kind} c-${b.color}` + (fresh ? " fresh" : "") + (b.via ? " has-via" : "");
+  const via = b.via && (
+    <span className="vd-via" aria-hidden="true">
+      <svg viewBox="0 0 40 46"><path pathLength="1" d="M4 3 C30 5 34 30 12 41" /><path className="vd-via-head" d="M18 36 L11 42 L20 44" /></svg>
+      <em>{b.via}</em>
+    </span>
+  );
+  if (b.kind === "divide") {
+    const [left, right] = b.text.includes("=") ? [b.text.slice(0, b.text.indexOf("=")), b.text.slice(b.text.indexOf("=") + 1)] : [b.text, null];
+    const frac = (part) => (
+      <span className="vd-frac"><span>{part.trim()}</span><i className="vd-frac-bar" /><span className="vd-frac-den">{b.by}</span></span>
+    );
+    return (
+      <div className={cls + " math"}>
+        {via}
+        <div className="vd-div">{frac(left)}{right !== null && <><span className="vd-eq">=</span>{frac(right)}</>}</div>
+        <div className="vd-then"><span className="vd-then-arrow">↓</span>{b.result}</div>
+      </div>
+    );
+  }
+  if (b.kind === "move") return <MoveItem b={b} cls={cls} via={via} fresh={fresh} />;
+  return <div className={cls}>{via}<Marked text={b.text} mark={b.mark} /></div>;
+}
+
+// A term lifts off, flies to the far end of the line with its sign flipped,
+// and the tidied line appears underneath.
+function MoveItem({ b, cls, via, fresh }) {
+  const line = useRef(null), term = useRef(null);
+  const [dx, setDx] = useState(0);
+  useLayoutEffect(() => {
+    if (!line.current || !term.current) return;
+    const l = line.current.getBoundingClientRect(), t = term.current.getBoundingClientRect();
+    setDx(Math.max(20, l.right - t.left + 10));
+  }, [b.text, b.term]);
+  const i = b.text.indexOf(b.term);
+  return (
+    <div className={cls + " math"}>
+      {via}
+      <div className="vd-move" ref={line}>
+        {b.text.slice(0, i)}
+        <span className="vd-term" ref={term}>{b.term}{fresh && <span className="vd-fly" style={{ "--dx": `${dx}px` }}>{flipped(b.term)}</span>}</span>
+        {b.text.slice(i + b.term.length)}
+      </div>
+      <div className="vd-then"><span className="vd-then-arrow">↓</span>{b.result}</div>
+    </div>
+  );
+}
+
 function Shape({ s, X, Y, k, fresh }) {
-  const cls = `vd-shape c-${s.color}` + (fresh ? " fresh" : "");
+  const cls = `vd-shape c-${s.color}` + (fresh ? " fresh" : "") + (s.pulse && fresh ? " pulse" : "");
   const label = (x, y, text, dy = -10) => text && <text className={`vd-label c-${s.color}`} x={x} y={y + dy} textAnchor="middle">{text}</text>;
   if (s.organic && !s.half && ["circle", "ellipse", "rect"].includes(s.type)) {
     const top = s.type === "rect" ? [(X(s.from[0]) + X(s.to[0])) / 2, Y(s.to[1])] : [X(s.c[0]), Y(s.c[1]) - (s.ry ?? s.r) * k];
@@ -643,6 +723,8 @@ function Shape({ s, X, Y, k, fresh }) {
         <g>
           <line x1={x1} y1={y1} x2={x2} y2={y2} pathLength="1" className={cls + (s.dashed ? " dashed" : "")}
             markerEnd={s.type === "arrow" ? "url(#vd-head)" : undefined} />
+          {/* Something moving along it: dashes marching from start to end. */}
+          {s.flow && <line x1={x1} y1={y1} x2={x2} y2={y2} className={`vd-flow c-${s.color}`} />}
           {label((x1 + x2) / 2 + nx * 16, (y1 + y2) / 2 + ny * 16 + 5, s.label, 0)}
         </g>
       );
@@ -655,6 +737,21 @@ function Shape({ s, X, Y, k, fresh }) {
     }
     case "text":
       return <text className={`vd-label c-${s.color}` + (fresh ? " fresh" : "")} x={X(s.p[0])} y={Y(s.p[1])} textAnchor="middle">{s.text}</text>;
+    case "mover": {
+      // Dots travelling the path over and over, spaced out along it.
+      const pts = s.closed ? [...s.points, s.points[0]] : s.points;
+      const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${X(x).toFixed(1)} ${Y(y).toFixed(1)}`).join(" ");
+      return (
+        <g className={`vd-mover c-${s.color}`}>
+          <path d={d} className="vd-mover-path" />
+          {[0, 1, 2, 3].map((n) => (
+            <circle key={n} r="5" className="vd-mover-dot">
+              <animateMotion dur="4s" repeatCount="indefinite" begin={`${-n}s`} path={d} rotate="auto" />
+            </circle>
+          ))}
+        </g>
+      );
+    }
     default:
       return null;
   }

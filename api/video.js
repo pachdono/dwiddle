@@ -47,6 +47,10 @@ Shape:
         { "kind": "label", "text": "a short coloured caption", "color": "blue", "at": 0 },
         { "kind": "math", "text": "OC = 2 − r", "color": "ink", "at": 0 },
         { "kind": "text", "text": "a short point in words", "color": "ink", "at": 1 },
+        { "kind": "math", "text": "9r² = 8r", "color": "ink", "at": 2, "via": "− 8r both sides" },
+        { "kind": "divide", "text": "3x = 12", "by": "3", "result": "x = 4", "color": "ink", "at": 2 },
+        { "kind": "move", "text": "x + 2 = 5", "term": "+ 2", "result": "x = 5 − 2", "color": "ink", "at": 2 },
+        { "kind": "math", "text": "r(9r − 8) = 0", "color": "ink", "at": 2, "mark": "9r − 8" },
         { "kind": "answer", "text": "r = 8/9 units", "color": "green", "at": 2 }
       ],
       "figure": "main",
@@ -60,6 +64,13 @@ const RULES = `How the video works:
 - The "lines" are the transcript. Spoken, plain, warm, like a good teacher at a whiteboard. Say symbols the way they are read aloud: "x squared", "two minus r", "eight ninths". 1 to 4 lines per scene, each under 30 words.
 - 4 to 7 scenes. The first sets out what is asked and the plan. The last states the answer or the key takeaway.
 - "board" holds 1 to 7 items per scene: working written with real symbols (x², √, π, ×, ÷, ≤, ≥, −, fractions as 8/9), each line a single step. "label" is a short coloured caption above the working it introduces. "answer" is for the final result only. Never a caret.
+Animations, so each step is seen happening rather than only stated. Use them wherever they make a step easier to follow:
+- "via" on a board item: a curved arrow is drawn from the line above to this one, labelled with what was done to get here, like "÷ 3 both sides", "square both sides", "substitute x = 2", "expand the brackets". Give nearly every step of working its "via".
+- "divide": the whole of "text" is divided by "by": a fraction bar slides in under both sides with "by" beneath, then "result" appears. Use it whenever both sides are divided.
+- "move": the part "term" of "text" (written exactly as it appears there) flies across the equals sign, its sign flipping, then "result" appears. Use it when a term is moved to the other side.
+- "mark": part of an item's "text" (exactly as it appears) that gets a hand drawn ring round it, to point at what matters now.
+- In figures, "flow": true on an arrow or segment makes dashes run along it, for anything that moves or flows: water, current, blood, energy, heat, a force acting. A "mover" shape (through: points, color) sends dots travelling along that path over and over, like particles diffusing, electrons in a wire or blood round a loop. "pulse": true on any shape makes it gently pulse while it is being talked about.
+
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
 - A figure is optional. Use one whenever the idea is geometric, a graph, a force, a structure or anything a picture makes clearer; scenes without one set "figure" to null.
 - Only what the source says, or standard facts at its level. Never invent a figure.
@@ -95,7 +106,7 @@ ${FIGURES}
 - For a topic with no maths, the board holds short points, key terms and steps rather than equations, and a diagram only when a sketch really helps.`;
 
 const COLORS = ["ink", "blue", "green", "purple", "orange", "red"];
-const KINDS = ["label", "math", "text", "answer"];
+const KINDS = ["label", "math", "text", "answer", "divide", "move"];
 const color = (c) => (COLORS.includes(c) ? c : "ink");
 const at = (v, max) => Math.max(0, Math.min(max, Number.isInteger(v) ? v : 0));
 const short = (s, n) => String(s ?? "").trim().slice(0, n);
@@ -116,7 +127,23 @@ function cleanScenes(data, figures) {
     const last = lines.length - 1;
     const board = (Array.isArray(sc.board) ? sc.board : [])
       .filter((b) => b && typeof b.text === "string" && b.text.trim())
-      .map((b) => ({ kind: KINDS.includes(b.kind) ? b.kind : "text", text: short(b.text, 160), color: color(b.color), at: at(b.at, last) }))
+      .map((b) => {
+        const item = { kind: KINDS.includes(b.kind) ? b.kind : "text", text: short(b.text, 160), color: color(b.color), at: at(b.at, last) };
+        if (typeof b.via === "string" && b.via.trim()) item.via = short(b.via, 40);
+        if (typeof b.mark === "string" && b.mark.trim() && item.text.includes(b.mark.trim())) item.mark = short(b.mark, 60);
+        // A division needs something to divide by and a result; a move needs
+        // its term to really be in the line. Otherwise it is plain working.
+        if (item.kind === "divide") {
+          if (typeof b.by === "string" && b.by.trim() && typeof b.result === "string" && b.result.trim()) { item.by = short(b.by, 20); item.result = short(b.result, 120); }
+          else item.kind = "math";
+        }
+        if (item.kind === "move") {
+          const term = typeof b.term === "string" ? b.term.trim() : "";
+          if (term && item.text.includes(term) && typeof b.result === "string" && b.result.trim()) { item.term = short(term, 30); item.result = short(b.result, 120); }
+          else item.kind = "math";
+        }
+        return item;
+      })
       .slice(0, 8);
     const fig = typeof sc.figure === "string" ? figures[sc.figure] : null;
     return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last) };
