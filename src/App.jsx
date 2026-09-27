@@ -2,6 +2,7 @@ import { playCue, soundsOn, setSoundsOn } from "./voice.js";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
 import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
+import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -711,8 +712,10 @@ export default function App() {
       )}
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <ProfileGate user={auth.user} />
-      {/* petals, leaves, bubbles or stars drifting over the home screen */}
-      {page === "home" && <ThemeDrift theme={look} />}
+      {/* A painted place behind every page, for testers for now; the old
+          weather over the home screen for everyone else. */}
+      {early && !showPhoto && <ThemeBackdrop theme={look} resolved={resolved} />}
+      {page === "home" && !early && <ThemeDrift theme={look} />}
 
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
         <button className="icon-btn drawer-close" aria-label="Close menu"
