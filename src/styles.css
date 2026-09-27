@@ -7099,3 +7099,16 @@ a.nav-item { text-decoration: none; color: inherit; }
 @keyframes busy-sweep { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
 .busy-tip { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-3); animation: fade 0.4s ease both; }
 @media (prefers-reduced-motion: reduce) { .busy-duck, .busy-bar.sweep span { animation: none; } }
+/* mind map: bubbles you can drag, and your own ideas */
+.mm-node { user-select: none; -webkit-user-select: none; touch-action: none; cursor: grab; box-sizing: border-box; }
+.mm-node:active { cursor: grabbing; }
+.mm-mine { border-radius: 12px; border: 1.5px dashed var(--c); background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 650; padding: 4px 8px; line-height: 1.2; }
+.mm-node.on { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.mm-topic.on { transform: scale(1.04); }
+.mm-add { display: flex; gap: 6px; width: 100%; }
+.mm-add input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13.5px; }
+/* Safari draws anything with its own layer inside an SVG bubble in the wrong
+   place, so the bubbles stay flat: no positioning, zoom or animation. */
+.mm-topic { position: static; transition: none; }
+.mm-topic:hover, .mm-topic.on { transform: none; }
+.mm-in { animation: none; }

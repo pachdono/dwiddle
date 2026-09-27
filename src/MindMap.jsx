@@ -2,9 +2,10 @@
 // for, so it is instant, free and always matches what the notes say.
 //
 // The title sits in the middle, the topics around it, and each topic's key
-// terms around that. Clicking a topic opens or closes its branch; clicking a
-// term shows what the notes say it means. Drag to move around, scroll or
-// pinch to zoom.
+// terms around that. Every bubble can be dragged (a topic takes its ideas
+// with it), bubbles push each other apart so none overlap, and the student
+// can add ideas of their own under any bubble. Where things are, and the
+// ideas they added, are kept on this device for each set of notes.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, Portal } from "./ui.jsx";
@@ -29,109 +30,253 @@ function branchesOf(blocks = []) {
 }
 
 const COLORS = ["#3B5BFD", "#D1497A", "#16a34a", "#f59e0b", "#9333ea", "#0891b2", "#e5484d", "#64748b"];
+const SIZE = { root: [260, 92], topic: [210, 64], leaf: [170, 46], mine: [170, 46] };
+const GAP = 16;
+const keyOf = (made) => "dwiddle-mindmap:" + (made?.title || "material");
+const loadSaved = (made) => { try { return JSON.parse(localStorage.getItem(keyOf(made))) || {}; } catch { return {}; } };
+const newId = () => "m" + Math.random().toString(36).slice(2, 9);
+
+// Pushes overlapping bubbles apart, a little at a time, until none touch.
+// The middle never moves; "heavy" bubbles (where the student put them) give
+// way only a little, so everything else moves round them.
+function spread(nodes, heavy = new Set()) {
+  const out = nodes.map((n) => ({ ...n }));
+  const give = (n) => (n.id === "root" ? 0 : heavy.has(n.id) ? 0.1 : 1);
+  for (let pass = 0; pass < 200; pass++) {
+    let moved = false;
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const a = out[i], b = out[j];
+        const ox = (a.w + b.w) / 2 + GAP - Math.abs(a.x - b.x);
+        const oy = (a.h + b.h) / 2 + GAP - Math.abs(a.y - b.y);
+        if (ox <= 0 || oy <= 0) continue;
+        const ga = give(a), gb = give(b);
+        if (!ga && !gb) continue;
+        moved = true;
+        const sa = ga / (ga + gb), sb = gb / (ga + gb);
+        // push along whichever way needs the smaller move
+        if (ox < oy) {
+          const d = (a.x < b.x ? -1 : 1) * (ox + 0.5);
+          a.x += d * sa; b.x -= d * sb;
+        } else {
+          const d = (a.y < b.y ? -1 : 1) * (oy + 0.5);
+          a.y += d * sa; b.y -= d * sb;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+  return out;
+}
 
 export function MindMap({ made, onClose }) {
-  const topics = made?.topics || [];
-  const [open, setOpen] = useState(() => new Set(topics.slice(0, 8).map((t) => t.name)));
-  const [detail, setDetail] = useState(null);
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const topics = useMemo(() => made?.topics || [], [made]);
+  const [saved, setSaved] = useState(() => loadSaved(made)); // { pos, mine, open }
+  const save = (next) => { setSaved(next); try { localStorage.setItem(keyOf(made), JSON.stringify(next)); } catch { /* private mode */ } };
+  const open = useMemo(() => new Set(saved.open || topics.slice(0, 8).map((t) => "t:" + t.name)), [saved.open, topics]);
+  const [sel, setSel] = useState(null);
+  const [adding, setAdding] = useState("");
+  const fitK = Math.min(1.15, 10 / Math.max(8, (made?.topics || []).length + 2));
+  const [view, setView] = useState({ x: 0, y: 0, k: fitK });
+  const [live, setLive] = useState(null); // positions while dragging: { id: [x, y] }
+  const panning = useRef(null);
   const dragging = useRef(null);
   const box = useRef(null);
+  const svg = useRef(null);
 
-  const layout = useMemo(() => {
+  // Every bubble, where the notes would put it, then moved to where the
+  // student left it, then spread so nothing overlaps.
+  const nodes = useMemo(() => {
+    const list = [{ id: "root", kind: "root", label: made?.title || "Mind map", x: 0, y: 0, color: "#1b1d26" }];
     const n = topics.length || 1;
-    const R = 240 + Math.max(0, n - 6) * 18;
-    return topics.map((t, i) => {
+    const R = 300 + Math.max(0, n - 5) * 45;
+    topics.forEach((t, i) => {
       const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-      const x = Math.cos(a) * R, y = Math.sin(a) * R * 0.82;
+      const x = Math.cos(a) * R, y = Math.sin(a) * R * 0.82, color = COLORS[i % COLORS.length], id = "t:" + t.name;
+      list.push({ id, kind: "topic", label: t.name, x, y, color, parent: "root" });
+      if (!open.has(id)) return;
       const kids = branchesOf(made?.notes?.[t.name]);
-      // A wide fan, with alternate terms on an outer ring, so six labels
-      // side by side still clear each other.
-      const spread = Math.min(2.4, 0.46 * kids.length);
-      const leaves = kids.map((k, j) => {
-        const b = a + (kids.length > 1 ? (j / (kids.length - 1) - 0.5) * spread : 0);
-        const r = 200 + (j % 2) * 85;
-        return { ...k, x: x + Math.cos(b) * r, y: y + Math.sin(b) * r * 0.78 };
+      const fan = Math.min(1.7, 0.3 * kids.length);
+      kids.forEach((k, j) => {
+        const b = a + (kids.length > 1 ? (j / (kids.length - 1) - 0.5) * fan : 0);
+        const r = 190 + (j % 2) * 95;
+        list.push({ id: `l:${t.name}:${k.label}`, kind: "leaf", label: k.label, detail: k.detail, x: x + Math.cos(b) * r, y: y + Math.sin(b) * r * 0.78, color, parent: id, topic: t.name });
       });
-      return { name: t.name, x, y, a, color: COLORS[i % COLORS.length], leaves };
     });
-  }, [topics, made]);
+    // the student's own ideas, beside whatever they belong to
+    for (const m of saved.mine || []) {
+      const p = list.find((x) => x.id === m.parent);
+      if (!p) continue;
+      list.push({ id: m.id, kind: "mine", label: m.label, x: p.x + (p.x >= 0 ? 190 : -190), y: p.y + 60, color: p.kind === "root" ? "#64748b" : p.color, parent: p.id, topic: p.topic || (p.kind === "topic" ? p.label : undefined) });
+    }
+    for (const nd of list) {
+      const s = saved.pos?.[nd.id];
+      if (s) { nd.x = s[0]; nd.y = s[1]; }
+      [nd.w, nd.h] = SIZE[nd.kind];
+    }
+    return spread(list, new Set(Object.keys(saved.pos || {})));
+  }, [topics, made, open, saved.mine, saved.pos]);
+
+  const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+  const at = (n) => live?.[n.id] || [n.x, n.y];
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") (detail ? setDetail(null) : onClose()); };
+    const onKey = (e) => { if (e.key === "Escape" && !e.target.closest?.("input")) (sel ? setSel(null) : onClose()); };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [onClose, detail]);
+  }, [onClose, sel]);
 
-  const onWheel = (e) => {
-    e.preventDefault();
-    setView((v) => ({ ...v, k: Math.max(0.35, Math.min(2.5, v.k * (e.deltaY < 0 ? 1.1 : 0.9))) }));
-  };
   useEffect(() => {
     const el = box.current;
+    const onWheel = (e) => { e.preventDefault(); setView((v) => ({ ...v, k: Math.max(0.35, Math.min(2.5, v.k * (e.deltaY < 0 ? 1.1 : 0.9))) })); };
     el?.addEventListener("wheel", onWheel, { passive: false });
     return () => el?.removeEventListener("wheel", onWheel);
   }, []);
 
-  const toggle = (name) => setOpen((s) => { const n = new Set(s); n.has(name) ? n.delete(name) : n.add(name); return n; });
+  // Screen pixels per map unit, whatever the zoom.
+  const unit = () => (svg.current?.getScreenCTM()?.a || 1) * view.k;
+  // A bubble and everything under it, so a topic takes its ideas along.
+  const family = (id) => {
+    const out = [id];
+    for (let i = 0; i < out.length; i++) nodes.forEach((n) => { if (n.parent === out[i]) out.push(n.id); });
+    return out;
+  };
+
+  const down = (e, n) => {
+    e.stopPropagation();
+    box.current?.setPointerCapture?.(e.pointerId);
+    dragging.current = { id: n.id, sx: e.clientX, sy: e.clientY, moved: false, ids: n.kind === "root" ? [] : family(n.id) };
+  };
+  const move = (e) => {
+    const d = dragging.current;
+    if (d) {
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 5) return;
+      d.moved = true;
+      const dx = (e.clientX - d.sx) / unit(), dy = (e.clientY - d.sy) / unit();
+      setLive(Object.fromEntries(d.ids.map((id) => [id, [byId[id].x + dx, byId[id].y + dy]])));
+      return;
+    }
+    const p = panning.current;
+    if (!p) return;
+    const k = unit() / view.k;
+    setView((v) => ({ ...v, x: v.x + (e.clientX - p.x) / k, y: v.y + (e.clientY - p.y) / k }));
+    panning.current = { x: e.clientX, y: e.clientY };
+  };
+  const up = () => {
+    const d = dragging.current;
+    dragging.current = null;
+    panning.current = null;
+    if (!d) return;
+    if (!d.moved) {
+      // a tap: open or close a topic, and pick the bubble
+      const n = byId[d.id];
+      if (n.kind === "topic") {
+        const next = new Set(open);
+        next.has(n.id) ? next.delete(n.id) : next.add(n.id);
+        save({ ...saved, open: [...next] });
+      }
+      setSel(n.id);
+      return;
+    }
+    // a drop: keep where it went, then spread everything else around it
+    const pos = { ...(saved.pos || {}) };
+    for (const [id, p] of Object.entries(live || {})) pos[id] = p;
+    const settled = spread(nodes.map((n) => (pos[n.id] ? { ...n, x: pos[n.id][0], y: pos[n.id][1] } : n)), new Set([d.id]));
+    for (const n of settled) if (n.id !== "root") pos[n.id] = [Math.round(n.x), Math.round(n.y)];
+    setLive(null);
+    save({ ...saved, pos });
+  };
+
+  const addIdea = () => {
+    const label = adding.trim().slice(0, 60);
+    if (!label) return;
+    const parent = sel && byId[sel] ? sel : "root";
+    save({ ...saved, mine: [...(saved.mine || []), { id: newId(), label, parent }] });
+    setAdding("");
+  };
+  const renameIdea = (id) => {
+    const m = (saved.mine || []).find((x) => x.id === id);
+    const label = prompt("Rename this idea:", m?.label || "");
+    if (label?.trim()) save({ ...saved, mine: saved.mine.map((x) => (x.id === id ? { ...x, label: label.trim().slice(0, 60) } : x)) });
+  };
+  const deleteIdea = (id) => {
+    const gone = new Set(family(id));
+    const pos = { ...(saved.pos || {}) };
+    gone.forEach((g) => delete pos[g]);
+    save({ ...saved, pos, mine: (saved.mine || []).filter((x) => !gone.has(x.id)) });
+    setSel(null);
+  };
+
+  const picked = sel && byId[sel];
+  const pickedColor = picked?.color === "#1b1d26" ? "#3B5BFD" : picked?.color;
 
   return (
     <Portal>
       <div className="mm" role="dialog" aria-modal="true" aria-label="Mind map">
         <div className="mm-bar">
           <b>{made?.title || "Mind map"}</b>
-          <span className="small muted">Click a topic to open or close it, a term to see what it means. Drag to move, scroll to zoom.</span>
+          <span className="small muted">Drag bubbles to move them. Tap a topic to open or close it, or any bubble to add your own idea under it.</span>
           <div className="mm-actions">
-            <button className="btn ghost small" onClick={() => setOpen(new Set(topics.map((t) => t.name)))}>Open all</button>
-            <button className="btn ghost small" onClick={() => setOpen(new Set())}>Close all</button>
-            <button className="btn ghost small" onClick={() => setView({ x: 0, y: 0, k: 1 })}>Centre</button>
+            <button className="btn ghost small" onClick={() => save({ ...saved, open: topics.map((t) => "t:" + t.name) })}>Open all</button>
+            <button className="btn ghost small" onClick={() => save({ ...saved, open: [] })}>Close all</button>
+            <button className="btn ghost small" onClick={() => { if (confirm("Put every bubble back where it started? Your own ideas are kept.")) save({ ...saved, pos: {} }); }}>Reset layout</button>
+            <button className="btn ghost small" onClick={() => setView({ x: 0, y: 0, k: fitK })}>Centre</button>
             <button className="icon-btn" onClick={onClose} aria-label="Close the mind map"><Icon name="close" size={18} /></button>
           </div>
         </div>
         <div className="mm-stage" ref={box}
-          onPointerDown={(e) => { if (e.target.closest(".mm-node")) return; dragging.current = { x: e.clientX, y: e.clientY }; e.currentTarget.setPointerCapture?.(e.pointerId); }}
-          onPointerMove={(e) => {
-            if (!dragging.current) return;
-            const dx = e.clientX - dragging.current.x, dy = e.clientY - dragging.current.y;
-            dragging.current = { x: e.clientX, y: e.clientY };
-            setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
-          }}
-          onPointerUp={() => { dragging.current = null; }}>
-          <svg className="mm-svg" viewBox="-820 -660 1640 1320">
+          onPointerDown={(e) => { if (e.target.closest(".mm-node, .mm-detail")) return; setSel(null); panning.current = { x: e.clientX, y: e.clientY }; e.currentTarget.setPointerCapture?.(e.pointerId); }}
+          onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+          <svg ref={svg} className="mm-svg" viewBox="-820 -660 1640 1320">
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-              {layout.map((t) => (
-                <g key={t.name}>
-                  <path d={`M0 0 Q ${t.x * 0.5} ${t.y * 0.1} ${t.x} ${t.y}`} stroke={t.color} strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.55" />
-                  {open.has(t.name) && t.leaves.map((l) => (
-                    <path key={l.label} d={`M${t.x} ${t.y} Q ${(t.x + l.x) / 2} ${t.y} ${l.x} ${l.y}`} stroke={t.color} strokeWidth="2.5" fill="none" opacity="0.45" className="mm-in" />
-                  ))}
-                </g>
-              ))}
-              <foreignObject x="-130" y="-46" width="260" height="92">
-                <div className="mm-node mm-root">{made?.title}</div>
-              </foreignObject>
-              {layout.map((t) => (
-                <g key={t.name}>
-                  <foreignObject x={t.x - 105} y={t.y - 32} width="210" height="64">
-                    <button className="mm-node mm-topic" style={{ borderColor: t.color, color: t.color }} onClick={() => toggle(t.name)}>
-                      {t.name}{t.leaves.length > 0 && <span className="mm-count" style={{ background: t.color }}>{open.has(t.name) ? "−" : t.leaves.length}</span>}
-                    </button>
+              {nodes.filter((n) => n.parent && byId[n.parent]).map((n) => {
+                const [x, y] = at(n), [px, py] = at(byId[n.parent]);
+                const thick = n.kind === "topic";
+                return <path key={"e" + n.id} d={`M${px} ${py} Q ${(px + x) / 2} ${thick ? py + (y - py) * 0.1 : py} ${x} ${y}`} stroke={n.color} strokeWidth={thick ? 5 : 2.5}
+                  fill="none" strokeLinecap="round" opacity={thick ? 0.55 : 0.45} strokeDasharray={n.kind === "mine" ? "6 6" : undefined} />;
+              })}
+              {nodes.map((n) => {
+                const [x, y] = at(n);
+                return (
+                  <foreignObject key={n.id} x={x - n.w / 2} y={y - n.h / 2} width={n.w} height={n.h} className={n.kind === "leaf" ? "mm-in" : ""}>
+                    <div className={"mm-node mm-" + n.kind + (sel === n.id ? " on" : "")}
+                      style={n.kind === "topic" ? { borderColor: n.color, color: n.color } : { "--c": n.color }}
+                      onPointerDown={(e) => down(e, n)}>
+                      {n.label}
+                    </div>
                   </foreignObject>
-                  {open.has(t.name) && t.leaves.map((l) => (
-                    <foreignObject key={l.label} x={l.x - 80} y={l.y - 22} width="160" height="44" className="mm-in">
-                      <button className="mm-node mm-leaf" style={{ "--c": t.color }} onClick={() => setDetail({ ...l, topic: t.name, color: t.color })}>{l.label}</button>
-                    </foreignObject>
-                  ))}
-                </g>
-              ))}
+                );
+              })}
+              {/* the open and close badge on topics: drawn by the SVG itself, since Safari
+                  misplaces anything positioned inside a bubble */}
+              {nodes.filter((n) => n.kind === "topic").map((n) => {
+                const kids = branchesOf(made?.notes?.[n.label]).length;
+                if (!kids) return null;
+                const [x, y] = at(n), cx = x + n.w / 2 - 4, cy = y - n.h / 2 + 4;
+                return (
+                  <g key={"b" + n.id} pointerEvents="none">
+                    <circle cx={cx} cy={cy} r="11" fill={n.color} />
+                    <text x={cx} y={cy + 4.5} textAnchor="middle" fontSize="12.5" fontWeight="800" fill="#fff" fontFamily="Inter, system-ui, sans-serif">{open.has(n.id) ? "\u2212" : kids}</text>
+                  </g>
+                );
+              })}
             </g>
           </svg>
-          {detail && (
-            <div className="mm-detail" style={{ borderColor: detail.color }}>
-              <span className="qv-label" style={{ color: detail.color }}>{detail.topic}</span>
-              <b>{detail.label}</b>
-              <p>{detail.detail || "Open the notes for more on this."}</p>
-              <button className="btn ghost small" onClick={() => setDetail(null)}>Close</button>
+          {picked && (
+            <div className="mm-detail" style={{ borderColor: pickedColor }}>
+              {picked.topic && <span className="qv-label" style={{ color: pickedColor }}>{picked.topic}</span>}
+              <b>{picked.label}</b>
+              {picked.kind === "leaf" && <p>{picked.detail || "Open the notes for more on this."}</p>}
+              {picked.kind === "mine" && <p>Your own idea.</p>}
+              <form className="mm-add" onSubmit={(e) => { e.preventDefault(); addIdea(); }}>
+                <input type="text" value={adding} maxLength={60} placeholder={`Add an idea under "${picked.label.slice(0, 24)}"`} onChange={(e) => setAdding(e.target.value)} />
+                <button className="btn small" type="submit" disabled={!adding.trim()}>Add</button>
+              </form>
+              <div className="row" style={{ gap: 6 }}>
+                {picked.kind === "mine" && <button className="btn ghost small" onClick={() => renameIdea(picked.id)}>Rename</button>}
+                {picked.kind === "mine" && <button className="btn ghost small" style={{ color: "var(--warn)" }} onClick={() => deleteIdea(picked.id)}>Delete</button>}
+                <button className="btn ghost small" onClick={() => setSel(null)}>Close</button>
+              </div>
             </div>
           )}
         </div>
