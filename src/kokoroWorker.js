@@ -22,7 +22,9 @@ const progress_callback = (p) => {
 async function tryLoad() {
   if (self.navigator?.gpu) {
     try {
-      const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: "q4f16", device: "webgpu", progress_callback });
+      // Full precision: the smaller half-precision model garbles speech into
+      // a low, distorted growl on many graphics chips.
+      const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: "fp32", device: "webgpu", progress_callback });
       device = "webgpu";
       return tts;
     } catch { /* no usable graphics chip after all: use the processor */ }

@@ -6,7 +6,7 @@ import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voi
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
 import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -540,11 +540,11 @@ export default function App() {
   // Everything comes from the person's own notes. There is no built in content.
   // Phrased on the way out as well as on the way in, so material saved before
   // bare terms were turned into questions reads properly too.
-  const bank = made ? made.questions.map(phraseQuestion) : [];
+  const bank = (made?.questions || []).map(phraseQuestion);
   // The other kinds: those written with lessons, and those built from the
   // vocabulary questions every set already has.
-  const drills = made ? [...(made.drills || []), ...derivedDrills(made.questions)] : [];
-  const topics = made ? made.topics.map((t) => ({ ...t, material: "made", source: made.title })) : [];
+  const drills = made ? [...(made.drills || []), ...derivedDrills(made.questions || [])] : [];
+  const topics = (made?.topics || []).map((t) => ({ ...t, material: "made", source: made.title }));
   const materials = made ? [{ id: "made", title: made.title, kind: "Yours" }] : [];
 
   // Push progress up whenever it changes, debounced so a run of answers does
@@ -828,6 +828,7 @@ export default function App() {
           <span className="crumb small">{made ? made.title : ""}</span>
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
+        <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
         <Page
           key={`${page}:${seq}`}
           go={go}
@@ -867,6 +868,7 @@ export default function App() {
           setLook={setLook}
           resolved={resolved}
         />
+        </Boundary>
       </main>
 
       {/* On a phone the sidebar gives way to a tab bar along the bottom, where

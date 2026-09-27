@@ -70,7 +70,7 @@ export function buildFigure(fig) {
         const c = pt(s.center), r = num(s.r);
         if (!c) bad(`centre ${JSON.stringify(s.center)} is not a known point`);
         else if (!(r > 0)) bad(`radius "${s.r}" is not a positive number`);
-        else out = { ...base, c, r, half: ["upper", "lower"].includes(s.half) ? s.half : null, fill: s.fill === true };
+        else out = { ...base, c, r, half: ["upper", "lower"].includes(s.half) ? s.half : null, fill: s.fill === true, organic: s.organic === true };
         break;
       }
       case "ellipse": {
@@ -78,13 +78,13 @@ export function buildFigure(fig) {
         if (!c) bad(`centre ${JSON.stringify(s.center)} is not a known point`);
         else if (!(rx > 0) || !(ry > 0)) bad("rx and ry must be positive numbers");
         else if (turn === null) bad(`turn "${s.turn}" is not a number of degrees`);
-        else out = { ...base, c, rx, ry, turn, fill: s.fill === true };
+        else out = { ...base, c, rx, ry, turn, fill: s.fill === true, organic: s.organic === true };
         break;
       }
       case "rect": {
         const a = pt(s.from), b = pt(s.to), round = s.round === undefined ? 0 : num(s.round);
         if (!a || !b) bad("its corners are not known points");
-        else out = { ...base, from: [Math.min(a[0], b[0]), Math.min(a[1], b[1])], to: [Math.max(a[0], b[0]), Math.max(a[1], b[1])], round: Math.max(0, round || 0), fill: s.fill === true };
+        else out = { ...base, from: [Math.min(a[0], b[0]), Math.min(a[1], b[1])], to: [Math.max(a[0], b[0]), Math.max(a[1], b[1])], round: Math.max(0, round || 0), fill: s.fill === true, organic: s.organic === true };
         break;
       }
       case "callout": {

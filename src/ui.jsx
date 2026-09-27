@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HL_KINDS } from "./mock.js";
 import { Duck } from "./Duck.jsx";
@@ -192,4 +192,34 @@ export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle" 
     </div>,
     document.body,
   );
+}
+
+// A part of the page that broke, caught so the rest keeps working. Without
+// this, one error while drawing anything left the whole app a blank screen.
+// The message is shown, small, so a screenshot says what went wrong.
+export class Boundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("Dwiddle caught an error:", error, info?.componentStack); }
+  componentDidUpdate(prev) {
+    if (this.state.error && prev.resetKey !== this.props.resetKey) this.setState({ error: null });
+  }
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    const retry = () => this.setState({ error: null });
+    if (this.props.fallback) return this.props.fallback({ error, retry });
+    return (
+      <div className="card card-pad crash" role="alert">
+        <Duck size={72} outfit="detective" />
+        <b>{this.props.title || "This part of Dwiddle stopped working"}</b>
+        <p className="small muted">Nothing you saved is lost. Try again, or go somewhere else and come back.</p>
+        <div className="row">
+          <button className="btn cta" onClick={retry}>Try again</button>
+          {this.props.onLeave && <button className="btn ghost" onClick={() => { retry(); this.props.onLeave(); }}>{this.props.leaveLabel || "Go home"}</button>}
+        </div>
+        <code className="crash-detail">{String(error?.message || error).slice(0, 300)}</code>
+      </div>
+    );
+  }
 }

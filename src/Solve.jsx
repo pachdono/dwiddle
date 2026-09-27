@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import { solveProblem, writeVideo } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
-import { Icon, PageHead, Loading, BusyScreen } from "./ui.jsx";
+import { Icon, PageHead, Loading, BusyScreen, Boundary } from "./ui.jsx";
 import { VideoPlayer } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
@@ -312,7 +312,14 @@ export function Solve({ go, auth }) {
               </button>
             </div>
             {filming && <BusyScreen title="Making your video" detail="Planning the scenes, the diagram and what to say at each step. About half a minute." outfit="dj" />}
-            {watching && video && <VideoPlayer video={video} onClose={() => setWatching(false)} />}
+            {watching && video && (
+              <Boundary fallback={({ error }) => {
+                setTimeout(() => { setWatching(false); setVideo(null); setVideoError(`That video could not be played (${String(error?.message || error).slice(0, 120)}). Make it again.`); });
+                return null;
+              }}>
+                <VideoPlayer video={video} onClose={() => setWatching(false)} />
+              </Boundary>
+            )}
 
             <ol className="sv-steps">
               {result.steps.map((s, i) => (

@@ -47,3 +47,36 @@ export async function findPicture(query) {
   remember(key, pic);
   return pic;
 }
+
+// A plain drawn diagram of something, for the videos: an illustration from
+// Wikimedia Commons (a drawing, not a photo or a micrograph) whose name
+// matches, rendered small. Falls back to the article's own picture.
+export async function findDiagram(query) {
+  const key = String(query || "").trim();
+  const want = words(key);
+  if (!want.length) return null;
+  const cacheKey = "diagram:" + key.toLowerCase();
+  const known = cached()[cacheKey];
+  if (known !== undefined) return known;
+  let pic = null;
+  try {
+    const q = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&list=search&srnamespace=6&srlimit=8&format=json&origin=*&srsearch=${encodeURIComponent(`${key} diagram filetype:drawing`)}`).then((r) => r.json());
+    const hits = (q?.query?.search || []).map((h) => h.title)
+      // Every real word of what was asked for is in the file's name, so
+      // "Plant cell" never picks an animal cell.
+      .filter((t) => { const got = words(t.replace(/^File:/, "").replace(/\.[a-z]+$/i, "")); return want.every((w) => got.some((g) => g.startsWith(w.slice(0, 5)))); });
+    if (hits.length) {
+      const info = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url|size&iiurlwidth=640&format=json&origin=*&titles=${encodeURIComponent(hits[0])}`).then((r) => r.json());
+      const page = Object.values(info?.query?.pages || {})[0];
+      const ii = page?.imageinfo?.[0];
+      if (ii?.thumburl) {
+        pic = { src: ii.thumburl, w: ii.thumbwidth, h: ii.thumbheight, title: hits[0].replace(/^File:/, "").replace(/\.[a-z]+$/i, "").replace(/_/g, " ").replace(/[- ](en|eng|english)$/i, ""), page: ii.descriptionurl };
+      }
+    }
+  } catch {
+    return findPicture(key); // offline or blocked: the article picture, if that works
+  }
+  if (!pic) pic = await findPicture(key);
+  remember(cacheKey, pic);
+  return pic;
+}

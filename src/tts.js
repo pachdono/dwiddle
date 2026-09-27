@@ -197,7 +197,8 @@ function getWorker() {
   return worker;
 }
 
-// Downloads the voice the first time (about 155 MB, then kept by the
+// Downloads the voice the first time (about 90 to 330 MB depending on the
+// device, then kept by the
 // browser) and gets it ready. Resolves true when natural speech can be used.
 export function prepareNatural() {
   if (!naturalOn() || !naturalSupported()) return Promise.resolve(false);

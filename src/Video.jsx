@@ -11,13 +11,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sayAs, stopSpeaking, prepareNarrator, naturalState, onNaturalProgress, narrate, playClip } from "./tts.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
-import { Icon, PageHead, Portal, BusyScreen } from "./ui.jsx";
+import { Icon, PageHead, Portal, BusyScreen, Boundary } from "./ui.jsx";
 import { Duck } from "./Duck.jsx";
 
 /* ---------- saved videos ---------- */
 
 const KEY = "dwiddle-videos";
-const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
+// A saved video the player can open: anything else (from an older version,
+// or cut short when storage filled) is left out rather than opened.
+const playable = (v) => !!v && Array.isArray(v.scenes) && v.scenes.length > 0 &&
+  v.scenes.every((sc) => sc && Array.isArray(sc.lines) && sc.lines.length && Array.isArray(sc.board));
+const loadAll = () => {
+  try {
+    const all = JSON.parse(localStorage.getItem(KEY) || "{}");
+    return Object.fromEntries(Object.entries(all && typeof all === "object" ? all : {}).filter(([, v]) => playable(v)));
+  } catch { return {}; }
+};
 function saveOne(id, video) {
   try {
     const all = loadAll();
@@ -103,7 +112,26 @@ export function Videos({ made, go }) {
         })}
       </div>
       {making && <BusyScreen title="Making your video" detail={`Planning the scenes, diagrams and narration for ${making}. About half a minute.`} outfit="dj" />}
-      {open && <VideoPlayer video={open.video} onClose={() => setOpen(null)} />}
+      {open && (
+        <Boundary fallback={({ error }) => (
+          <Portal>
+            <div className="vd vd-broken" role="alert">
+              <div className="card card-pad crash">
+                <Duck size={72} outfit="detective" />
+                <b>This video could not be played</b>
+                <p className="small muted">Making a new one usually fixes it.</p>
+                <div className="row">
+                  <button className="btn cta" onClick={() => { const t = topics.find((x) => x.name === open.topic); setOpen(null); if (t) make(t); }}>Make a new one</button>
+                  <button className="btn ghost" onClick={() => setOpen(null)}>Close</button>
+                </div>
+                <code className="crash-detail">{String(error?.message || error).slice(0, 300)}</code>
+              </div>
+            </div>
+          </Portal>
+        )}>
+          <VideoPlayer video={open.video} onClose={() => setOpen(null)} />
+        </Boundary>
+      )}
     </div>
   );
 }
@@ -349,7 +377,7 @@ function usePicture(query) {
   useEffect(() => {
     if (!query || pictures.has(query)) { setPic(query ? pictures.get(query) : null); return; }
     let live = true;
-    import("./wikiPic.js").then(({ findPicture }) => findPicture(query)).catch(() => null)
+    import("./wikiPic.js").then(({ findDiagram }) => findDiagram(query)).catch(() => null)
       .then((p) => { pictures.set(query, p || null); if (live) setPic(p || null); });
     return () => { live = false; };
   }, [query]);
@@ -369,7 +397,7 @@ function Scene({ scene, line }) {
         {pic && (
           <figure className="vd-picture">
             <img src={pic.src} alt={pic.title} referrerPolicy="no-referrer" />
-            <figcaption>{pic.title} · Wikipedia</figcaption>
+            <figcaption>{pic.title} · Wikimedia</figcaption>
           </figure>
         )}
         <div className="vd-board">
@@ -422,9 +450,48 @@ function Diagram({ d, line }) {
   );
 }
 
+// A soft, slightly irregular closed outline for living things: points round
+// the shape, nudged in and out by a gentle wave fixed by where the shape is,
+// joined with a smooth curve. The same shape always gets the same outline.
+function organicPath(s, X, Y) {
+  const pts = [];
+  const seed = (s.c ? s.c[0] * 7.3 + s.c[1] * 3.1 : s.from[0] * 5.7 + s.to[1] * 2.3) % 6.283;
+  const wave = (a) => 1 + 0.025 * Math.sin(3 * a + seed) + 0.012 * Math.sin(5 * a + 2 * seed);
+  if (s.type === "rect") {
+    const [x0, y0] = s.from, [x1, y1] = s.to;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = (x1 - x0) / 2, hh = (y1 - y0) / 2;
+    // A rounded box as a superellipse, which the wave then softens.
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * 2 * Math.PI, c = Math.cos(a), sn = Math.sin(a);
+      const f = wave(a) ** 0.5;
+      pts.push([X(cx + hw * f * Math.sign(c) * Math.abs(c) ** 0.3), Y(cy + hh * f * Math.sign(sn) * Math.abs(sn) ** 0.3)]);
+    }
+  } else {
+    const rx = s.rx ?? s.r, ry = s.ry ?? s.r, t = ((s.turn || 0) * Math.PI) / 180;
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * 2 * Math.PI, f = wave(a);
+      const x = rx * f * Math.cos(a), y = ry * f * Math.sin(a);
+      pts.push([X(s.c[0] + x * Math.cos(t) - y * Math.sin(t)), Y(s.c[1] + x * Math.sin(t) + y * Math.cos(t))]);
+    }
+  }
+  const n = pts.length;
+  let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+
 function Shape({ s, X, Y, k, fresh }) {
   const cls = `vd-shape c-${s.color}` + (fresh ? " fresh" : "");
   const label = (x, y, text, dy = -10) => text && <text className={`vd-label c-${s.color}`} x={x} y={y + dy} textAnchor="middle">{text}</text>;
+  if (s.organic && !s.half && ["circle", "ellipse", "rect"].includes(s.type)) {
+    const top = s.type === "rect" ? [(X(s.from[0]) + X(s.to[0])) / 2, Y(s.to[1])] : [X(s.c[0]), Y(s.c[1]) - (s.ry ?? s.r) * k];
+    return <g><path d={organicPath(s, X, Y)} pathLength="1" className={cls + (s.fill ? " filled" : "") + " organic"} />{label(top[0], top[1], s.label)}</g>;
+  }
   switch (s.type) {
     case "circle": {
       const cx = X(s.c[0]), cy = Y(s.c[1]), r = s.r * k;

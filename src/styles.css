@@ -7562,3 +7562,11 @@ a.btn { text-decoration: none; }
 .vd-picture { margin: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 .vd-picture img { max-width: 100%; max-height: calc(100% - 22px); object-fit: contain; border-radius: 12px; background: #fff; border: 1px solid var(--line); animation: vd-fadein 0.6s ease both; }
 .vd-picture figcaption { font-size: 12px; color: var(--ink-3); }
+
+/* something that broke, caught */
+.crash { display: grid; justify-items: center; gap: 8px; max-width: 460px; margin: 40px auto; text-align: center; }
+.crash p { margin: 0; }
+.crash .row { gap: 8px; margin-top: 6px; }
+.crash-detail { max-width: 100%; margin-top: 8px; padding: 6px 10px; border-radius: 8px; background: var(--sunken); color: var(--ink-3); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+.vd-broken { display: grid; place-items: center; }
+.vd-shape.organic { stroke-width: 2.4; }
