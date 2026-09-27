@@ -1846,17 +1846,6 @@ async function imageFile(url) {
   return new File([blob], "picture", { type: blob.type });
 }
 
-const FAVOURITES = [
-  { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Main_Page", color: "#1b1d26", letter: "W" },
-  { name: "BBC Bitesize", url: "https://www.bbc.co.uk/bitesize", color: "#1a1a1a", letter: "B" },
-  { name: "Khan Academy", url: "https://www.khanacademy.org", color: "#14bf96", letter: "K" },
-  { name: "Britannica", url: "https://www.britannica.com", color: "#0d6efd", letter: "E" },
-  { name: "Save My Exams", url: "https://www.savemyexams.com", color: "#5b3fd1", letter: "S" },
-  { name: "Physics & Maths Tutor", url: "https://www.physicsandmathstutor.com", color: "#e8590c", letter: "P" },
-  { name: "Simple Wikipedia", url: "https://simple.wikipedia.org/wiki/Main_Page", color: "#495057", letter: "S" },
-  { name: "Desmos", url: "https://www.desmos.com/calculator", color: "#2f72dc", letter: "D" },
-];
-
 function SplitPanel({ onClose, onAddImage, onAddText }) {
   const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
   return (
@@ -1906,19 +1895,34 @@ function SafariBar({ address, secure, editing, setEditing, draft, setDraft, onGo
   );
 }
 
+// Google itself, the real one, as Safari would show it. Google allows its
+// search to be shown inside another site when asked with igu=1, which is what
+// makes this possible on the website; most other sites refuse, so an address
+// typed in the bar still opens live where the site allows it and in the reader
+// view where it does not.
+const googleUrl = (q) => q ? `https://www.google.com/search?igu=1&hl=en-GB&q=${encodeURIComponent(q)}` : "https://www.google.com/webhp?igu=1&hl=en-GB";
+
 function Browser({ onClose, onAddImage, onAddText }) {
-  // Where the student has been: the start page, search results and pages.
-  const [trail, setTrail] = useState([{ kind: "start" }]);
+  // Where the student has been: Google (home or a search) and pages opened by address.
+  const [trail, setTrail] = useState([{ kind: "google", q: "" }]);
   const [at, setAt] = useState(0);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [data, setData] = useState({}); // key -> results or page
+  const [data, setData] = useState({}); // url -> page
   const [readerOn, setReaderOn] = useState(false);
+  const [tip, setTip] = useState(true);
+  // Clicks inside Google move the frame on without telling this page where it
+  // went, but every move fires the frame's load, so they are counted: Back
+  // steps back inside the frame first, then along the trail.
+  const hops = useRef(0);
+  const goingBack = useRef(false);
+  const [inFrame, setInFrame] = useState(0);
+  const [reload, setReload] = useState(0);
   const here = trail[at];
-  const key = here.kind === "results" ? "q:" + here.q : here.kind === "page" ? "u:" + here.url : "start";
-  const got = data[key];
+  const key = here.kind === "page" ? "u:" + here.url : "g:" + here.q;
+  const got = here.kind === "page" ? data[key] : null;
 
   function visit(entry) {
     setTrail((t) => [...t.slice(0, at + 1), entry]);
@@ -1926,23 +1930,34 @@ function Browser({ onClose, onAddImage, onAddText }) {
     setEditing(false);
     setReaderOn(false);
   }
-  const go = (text) => { const a = toAddress(text); if (a.q) { if (a.q) visit({ kind: "results", q: a.q }); } else visit({ kind: "page", url: a.url }); };
+  const go = (text) => { const a = toAddress(text); visit(a.q ? { kind: "google", q: a.q } : { kind: "page", url: a.url }); };
+
+  useEffect(() => { hops.current = -1; setInFrame(0); }, [key, reload]);
+  const onFrameLoad = () => {
+    if (goingBack.current) { goingBack.current = false; hops.current = Math.max(0, hops.current - 1); }
+    else hops.current += 1;
+    setInFrame(Math.max(0, hops.current));
+  };
+  const back = () => {
+    if (inFrame > 0) { goingBack.current = true; window.history.back(); return; }
+    setAt((n) => n - 1); setReaderOn(false);
+  };
 
   useEffect(() => {
-    if (here.kind === "start" || got) return;
+    if (here.kind !== "page" || got) return;
     let live = true;
     setLoading(true); setError("");
-    import("./ai.js").then(({ browse }) => (here.kind === "results" ? browse("search", { q: here.q }) : browse("open", { url: here.url })))
+    import("./ai.js").then(({ browse }) => browse("open", { url: here.url }))
       .then((d) => { if (live) setData((m) => ({ ...m, [key]: d })); })
       .catch((e) => { if (live) setError(e.message || "That could not be opened."); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const page = here.kind === "page" ? got : null;
+  const page = got;
   const live = page && page.framable && !readerOn;
   const address = here.kind === "page" ? { shown: hostOf(page?.url || here.url), full: page?.url || here.url }
-    : here.kind === "results" ? { shown: here.q, full: here.q } : { shown: "", full: "" };
+    : { shown: here.q ? here.q : "google.com", full: here.q };
   const addSelected = () => {
     const sel = String(window.getSelection() || "").trim();
     if (sel) onAddText(sel); else alert("Select some text in the article first, then tap this.");
@@ -1950,45 +1965,30 @@ function Browser({ onClose, onAddImage, onAddText }) {
 
   return (
     <div className="sf">
-      <SafariBar address={address} secure={here.kind === "page" && /^https:/.test(page?.url || here.url)}
+      <SafariBar address={address} secure
         editing={editing} setEditing={setEditing} draft={draft} setDraft={setDraft} onGo={go}
-        canBack={at > 0} canForward={at < trail.length - 1} onBack={() => { setAt((n) => n - 1); setReaderOn(false); }} onForward={() => setAt((n) => n + 1)}
-        onReload={here.kind !== "start" ? () => setData((m) => { const c = { ...m }; delete c[key]; return c; }) : null}
-        reader={!live} onReader={page?.framable ? () => setReaderOn((v) => !v) : null}
-        onOpenOutside={here.kind === "page" ? () => window.open(page?.url || here.url, "_blank", "noopener") : null}
+        canBack={at > 0 || inFrame > 0} canForward={at < trail.length - 1} onBack={back} onForward={() => setAt((n) => n + 1)}
+        onReload={() => { if (here.kind === "page") setData((m) => { const c = { ...m }; delete c[key]; return c; }); setReload((n) => n + 1); }}
+        reader={here.kind === "page" && !live} onReader={page?.framable ? () => setReaderOn((v) => !v) : null}
+        onOpenOutside={() => window.open(here.kind === "page" ? page?.url || here.url : googleUrl(here.q).replace(/[?&]igu=1/, ""), "_blank", "noopener")}
         onClose={onClose} />
       {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
+      {here.kind === "google" && tip && (
+        <div className="sf-tip">
+          <span>Some sites refuse to open inside other apps. If one does, type its address in the bar to read it here, or open it in your own browser.</span>
+          <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
+        </div>
+      )}
       <div className="sf-body">
         {error && <div className="sf-error"><b>That page could not be opened</b><p className="small muted">{error}</p>
           {here.kind === "page" && <button className="btn ghost small" onClick={() => window.open(here.url, "_blank", "noopener")}>Open in your own browser</button>}</div>}
-        {here.kind === "start" && (
-          <div className="sf-start">
-            <form className="sf-search" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) go(draft); }}>
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search the web" aria-label="Search the web" />
-            </form>
-            <h4>Favourites</h4>
-            <div className="sf-favs">
-              {FAVOURITES.map((f) => (
-                <button key={f.url} onClick={() => visit({ kind: "page", url: f.url })}>
-                  <span style={{ background: f.color }}>{f.letter}</span><small>{f.name}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {here.kind === "results" && got && (
-          <ul className="sf-results">
-            {got.results.length === 0 && <li className="small muted">Nothing found.</li>}
-            {got.results.map((r) => (
-              <li key={r.url}><button onClick={() => visit({ kind: "page", url: r.url })}>
-                <small>{r.site}</small><b>{r.title}</b>{r.snippet && <span>{r.snippet}</span>}
-              </button></li>
-            ))}
-          </ul>
+        {here.kind === "google" && (
+          <iframe key={key + ":" + reload} className="sf-frame" title="Google" src={googleUrl(here.q)} onLoad={onFrameLoad}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" />
         )}
         {here.kind === "page" && page && live && (
-          <iframe className="sf-frame" title={page.title || "Web page"} src={page.url}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer" />
+          <iframe key={key + ":" + reload} className="sf-frame" title={page.title || "Web page"} src={page.url} onLoad={onFrameLoad}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" />
         )}
         {here.kind === "page" && page && !live && (
           <article className="sf-reader">

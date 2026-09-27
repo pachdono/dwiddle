@@ -8072,3 +8072,6 @@ body:has(.theme-backdrop) .pz-full .pz-sub { text-shadow: 0 0 2px var(--bg), 0 0
    panel is showing. */
 body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 @media (min-width: 1200px) { body:has(.pz-body.pc-on) .xp-toasts { display: none; } }
+.sf-tip { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; font-size: 12px; line-height: 1.35; color: var(--ink-2); background: var(--panel); border-bottom: 1px solid var(--line); }
+.sf-tip span { flex: 1; }
+.sf-tip .sf-btn { width: 26px; height: 26px; }
