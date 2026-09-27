@@ -9,6 +9,10 @@ process.env.GROQ_API_KEY = "gq";
 delete process.env.NVIDIA_API_KEY;
 delete process.env.OPENROUTER_MODEL;
 delete process.env.GROQ_MODEL;
+// The fallback tests below are about the order providers are tried in when
+// they fail, so the order is fixed and nothing is asked twice at once.
+process.env.LLM_ORDER = "openrouter,groq";
+process.env.LLM_HEDGE_MS = "0";
 
 const MODELS = {
   "openrouter.ai": ["google/gemma-4-27b-it:free"],
@@ -25,7 +29,15 @@ async function load(answer) {
     if (url.endsWith("/models")) return new Response(JSON.stringify({ data: MODELS[host].map((id) => ({ id })) }), { status: 200 });
     const model = JSON.parse(opts.body).model;
     calls.push(`${host.split(".")[1] === "groq" ? "groq" : host.split(".")[0]}/${model}`);
-    const [status, body] = answer(host, model);
+    const got = answer(host, model);
+    const [status, body, wait] = got;
+    // A slow provider: answers after a while, unless the request is called off.
+    if (wait) {
+      await new Promise((res, rej) => {
+        const t = setTimeout(res, wait);
+        opts.signal?.addEventListener("abort", () => { clearTimeout(t); rej(Object.assign(new Error("aborted"), { name: "AbortError" })); });
+      });
+    }
     return new Response(body, { status });
   };
   const mod = await import(`../api/_llm.js?copy=${n++}`);
@@ -58,4 +70,32 @@ test("a request too large for one model is tried on the next", async () => {
   const { ask } = await load((host, m) =>
     host === "openrouter.ai" ? [429, DAILY_OR] : m === "llama-3.3-70b-versatile" ? [413, "Request too large"] : ok("fits"));
   assert.equal(await ask(), "fits");
+});
+
+test("the fastest provider is asked first when no order is fixed", async () => {
+  const keep = process.env.LLM_ORDER;
+  delete process.env.LLM_ORDER;
+  const { ask, calls } = await load(() => ok("quick"));
+  assert.equal(await ask(), "quick");
+  assert.equal(calls[0].split("/")[0], "groq");
+  process.env.LLM_ORDER = keep;
+});
+
+test("a slow first provider gets a second opinion, and the first answer wins", async () => {
+  process.env.LLM_HEDGE_MS = "50";
+  const { ask, calls } = await load((host) => (host === "openrouter.ai" ? [...ok("slow"), 2000] : ok("fast")));
+  const t = Date.now();
+  assert.equal(await ask(), "fast");
+  assert.ok(Date.now() - t < 1500, "did not wait for the slow one");
+  assert.deepEqual(calls, ["openrouter/google/gemma-4-27b-it:free", "groq/llama-3.3-70b-versatile"]);
+  process.env.LLM_HEDGE_MS = "0";
+});
+
+test("a quick answer never asks a second provider", async () => {
+  process.env.LLM_HEDGE_MS = "200";
+  const { ask, calls } = await load(() => ok("first"));
+  assert.equal(await ask(), "first");
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(calls.length, 1);
+  process.env.LLM_HEDGE_MS = "0";
 });

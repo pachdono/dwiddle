@@ -182,19 +182,52 @@ const progressListeners = new Set();
 export const onNaturalProgress = (fn) => { progressListeners.add(fn); return () => progressListeners.delete(fn); };
 export const naturalState = () => state;
 
-function getWorker() {
-  if (worker) return worker;
-  worker = new Worker(new URL("./kokoroWorker.js", import.meta.url), { type: "module" });
-  worker.onmessage = ({ data }) => {
-    if (data.type === "progress") progressListeners.forEach((f) => f(data.loaded / data.total));
+// The model runs on one processor core per copy, so narration is made by a
+// few copies side by side where the device has the cores and the memory for
+// it, each making its own lines. The first copy downloads the voice; the
+// others load it from the browser's cache once it is there.
+const pool = []; // { w, ready, busy, dead }
+function makeWorker() {
+  const w = new Worker(new URL("./kokoroWorker.js", import.meta.url), { type: "module" });
+  w.onmessage = ({ data }) => {
+    if (data.type === "progress" && w === worker) progressListeners.forEach((f) => f(data.loaded / data.total));
     if (data.type === "audio" || data.type === "error") {
-      const w = waiting.get(data.id);
+      const job = waiting.get(data.id);
       waiting.delete(data.id);
-      if (!w) return;
-      data.type === "audio" ? w.resolve(data) : w.reject(new Error(data.message));
+      if (!job) return;
+      job.slot.busy -= 1;
+      data.type === "audio" ? job.resolve(data) : job.reject(new Error(data.message));
     }
   };
+  return w;
+}
+function getWorker() {
+  if (worker) return worker;
+  worker = makeWorker();
+  pool.push({ w: worker, ready: false, busy: 0 });
   return worker;
+}
+// How many copies: one on a phone, up to three on a computer with the cores
+// and memory to spare.
+export function narratorLanes() {
+  if (typeof navigator === "undefined") return 1;
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPod|Android.*Mobile/i.test(ua)) return 1;
+  const cores = navigator.hardwareConcurrency || 2;
+  const mem = navigator.deviceMemory; // not given by Safari
+  const byMem = mem == null ? 2 : mem >= 8 ? 3 : mem >= 4 ? 2 : 1;
+  return Math.max(1, Math.min(3, Math.floor(cores / 2), byMem));
+}
+function growPool() {
+  while (pool.length < narratorLanes()) {
+    const slot = { w: makeWorker(), ready: false, busy: 0 };
+    pool.push(slot);
+    slot.w.addEventListener("message", ({ data }) => {
+      if (data.type === "ready") slot.ready = true;
+      if (data.type === "failed") slot.dead = true;
+    });
+    slot.w.postMessage({ type: "load" });
+  }
 }
 
 // Downloads the voice the first time (about 90 MB, then kept by the
@@ -214,7 +247,7 @@ function loadModel() {
   loadPromise = new Promise((resolve) => {
     const w = getWorker();
     const on = ({ data }) => {
-      if (data.type === "ready") { state = "ready"; device = data.device; w.removeEventListener("message", on); resolve(true); }
+      if (data.type === "ready") { state = "ready"; device = data.device; pool[0].ready = true; w.removeEventListener("message", on); resolve(true); }
       if (data.type === "failed") { state = "failed"; loadPromise = null; w.removeEventListener("message", on); resolve(false); }
     };
     w.addEventListener("message", on);
@@ -229,7 +262,7 @@ function loadModel() {
 // voice, on any device, made a line or two ahead so the processor can keep
 // up where there is no graphics chip.
 export const NARRATOR = CHARACTERS.narrator.voice;
-export const prepareNarrator = () => loadModel();
+export const prepareNarrator = () => loadModel().then((ok) => { if (ok) growPool(); return ok; });
 
 // One line of narration as audio: { audio, sr }.
 export const narrate = (text, rate = 1) => makeSpeech(text, NARRATOR, rate);
@@ -254,9 +287,13 @@ export function playClip(clip, { onEnd } = {}) {
 
 function makeSpeech(text, voice, speed) {
   const id = nextId++;
+  getWorker();
+  // The least busy copy that is ready; the first copy until others are.
+  const slot = pool.filter((sl) => sl.ready && !sl.dead).sort((a, b) => a.busy - b.busy)[0] || pool[0];
+  slot.busy += 1;
   return new Promise((resolve, reject) => {
-    waiting.set(id, { resolve, reject });
-    getWorker().postMessage({ type: "speak", id, text, voice, speed });
+    waiting.set(id, { resolve, reject, slot });
+    slot.w.postMessage({ type: "speak", id, text, voice, speed });
   });
 }
 

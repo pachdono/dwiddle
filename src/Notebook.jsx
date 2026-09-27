@@ -548,9 +548,16 @@ function Shape({ it }) {
   return <line x1={x1} y1={y1} x2={x2} y2={y2} {...common} />;
 }
 
-const Item = memo(ItemView, (a, b) => a.it.type !== "text" && a.it === b.it && a.editing === b.editing && a.shown === b.shown);
+const Item = memo(ItemView, (a, b) => a.it.type !== "text" && a.it === b.it && a.editing === b.editing && a.shown === b.shown && a.bare === b.bare);
 
-function ItemView({ it, editing, onText, shown }) {
+// A page in the list on the left: redrawn only when that page changes, and
+// without textures, which are too small to see there anyway.
+const PageThumb = memo(function PageThumb({ page }) {
+  return <svg viewBox={`0 0 ${page.w} ${page.h}`}><Paper page={page} />{page.items.map((it) => <Item key={it.id} it={it} bare />)}</svg>;
+});
+
+// bare: drawn without its texture, for the page thumbnails.
+function ItemView({ it, editing, onText, shown, bare }) {
   if (it.type === "stroke" && it.tool === "revealer") {
     // Hides what is under it until tapped. Revealed ones stay faint so the
     // answer shows through.
@@ -565,8 +572,8 @@ function ItemView({ it, editing, onText, shown }) {
   }
   if (it.type === "stroke") {
     const pen = it.tool === "pen" && PEN_STYLES.find((p) => p.id === it.style);
-    return <path d={inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : pen?.alpha || 1}
-      filter={pen?.texture ? `url(#nb-tex-${pen.texture})` : undefined} />;
+    return <path d={it.d || inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : pen?.alpha || 1}
+      filter={pen?.texture && !bare ? `url(#nb-tex-${pen.texture})` : undefined} />;
   }
   if (it.type === "shape") return <Shape it={it} />;
   if (it.type === "image") {
@@ -3842,7 +3849,7 @@ function Editor({ id, go, onClose, early = false }) {
                 if (i === current) { const r = e.currentTarget.getBoundingClientRect(); setThumbMenu({ i, top: Math.min(r.top, innerHeight - 330) }); return; }
                 pagesRef.current?.querySelectorAll(".nb-page")[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
               }} title={i === current ? "Page options" : `Go to page ${i + 1}`}>
-              <svg viewBox={`0 0 ${p.w} ${p.h}`}><Paper page={p} />{p.items.map((it) => <Item key={it.id} it={it} />)}</svg>
+              <PageThumb page={p} />
               <span>{i + 1}</span>
             </button>
           ))}

@@ -8136,3 +8136,9 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 .nb-erase-slider input[type="range"]::-moz-range-track { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--accent) var(--fill), var(--line) var(--fill)); }
 .nb-erase-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.12); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
 .nb-erase-slider input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.12); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+
+/* Pages and thumbnails out of sight are not drawn at all until they come
+   near the screen: a long notebook scrolls as smoothly as a short one. Each
+   page has its size set, so nothing jumps as they appear. */
+.nb-page { content-visibility: auto; }
+.nb-thumb { content-visibility: auto; contain-intrinsic-size: auto 130px; }

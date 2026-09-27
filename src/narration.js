@@ -11,7 +11,7 @@
 // Kept in IndexedDB, so a video is only ever narrated once, and a narration
 // cut short (the tab closed) picks up where it stopped.
 
-import { narrate, prepareNarrator } from "./tts.js";
+import { narrate, prepareNarrator, narratorLanes } from "./tts.js";
 
 const DB = "dwiddle-narration";
 const STORE = "lines";
@@ -95,16 +95,22 @@ export function prepareNarration(video) {
         const ok = await prepareNarrator();
         if (!ok) throw new Error("The narrator's voice could not be downloaded.");
       }
-      for (let i = 0; i < lines.length; i++) {
-        if (have[i]) continue;
-        const clip = await narrate(lines[i], 1);
-        // Kept as 16 bit samples: half the size, and all a voice needs.
-        const pcm = new Int16Array(clip.audio.length);
-        for (let k = 0; k < pcm.length; k++) pcm[k] = Math.max(-1, Math.min(1, clip.audio[k])) * 32767;
-        await putLine(`${key}:${i}`, { sr: clip.sr, pcm: pcm.buffer });
-        job.done += 1;
-        tell(job);
-      }
+      // Several lines at once, one for each copy of the voice model the
+      // device can run, so a long video is narrated in a fraction of the time.
+      const todo = lines.map((_, i) => i).filter((i) => !have[i]);
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(narratorLanes(), todo.length) }, async () => {
+        while (next < todo.length) {
+          const i = todo[next++];
+          const clip = await narrate(lines[i], 1);
+          // Kept as 16 bit samples: half the size, and all a voice needs.
+          const pcm = new Int16Array(clip.audio.length);
+          for (let k = 0; k < pcm.length; k++) pcm[k] = Math.max(-1, Math.min(1, clip.audio[k])) * 32767;
+          await putLine(`${key}:${i}`, { sr: clip.sr, pcm: pcm.buffer });
+          job.done += 1;
+          tell(job);
+        }
+      }));
       job.state = "ready";
     } catch (err) {
       job.state = "failed";

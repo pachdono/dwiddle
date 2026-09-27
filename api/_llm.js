@@ -341,9 +341,61 @@ export function safeParse(text, requiredKey) {
   return found.sort((a, b) => b.length - a.length)[0].parsed;
 }
 
-export async function ask({ system, user, messages, maxTokens = 4000, temperature = 0.4, json = false, vision = false }) {
-  const all = providers();
+/* ---------- the fastest provider first, and a second opinion when slow ---------- */
+
+// How long each provider has been taking, in milliseconds per thousand
+// characters of answer, averaged over recent answers on this server. Until
+// there is any, a prior: Groq runs on its own chips and is usually several
+// times faster than the free OpenRouter models, which queue.
+const PRIOR = { groq: 900, nvidia: 3000, openrouter: 4500 };
+const pace = new Map();
+function notePace(id, ms, chars) {
+  const v = ms / Math.max(0.3, chars / 1000);
+  const old = pace.get(id);
+  pace.set(id, old == null ? v : old * 0.7 + v * 0.3);
+}
+const paceOf = (p) => pace.get(p.id) ?? PRIOR[p.id] ?? 4000;
+
+// Every provider with a key, fastest first. LLM_ORDER (ids, comma separated)
+// fixes the order instead, for anyone who wants a particular one first.
+export function byPace(list) {
+  const fixed = String(process.env.LLM_ORDER || "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (fixed.length) return [...list].sort((a, b) => (fixed.indexOf(a.id) + 1 || 99) - (fixed.indexOf(b.id) + 1 || 99));
+  return [...list].sort((a, b) => paceOf(a) - paceOf(b));
+}
+
+// When the first provider has not answered in this long, the same request
+// also goes to the next one, and whichever answers first is used. Most
+// requests finish well inside it, so the second is rarely asked.
+const HEDGE_MS = Number(process.env.LLM_HEDGE_MS || 12000);
+
+export async function ask(opts) {
+  const all = byPace(providers());
   const deadline = Date.now() + 44000;
+  const usable = all.filter((p) => !isSpent(p.id));
+  if (usable.length < 2 || !(HEDGE_MS > 0)) return askVia(all, opts, deadline);
+  const a = new AbortController(), b = new AbortController();
+  return new Promise((resolve, reject) => {
+    let done = false, hedged = false, firstErr = null, pending = 1;
+    const win = (text) => { if (done) return; done = true; clearTimeout(timer); a.abort(); b.abort(); resolve(text); };
+    const lose = (err, first) => {
+      if (done) return;
+      if (first) firstErr = err;
+      pending -= 1;
+      if (first && !hedged) { clearTimeout(timer); done = true; return reject(err); }
+      if (pending === 0) { done = true; reject(firstErr || err); }
+    };
+    askVia(all, opts, deadline, a.signal).then(win, (e) => lose(e, true));
+    const timer = setTimeout(() => {
+      if (done || deadline - Date.now() < 8000) return;
+      hedged = true; pending += 1;
+      const rest = usable.slice(1);
+      askVia([...rest, ...all.filter((p) => !rest.includes(p))], opts, deadline, b.signal).then(win, (e) => lose(e, false));
+    }, HEDGE_MS);
+  });
+}
+
+async function askVia(all, { system, user, messages, maxTokens = 4000, temperature = 0.4, json = false, vision = false }, deadline, outer) {
   let lastError = null;
   // Set when the provider says the allowance for the whole day is spent, which
   // no amount of waiting a minute will fix.
@@ -368,8 +420,12 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
       const remaining = deadline - Date.now();
       if (remaining < 6000) break;
 
+      if (outer?.aborted) throw Object.assign(new Error("Answered elsewhere"), { status: 499 });
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), Math.min(34000, remaining - 2000));
+      const stop = () => controller.abort();
+      outer?.addEventListener("abort", stop, { once: true });
+      const began = Date.now();
 
       let reply;
       try {
@@ -395,9 +451,13 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
         });
       } catch (err) {
         clearTimeout(timeout);
+        outer?.removeEventListener("abort", stop);
+        if (outer?.aborted) throw Object.assign(new Error("Answered elsewhere"), { status: 499 });
 
         if (err.name === "AbortError") {
-          // Slowness is usually transient load, so this does not blacklist.
+          // Slowness is usually transient load, so this does not blacklist,
+          // but it does count against the provider's pace.
+          notePace(p.id, Date.now() - began, 300);
           console.warn(`[api] ${p.id}/${model} did not answer in time`);
           if (cachedModel?.model === model) cachedModel = null;
           lastError = Object.assign(
@@ -411,11 +471,13 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
         break; // network trouble with this provider, move to the next one
       }
       clearTimeout(timeout);
+      outer?.removeEventListener("abort", stop);
 
       if (reply.ok) {
-        const data = await reply.json();
+        const data = await reply.json().catch(() => null);
         const text = data?.choices?.[0]?.message?.content;
         if (text) {
+          notePace(p.id, Date.now() - began, text.length);
           if (cachedModel?.model !== model) console.log(`[api] using ${p.id}/${model}`);
           cachedModel = { provider: p.id, model };
           return text;
