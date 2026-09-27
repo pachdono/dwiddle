@@ -11,6 +11,7 @@
 
 import { ask, safeParse, fail, userError, MAX_INPUT } from "./_llm.js";
 import { allow } from "./_guard.js";
+import { buildFigures, sceneDiagram } from "./_figure.js";
 
 export const config = { maxDuration: 60 };
 
@@ -20,6 +21,24 @@ Shape:
 {
   "title": "the video's title, four to eight words",
   "subtitle": "subject · the idea it uses",
+  "figures": [
+    {
+      "id": "main",
+      "axes": true, "grid": true,
+      "values": { "r": "8/9" },
+      "points": { "O": ["0", "0"], "S": ["-1", "0"], "C": ["3*r - 2", "r"] },
+      "shapes": [
+        { "id": "big", "type": "circle", "center": "O", "r": "2", "half": "upper", "color": "blue", "fill": true },
+        { "id": "c", "type": "circle", "center": "C", "r": "r", "color": "purple", "fill": true },
+        { "id": "OC", "type": "segment", "from": "O", "to": "C", "color": "blue", "label": "2 − r" },
+        { "id": "dotO", "type": "point", "at": "O", "label": "O(0, 0)", "color": "ink" }
+      ],
+      "checks": [
+        { "type": "tangent", "a": "big", "b": "c" },
+        { "type": "length", "from": "O", "to": "C", "equals": "2 - r" }
+      ]
+    }
+  ],
   "scenes": [
     {
       "heading": "what this scene does, three to six words",
@@ -30,38 +49,39 @@ Shape:
         { "kind": "text", "text": "a short point in words", "color": "ink", "at": 1 },
         { "kind": "answer", "text": "r = 8/9 units", "color": "green", "at": 2 }
       ],
-      "diagram": {
-        "x": [-2.5, 2.5], "y": [-0.5, 2.5], "grid": true, "axes": true,
-        "shapes": [
-          { "type": "circle", "c": [0, 0], "r": 2, "half": "upper", "color": "blue", "fill": true, "at": 0 },
-          { "type": "segment", "from": [0, 0], "to": [0.67, 0.89], "color": "blue", "dashed": false, "label": "2 − r", "at": 1 },
-          { "type": "point", "p": [0, 0], "label": "O(0, 0)", "color": "ink", "at": 0 },
-          { "type": "polygon", "points": [[0, 0], [1, 0], [1, 1]], "color": "purple", "fill": true, "at": 1 },
-          { "type": "path", "points": [[-2, 4], [-1, 1], [0, 0], [1, 1], [2, 4]], "color": "orange", "at": 0 },
-          { "type": "arrow", "from": [0, 0], "to": [1, 1], "color": "red", "at": 2 },
-          { "type": "text", "p": [1, 1.5], "text": "a label", "color": "green", "at": 1 }
-        ]
-      }
+      "figure": "main",
+      "show": [{ "id": "big", "at": 0 }, { "id": "c", "at": 1 }, { "id": "OC", "at": 1 }]
     }
   ]
 }`;
 
 const RULES = `How the video works:
-- Each scene is shown while its "lines" are read aloud, one after another. "at" is the index of the line during which a board item or shape appears, so things arrive as they are talked about. Start each scene's first items at 0.
+- Each scene is shown while its "lines" are read aloud, one after another. "at" is the index of the line during which a board item or figure shape appears, so things arrive as they are talked about. Start each scene's first items at 0.
 - The "lines" are the transcript. Spoken, plain, warm, like a good teacher at a whiteboard. Say symbols the way they are read aloud: "x squared", "two minus r", "eight ninths". 1 to 4 lines per scene, each under 30 words.
 - 4 to 7 scenes. The first sets out what is asked and the plan. The last states the answer or the key takeaway.
 - "board" holds 1 to 7 items per scene: working written with real symbols (x², √, π, ×, ÷, ≤, ≥, −, fractions as 8/9), each line a single step. "label" is a short coloured caption above the working it introduces. "answer" is for the final result only. Never a caret.
-- Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the diagram and on the board.
-- "diagram" is optional. Include one whenever the idea is geometric, a graph, a force, a cycle drawn as a shape, or anything a sketch makes clearer; set it to null otherwise. Keep the same diagram across scenes that talk about it, adding to it.
-- Diagram coordinates are the true mathematical positions, worked out correctly, so circles that touch really touch. "x" and "y" are the visible ranges and must contain every shape with a little margin. "half" is "upper", "lower" or null. Up to 14 shapes.
+- Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
+- A figure is optional. Use one whenever the idea is geometric, a graph, a force, a structure or anything a picture makes clearer; scenes without one set "figure" to null.
 - Only what the source says, or standard facts at its level. Never invent a figure.
 - British English. No em dashes or en dashes in the lines.`;
+
+const FIGURES = `Figures, which the app draws to scale and checks before showing:
+- A figure is drawn once and used by any scene through "figure" (its id, or null for no diagram) and "show" (which of its shapes appear, and on which line). Keep a figure the same across scenes, revealing more of it.
+- Every number is an exact expression the app calculates: "8/9", "2 - r", "sqrt(3)/2", "2*cos(pi/6)", "r^2". Use + - * / ^ ( ), sqrt, sin, cos, tan (radians), pi, and names from "values". Never a rounded decimal you worked out yourself.
+- "points" are named positions, [x, y] with y upwards. Shapes refer to points by name or by an [x, y] pair of expressions.
+- Shape types: "circle" (center, r, half "upper"/"lower"/null, fill); "ellipse" (center, rx, ry, turn in degrees, fill); "rect" (from and to opposite corners, round for rounded corners, fill); "segment" and "arrow" (from, to, dashed, label); "point" (at, label); "polygon" (through: points, fill); "path" (through: points); "graph" (y: a function of x such as "x^2 - 2", from, to); "text" (at, text); "callout" (to: the point it names, at: where its words go, text) for labelling a part with a line pointing to it. Up to 24 shapes.
+- "checks" state every fact the figure must satisfy, and the app tests each one: "tangent" (a, b: circles or segments that touch), "on" (point lies on shape), "length" (from, to, equals), "perpendicular" and "parallel" (a, b: segments), "inside" (inner shape or point lies wholly inside outer). Give a check for every relationship in the question or topic: every touching, every length given, and "inside" for every part drawn within another, like each organelle inside the cell. A figure that fails a check is sent back to you to fix.
+- Sizes are true to life relative to each other: a chloroplast is small beside the cell it sits in, the nucleus smaller than the cell, and so on. Leave space between parts that do not touch.
+- Maths and coordinate figures set "axes" and "grid" true. Everything else sets them false and labels parts with "callout" rather than point labels.
+- For a standard labelled diagram that a textbook would show as a picture, like a plant or animal cell, the heart, a leaf in cross section, a flower, the eye, a neuron, a volcano or a distillation apparatus, give the figure as { "id": "cell", "picture": "the exact title of the Wikipedia article", e.g. "Plant cell" } instead of drawing it. A real labelled diagram is clearer than a sketch.`;
 
 const FROM_SOLUTION = `You turn a worked solution into a short narrated explainer video that walks a student through it step by step, like a tutor at a whiteboard.
 
 ${SHAPE}
 
 ${RULES}
+
+${FIGURES}
 - Follow the worked solution's method and reach its answer. Show every step of the working on the board, one move per line.`;
 
 const FROM_NOTES = `You turn one topic of a student's notes into a short narrated explainer video that teaches it, like a teacher at a whiteboard.
@@ -69,63 +89,27 @@ const FROM_NOTES = `You turn one topic of a student's notes into a short narrate
 ${SHAPE}
 
 ${RULES}
+
+${FIGURES}
 - Teach the topic in a sensible order: what it is, how it works, an example, then what to remember. Cover the main points of the notes on this topic and nothing from other topics.
 - For a topic with no maths, the board holds short points, key terms and steps rather than equations, and a diagram only when a sketch really helps.`;
 
 const COLORS = ["ink", "blue", "green", "purple", "orange", "red"];
 const KINDS = ["label", "math", "text", "answer"];
-const SHAPES = ["circle", "segment", "point", "polygon", "path", "arrow", "text"];
-
-const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const pt = (p) => (Array.isArray(p) && p.length >= 2 && num(p[0]) !== null && num(p[1]) !== null ? [p[0], p[1]] : null);
 const color = (c) => (COLORS.includes(c) ? c : "ink");
 const at = (v, max) => Math.max(0, Math.min(max, Number.isInteger(v) ? v : 0));
 const short = (s, n) => String(s ?? "").trim().slice(0, n);
 
+const REPAIR = `You fix diagrams for a study video. Each figure below failed checks: the numbers do not satisfy the facts the figure is meant to show, or parts could not be calculated.
+
+Work out the correct exact values, then return ONE JSON object and nothing else:
+{ "figures": [ every figure listed, corrected, in the same format and with the same ids and shape ids ] }
+
+Keep every shape id the scenes use. Fix positions and sizes with exact expressions (never rounded decimals) so every check passes; keep checks that state real facts, and only remove a check if the fact it states is wrong. Sizes stay true to life relative to each other.`;
+
 // Never trust the shape. Anything the player could not draw is dropped here,
-// so a bad shape costs one shape rather than the whole video.
-function cleanShape(s, last) {
-  if (!s || !SHAPES.includes(s.type)) return null;
-  const base = { type: s.type, color: color(s.color), at: at(s.at, last) };
-  const label = s.label ? { label: short(s.label, 40) } : {};
-  switch (s.type) {
-    case "circle": {
-      const c = pt(s.c), r = num(s.r);
-      if (!c || !(r > 0)) return null;
-      return { ...base, c, r, half: ["upper", "lower"].includes(s.half) ? s.half : null, fill: s.fill === true, ...label };
-    }
-    case "segment": case "arrow": {
-      const from = pt(s.from), to = pt(s.to);
-      if (!from || !to) return null;
-      return { ...base, from, to, dashed: s.dashed === true, ...label };
-    }
-    case "point": {
-      const p = pt(s.p);
-      return p ? { ...base, p, ...label } : null;
-    }
-    case "polygon": case "path": {
-      const points = (Array.isArray(s.points) ? s.points : []).map(pt).filter(Boolean).slice(0, 60);
-      if (points.length < 2) return null;
-      return { ...base, points, fill: s.type === "polygon" && s.fill === true };
-    }
-    case "text": {
-      const p = pt(s.p), text = short(s.text, 60);
-      return p && text ? { ...base, p, text } : null;
-    }
-    default: return null;
-  }
-}
-
-function cleanDiagram(d, last) {
-  if (!d || typeof d !== "object") return null;
-  const x = pt(d.x), y = pt(d.y);
-  if (!x || !y || !(x[1] > x[0]) || !(y[1] > y[0])) return null;
-  const shapes = (Array.isArray(d.shapes) ? d.shapes : []).map((s) => cleanShape(s, last)).filter(Boolean).slice(0, 14);
-  if (!shapes.length) return null;
-  return { x, y, grid: d.grid !== false, axes: d.axes !== false, shapes };
-}
-
-function cleanVideo(data) {
+// so a bad part costs that part rather than the whole video.
+function cleanScenes(data, figures) {
   const scenes = (Array.isArray(data?.scenes) ? data.scenes : []).map((sc) => {
     const lines = (Array.isArray(sc?.lines) ? sc.lines : []).map((l) => short(l, 400)).filter(Boolean).slice(0, 5);
     if (!lines.length) return null;
@@ -134,10 +118,36 @@ function cleanVideo(data) {
       .filter((b) => b && typeof b.text === "string" && b.text.trim())
       .map((b) => ({ kind: KINDS.includes(b.kind) ? b.kind : "text", text: short(b.text, 160), color: color(b.color), at: at(b.at, last) }))
       .slice(0, 8);
-    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: cleanDiagram(sc.diagram, last) };
+    const fig = typeof sc.figure === "string" ? figures[sc.figure] : null;
+    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last) };
   }).filter(Boolean).slice(0, 8);
   if (scenes.length < 2) return null;
   return { title: short(data.title, 100) || "Explained", subtitle: short(data.subtitle, 120), scenes };
+}
+
+// Builds the figures, sends any that fail their checks back once to be
+// fixed, and leaves out any that still fail.
+async function checkedFigures(list) {
+  let { figures, problems } = buildFigures(list);
+  const failing = Object.keys(problems);
+  if (!failing.length) return figures;
+  try {
+    const broken = list.filter((f) => failing.includes(String(f?.id || "main")));
+    const text = await ask({
+      system: REPAIR,
+      user: broken.map((f) => `Figure ${JSON.stringify(f)}\nProblems:\n- ${problems[String(f?.id || "main")].join("\n- ")}`).join("\n\n"),
+      maxTokens: 3000, temperature: 0.1, json: true,
+    });
+    const fixed = safeParse(text, "figures")?.figures;
+    if (Array.isArray(fixed)) {
+      const again = buildFigures(fixed);
+      for (const id of failing) {
+        if (again.figures[id] && !again.problems[id]) { figures[id] = again.figures[id]; delete problems[id]; }
+      }
+    }
+  } catch { /* the repair is a second chance, not a requirement */ }
+  for (const id of Object.keys(problems)) figures[id] = null;
+  return figures;
 }
 
 export default async function handler(req, res) {
@@ -168,8 +178,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const text = await ask({ system, user, maxTokens: 5000, temperature: 0.3, json: true });
-    const video = cleanVideo(safeParse(text, "scenes"));
+    const text = await ask({ system, user, maxTokens: 6000, temperature: 0.3, json: true });
+    const data = safeParse(text, "scenes");
+    const figures = await checkedFigures(Array.isArray(data?.figures) ? data.figures : []);
+    const video = cleanScenes(data, figures);
     if (!video) return userError(res, 502, "The video did not come back complete. Try again.");
     res.status(200).json(video);
   } catch (err) {

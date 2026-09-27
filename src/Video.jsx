@@ -341,13 +341,37 @@ function PlayIcon({ size }) {
 
 /* ---------- a scene ---------- */
 
+// A real labelled diagram from Wikipedia, for a figure given as a picture.
+// Kept per query while the page is open, so scenes sharing it do not flicker.
+const pictures = new Map();
+function usePicture(query) {
+  const [pic, setPic] = useState(() => (query ? pictures.get(query) : null));
+  useEffect(() => {
+    if (!query || pictures.has(query)) { setPic(query ? pictures.get(query) : null); return; }
+    let live = true;
+    import("./wikiPic.js").then(({ findPicture }) => findPicture(query)).catch(() => null)
+      .then((p) => { pictures.set(query, p || null); if (live) setPic(p || null); });
+    return () => { live = false; };
+  }, [query]);
+  return pic;
+}
+
 function Scene({ scene, line }) {
   const board = scene.board.filter((b) => b.at <= line);
+  const pic = usePicture(scene.diagram?.picture);
+  const drawn = scene.diagram && !scene.diagram.picture;
+  const figure = drawn || !!pic;
   return (
-    <div className={"vd-scene" + (scene.diagram ? " with-diagram" : "")}>
+    <div className={"vd-scene" + (figure ? " with-diagram" : "")}>
       <h3 className="vd-heading">{scene.heading}</h3>
       <div className="vd-body">
-        {scene.diagram && <Diagram d={scene.diagram} line={line} />}
+        {drawn && <Diagram d={scene.diagram} line={line} />}
+        {pic && (
+          <figure className="vd-picture">
+            <img src={pic.src} alt={pic.title} referrerPolicy="no-referrer" />
+            <figcaption>{pic.title} · Wikipedia</figcaption>
+          </figure>
+        )}
         <div className="vd-board">
           {board.map((b, i) => (
             <div key={i} className={`vd-b ${b.kind} c-${b.color}` + (b.at === line ? " fresh" : "")}>{b.text}</div>
@@ -385,7 +409,7 @@ function Diagram({ d, line }) {
     </g>
   );
   return (
-    <svg className="vd-diagram" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Diagram">
+    <svg className={"vd-diagram" + (d.axes ? " is-graph" : " is-picture")} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Diagram">
       <defs>
         <marker id="vd-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" fill="context-stroke" />
@@ -408,6 +432,37 @@ function Shape({ s, X, Y, k, fresh }) {
         ? <path d={`M${cx - r} ${cy} A${r} ${r} 0 0 ${s.half === "upper" ? 1 : 0} ${cx + r} ${cy} Z`} pathLength="1" className={cls + (s.fill ? " filled" : "")} />
         : <circle cx={cx} cy={cy} r={r} pathLength="1" className={cls + (s.fill ? " filled" : "")} />;
       return <g>{shape}{label(cx, s.half === "lower" ? cy + r + 22 : cy - r, s.label)}</g>;
+    }
+    case "ellipse": {
+      const cx = X(s.c[0]), cy = Y(s.c[1]);
+      return (
+        <g>
+          <ellipse cx={cx} cy={cy} rx={s.rx * k} ry={s.ry * k} transform={s.turn ? `rotate(${-s.turn} ${cx} ${cy})` : undefined}
+            pathLength="1" className={cls + (s.fill ? " filled" : "")} />
+          {label(cx, cy - s.ry * k, s.label)}
+        </g>
+      );
+    }
+    case "rect": {
+      const x = X(s.from[0]), y = Y(s.to[1]), w = (s.to[0] - s.from[0]) * k, h = (s.to[1] - s.from[1]) * k;
+      return (
+        <g>
+          <rect x={x} y={y} width={w} height={h} rx={(s.round || 0) * k} pathLength="1" className={cls + (s.fill ? " filled" : "")} />
+          {label(x + w / 2, y, s.label)}
+        </g>
+      );
+    }
+    case "callout": {
+      // A label out to the side, with a line to the part it names.
+      const px = X(s.p[0]), py = Y(s.p[1]), tx = X(s.pos[0]), ty = Y(s.pos[1]);
+      const right = tx >= px;
+      return (
+        <g className={fresh ? "vd-callout fresh" : "vd-callout"}>
+          <line x1={px} y1={py} x2={tx + (right ? -4 : 4)} y2={ty} className={`vd-leader c-${s.color}`} />
+          <circle cx={px} cy={py} r="3" className={`vd-dot c-${s.color}`} />
+          <text className={`vd-label c-${s.color}`} x={tx} y={ty + 5} textAnchor={right ? "start" : "end"}>{s.text}</text>
+        </g>
+      );
     }
     case "segment": case "arrow": {
       const [a, b] = [s.from, s.to];
