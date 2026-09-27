@@ -96,8 +96,8 @@ select * from (values
   ('review', 'Review on the website', 'Thank you for your review! We loved it, and it is now on the Dwiddle front page. Good luck with your studying.', 'Dwiddle'),
   ('feedback', 'Great idea', 'Thanks for the idea! We have added it to the list of things we are considering. We cannot promise when, but we read every suggestion.', 'Dwiddle'),
   ('feedback', 'Already there', 'Thanks for your message! Good news: Dwiddle can already do this. Here is how: ', 'Dwiddle'),
-  ('complaint', 'Sorry, looking into it', 'We are sorry about this, and thank you for telling us. We are looking into what happened and will get back to you as soon as we can.', 'Dwiddle'),
-  ('complaint', 'Resolved', 'Thank you for your patience. We have looked into your complaint and ', 'Dwiddle')
+  ('complaint', 'Sorry, checking now', 'We are sorry about this, and thank you for telling us. We are checking what happened and will get back to you as soon as we can.', 'Dwiddle'),
+  ('complaint', 'Resolved', 'Thank you for your patience. We have checked your complaint and ', 'Dwiddle')
 ) as v(kind, title, body, created_by)
 where not exists (select 1 from public.reply_templates);
 
