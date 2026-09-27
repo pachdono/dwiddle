@@ -4,7 +4,7 @@ import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voi
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen } from "./ui.jsx";
 import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -1880,6 +1880,16 @@ function AddMaterial({ go, setMade, auth }) {
             onChange={(e) => setNotes(e.target.value)}
           />
 
+          {["reading", "asking", "brief", "working"].includes(state) && (
+            <BusyScreen
+              title={state === "reading" ? "Reading your material" : state === "asking" ? "Reading your request" : "Making your study material"}
+              detail={state === "reading" ? (files.length > 1 ? `File ${reading} of ${files.length}` : "Pulling the text out of your file")
+                : state === "asking" ? "Working out what you want to study"
+                : state === "brief" ? "Writing full notes, topic by topic"
+                : "Writing questions with an explanation for every answer"}
+              progress={state === "reading" && files.length > 1 ? (reading - 1) / files.length : null}
+              outfit={state === "reading" ? "detective" : state === "brief" ? "wizard" : "graduate"} />
+          )}
           <div className="notes-foot">
             <span className="small muted">
               {state === "reading" ? `Reading ${files.length > 1 ? `file ${reading} of ${files.length}` : "the file"}`
@@ -3645,7 +3655,7 @@ function TestPrep({ grade }) {
                   ) : (
                     <button className="btn ghost" disabled={building !== null}
                       onClick={() => sit(sec)}>
-                      {building?.sec?.id === sec.id ? <Loading label="Building" /> : "Sit this section"}
+                      {building?.sec?.id === sec.id ? <><Loading label="Building" /><BusyScreen title={`Building ${sec.name || "your section"}`} detail={building.wanted ? `${building.have} of ${building.wanted} questions written` : "Writing questions"} progress={building.wanted ? building.have / building.wanted : null} outfit="ninja" /></> : "Sit this section"}
                     </button>
                   )}
                 </div>

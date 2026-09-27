@@ -15,7 +15,7 @@ import "@fontsource/caveat/600.css";
 import "@fontsource/patrick-hand/400.css";
 import "@fontsource/kalam/400.css";
 import "@fontsource/shadows-into-light/400.css";
-import { Icon, PageHead, Loading, Portal } from "./ui.jsx";
+import { Icon, PageHead, Loading, Portal, BusyScreen } from "./ui.jsx";
 import { DuckMark } from "./Duck.jsx";
 import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H, listFonts, putFont } from "./notebookStore.js";
 import { syncNotebooks, queueUpload, queueDelete } from "./notebookSync.js";
@@ -660,6 +660,7 @@ export default function NotebookPage({ go }) {
   });
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState("");
+  const [importProg, setImportProg] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [folder, setFolder] = useState("all");
   const [extraFolders, setExtraFolders] = useState(loadFolders);
@@ -745,9 +746,9 @@ export default function NotebookPage({ go }) {
   // Each PDF page becomes a notebook page with the page as its paper, ready
   // to write on, the way worksheets and lecture slides get annotated.
   async function importPdf(file) {
-    setImporting("Opening the PDF");
+    setImporting("Opening the PDF"); setImportProg(null);
     try {
-      const pages = await pdfPages(file, (i, n) => setImporting(`Page ${i} of ${n}`));
+      const pages = await pdfPages(file, (i, n) => { setImporting(`Page ${i} of ${n}`); setImportProg(i / n); });
       const b = { ...newBook({ title: file.name.replace(/\.pdf$/i, ""), template: "blank", cover: "#1C6DAA" }), pages, folder: folder !== "all" && folder !== "none" ? folder : "" };
       await putBook(b);
       queueUpload(b.id);
@@ -806,7 +807,7 @@ export default function NotebookPage({ go }) {
         </span>
       </div>
 
-      {importing && <div className="card card-pad note-card"><Loading label={`Importing: ${importing}`} /></div>}
+      {importing && <BusyScreen title="Importing your PDF" detail={importing} progress={importProg} outfit="detective" />}
 
       {books === null ? <Loading label="Opening your notebooks" /> : shown.length === 0 && !(view === "folders" && folder === "all" && folders.length) ? (
         <div className="card card-pad nb-empty">
@@ -2814,6 +2815,7 @@ function Editor({ id, go, onClose }) {
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />
+      {busy && <BusyScreen title={busy === "Adding the PDF" ? "Adding your PDF" : "Dwiddle is reading the page"} detail={busy === "Adding the PDF" ? "Each page becomes a notebook page you can write on." : "Turning your writing into text Dwiddle can work with."} outfit={busy === "Adding the PDF" ? "detective" : "graduate"} />}
       {more && (
         <>
           <div className="nb-pop-scrim" onPointerDown={() => setMore(false)} />

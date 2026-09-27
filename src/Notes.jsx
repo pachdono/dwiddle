@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
-import { Icon, PageHead, Loading, Marked, HighlightFilters } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
@@ -155,6 +155,7 @@ export function Notes({ made, saveNotes, go }) {
         </div>
       )}
 
+      {writing && <BusyScreen title="Writing your notes" detail="Every definition, list and example from your material, topic by topic. Long material can take a minute." outfit="wizard" />}
       <div className="nt-body sheet">
         {topics.map((t, i) => {
           const blocks = notes[t.name];
@@ -213,14 +214,15 @@ function ToNotebook({ made, go, onClose }) {
   const [paper, setPaper] = useState("lined");
   const [pictures, setPictures] = useState(true);
   const [busy, setBusy] = useState("");
+  const [prog, setProg] = useState(0);
   const [err, setErr] = useState("");
   useEffect(() => { FONTS.forEach((f) => readyFont(f)); }, []);
 
   async function make() {
-    setErr(""); setBusy("Getting ready");
+    setErr(""); setBusy("Getting ready"); setProg(0.02);
     try {
       const { notesToNotebook } = await import("./notesToNotebook.js");
-      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, onProgress: (t) => setBusy(t) });
+      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, onProgress: (t, p) => { setBusy(t); setProg(p); } });
       try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
       go?.("notebook");
     } catch (e) {
@@ -230,6 +232,7 @@ function ToNotebook({ made, go, onClose }) {
 
   return (
     <div className="gate-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      {busy && <BusyScreen title="Making your notebook" detail={busy} progress={prog} outfit="chef" />}
       <div className="gate tonb" role="dialog" aria-modal="true" aria-labelledby="tonb-title">
         <h2 id="tonb-title">Turn these notes into a notebook</h2>
         <p className="gate-sub">Every topic on its own pages, with your highlights drawn in, ready to write on.</p>

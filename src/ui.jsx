@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HL_KINDS } from "./mock.js";
+import { Duck } from "./Duck.jsx";
 
 // The small pieces every page is built from: the icon set, the heading at the
 // top of a page, and the inline spinner. They sit apart from the app itself so
@@ -152,5 +154,42 @@ export function HighlightFilters({ on, setOn, counts }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// A full screen "working on it" page for anything that takes more than a
+// moment: a duck dressed for the job, what is happening now, a bar that fills
+// when the progress is known (and sweeps when it is not), and a tip to read
+// while waiting.
+const TIPS = [
+  "Tap a highlighted word in your notes to see just that kind of highlight.",
+  "The revealer pen hides answers in a notebook. Tap them to check yourself.",
+  "Practice has a podcast of your notes. Listen on a walk.",
+  "Flashcards you know are retired, so you only see the ones you need.",
+  "Double tap text in a notebook to type in it.",
+  "Missed questions are saved, so you can go back over just those.",
+  "Ask Dwiddle anything about the page you are on.",
+];
+
+export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle" }) {
+  const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
+  useEffect(() => {
+    const t = setInterval(() => setTip((n) => (n + 1) % TIPS.length), 4500);
+    return () => clearInterval(t);
+  }, []);
+  const known = typeof progress === "number" && isFinite(progress);
+  return createPortal(
+    <div className="busy" role="status" aria-live="polite">
+      <div className="busy-card">
+        <div className="busy-duck"><Duck size={110} outfit={outfit === "dwiddle" ? undefined : outfit} /></div>
+        <h2>{title}</h2>
+        {detail && <p className="busy-detail">{detail}</p>}
+        <div className={"busy-bar" + (known ? "" : " sweep")}>
+          <span style={known ? { width: `${Math.max(4, Math.min(100, progress * 100))}%` } : undefined} />
+        </div>
+        <p className="busy-tip" key={tip}>Tip: {TIPS[tip]}</p>
+      </div>
+    </div>,
+    document.body,
   );
 }
