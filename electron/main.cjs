@@ -138,7 +138,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.googleusercontent.com https://upload.wikimedia.org https://thumb.wikimedia.org",
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co https://huggingface.co https://*.huggingface.co https://*.hf.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org`,
   "media-src 'self' blob:",

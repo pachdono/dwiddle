@@ -157,6 +157,10 @@ export const writeVideo = (source) => post("/api/video", source, { retry: false 
   scenes: v.scenes.map((sc) => ({ ...sc, board: sc.board.map((b) => ({ ...b, text: tidyMath(b.text) })) })),
 }));
 
+// The research browser beside the notebook: search, open a page (live when
+// it allows it, else as a reader view), or fetch a picture to add.
+export const browse = (action, body) => post("/api/browse", { action, ...body }, { retry: false });
+
 // A two duck podcast script about a set of notes.
 export const writePodcast = (notes) =>
   post("/api/generate", { notes, mode: "podcast" }).then((d) => ({

@@ -351,10 +351,6 @@ function FontPop({ current, custom, onPick, onImport, onClose }) {
 }
 // Wikipedia search snippets arrive as HTML. Shown as plain text, never as
 // markup, so nothing in a snippet can run on the page.
-function plainSnippet(html) {
-  const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
-  return doc.body.textContent || "";
-}
 
 // Imported fonts are named "custom:Their Name".
 const fontOf = (id) => (String(id).startsWith("custom:")
@@ -1427,7 +1423,37 @@ function VideoFloat({ id, onId, onClose }) {
   const [rate, setRate] = useState(1);
   // Sized to taste by dragging the corner; remembered for next time.
   const [width, setWidth] = useState(() => { try { return Number(localStorage.getItem("dwiddle-nb-video-w")) || 420; } catch { return 420; } });
+  // Dragging a corner resizes from that corner, keeping the picture's shape;
+  // the opposite corner stays where it is.
   const sizing = useRef(null);
+  const [busyHands, setBusyHands] = useState(false); // dragging or resizing: shield the video from the pointer
+  const box = useRef(null);
+  const startSize = (corner) => (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const r = box.current.getBoundingClientRect();
+    sizing.current = { corner, x: e.clientX, y: e.clientY, w: width, left: r.left, top: r.top, h: r.height };
+    setBusyHands(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const moveSize = (e) => {
+    const sz = sizing.current;
+    if (!sz) return;
+    const dx = e.clientX - sz.x;
+    const grow = sz.corner.includes("l") ? -dx : dx;
+    const w = Math.round(Math.max(240, Math.min(innerWidth - 16, sz.w + grow)));
+    const h = sz.h * (w / sz.w);
+    setWidth(w);
+    setPos({
+      x: sz.corner.includes("l") ? Math.max(0, sz.left + sz.w - w) : sz.left,
+      y: sz.corner.includes("t") ? Math.max(0, sz.top + sz.h - h) : sz.top,
+    });
+  };
+  const endSize = () => {
+    if (!sizing.current) return;
+    sizing.current = null;
+    setBusyHands(false);
+    try { localStorage.setItem("dwiddle-nb-video-w", String(width)); } catch { /* private mode */ }
+  };
   const media = useRef(null);
   const fileInput = useRef(null);
   const drag = useRef(null);
@@ -1446,11 +1472,12 @@ function VideoFloat({ id, onId, onClose }) {
   };
   const showing = file ? "file" : id ? "yt" : "ask";
   return (
-    <div className={"nb-video" + (file?.audio ? " audio" : "") + (sizing.current ? " sizing" : "")} style={{ left: pos.x, top: pos.y, width }}>
+    <div ref={box} className={"nb-video" + (file?.audio ? " audio" : "") + (busyHands ? " sizing" : "")}
+      style={{ left: Math.max(0, Math.min(pos.x, innerWidth - Math.min(width, innerWidth - 16) - 8)), top: pos.y, width: Math.min(width, innerWidth - 16) }}>
       <div className="nb-video-bar"
-        onPointerDown={(e) => { if (e.target.closest("button")) return; drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } }}
+        onPointerDown={(e) => { if (e.target.closest("button")) return; drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }; setBusyHands(true); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } }}
         onPointerMove={(e) => { if (drag.current) setPos({ x: Math.max(0, Math.min(innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(0, Math.min(innerHeight - 60, e.clientY - drag.current.dy)) }); }}
-        onPointerUp={() => { drag.current = null; }}>
+        onPointerUp={() => { drag.current = null; setBusyHands(false); }} onPointerCancel={() => { drag.current = null; setBusyHands(false); }}>
         <Icon name="video" size={15} /><b>{file ? file.name : "Watch or listen"}</b>
         {showing !== "ask" && <button className="nb-pill" onClick={() => { setFile(null); onId(""); }}>Change</button>}
         <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button>
@@ -1480,49 +1507,215 @@ function VideoFloat({ id, onId, onClose }) {
           <button type="button" className="btn ghost small" onClick={() => fileInput.current?.click()}><Icon name="file" size={14} /> Open an audio or video file</button>
         </form>
       )}
-      <div className="nb-video-size" aria-label="Drag to resize" title="Drag to resize"
-        onPointerDown={(e) => { sizing.current = { x: e.clientX, w: width }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ } e.preventDefault(); }}
-        onPointerMove={(e) => { if (sizing.current) setWidth(Math.round(Math.max(240, Math.min(innerWidth - 16, sizing.current.w + e.clientX - sizing.current.x)))); }}
-        onPointerUp={() => { sizing.current = null; try { localStorage.setItem("dwiddle-nb-video-w", String(width)); } catch { /* private mode */ } }} />
+      {busyHands && <div className="nb-video-shield" aria-hidden="true" />}
+      {["tl", "tr", "bl", "br"].map((c) => (
+        <div key={c} className={"nb-video-size " + c} aria-label="Drag to resize" title="Drag a corner to resize"
+          onPointerDown={startSize(c)} onPointerMove={moveSize} onPointerUp={endSize} onPointerCancel={endSize} />
+      ))}
     </div>
   );
 }
 
-// Split screen: research beside the notebook. The desktop app has a real
-// browser; websites cannot show most other sites inside them, so on the web
-// there is Wikipedia, with its articles and pictures, to read and take from.
-const WIKI = "https://en.wikipedia.org/w/api.php";
-const COMMONS = "https://commons.wikimedia.org/w/api.php";
+// Split screen: a browser beside the notebook, like Safari. The desktop app
+// has a real one. On the website, pages that allow it are shown live, and
+// the rest (most sites forbid being shown inside another) open as a clean
+// reader view fetched by the server, with their pictures ready to add.
 async function imageFile(url) {
   let src = null;
   if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
-  const blob = src ? await (await fetch(src)).blob() : await (await fetch(url)).blob();
+  if (!src && !url.startsWith("data:")) {
+    const { browse } = await import("./ai.js");
+    src = (await browse("image", { url })).data;
+  }
+  const blob = await (await fetch(src || url)).blob();
   if (!blob.type.startsWith("image/")) throw new Error("not a picture");
   return new File([blob], "picture", { type: blob.type });
 }
 
+const FAVOURITES = [
+  { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Main_Page", color: "#1b1d26", letter: "W" },
+  { name: "BBC Bitesize", url: "https://www.bbc.co.uk/bitesize", color: "#1a1a1a", letter: "B" },
+  { name: "Khan Academy", url: "https://www.khanacademy.org", color: "#14bf96", letter: "K" },
+  { name: "Britannica", url: "https://www.britannica.com", color: "#0d6efd", letter: "E" },
+  { name: "Save My Exams", url: "https://www.savemyexams.com", color: "#5b3fd1", letter: "S" },
+  { name: "Physics & Maths Tutor", url: "https://www.physicsandmathstutor.com", color: "#e8590c", letter: "P" },
+  { name: "Simple Wikipedia", url: "https://simple.wikipedia.org/wiki/Main_Page", color: "#495057", letter: "S" },
+  { name: "Desmos", url: "https://www.desmos.com/calculator", color: "#2f72dc", letter: "D" },
+];
+
 function SplitPanel({ onClose, onAddImage, onAddText }) {
   const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
-  const [tab, setTab] = useState(desktop ? "web" : "wiki");
   return (
-    <aside className="nb-split" aria-label="Research">
-      <div className="nb-split-bar">
-        <div className="seg tight">
-          {desktop && <button className={tab === "web" ? "on" : ""} onClick={() => setTab("web")}>Browser</button>}
-          <button className={tab === "wiki" ? "on" : ""} onClick={() => setTab("wiki")}>Wikipedia</button>
-        </div>
-        <span className="small muted nb-split-tip">Drag pictures onto your page, or copy and paste.</span>
-        <button className="icon-btn" onClick={onClose} aria-label="Close split screen"><Icon name="close" size={16} /></button>
-      </div>
-      {tab === "web" && desktop ? <WebView /> : <WikiPanel onAddImage={onAddImage} onAddText={onAddText} />}
+    <aside className="nb-split nb-safari" aria-label="Browser">
+      {desktop ? <WebView onClose={onClose} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} />}
     </aside>
   );
 }
 
-function WebView() {
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+const toAddress = (t) => {
+  const s = t.trim();
+  if (/^https?:\/\//i.test(s)) return { url: s };
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(s)) return { url: "https://" + s };
+  return { q: s };
+};
+
+// Back, forward, reload, the address in a rounded field with its padlock,
+// and AA for the reader view: the same bar for both browsers.
+function SafariBar({ address, secure, editing, setEditing, draft, setDraft, onGo, canBack, canForward, onBack, onForward, onReload, reader, onReader, onOpenOutside, onClose }) {
+  return (
+    <div className="sf-bar">
+      <div className="sf-nav">
+        <button className="sf-btn" onClick={onBack} disabled={!canBack} aria-label="Back"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 4 6.5 10l6 6" /></svg></button>
+        <button className="sf-btn" onClick={onForward} disabled={!canForward} aria-label="Forward"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4 6 6-6 6" /></svg></button>
+      </div>
+      <form className={"sf-field" + (editing ? " editing" : "")} onSubmit={(e) => { e.preventDefault(); onGo(draft); }}>
+        {onReader && !editing && (
+          <button type="button" className={"sf-aa" + (reader ? " on" : "")} onClick={onReader} aria-pressed={!!reader} title="Reader view">
+            <span className="sf-aa-s">A</span><span>A</span>
+          </button>
+        )}
+        {editing ? (
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => setEditing(false)}
+            onFocus={(e) => e.target.select()} placeholder="Search or enter website name" aria-label="Search or enter website name" />
+        ) : (
+          <button type="button" className="sf-address" onClick={() => { setDraft(address.full || ""); setEditing(true); }}>
+            {secure && <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor" aria-hidden="true"><path d="M2 5V3.6a3.5 3.5 0 0 1 7 0V5h.6c.5 0 .9.4.9.9v5.2c0 .5-.4.9-.9.9H1.4a.9.9 0 0 1-.9-.9V5.9c0-.5.4-.9.9-.9H2Zm1.3 0h4.4V3.6a2.2 2.2 0 0 0-4.4 0V5Z" /></svg>}
+            <span>{address.shown || "Search or enter website name"}</span>
+          </button>
+        )}
+        {!editing && onReload && <button type="button" className="sf-reload" onClick={onReload} aria-label="Reload"><Icon name="refresh" size={13} /></button>}
+      </form>
+      {onOpenOutside && <button className="sf-btn" onClick={onOpenOutside} aria-label="Open in your browser" title="Open in your own browser"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13V3M6.5 6.5 10 3l3.5 3.5M5 9H4v8h12V9h-1" /></svg></button>}
+      <button className="sf-btn" onClick={onClose} aria-label="Close the browser"><Icon name="close" size={16} /></button>
+    </div>
+  );
+}
+
+function Browser({ onClose, onAddImage, onAddText }) {
+  // Where the student has been: the start page, search results and pages.
+  const [trail, setTrail] = useState([{ kind: "start" }]);
+  const [at, setAt] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [data, setData] = useState({}); // key -> results or page
+  const [readerOn, setReaderOn] = useState(false);
+  const here = trail[at];
+  const key = here.kind === "results" ? "q:" + here.q : here.kind === "page" ? "u:" + here.url : "start";
+  const got = data[key];
+
+  function visit(entry) {
+    setTrail((t) => [...t.slice(0, at + 1), entry]);
+    setAt((n) => n + 1);
+    setEditing(false);
+    setReaderOn(false);
+  }
+  const go = (text) => { const a = toAddress(text); if (a.q) { if (a.q) visit({ kind: "results", q: a.q }); } else visit({ kind: "page", url: a.url }); };
+
+  useEffect(() => {
+    if (here.kind === "start" || got) return;
+    let live = true;
+    setLoading(true); setError("");
+    import("./ai.js").then(({ browse }) => (here.kind === "results" ? browse("search", { q: here.q }) : browse("open", { url: here.url })))
+      .then((d) => { if (live) setData((m) => ({ ...m, [key]: d })); })
+      .catch((e) => { if (live) setError(e.message || "That could not be opened."); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const page = here.kind === "page" ? got : null;
+  const live = page && page.framable && !readerOn;
+  const address = here.kind === "page" ? { shown: hostOf(page?.url || here.url), full: page?.url || here.url }
+    : here.kind === "results" ? { shown: here.q, full: here.q } : { shown: "", full: "" };
+  const addSelected = () => {
+    const sel = String(window.getSelection() || "").trim();
+    if (sel) onAddText(sel); else alert("Select some text in the article first, then tap this.");
+  };
+
+  return (
+    <div className="sf">
+      <SafariBar address={address} secure={here.kind === "page" && /^https:/.test(page?.url || here.url)}
+        editing={editing} setEditing={setEditing} draft={draft} setDraft={setDraft} onGo={go}
+        canBack={at > 0} canForward={at < trail.length - 1} onBack={() => { setAt((n) => n - 1); setReaderOn(false); }} onForward={() => setAt((n) => n + 1)}
+        onReload={here.kind !== "start" ? () => setData((m) => { const c = { ...m }; delete c[key]; return c; }) : null}
+        reader={!live} onReader={page?.framable ? () => setReaderOn((v) => !v) : null}
+        onOpenOutside={here.kind === "page" ? () => window.open(page?.url || here.url, "_blank", "noopener") : null}
+        onClose={onClose} />
+      {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
+      <div className="sf-body">
+        {error && <div className="sf-error"><b>That page could not be opened</b><p className="small muted">{error}</p>
+          {here.kind === "page" && <button className="btn ghost small" onClick={() => window.open(here.url, "_blank", "noopener")}>Open in your own browser</button>}</div>}
+        {here.kind === "start" && (
+          <div className="sf-start">
+            <form className="sf-search" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) go(draft); }}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search the web" aria-label="Search the web" />
+            </form>
+            <h4>Favourites</h4>
+            <div className="sf-favs">
+              {FAVOURITES.map((f) => (
+                <button key={f.url} onClick={() => visit({ kind: "page", url: f.url })}>
+                  <span style={{ background: f.color }}>{f.letter}</span><small>{f.name}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {here.kind === "results" && got && (
+          <ul className="sf-results">
+            {got.results.length === 0 && <li className="small muted">Nothing found.</li>}
+            {got.results.map((r) => (
+              <li key={r.url}><button onClick={() => visit({ kind: "page", url: r.url })}>
+                <small>{r.site}</small><b>{r.title}</b>{r.snippet && <span>{r.snippet}</span>}
+              </button></li>
+            ))}
+          </ul>
+        )}
+        {here.kind === "page" && page && live && (
+          <iframe className="sf-frame" title={page.title || "Web page"} src={page.url}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer" />
+        )}
+        {here.kind === "page" && page && !live && (
+          <article className="sf-reader">
+            <div className="sf-reader-tools">
+              <span className="small muted">{page.framable ? "Reader view" : "Shown in reader view: this site does not allow being opened inside other apps."}</span>
+              <button className="btn ghost small" onClick={addSelected}>Add selected text to page</button>
+            </div>
+            <h1>{page.title}</h1>
+            {page.image && <ReaderPic src={page.image} onAdd={onAddImage} />}
+            {page.blocks.map((b, i) => b.h ? <h2 key={i}>{b.h}</h2>
+              : b.p ? <p key={i} className={b.small ? "small muted" : ""}>{b.p}</p>
+              : b.li ? <p key={i} className="sf-li">{b.li}</p>
+              : b.img ? <ReaderPic key={i} src={b.img} alt={b.alt} onAdd={onAddImage} /> : null)}
+            {page.blocks.length === 0 && <p className="muted">This page has no readable article. Open it in your own browser instead.</p>}
+          </article>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// A picture in the reader: tap to put it on the page, or drag it there.
+function ReaderPic({ src, alt, onAdd }) {
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  return (
+    <button className="sf-pic" draggable onDragStart={(e) => e.dataTransfer.setData("text/uri-list", src)} title="Add to the page"
+      onClick={async () => { try { onAdd(await imageFile(src)); } catch { alert("That picture could not be added."); } }}>
+      <img src={src} alt={alt || ""} loading="lazy" referrerPolicy="no-referrer" onError={() => setGone(true)} />
+      <span>+ Add to page</span>
+    </button>
+  );
+}
+
+// The desktop app's real browser, in the same Safari-style bar.
+function WebView({ onClose }) {
   const view = useRef(null);
   const [addr, setAddr] = useState("https://www.google.com");
   const [src] = useState("https://www.google.com");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   useEffect(() => {
     const v = view.current;
     if (!v) return;
@@ -1531,91 +1724,17 @@ function WebView() {
     v.addEventListener("did-navigate-in-page", on);
     return () => { v.removeEventListener("did-navigate", on); v.removeEventListener("did-navigate-in-page", on); };
   }, []);
-  const go = (e) => {
-    e.preventDefault();
-    const t = addr.trim();
-    const url = /^https?:\/\//.test(t) ? t : /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(t) ? "https://" + t : "https://www.google.com/search?q=" + encodeURIComponent(t);
-    view.current?.loadURL(url);
+  const go = (t) => {
+    const a = toAddress(t);
+    view.current?.loadURL(a.url || "https://www.google.com/search?q=" + encodeURIComponent(a.q));
+    setEditing(false);
   };
   return (
-    <div className="nb-web">
-      <form className="nb-web-bar" onSubmit={go}>
-        <button type="button" className="icon-btn" onClick={() => view.current?.goBack()} aria-label="Back"><Icon name="back" size={15} /></button>
-        <button type="button" className="icon-btn" onClick={() => view.current?.reload()} aria-label="Reload"><Icon name="refresh" size={15} /></button>
-        <input value={addr} onChange={(e) => setAddr(e.target.value)} onFocus={(e) => e.target.select()} aria-label="Address or search" />
-      </form>
+    <div className="sf">
+      <SafariBar address={{ shown: hostOf(addr), full: addr }} secure={addr.startsWith("https:")} editing={editing} setEditing={setEditing}
+        draft={draft} setDraft={setDraft} onGo={go} canBack canForward onBack={() => view.current?.goBack()} onForward={() => view.current?.goForward()}
+        onReload={() => view.current?.reload()} onClose={onClose} />
       <webview ref={view} src={src} partition="persist:dwiddle-browse" style={{ flex: 1 }} />
-    </div>
-  );
-}
-
-function WikiPanel({ onAddImage, onAddText }) {
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState(null);
-  const [article, setArticle] = useState(null); // { title, text }
-  const [pics, setPics] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const textRef = useRef(null);
-  async function search(e) {
-    e?.preventDefault();
-    if (!q.trim()) return;
-    setBusy(true); setArticle(null);
-    try {
-      const [r, p] = await Promise.all([
-        fetch(`${WIKI}?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=8&format=json&origin=*`).then((x) => x.json()),
-        fetch(`${COMMONS}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|mime&iiurlwidth=360&format=json&origin=*`).then((x) => x.json()),
-      ]);
-      setResults(r.query?.search || []);
-      setPics(Object.values(p.query?.pages || {}).map((x) => x.imageinfo?.[0]).filter((x) => x && /image\/(png|jpe?g|gif|webp|svg)/.test(x.mime)).map((x) => x.thumburl));
-    } catch { setResults([]); } finally { setBusy(false); }
-  }
-  async function open(title) {
-    setBusy(true);
-    try {
-      const r = await fetch(`${WIKI}?action=query&prop=extracts&explaintext=1&exsectionformat=plain&titles=${encodeURIComponent(title)}&format=json&origin=*`).then((x) => x.json());
-      const page = Object.values(r.query?.pages || {})[0];
-      setArticle({ title, text: page?.extract || "" });
-    } finally { setBusy(false); }
-  }
-  const addSelected = () => {
-    const sel = String(window.getSelection() || "").trim();
-    onAddText(sel || (article?.text || "").split("\n").find((l) => l.trim().length > 40) || "");
-  };
-  return (
-    <div className="nb-wiki">
-      <form className="nb-web-bar" onSubmit={search}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search Wikipedia, e.g. mitochondria" aria-label="Search Wikipedia" />
-        <button className="btn small cta" disabled={busy}>{busy ? "…" : "Search"}</button>
-      </form>
-      <div className="nb-wiki-body">
-        {pics.length > 0 && (
-          <div className="nb-wiki-pics">
-            {pics.map((u) => (
-              <button key={u} className="nb-wiki-pic" draggable onDragStart={(e) => e.dataTransfer.setData("text/uri-list", u)}
-                onClick={async () => { try { onAddImage(await imageFile(u)); } catch { alert("That picture could not be added."); } }} title="Add to the page">
-                <img src={u} alt="" loading="lazy" /><span>+</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {article ? (
-          <div className="nb-wiki-article">
-            <div className="nb-wiki-head"><button className="btn quiet small" onClick={() => setArticle(null)}><Icon name="back" size={13} /> Results</button>
-              <button className="btn ghost small" onClick={addSelected}>Add selected text to page</button></div>
-            <h3>{article.title}</h3>
-            <div ref={textRef} className="nb-wiki-text">{article.text.split("\n").filter(Boolean).slice(0, 80).map((l, i) => <p key={i}>{l}</p>)}</div>
-          </div>
-        ) : results && (
-          <ul className="nb-wiki-results">
-            {results.length === 0 && <li className="small muted">Nothing found.</li>}
-            {results.map((r) => (
-              <li key={r.pageid}><button onClick={() => open(r.title)}><b>{r.title}</b>
-                <span className="small muted">{plainSnippet(r.snippet)}…</span></button></li>
-            ))}
-          </ul>
-        )}
-        {!results && !article && <p className="small muted" style={{ padding: 12 }}>Look anything up without leaving your notes. Tap a picture to add it, or drag it onto the page.</p>}
-      </div>
     </div>
   );
 }
