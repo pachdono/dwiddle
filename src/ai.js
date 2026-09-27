@@ -166,6 +166,14 @@ export const writeBrief = (text, answers) =>
 export const writeSyllabusNotes = (syllabus) =>
   post("/api/generate", { mode: "syllabus", syllabus }).then((d) => d.notes);
 
+// A practice paper written in a board's past paper style, and the marking of
+// its written answers against the paper's own mark scheme.
+export const writePastPaper = (syllabus, topics, count) =>
+  post("/api/generate", { mode: "pastpaper", syllabus, topics, count }).then((d) => ({
+    ...d, questions: d.questions.map((q) => ({ ...q, stem: tidyMath(q.stem), options: q.options?.map(tidyMath), scheme: q.scheme.map(tidyMath), model: tidyMath(q.model) })),
+  }));
+export const markPastPaper = (items) => post("/api/generate", { mode: "markpaper", items }).then((d) => d.results);
+
 export async function generateFromNotes(notes, { style = "" } = {}) {
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];

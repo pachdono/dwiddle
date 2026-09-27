@@ -818,12 +818,27 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   );
 }
 
-// A review with the phrase staff picked marked, the way a highlighter would.
+// A review with the phrases staff picked marked, the way a highlighter
+// would. Several phrases are kept separated by "|".
 function Highlighted({ text, mark }) {
   const t = String(text || "");
-  const i = mark ? t.toLowerCase().indexOf(String(mark).toLowerCase()) : -1;
-  if (i < 0) return t;
-  return <>{t.slice(0, i)}<mark className="review-mark">{t.slice(i, i + mark.length)}</mark>{t.slice(i + mark.length)}</>;
+  const phrases = String(mark || "").split("|").map((m) => m.trim()).filter(Boolean);
+  const spans = [];
+  for (const ph of phrases) {
+    const at = t.toLowerCase().indexOf(ph.toLowerCase());
+    if (at >= 0 && !spans.some(([a, b]) => at < b && at + ph.length > a)) spans.push([at, at + ph.length]);
+  }
+  if (!spans.length) return t;
+  spans.sort((x, y) => x[0] - y[0]);
+  const out = [];
+  let last = 0;
+  spans.forEach(([a, b], n) => {
+    if (a > last) out.push(t.slice(last, a));
+    out.push(<mark key={n} className="review-mark">{t.slice(a, b)}</mark>);
+    last = b;
+  });
+  out.push(t.slice(last));
+  return <>{out}</>;
 }
 
 // An update log: lines starting with "- " become a list, anything else a line of text.

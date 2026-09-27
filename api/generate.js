@@ -284,6 +284,44 @@ If you are not sure a point is in this syllabus, leave it out. A point missing c
 Only facts found in a standard textbook for the course; never guess a number or date.
 About 1,400 to 2,000 words. Mathematics with real symbols. British English. Do not use em dashes or en dashes.`;
 
+const PAST_PAPER = `You are a senior examiner who writes papers for a real exam board. Write a brand new practice paper in exactly the style of that board's past papers for the given course, subject and syllabus code: the same question structure, command words (state, describe, explain, calculate, suggest, evaluate, compare), mark allocations, level of difficulty and wording. Never copy or reproduce a real past paper question; every question must be new.
+
+Return ONE JSON object and nothing else:
+{
+  "title": "a short paper title, like Paper 2 style practice: Cells and Enzymes",
+  "minutes": whole number of minutes a real candidate would get for these marks,
+  "questions": [
+    {
+      "topic": "which of the requested topics it tests",
+      "type": "mcq" or "short" or "long",
+      "marks": whole number, 1 for mcq, 1 to 4 for short, 5 to 9 for long,
+      "stem": "the question exactly as it would be printed, including any data, table values or a described diagram it relies on, and ending with its command",
+      "options": ["A", "B", "C", "D"] for mcq only,
+      "answer": index of the correct option for mcq only,
+      "scheme": ["one creditworthy mark point per mark, worded like a real mark scheme"],
+      "model": "a full marks answer as a top candidate would write it"
+    }
+  ]
+}
+
+Rules:
+- Mix the types the way this board's papers do, and build some structured questions that step up in difficulty.
+- The marks for a short or long question equal the number of scheme points needed; give extra acceptable alternatives in the scheme where a real one would (write them as "ALLOW ...").
+- Stay strictly inside this syllabus and its tier. Only facts from a standard textbook for the course; never invent data you then treat as real.
+- Mathematics with real symbols and units. British English. Do not use em dashes or en dashes.`;
+
+const MARK_PAPER = `You are an experienced examiner marking a candidate's written answers strictly against the mark scheme.
+
+Return ONE JSON object and nothing else:
+{ "results": [ { "awarded": whole number of marks, "feedback": "one or two sentences: which mark points were earned, quoting the answer, and exactly what was missing" } ] }
+One result per answer, in the same order.
+
+Rules:
+- Award a mark only where the answer clearly makes that mark point, or an ALLOW alternative. Never more than the marks available.
+- Be accurate rather than generous, but credit correct science in the candidate's own words.
+- An empty or irrelevant answer scores 0.
+- British English. Do not use em dashes or en dashes.`;
+
 async function part(req, res, mode, notes) {
   if (mode === "syllabus") {
     const s = req.body?.syllabus || {};
@@ -447,6 +485,68 @@ export default async function handler(req, res) {
 
   if (mode === "syllabus") {
     try { return await part(req, res, mode, ""); } catch (err) { return fail(res, err); }
+  }
+
+  // A practice paper in a board's past paper style, from its syllabus.
+  if (mode === "pastpaper") {
+    try {
+      const sy = req.body?.syllabus || {};
+      const course = String(sy.course || "").slice(0, 80), subject = String(sy.subject || "").slice(0, 80);
+      const code = String(sy.code || "").slice(0, 20), level = String(sy.level || "").slice(0, 80);
+      const topics = (Array.isArray(req.body?.topics) ? req.body.topics : []).map((t) => String(t).slice(0, 160)).slice(0, 30);
+      const count = Math.max(4, Math.min(16, Number(req.body?.count) || 8));
+      if (!course || !subject || !topics.length) return userError(res, 400, "Which course and topics?");
+      const text = await ask({
+        system: PAST_PAPER,
+        user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.${level ? `\nLevel: ${level}.` : ""}\nWrite ${count} questions covering these syllabus topics:\n${topics.map((t) => "- " + t).join("\n")}`,
+        maxTokens: 6000,
+        json: true,
+        temperature: 0.45,
+      });
+      const data = safeParse(text, "questions");
+      const clean = (v) => String(v || "").replace(/\s*[\u2013\u2014]\s*/g, ", ").trim();
+      const questions = (Array.isArray(data?.questions) ? data.questions : []).map((q, i) => {
+        const type = ["mcq", "short", "long"].includes(q?.type) ? q.type : "short";
+        const options = type === "mcq" && Array.isArray(q.options) ? q.options.slice(0, 5).map(clean) : null;
+        const answer = type === "mcq" ? Number(q.answer) : null;
+        return {
+          id: "pp" + i, topic: clean(q?.topic), type, stem: clean(q?.stem),
+          marks: Math.max(1, Math.min(12, Math.round(Number(q?.marks) || 1))),
+          options, answer: options && answer >= 0 && answer < options.length ? answer : null,
+          scheme: (Array.isArray(q?.scheme) ? q.scheme : []).map(clean).filter(Boolean).slice(0, 14),
+          model: clean(q?.model),
+        };
+      }).filter((q) => q.stem && (q.type !== "mcq" || q.answer !== null));
+      if (questions.length < 3) return userError(res, 502, "The paper did not come back complete. Try again.");
+      const total = questions.reduce((n, q) => n + q.marks, 0);
+      return res.status(200).json({ title: clean(data.title) || `${subject} practice paper`, minutes: Math.max(10, Math.min(180, Math.round(Number(data.minutes) || total * 1.2))), questions });
+    } catch (err) { return fail(res, err); }
+  }
+
+  // Marks written answers on a practice paper against its mark scheme.
+  if (mode === "markpaper") {
+    try {
+      const items = (Array.isArray(req.body?.items) ? req.body.items : []).slice(0, 20).map((it) => ({
+        stem: String(it?.stem || "").slice(0, 2000), marks: Math.max(1, Math.min(12, Number(it?.marks) || 1)),
+        scheme: (Array.isArray(it?.scheme) ? it.scheme : []).map((x) => String(x).slice(0, 400)).slice(0, 14),
+        answer: String(it?.answer || "").slice(0, 4000),
+      }));
+      if (!items.length) return userError(res, 400, "Nothing to mark");
+      const text = await ask({
+        system: MARK_PAPER,
+        user: items.map((it, i) => `Answer ${i + 1} (${it.marks} marks)\nQuestion: ${it.stem}\nMark scheme:\n${it.scheme.map((p) => "- " + p).join("\n")}\nCandidate's answer: ${it.answer || "(no answer)"}`).join("\n\n"),
+        maxTokens: 2500,
+        json: true,
+        temperature: 0.15,
+      });
+      const data = safeParse(text, "results");
+      const results = items.map((it, i) => {
+        const r = data?.results?.[i] || {};
+        return { awarded: it.answer.trim() ? Math.max(0, Math.min(it.marks, Math.round(Number(r.awarded) || 0))) : 0,
+          feedback: String(r.feedback || "").replace(/\s*[\u2013\u2014]\s*/g, ", ").trim() };
+      });
+      return res.status(200).json({ results });
+    } catch (err) { return fail(res, err); }
   }
 
   if (mode === "clarify" || mode === "brief") {

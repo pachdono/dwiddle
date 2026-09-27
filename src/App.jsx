@@ -1,5 +1,6 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
 import { Podcast, notesText } from "./Podcast.jsx";
+import { PastPaperCard } from "./PastPaper.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -4682,6 +4683,11 @@ function Courses({ go, setMade, auth }) {
             <b className="small">How it is assessed</b>
             <p className="small" style={{ margin: "6px 0 0", color: "var(--ink-2)" }}>{subject.assessment}</p>
           </div>
+
+          <PastPaperCard key={subject.id} course={course} subject={subject}
+            canGenerate={() => generationsLeft(auth?.user) > 0}
+            onGenerated={() => countGeneration(auth?.user)}
+            onLocked={() => setError("locked")} />
 
           {error === "locked" && (
             <FreeGate onClose={() => setError("")} onSignIn={() => go("settings")} />

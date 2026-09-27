@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
-import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen, Portal } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
@@ -120,7 +120,7 @@ export function Notes({ made, saveNotes, go }) {
       )}
       {showMap && <MindMap made={made} onClose={() => setShowMap(false)} />}
       {showPod && <Podcast made={made} onClose={() => setShowPod(false)} />}
-      {toBook && <ToNotebook made={made} go={go} onClose={() => setToBook(false)} />}
+      {toBook && <Portal><ToNotebook made={made} go={go} onClose={() => setToBook(false)} /></Portal>}
 
       {topics.length > 1 && (
         <nav className="nt-toc" aria-label="Topics in these notes">
