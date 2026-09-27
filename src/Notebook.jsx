@@ -311,6 +311,9 @@ function inkPath(item) {
 
 // A smooth, even line through points, for arcs and ruler lines: drawn as a
 // real stroke, so it stays crisp at any zoom.
+// Straight lines and snapped shapes: corner to corner, with sharp corners.
+const polyPath = (points) => points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
+
 function linePath(points) {
   if (!points.length) return "";
   if (points.length < 3) return `M${points[0][0]} ${points[0][1]} L${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
@@ -469,10 +472,12 @@ function moveItem(it, dx, dy) {
 const nearStroke = (it, x, y, r) => it.points.some(([px, py]) => Math.hypot(px - x, py - y) < r + it.size / 2);
 
 function Shape({ it }) {
-  const common = { stroke: it.color, strokeWidth: it.size, fill: "none", strokeLinecap: "round", strokeLinejoin: "round" };
+  const common = { stroke: it.color, strokeWidth: it.size, fill: "none", strokeLinecap: "round", strokeLinejoin: "round",
+    strokeDasharray: it.dash === "dash" ? `${it.size * 3} ${it.size * 2.4}` : it.dash === "dot" ? `0.01 ${it.size * 2.2}` : undefined };
+  const filled = it.fill && (it.kind === "rect" || it.kind === "ellipse") ? { fill: it.color, fillOpacity: 0.18 } : {};
   const { x1, y1, x2, y2 } = it;
-  if (it.kind === "rect") return <rect x={Math.min(x1, x2)} y={Math.min(y1, y2)} width={Math.abs(x2 - x1)} height={Math.abs(y2 - y1)} rx="6" {...common} />;
-  if (it.kind === "ellipse") return <ellipse cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} rx={Math.abs(x2 - x1) / 2} ry={Math.abs(y2 - y1) / 2} {...common} />;
+  if (it.kind === "rect") return <rect x={Math.min(x1, x2)} y={Math.min(y1, y2)} width={Math.abs(x2 - x1)} height={Math.abs(y2 - y1)} rx="6" {...common} {...filled} />;
+  if (it.kind === "ellipse") return <ellipse cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} rx={Math.abs(x2 - x1) / 2} ry={Math.abs(y2 - y1) / 2} {...common} {...filled} />;
   if (it.kind === "arrow") {
     const a = Math.atan2(y2 - y1, x2 - x1), L = 14 + it.size * 2;
     return <g><line x1={x1} y1={y1} x2={x2} y2={y2} {...common} />
@@ -493,7 +498,7 @@ function ItemView({ it, editing, onText, shown }) {
     return <circle cx={it.points[0][0]} cy={it.points[0][1]} r={it.size / 2} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke" && (it.uniform || it.straight || it.tool === "highlighter" || (it.tool === "pen" && it.style === "ball"))) {
-    return <path d={linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap="round" strokeLinejoin="round"
+    return <path d={(it.straight ? polyPath(it.points) : linePath(it.uniform ? it.points : smoothPts(it.points)))} fill="none" stroke={it.color} strokeWidth={it.size} strokeLinecap="round" strokeLinejoin="round"
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
@@ -1142,10 +1147,103 @@ function densify(P, step = 1.5) {
 }
 // Rubs out under a circle: whole strokes, or (like a real eraser) only
 // the parts of strokes the circle passes over.
-function eraseItems(items, x, y, r, whole) {
+/* ---------- shapes drawn by hand, and scribbles ---------- */
+
+// Fewer points along the same line: Douglas-Peucker.
+function simplify(pts, eps) {
+  if (pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  const len = Math.hypot(bx - ax, by - ay) || 1;
+  let far = 0, at = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = Math.abs((by - ay) * pts[i][0] - (bx - ax) * pts[i][1] + bx * ay - by * ax) / len;
+    if (d > far) { far = d; at = i; }
+  }
+  if (far <= eps) return [pts[0], pts[pts.length - 1]];
+  return [...simplify(pts.slice(0, at + 1), eps).slice(0, -1), ...simplify(pts.slice(at), eps)];
+}
+
+// A closed shape drawn by hand and held still becomes the perfect one, as
+// in Notes+: a circle or ellipse, a triangle, a rectangle or a square, any
+// other few-sided polygon. Returns the new points, or null to leave it be.
+function recognise(points) {
+  if (points.length < 12) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of points) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const w = x1 - x0, h = y1 - y0, diag = Math.hypot(w, h);
+  if (diag < 30 || Math.min(w, h) < diag * 0.12) return null;
+  const a = points[0], b = points[points.length - 1];
+  if (Math.hypot(b[0] - a[0], b[1] - a[1]) > diag * 0.25) return null;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = w / 2, ry = h / 2;
+  let dev = 0;
+  for (const [x, y] of points) dev += Math.abs(Math.hypot((x - cx) / rx, (y - cy) / ry) - 1);
+  dev /= points.length;
+  if (dev < 0.09) {
+    const round = Math.abs(rx - ry) < Math.max(rx, ry) * 0.12;
+    const RX = round ? (rx + ry) / 2 : rx, RY = round ? (rx + ry) / 2 : ry;
+    return Array.from({ length: 73 }, (_, i) => { const t = (i / 72) * Math.PI * 2; return [cx + Math.cos(t) * RX, cy + Math.sin(t) * RY]; });
+  }
+  // Close to the edges of its own bounding box all the way round: a level
+  // rectangle (a square if nearly one), however the corners were drawn.
+  let edge = 0;
+  for (const [x, y] of points) edge += Math.min(Math.abs(x - x0), Math.abs(x - x1), Math.abs(y - y0), Math.abs(y - y1));
+  if (edge / points.length < diag * 0.035) {
+    const sq = Math.abs(w - h) < Math.max(w, h) * 0.1, s2 = (w + h) / 2;
+    const W2 = sq ? s2 : w, H2 = sq ? s2 : h;
+    return [[cx - W2 / 2, cy - H2 / 2], [cx + W2 / 2, cy - H2 / 2], [cx + W2 / 2, cy + H2 / 2], [cx - W2 / 2, cy + H2 / 2], [cx - W2 / 2, cy - H2 / 2]];
+  }
+  // The corners: where the line turns sharply.
+  let ring = simplify(points.map(([x, y]) => [x, y]), diag * 0.06).slice(0, -1);
+  for (let pass = 0; pass < 2; pass++) {
+    ring = ring.filter((p, i) => {
+      const q = ring[(i - 1 + ring.length) % ring.length], r = ring[(i + 1) % ring.length];
+      const a1 = Math.atan2(p[1] - q[1], p[0] - q[0]), a2 = Math.atan2(r[1] - p[1], r[0] - p[0]);
+      let turn = Math.abs(a2 - a1); if (turn > Math.PI) turn = 2 * Math.PI - turn;
+      return turn > 0.5 && Math.hypot(p[0] - q[0], p[1] - q[1]) > diag * 0.08;
+    });
+  }
+  if (ring.length < 3 || ring.length > 6) return null;
+  if (ring.length === 4) {
+    // Sides close to level and upright make a true rectangle (a square if nearly one).
+    const level = ring.every((p, i) => { const q = ring[(i + 1) % 4]; const ang = Math.abs(Math.atan2(q[1] - p[1], q[0] - p[0])) % (Math.PI / 2); return ang < 0.22 || ang > Math.PI / 2 - 0.22; });
+    if (level) {
+      const sq = Math.abs(w - h) < Math.max(w, h) * 0.1, s2 = (w + h) / 2;
+      const W2 = sq ? s2 : w, H2 = sq ? s2 : h;
+      return [[cx - W2 / 2, cy - H2 / 2], [cx + W2 / 2, cy - H2 / 2], [cx + W2 / 2, cy + H2 / 2], [cx - W2 / 2, cy + H2 / 2], [cx - W2 / 2, cy - H2 / 2]];
+    }
+  }
+  return [...ring, ring[0]];
+}
+
+// A quick zigzag back and forth over something: scribbled out, as in Notes+.
+function isScribble(points, zoom) {
+  if (points.length < 12) return false;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, len = 0;
+  for (let i = 0; i < points.length; i++) {
+    const [x, y] = points[i];
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    if (i) len += Math.hypot(x - points[i - 1][0], y - points[i - 1][1]);
+  }
+  const w = x1 - x0, h = y1 - y0, diag = Math.hypot(w, h);
+  if (diag * zoom < 24 || len < diag * 4.5) return false;
+  const horiz = w >= h, k = horiz ? 0 : 1, step = Math.max(w, h) * 0.15;
+  let dir = 0, from = points[0][k], turns = 0;
+  for (const p of points) {
+    const d = p[k] - from;
+    if (Math.abs(d) < step) continue;
+    const s = Math.sign(d);
+    if (dir && s !== dir) turns += 1;
+    dir = s; from = p[k];
+  }
+  return turns >= 5;
+}
+
+function eraseItems(items, x, y, r, whole, only) {
   let changed = false;
   const out = [];
   for (const it of items) {
+    // "Only highlighter": the writing under a highlight is left alone.
+    if (only && !(it.type === "stroke" && it.tool === only)) { out.push(it); continue; }
     if (it.type === "stroke") {
       const lim = r + it.size * 0.4;
       if (strokeDist(it, x, y) > lim) { out.push(it); continue; }
@@ -1247,7 +1345,7 @@ function paintStroke(ctx, it) {
     ctx.lineWidth = it.size;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.stroke(new Path2D(linePath(it.uniform || it.straight ? it.points : smoothPts(it.points))));
+    ctx.stroke(new Path2D((it.straight ? polyPath(it.points) : linePath(it.uniform ? it.points : smoothPts(it.points)))));
     return;
   }
   ctx.fillStyle = it.color;
@@ -1285,7 +1383,7 @@ function Ruler({ r }) {
 }
 
 const SETTINGS = ["pen", "highlighter", "revealer", "eraser", "shape"];
-const DRAWING_TOOLS = ["pen", "highlighter", "revealer", "eraser", "shape", "compass"];
+const DRAWING_TOOLS = ["pen", "highlighter", "revealer", "eraser", "shape", "compass", "laser"];
 const MORE_INKS = ["#1b1d26", "#6b7280", "#3B5BFD", "#0891b2", "#16a34a", "#84cc16", "#f59e0b", "#f97316", "#e5484d", "#db2777", "#9333ea", "#7c4a2d"];
 const MORE_HIGHLIGHTS = ["#ffe066", "#fde68a", "#a7f3d0", "#bbf7d0", "#fbcfe8", "#fecdd3", "#bfdbfe", "#c7d2fe", "#fed7aa", "#e9d5ff"];
 
@@ -1403,6 +1501,18 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             ))}
           </div>
         )}
+        {tool === "shape" && (
+          <>
+            <div className="seg tight nb-pop-seg" aria-label="Line style">
+              {[["solid", "Solid"], ["dash", "Dashed"], ["dot", "Dotted"]].map(([k, n]) => (
+                <button key={k} className={(prefs.dash || "solid") === k ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, dash: k }))}>{n}</button>
+              ))}
+            </div>
+            <div className="nb-pop-card">
+              <Switch label="Fill boxes and circles" on={!!prefs.fill} onChange={(v) => setPrefs((o) => ({ ...o, fill: v }))} />
+            </div>
+          </>
+        )}
         {tool !== "text" && (
           <div className="nb-sizes" role="radiogroup" aria-label="Thickness">
             {SIZES.map((n) => (
@@ -1419,11 +1529,19 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
           <div className="nb-pop-colors">
             {palette.map((c) => <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />)}
             <label className="nb-color nb-custom" title="Any colour"><input type="color" value={color} onChange={(e) => setColor(e.target.value)} /></label>
+            {typeof window !== "undefined" && window.EyeDropper && (
+              <button className="nb-color nb-eyedrop" title="Pick a colour from the screen" aria-label="Pick a colour from the screen"
+                onClick={async () => { try { const r = await new window.EyeDropper().open(); if (r?.sRGBHex) setColor(r.sRGBHex); } catch { /* closed */ } }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m11 5 4 4M13.5 3.5a2.1 2.1 0 0 1 3 3L15 8l-3-3 1.5-1.5ZM12 6l-7.5 7.5L4 16l2.5-.5L14 8" /></svg>
+              </button>
+            )}
           </div>
         )}
         {inks && (
           <div className="nb-pop-card">
             {tool === "pen" && <Switch label="Auto-refine handwriting" on={prefs.refine !== false} onChange={(v) => setPrefs((o) => ({ ...o, refine: v }))} />}
+            {(tool === "pen" || tool === "highlighter") && <Switch label="Shape recognition: draw a shape and hold" on={prefs.shapes !== false} onChange={(v) => setPrefs((o) => ({ ...o, shapes: v }))} />}
+            {tool === "pen" && <Switch label="Scribble over something to erase it" on={prefs.scribble !== false} onChange={(v) => setPrefs((o) => ({ ...o, scribble: v }))} />}
             {tool === "highlighter" && <Switch label="Always straight lines" on={!!prefs.hlStraight} onChange={(v) => setPrefs((o) => ({ ...o, hlStraight: v }))} />}
             <Stepper label="Writing stability" min={1} max={10} value={prefs.stab?.[tool] ?? 4}
               onChange={(v) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: v } }))}
@@ -1443,6 +1561,10 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
               <button className={prefs.eraseWhole !== true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: false }))}>Part of a stroke</button>
               <button className={prefs.eraseWhole === true ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, eraseWhole: true }))}>Whole strokes</button>
             </div>
+            <div className="nb-pop-card">
+              <Switch label="Erase highlighter only" on={!!prefs.eraseOnlyHl} onChange={(v) => setPrefs((o) => ({ ...o, eraseOnlyHl: v }))} />
+              <Switch label="Back to the pen after erasing" on={!!prefs.eraseBack} onChange={(v) => setPrefs((o) => ({ ...o, eraseBack: v }))} />
+            </div>
             <p className="small muted">The circle on the page shows how big it is. Start on the ruler's edge or the protractor to rub out in a straight line or a curve.</p>
             <div className="nb-pop-row"><button className="btn ghost small danger" onClick={() => { if (window.confirm("Clear everything on this page?")) { onClearPage(); onClose(); } }}>Clear this page</button></div>
           </>
@@ -1459,7 +1581,7 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             </div>
           </div>
         )}
-        {(tool === "pen" || tool === "highlighter") && <p className="small muted nb-pop-tip">Tip: draw a line and hold still to make it straight.</p>}
+        {(tool === "pen" || tool === "highlighter") && <p className="small muted nb-pop-tip">Tip: draw a line, circle, box or triangle and hold still at the end: it snaps perfect. Zigzag over a mistake to rub it out.</p>}
       </div>
     </>
   );
@@ -2099,6 +2221,7 @@ const TOOLS = [
   { id: "compass", icon: "compass", name: "Compass: tap to place the point, then draw around it" },
   { id: "text", icon: "type", name: "Text" },
   { id: "select", icon: "lasso", name: "Lasso: circle things to move, resize or delete them" },
+  { id: "laser", icon: "laser", name: "Laser pointer: point at things; the trail fades away", early: true },
 ];
 const INKS = ["#1b1d26", "#3B5BFD", "#e5484d", "#16a34a", "#9333ea", "#f59e0b"];
 const HIGHLIGHTS = ["#ffe066", "#a7f3d0", "#fbcfe8", "#bfdbfe", "#fed7aa"];
@@ -2194,6 +2317,41 @@ function Editor({ id, go, onClose, early = false }) {
   const [pop, setPop] = useState(null); // the tool whose settings are open
   const ring = useRef(null); // the circle that shows a tool's size under the pointer
   const holdT = useRef(null);
+  // The laser pointer's trail, in screen positions: [x, y, time, starts a new line].
+  const laser = useRef({ pts: [], down: false, raf: 0 });
+  const laserCanvas = useRef(null);
+  function laserDraw() {
+    const L = laser.current;
+    if (L.raf) return;
+    const tick = () => {
+      const cv = laserCanvas.current;
+      const now = performance.now();
+      L.pts = L.pts.filter((p) => now - p[2] < 900);
+      if (cv) {
+        const dpr = window.devicePixelRatio || 1;
+        if (cv.width !== innerWidth * dpr) { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+        const g = cv.getContext("2d");
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, innerWidth, innerHeight);
+        g.lineCap = "round"; g.lineJoin = "round";
+        for (let i = 1; i < L.pts.length; i++) {
+          const [ax, ay] = L.pts[i - 1], [bx, by, t, fresh] = L.pts[i];
+          if (fresh) continue;
+          const life = 1 - (now - t) / 900;
+          g.strokeStyle = `rgba(255, 59, 48, ${0.25 * life})`; g.lineWidth = 12 * life + 2;
+          g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+          g.strokeStyle = `rgba(255, 90, 80, ${life})`; g.lineWidth = 4 * life + 1;
+          g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+        }
+      }
+      if (L.pts.length || L.down) L.raf = requestAnimationFrame(tick);
+      else { L.raf = 0; cv?.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
+    };
+    L.raf = requestAnimationFrame(tick);
+  }
+  // The last pen used, to go back to after erasing.
+  const lastInk = useRef("pen");
+  useEffect(() => { if (["pen", "highlighter", "revealer"].includes(tool)) lastInk.current = tool; }, [tool]);
   // Plain Arial unless the student picks another; their last pick is kept.
   const [font, setFontState] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "arial"; } catch { return "arial"; } });
   const setFont = (id) => { setFontState(id); try { localStorage.setItem("dwiddle-nb-font", id); } catch { /* private mode */ } };
@@ -2745,9 +2903,19 @@ function Editor({ id, go, onClose, early = false }) {
       return;
     }
 
+    // The laser pointer: a glowing trail that fades, never kept.
+    if (tool === "laser") {
+      capture(svg, e);
+      laser.current.down = true;
+      laser.current.pts.push([e.clientX, e.clientY, performance.now(), true]);
+      laserDraw();
+      return;
+    }
+
     capture(svg, e);
     if (tool === "shape") {
-      setLive({ pageId: page.id, item: { id: uid(), type: "shape", kind: shapeKind, x1: x, y1: y, x2: x, y2: y, color: ink, size: Math.max(2, size * 1.2) } });
+      setLive({ pageId: page.id, item: { id: uid(), type: "shape", kind: shapeKind, x1: x, y1: y, x2: x, y2: y, color: ink, size: Math.max(2, size * 1.2),
+        ...(early && prefs.dash && prefs.dash !== "solid" ? { dash: prefs.dash } : {}), ...(early && prefs.fill ? { fill: true } : {}) } });
     } else {
       const isHl = tool === "highlighter" || tool === "revealer";
       const color = tool === "revealer" ? cov : isHl ? hl : ink;
@@ -2785,7 +2953,7 @@ function Editor({ id, go, onClose, early = false }) {
       const steps = from ? Math.max(1, Math.ceil(Math.hypot(x - from[0], y - from[1]) / (r * 0.5))) : 1;
       for (let k = 1; k <= steps; k++) {
         const ex = from ? from[0] + ((x - from[0]) * k) / steps : x, ey = from ? from[1] + ((y - from[1]) * k) / steps : y;
-        items = eraseItems(items, ex, ey, r, whole);
+        items = eraseItems(items, ex, ey, r, whole, early && prefs.eraseOnlyHl ? "highlighter" : undefined);
       }
       return items === p.items ? p : { ...p, items };
     }, { record: false });
@@ -2814,6 +2982,10 @@ function Editor({ id, go, onClose, early = false }) {
     const svg = e.currentTarget;
     showRing(e, svg, page);
     if (twoFinger.current) return;
+    if (tool === "laser") {
+      if (laser.current.down) { laser.current.pts.push([e.clientX, e.clientY, performance.now(), false]); laserDraw(); }
+      return;
+    }
     if (drag.current?.pan) {
       const p = drag.current.pan, now = performance.now(), dt = Math.max(1, now - p.t);
       const dx = p.x - e.clientX, dy = p.y - e.clientY;
@@ -2916,7 +3088,8 @@ function Editor({ id, go, onClose, early = false }) {
       // last one, so fast strokes stay smooth.
       const list = e.nativeEvent?.getCoalescedEvents?.();
       const events = list && list.length ? list : [e];
-      if (ls.straight) ls.points = [ls.points[0], [x, y, ls.points[0][2]]];
+      if (ls.locked) { /* a snapped shape stays as it is */ }
+      else if (ls.straight) ls.points = [ls.points[0], [x, y, ls.points[0][2]]];
       else for (const ev of events) {
         const [px, py] = toPage(ev, svg, page);
         const last = ls.points[ls.points.length - 1];
@@ -2939,6 +3112,11 @@ function Editor({ id, go, onClose, early = false }) {
       holdT.current = setTimeout(() => {
         const l = liveStroke.current;
         if (!l || l.straight || l.points.length < 5) return;
+        // A closed shape held still becomes the perfect shape (testers).
+        if (early && prefs.shapes !== false && (l.tool === "pen" || l.tool === "highlighter")) {
+          const snap = recognise(l.points);
+          if (snap) { l.straight = true; l.locked = true; l.points = snap.map(([sx, sy]) => [sx, sy, l.points[0][2]]); drawLive(); return; }
+        }
         // only a long stroke (a line, not a letter) held still snaps straight
         const a = l.points[0], b = l.points[l.points.length - 1];
         if (Math.hypot(b[0] - a[0], b[1] - a[1]) * zoom < 90) return;
@@ -2952,6 +3130,7 @@ function Editor({ id, go, onClose, early = false }) {
 
   function up(e) {
     if (e?.type) log(e.type, e);
+    if (laser.current.down) { laser.current.down = false; return; }
     // Lifting a resting hand must not end the Pencil's stroke.
     if (e?.pointerId !== undefined && liveStroke.current?.pointerId !== undefined && e.pointerId !== liveStroke.current.pointerId) return;
     if (drag.current?.textMove && !drag.current.moved) { const id = drag.current.id; drag.current = null; setEditingText(id); return; }
@@ -2983,9 +3162,11 @@ function Editor({ id, go, onClose, early = false }) {
       return;
     }
     if (drag.current) {
-      const start = drag.current.start;
+      const start = drag.current.start, erased = drag.current.erase;
       if (start && start !== book) { past.current.push(start); future.current = []; }
       drag.current = null;
+      // "Back to the pen after erasing", as in Notes+.
+      if (erased && early && prefs.eraseBack) setTool(lastInk.current || "pen");
       return;
     }
     if (lasso.current) {
@@ -3026,8 +3207,22 @@ function Editor({ id, go, onClose, early = false }) {
     }
     if (ls) {
       liveStroke.current = null;
-      const { pageId, arc, guide, ...rest } = ls;
+      const { pageId, arc, guide, locked, ...rest } = ls;
       let done = rest;
+      // Scribbled out: whatever the zigzag went over is rubbed out, and the
+      // zigzag itself is not kept. If it went over nothing, it is just ink.
+      if (early && prefs.scribble !== false && done.tool === "pen" && !done.straight && !arc && isScribble(done.points, zoom)) {
+        const pg = pageOf(pageId);
+        let items = pg?.items || [];
+        for (const [px, py] of done.points) items = eraseItems(items, px, py, Math.max(4, done.size), true);
+        if (pg && items !== pg.items) {
+          cancelAnimationFrame(frame.current); frame.current = 0;
+          updatePage(pageId, (p) => ({ ...p, items }));
+          clearWet();
+          setLiveOn(null);
+          return;
+        }
+      }
       if (done.tool === "highlighter" && prefs.hlStraight && done.points.length > 1) done = { ...done, straight: true, points: [done.points[0], done.points[done.points.length - 1]] };
       else if (prefs.refine && !done.straight && !arc) done = { ...done, points: refine(done.points) };
       const item = done.uniform || done.straight ? done : { ...done, d: inkPath(done) };
@@ -3322,7 +3517,7 @@ function Editor({ id, go, onClose, early = false }) {
         </div>
         <div className="nb-toolrow">
         <div className="nb-group nb-tools" role="toolbar" aria-label="Tools">
-          {TOOLS.map((t) => (
+          {TOOLS.filter((t) => !t.early).map((t) => (
             <button key={t.id} className={"nb-tool" + (tool === t.id ? " on" : "") + (SETTINGS.includes(t.id) ? " has-opts" : "")}
               onClick={() => { if (tool === t.id && SETTINGS.includes(t.id)) setPop((p) => (p ? null : t.id)); else { setTool(t.id); setPop(null); } }}
               title={t.name + (SETTINGS.includes(t.id) ? ". Tap again for size and colour" : "")} aria-label={t.name} aria-pressed={tool === t.id}>
@@ -3522,6 +3717,8 @@ function Editor({ id, go, onClose, early = false }) {
         </>
       )}
 
+      {early && <canvas ref={laserCanvas} className="nb-laser" aria-hidden="true" />}
+      {tool === "laser" && <div className="nb-hint">Point at anything: the trail fades away and nothing is kept.</div>}
       {tool === "compass" && <div className="nb-hint">{compass ? "Press away from the red point and draw round it. Drag the point to move it." : "Tap where the compass point goes."}</div>}
       {debug && <pre className="nb-debug">{`tool ${tool}\n` + debug.join("\n")}</pre>}
       {pop && tool === pop && (

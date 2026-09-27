@@ -8115,3 +8115,7 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 .busy-count { display: inline-block; margin: 2px 0 8px; padding: 4px 14px; border-radius: 999px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); animation: pc-pop 0.3s cubic-bezier(.3,1.6,.5,1); }
 .busy-left { margin: 8px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* notebook: laser pointer trail and the eyedropper */
+.nb-laser { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90; }
+.nb-eyedrop { display: grid; place-items: center; background: var(--panel) !important; color: var(--ink-2); border: 1px solid var(--line); cursor: pointer; }
