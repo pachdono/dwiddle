@@ -349,8 +349,9 @@ function Picture({ query }) {
 // Turning the notes into a notebook: pick a font and a paper, choose whether
 // to add pictures, and the notebook opens when it is ready.
 function ToNotebook({ made, go, onClose, early }) {
-  const [font, setFont] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "arial"; } catch { return "arial"; } });
-  const [paper, setPaper] = useState("lined");
+  // Handwriting on squared paper by default, like a page of good notes.
+  const [font, setFont] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "patrick"; } catch { return "patrick"; } });
+  const [paper, setPaper] = useState("grid");
   const [pictures, setPictures] = useState(true);
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
@@ -387,7 +388,7 @@ function ToNotebook({ made, go, onClose, early }) {
         <div className="tonb-row">
           <label className="field"><span>Paper</span>
             <select value={paper} onChange={(e) => setPaper(e.target.value)}>
-              <option value="lined">Lined</option><option value="grid">Squared</option><option value="dots">Dotted</option><option value="blank">Plain</option>
+              <option value="grid">Squared</option><option value="lined">Lined</option><option value="dots">Dotted</option><option value="blank">Plain</option>
             </select>
           </label>
           <label className="tonb-check"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /> Add a picture to topics where a good one exists</label>
