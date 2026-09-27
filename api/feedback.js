@@ -81,12 +81,14 @@ export default async function handler(req, res) {
 
   const stars = Number.isFinite(rating) && rating >= 1 && rating <= 5 ? `${rating} of 5` : "not rated";
   const account = await accountFrom(req);
+  // Only signed in accounts can send feedback, so only they get emails.
+  if (!account) return res.status(401).json({ error: "Sign in to send feedback" });
 
   // The thank you goes to the confirmed account email, or to the address
   // they typed. For an address that was only typed, their message is not
   // repeated back, so this can never be used to send someone else's words
   // to a stranger.
-  const to = account?.email || (isEmail(contact) ? contact : "");
+  const to = account.email;
   const t = THANKS[kind];
   const [team, thanks] = await Promise.allSettled([
     toTeam({ kind, stars, message, account, contact, reference }),

@@ -835,6 +835,7 @@ export default function App() {
           topics={topics}
           materials={materials}
           auth={auth}
+          onSignIn={() => setSignInOpen(true)}
           custom={custom}
           setCustom={setCustom}
           customBg={customBg}
@@ -4821,7 +4822,7 @@ function Stars({ value, onPick }) {
   );
 }
 
-function FeedbackPage({ auth }) {
+function FeedbackPage({ auth, onSignIn }) {
   const [kind, setKind] = useState("feedback");
   const [rating, setRating] = useState(0);
   const [message, setMessage] = useState("");
@@ -4878,6 +4879,25 @@ function FeedbackPage({ auth }) {
             ? "Thank you for telling us. Your complaint has gone to the Dwiddle owners and the staff team."
           : "Thank you. This goes straight to the people who build Dwiddle.")
       + (thanked ? " We've emailed you a copy, and any reply will come to that email." : ""),
+    );
+  }
+
+  // Feedback comes from accounts only, so every message has someone real
+  // behind it who can be answered, and nobody can post as someone else.
+  if (!auth?.user) {
+    return (
+      <div className="page fade">
+        <PageHead title="Feedback" sub="Tell us what is broken, what is missing, or what you would want next." />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} outfit="detective" />
+          <b style={{ display: "block", marginTop: 10 }}>Sign in to send feedback</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 420 }}>
+            Feedback, bug reports, reviews and complaints need a free account, so we can reply to you by email and
+            keep spam out. It takes a few seconds with Google or an email link.
+          </p>
+          <button className="btn cta" onClick={onSignIn}>Sign in or create an account</button>
+        </div>
+      </div>
     );
   }
 
