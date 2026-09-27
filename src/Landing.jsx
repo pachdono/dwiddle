@@ -712,8 +712,10 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
         <section className="landing-reviews">
           <div className="marquee-label">What people say</div>
           <div className={"reviews" + (reviews.length > 3 ? " many" : "")}>
-            {reviews.map((r) => (
-              <figure className="review-card" key={r.id}>
+            <div className="reviews-track" style={reviews.length > 3 ? { animationDuration: `${reviews.length * 7}s` } : undefined}>
+            {/* past three, the row loops: drawn twice so it runs on without a gap */}
+            {(reviews.length > 3 ? [...reviews, ...reviews.map((r) => ({ ...r, id: r.id + "-again", again: true }))] : reviews).map((r) => (
+              <figure className="review-card" key={r.id} aria-hidden={r.again || undefined}>
                 {r.title && <h3 className="review-title">{r.title}</h3>}
                 {r.rating ? (
                   <div className="review-stars" aria-label={`${r.rating} out of 5`}>
@@ -728,6 +730,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
                 </figcaption>
               </figure>
             ))}
+            </div>
           </div>
         </section>
       )}

@@ -1,6 +1,7 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
+import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -726,6 +727,8 @@ export default function App() {
 
         {/* The places people go now and then, kept to the foot but drawn the
             same way as everything above them. */}
+        {/* the theme's little scene, in the space between the pages and the foot */}
+        {hasScenery(look) && <div className="side-scene"><ThemeScenery theme={look} /></div>}
         <nav className="nav nav-bottom">
           {!installed && !isDesktop && (
             <button className={"nav-item" + (page === "install" ? " on" : "")} onClick={() => go("install")}>
@@ -1129,6 +1132,8 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
 
   return (
     <div className="page wide fade">
+      <ThemeDrift theme={look} />
+      {hasScenery(look) && <div className="home-scene"><ThemeScenery theme={look} /></div>}
 
       <div className="dash-top">
         <PageHead

@@ -7153,13 +7153,60 @@ a.nav-item { text-decoration: none; color: inherit; }
 .pp-model { margin: 6px 0 0; }
 .pp-foot { display: flex; justify-content: flex-end; gap: 10px; }
 .pp-note { text-align: center; }
-/* more than three reviews: one row that scrolls sideways, so every approved
-   review stays on the page */
-.reviews.many { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 14px; margin: 0 -4px;
-  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink) 18%, transparent) transparent; -webkit-overflow-scrolling: touch; }
-.reviews.many .review-card { flex: 0 0 min(340px, 82vw); scroll-snap-align: start; }
-.reviews.many::-webkit-scrollbar { height: 8px; }
-.reviews.many::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 8px; }
+/* more than three reviews: one row that loops slowly on its own, with no
+   scrollbar, pausing while the pointer or a finger is on it */
+.reviews.many { display: block; overflow: hidden; margin: 0 -4px; padding: 4px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+.reviews.many .reviews-track { display: flex; gap: 14px; width: max-content; animation: reviews-loop linear infinite; }
+.reviews.many:hover .reviews-track, .reviews.many:active .reviews-track { animation-play-state: paused; }
+.reviews.many .review-card { flex: 0 0 min(340px, 82vw); }
+.reviews:not(.many) .reviews-track { display: contents; }
+@keyframes reviews-loop { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 7px)); } }
+@media (prefers-reduced-motion: reduce) { .reviews.many { overflow-x: auto; scrollbar-width: none; } .reviews.many .reviews-track { animation: none; } }
 .pp-real { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 .pp-real .small { margin-right: 4px; color: var(--ink-2); }
 a.btn { text-decoration: none; }
+
+/* ---------- theme scenes ---------- */
+.side-scene { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; margin: 8px -6px 0; pointer-events: none; }
+.side-scene .theme-scenery { width: 100%; max-width: 230px; height: 100%; max-height: 300px; }
+.theme-scenery { display: block; --ts-sky: var(--panel); }
+.home-scene { display: none; }
+@media (max-width: 700px) {
+  .home-scene { display: block; position: absolute; top: 4px; right: 4px; width: 110px; height: 150px; pointer-events: none; z-index: 0; opacity: 0.95; }
+  .home-scene .theme-scenery { width: 100%; height: 100%; --ts-sky: var(--bg); }
+  .page.wide:has(> .home-scene) { position: relative; }
+  .page.wide:has(> .home-scene) .dash-top { padding-right: 96px; }
+}
+.ts-twinkle { animation: ts-twinkle 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ts-twinkle.d1 { animation-delay: 0.8s; } .ts-twinkle.d2 { animation-delay: 1.6s; }
+@keyframes ts-twinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+.ts-smoke { animation: ts-smoke 3.2s ease-in-out infinite; }
+@keyframes ts-smoke { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px); } }
+.ts-wave { animation: ts-wave 5s ease-in-out infinite alternate; }
+@keyframes ts-wave { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+.ts-bubble { animation: ts-bubble 4s ease-in infinite; }
+.ts-bubble.d1 { animation-delay: 1.3s; } .ts-bubble.d2 { animation-delay: 2.6s; }
+@keyframes ts-bubble { 0% { transform: translateY(20px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
+.ts-flutter { animation: ts-flutter 3s ease-in-out infinite; transform-box: fill-box; }
+@keyframes ts-flutter { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-10px, -8px); } }
+
+/* things drifting across the home page */
+.theme-drift { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.theme-drift i { position: absolute; top: -20px; width: 12px; height: 10px; animation: ts-fall linear infinite; opacity: 0.7; }
+.theme-drift.petal i { background: #F7B2C8; border-radius: 12px 2px 12px 2px; }
+.theme-drift.petal-v i { background: #C4B5FD; border-radius: 12px 2px 12px 2px; }
+.theme-drift.petal-c i { background: #FDE68A; border-radius: 50%; width: 7px; height: 7px; }
+.theme-drift.leaf i { background: #E07B39; border-radius: 2px 14px 2px 14px; width: 13px; }
+.theme-drift.star i { background: #FDE68A; width: 4px; height: 4px; border-radius: 50%; box-shadow: 0 0 6px #FDE68A; animation-name: ts-twinkle-fixed; top: auto; }
+.theme-drift.star i:nth-child(odd) { top: 12%; } .theme-drift.star i:nth-child(even) { top: 30%; } .theme-drift.star i:nth-child(3n) { top: 60%; }
+.theme-drift.bubble i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent); background: none; top: auto; bottom: -20px; animation-name: ts-rise; }
+@keyframes ts-fall { from { transform: translate(0, 0) rotate(0deg); } to { transform: translate(-80px, 110vh) rotate(540deg); } }
+@keyframes ts-rise { from { transform: translateY(0); opacity: 0; } 15% { opacity: 0.7; } to { transform: translateY(-110vh); opacity: 0; } }
+@keyframes ts-twinkle-fixed { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.15; } }
+.page:has(> .theme-drift) > *:not(.theme-drift):not(.home-scene) { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .ts-twinkle, .ts-smoke, .ts-wave, .ts-bubble, .ts-flutter, .theme-drift i { animation: none; }
+  .theme-drift { display: none; }
+}
+.reviews .review-card { margin: 0; }
