@@ -192,10 +192,32 @@ function PaperView({ page }) {
   }
   return (
     <g>
+      <Textures />
       <rect width={w} height={h} fill={p.bg} />
       {page.bg && <image href={page.bg} x="0" y="0" width={w} height={h} preserveAspectRatio="xMidYMid meet" />}
       {!page.bg && body}
     </g>
+  );
+}
+
+// The grain of a pencil and the wax of a crayon: noise that takes little
+// bites out of the ink, finer for graphite, coarser and with ragged edges for
+// wax. Every page carries them, so thumbnails and printing show them too.
+function Textures() {
+  return (
+    <defs>
+      <filter id="nb-tex-pencil" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" result="grain" />
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.5" result="mask" />
+        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+      </filter>
+      <filter id="nb-tex-crayon" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.45 0.9" numOctaves="3" seed="7" result="grain" />
+        <feDisplacementMap in="SourceGraphic" in2="grain" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="rough" />
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.9 1.62" result="mask" />
+        <feComposite in="rough" in2="mask" operator="in" />
+      </filter>
+    </defs>
   );
 }
 
@@ -214,11 +236,17 @@ function pathFrom(stroke) {
 
 // Pens write like three real ones: a ballpoint's even line, a fountain
 // pen's swell with pressure and speed, a brush's thick-to-thin.
+// Each writes differently: how much the line thins with pressure, how it
+// tapers at the ends, how much wider than the size it is, and its texture.
 const PEN_STYLES = [
   { id: "ball", name: "Ballpoint", thinning: 0.12, taper: 0 },
   { id: "fountain", name: "Fountain", thinning: 0.35, taper: 0 },
+  { id: "pencil", name: "Pencil", thinning: 0.3, taper: 4, texture: "pencil", scale: 0.9, alpha: 0.88 },
+  { id: "crayon", name: "Crayon", thinning: 0.05, taper: 1, texture: "crayon", scale: 2.3, alpha: 0.92 },
+  { id: "marker", name: "Fineliner", thinning: 0, taper: 0, scale: 1.1 },
   { id: "brush", name: "Brush", thinning: 0.6, taper: 5 },
 ];
+const penScale = (style) => PEN_STYLES.find((p) => p.id === style)?.scale || 1;
 
 // Evens out a stroke before its ink shape is made: points spaced evenly
 // along the line, then position and pressure averaged with their
@@ -469,8 +497,9 @@ function ItemView({ it, editing, onText, shown }) {
       opacity={it.tool === "highlighter" ? 0.38 : 1} />;
   }
   if (it.type === "stroke") {
-    return <path d={inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : 1}
-      />;
+    const pen = it.tool === "pen" && PEN_STYLES.find((p) => p.id === it.style);
+    return <path d={inkPath(it)} fill={it.color} opacity={it.tool === "highlighter" ? 0.38 : pen?.alpha || 1}
+      filter={pen?.texture ? `url(#nb-tex-${pen.texture})` : undefined} />;
   }
   if (it.type === "shape") return <Shape it={it} />;
   if (it.type === "image") {
@@ -1270,7 +1299,30 @@ function PenIcon({ kind, color }) {
     fountain: <path className="tip" d="M8.5 15 C9 9 11 5 12 2 C13 5 15 9 15.5 15 Z M11.6 6 L12.4 6 L12.4 12 L11.6 12 Z" fill={color} fillRule="evenodd" />,
     brush: <path className="tip" d="M9.5 15 C9 10 11 6 12 2 C13 6 15 10 14.5 15 Z" fill={color} />,
     pencil: <><path d="M8.5 15 L12 3 L15.5 15 Z" fill="#E8C9A0" /><path className="tip" d="M10.8 7 L12 3 L13.2 7 Z" fill={color} /></>,
+    marker: <><path d="M9 15 L10.5 8 L13.5 8 L15 15 Z" fill="#d7d7dc" /><rect className="tip" x="10.9" y="3.5" width="2.2" height="5" rx="1" fill={color} /></>,
   };
+  if (kind === "pencil") {
+    // Six-sided wood with the lead showing: the barrel is the pencil's colour.
+    return (
+      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
+        {tips.pencil}
+        <rect x="8.5" y="14" width="7" height="32" fill={color} opacity="0.85" />
+        <rect x="8.5" y="14" width="2.3" height="32" fill="#fff" opacity="0.22" />
+        <rect x="13.2" y="14" width="2.3" height="32" fill="#000" opacity="0.12" />
+      </svg>
+    );
+  }
+  if (kind === "crayon") {
+    // A blunt waxy point and a paper wrapper, in the crayon's own colour.
+    return (
+      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
+        <path className="tip" d="M7.5 13 C8 7 10 4 12 3 C14 4 16 7 16.5 13 Z" fill={color} />
+        <rect x="7" y="12" width="10" height="34" rx="2" fill={color} />
+        <rect x="7" y="17" width="10" height="24" fill="#fff" opacity="0.28" />
+        <path d="M7 20h10M7 38h10" stroke="#000" strokeOpacity="0.18" strokeWidth="1" />
+      </svg>
+    );
+  }
   return (
     <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
       <defs>
@@ -1806,8 +1858,9 @@ function Editor({ id, go, onClose }) {
       // The pencil case: favourite pens, one tap away.
       pens: [
         { id: "p1", tool: "pen", color: "#1b1d26", size: 2.5, style: "fountain", stab: 2 },
-        { id: "p2", tool: "pen", color: "#3B5BFD", size: 2, style: "ball", stab: 2 },
-        { id: "p3", tool: "pen", color: "#e5484d", size: 2, style: "ball", stab: 2 },
+        { id: "p2", tool: "pen", color: "#4a4a52", size: 2, style: "pencil", stab: 2 },
+        { id: "p3", tool: "pen", color: "#3B5BFD", size: 1.5, style: "marker", stab: 2 },
+        { id: "p6", tool: "pen", color: "#e5484d", size: 2.5, style: "crayon", stab: 3 },
         { id: "p4", tool: "highlighter", color: "#ffe066", size: 3, tip: "round", stab: 5 },
         { id: "p5", tool: "highlighter", color: "#a7f3d0", size: 3, tip: "round", stab: 5 },
       ] };
@@ -1815,6 +1868,13 @@ function Editor({ id, go, onClose }) {
       const saved = JSON.parse(localStorage.getItem("dwiddle-nb-tools") || "{}");
       // Auto refine made small writing hard; it starts off for everyone once.
       if (!saved.v2) { saved.refine = false; saved.v2 = true; }
+      // The tray used to be the same pen in three colours; it becomes a set
+      // of different instruments once, keeping any pens added since.
+      if (!saved.v3) {
+        saved.v3 = true;
+        const old = ["p1", "p2", "p3", "p4", "p5"];
+        if (Array.isArray(saved.pens)) saved.pens = [...base.pens, ...saved.pens.filter((pn) => !old.includes(pn.id))].slice(0, 10);
+      }
       return { ...base, ...saved, stab: { ...base.stab, ...(saved.stab || {}) } };
     } catch { return base; }
   });
@@ -2417,7 +2477,7 @@ function Editor({ id, go, onClose }) {
       const isHl = tool === "highlighter" || tool === "revealer";
       const color = tool === "revealer" ? cov : isHl ? hl : ink;
       liveStroke.current = { pageId: page.id, pointerId: e.pointerId, id: uid(), type: "stroke", tool, color,
-        size: widthOf(tool, size), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
+        size: widthOf(tool, size) * (tool === "pen" ? penScale(prefs.style) : 1), pressure: e.pointerType === "pen", points: [[x, y, pressure]], stab: prefs.stab[tool] ?? 4,
         ...(tool === "pen" ? { style: prefs.style } : {}), ...(tool === "highlighter" ? { tip: prefs.tip } : {}) };
       const guide = tool !== "revealer" ? guideAt(ruler, prot, page.id, x, y) : null;
       if (guide) {
