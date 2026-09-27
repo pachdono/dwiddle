@@ -15,7 +15,9 @@ import { shrink } from "./custom.js";
 export const MAX_FILE = 20 * 1024 * 1024; // the limit the drop zone advertises
 export const IMAGE = /\.(png|jpe?g|webp|heic|heif|gif|bmp)$/i;
 
-export async function readFile(file) {
+// onPage(page, of) is told each page of a PDF as it is read, so a long one
+// can say how far it has got.
+export async function readFile(file, { onPage } = {}) {
   if (file.size > MAX_FILE) {
     throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit. Split it and add a chapter at a time.`);
   }
@@ -53,6 +55,7 @@ export async function readFile(file) {
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
       const content = await page.getTextContent();
+      onPage?.(p, doc.numPages);
       text += content.items.map((it) => it.str).join(" ") + "\n";
     }
     if (!text.trim()) {

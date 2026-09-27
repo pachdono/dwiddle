@@ -14,8 +14,9 @@
 import { useEffect, useState } from "react";
 import { solveProblem, writeVideo } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
-import { Icon, PageHead, Loading, BusyScreen, Boundary } from "./ui.jsx";
+import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
 import { VideoPlayer } from "./Video.jsx";
+import { LikeImFour } from "./LikeImFour.jsx";
 import { prepareNarration } from "./narration.js";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
@@ -60,7 +61,6 @@ export function Solve({ go, auth, early }) {
       setVideo(made);
       // The narration starts making straight away; the player waits for it.
       prepareNarration(made);
-      setWatching(true);
     } catch (err) {
       setVideoError(err.message || "The video could not be made.");
     } finally {
@@ -308,14 +308,15 @@ export function Solve({ go, auth, early }) {
               <div>
                 <b className="small">{video ? "Your video is ready" : "Watch it explained"}</b>
                 <p className="small muted" style={{ margin: "2px 0 0" }}>
-                  {videoError || "A narrated walk through at a whiteboard, one step at a time, with the transcript beside it."}
+                  {videoError || (filming
+                    ? "Being made in the background, about half a minute. Keep reading; the button turns to Watch when it is ready."
+                    : video ? "Tap Watch whenever you are ready." : "A narrated walk through at a whiteboard, one step at a time, with the transcript beside it.")}
                 </p>
               </div>
-              <button className="btn cta" onClick={explain} disabled={filming}>
+              <button className={"btn cta" + (video && !watching ? " sv-ready" : "")} onClick={explain} disabled={filming}>
                 {filming ? <Loading label="Making it" /> : video ? "Watch" : videoError ? "Try again" : "Make the video"}
               </button>
             </div>}
-            {filming && <BusyScreen title="Making your video" detail="Planning the scenes, the diagram and what to say at each step. About half a minute." outfit="dj" />}
             {watching && video && (
               <Boundary fallback={({ error }) => {
                 setTimeout(() => { setWatching(false); setVideo(null); setVideoError(`That video could not be played (${String(error?.message || error).slice(0, 120)}). Make it again.`); });
@@ -324,6 +325,8 @@ export function Solve({ go, auth, early }) {
                 <VideoPlayer video={video} onClose={() => setWatching(false)} />
               </Boundary>
             )}
+
+            {early && <LikeImFour context={`A question the student asked to have solved: ${problem}\nThe worked solution:\n${result.steps.map((s, i) => `${i + 1}. ${s.do}${s.work ? ` (${s.work})` : ""}${s.why ? `: ${s.why}` : ""}`).join("\n")}\nAnswer: ${result.answer || ""}${result.idea ? `\nWhat it is really testing: ${result.idea}` : ""}`} />}
 
             <ol className="sv-steps">
               {result.steps.map((s, i) => (

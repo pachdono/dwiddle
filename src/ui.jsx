@@ -171,22 +171,38 @@ const TIPS = [
   "Ask Dwiddle anything about the page you are on.",
 ];
 
-export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle" }) {
+// count: "12 of 45", shown large, so it is clear how close it is.
+// eta: for one long step with nothing to count, about how many seconds it
+// takes; the bar then fills with the time and says about how long is left,
+// and "Nearly there" once the estimate has passed.
+export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle", count = null, eta = null }) {
   const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
+  const [started] = useState(() => Date.now());
+  const [, tick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTip((n) => (n + 1) % TIPS.length), 4500);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => {
+    if (!eta) return;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [eta]);
+  const spent = (Date.now() - started) / 1000;
+  const left = eta ? Math.max(0, Math.round(eta - spent)) : null;
+  if (eta && progress === null) progress = Math.min(0.94, spent / eta);
   const known = typeof progress === "number" && isFinite(progress);
   return createPortal(
     <div className="busy" role="status" aria-live="polite">
       <div className="busy-card">
         <div className="busy-duck"><Duck size={110} outfit={outfit === "dwiddle" ? undefined : outfit} /></div>
         <h2>{title}</h2>
+        {count && <div className="busy-count" key={count}>{count}</div>}
         {detail && <p className="busy-detail">{detail}</p>}
         <div className={"busy-bar" + (known ? "" : " sweep")}>
           <span style={known ? { width: `${Math.max(4, Math.min(100, progress * 100))}%` } : undefined} />
         </div>
+        {eta && <p className="busy-left">{left > 0 ? `About ${left < 60 ? `${left} seconds` : `${Math.ceil(left / 60)} minute${Math.ceil(left / 60) === 1 ? "" : "s"}`} left` : "Nearly there…"}</p>}
         <p className="busy-tip" key={tip}>Tip: {TIPS[tip]}</p>
       </div>
     </div>,

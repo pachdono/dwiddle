@@ -12,7 +12,7 @@ import { sayAs, stopSpeaking } from "./tts.js";
 import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
-import { Icon, PageHead, Portal, BusyScreen, Boundary } from "./ui.jsx";
+import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck } from "./Duck.jsx";
 
 /* ---------- saved videos ---------- */
@@ -51,6 +51,79 @@ function joinChapters(made, parts) {
   return { title: made?.title || "Your material", subtitle: `${chapters.length} chapter${chapters.length === 1 ? "" : "s"}`, chapters, scenes };
 }
 
+/* ---------- making a video, in the background ---------- */
+
+// A chapter per topic, one request each so every request stays small, one
+// after another. It runs outside the page, so the student can go anywhere
+// while it is made; the page and a small chip follow its progress. What is
+// made is kept as it goes, so a failure part way picks up where it stopped.
+let job = null; // { key, title, n, of, topic, state: "making" | "ready" | "failed", error }
+const jobListeners = new Set();
+const tellJob = () => jobListeners.forEach((f) => f(job && { ...job }));
+
+const notesOf = (made, t) => (made?.notes?.[t.name] || []).map(blockPlain).filter(Boolean).join("\n");
+const topicsWithNotes = (made) => (made?.topics || []).filter((t) => notesOf(made, t).length >= 80);
+
+export function makeVideo(made, fresh) {
+  if (job?.state === "making") return;
+  const withNotes = topicsWithNotes(made);
+  const parts = loadAll()[partsKey(made)]?.list || [];
+  let done = fresh ? [] : parts.filter((p) => withNotes.some((t) => t.name === p.topic));
+  if (fresh) { saveOne(partsKey(made), null); saveOne(materialKey(made), null); }
+  const todo = withNotes.filter((t) => !done.some((p) => p.topic === t.name));
+  job = { key: materialKey(made), title: made?.title || "your material", n: done.length + 1, of: withNotes.length, topic: todo[0]?.name || "", state: "making", error: "" };
+  tellJob();
+  (async () => {
+    try {
+      for (const t of todo) {
+        job = { ...job, n: done.length + 1, topic: t.name };
+        tellJob();
+        const part = await writeVideo({ topic: t.name, notes: notesOf(made, t) });
+        done = [...done, { topic: t.name, video: part }];
+        saveOne(partsKey(made), { scenes: [], list: done });
+      }
+      // In the order the material has them, whatever order they were made in.
+      const ordered = withNotes.map((t) => done.find((p) => p.topic === t.name)).filter(Boolean);
+      const whole = joinChapters(made, ordered);
+      saveOne(materialKey(made), whole);
+      saveOne(partsKey(made), null);
+      prepareNarration(whole);
+      job = { ...job, state: "ready" };
+    } catch (err) {
+      job = { ...job, state: "failed", error: `${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}` };
+    }
+    tellJob();
+  })();
+}
+
+export function useVideoJob() {
+  const [now, setNow] = useState(() => job && { ...job });
+  useEffect(() => { jobListeners.add(setNow); return () => { jobListeners.delete(setNow); }; }, []);
+  return now;
+}
+export const clearVideoJob = () => { if (job?.state !== "making") { job = null; tellJob(); } };
+
+// A small chip in the corner while a video is being made, anywhere in the
+// app, and once when it is ready. Tapping it goes to the video.
+export function VideoJobChip({ go, page }) {
+  const j = useVideoJob();
+  if (!j || page === "videos") return null;
+  return (
+    <div className={"vd-chip " + j.state} role="status">
+      <button className="vd-chip-main" onClick={() => { go("videos"); if (j.state !== "making") clearVideoJob(); }}>
+        {j.state === "making" && <span className="vd-chip-spin" aria-hidden="true" />}
+        {j.state === "ready" && <Icon name="video" size={15} />}
+        <span>
+          {j.state === "making" ? <>Making your video · chapter {j.n} of {j.of}</>
+            : j.state === "ready" ? <>Your video is ready · <b>Watch</b></>
+            : <>The video stopped part way · <b>Carry on</b></>}
+        </span>
+      </button>
+      {j.state !== "making" && <button className="vd-chip-x" onClick={clearVideoJob} aria-label="Dismiss"><Icon name="close" size={13} /></button>}
+    </div>
+  );
+}
+
 /* ---------- the Videos page ---------- */
 
 export function Videos({ made, go, early }) {
@@ -73,9 +146,13 @@ export function Videos({ made, go, early }) {
 function VideosPage({ made, go }) {
   const topics = made?.topics || [];
   const [saved, setSaved] = useState(loadAll);
-  const [making, setMaking] = useState(null); // { n, of, topic } while chapters are being made
-  const [error, setError] = useState("");
   const [open, setOpen] = useState(null);
+  const j = useVideoJob();
+  const mine = j && j.key === materialKey(made) ? j : null;
+  const making = mine?.state === "making" ? mine : null;
+  const error = mine?.state === "failed" ? mine.error : "";
+  // What is kept changes as chapters are made, wherever the student is.
+  useEffect(() => { setSaved(loadAll()); }, [j?.n, j?.state]);
 
   const video = saved[materialKey(made)];
   const parts = saved[partsKey(made)]?.list || [];
@@ -83,39 +160,8 @@ function VideosPage({ made, go }) {
   // so it is ready, or nearly, by the time Watch is pressed.
   const [narr, setNarr] = useState(null);
   useEffect(() => (video ? onNarration(video, setNarr) : undefined), [video]);
-  const withNotes = topics.filter((t) => (made?.notes?.[t.name] || []).map(blockPlain).join("\n").length >= 80);
-
-  // A chapter per topic, one request each so every request stays small, one
-  // after another. What is made is kept as it goes, so a failure part way
-  // picks up where it stopped rather than starting again.
-  async function make(fresh) {
-    setError("");
-    let done = fresh ? [] : parts.filter((p) => withNotes.some((t) => t.name === p.topic));
-    if (fresh) { saveOne(partsKey(made), null); saveOne(materialKey(made), null); }
-    const todo = withNotes.filter((t) => !done.some((p) => p.topic === t.name));
-    try {
-      for (let i = 0; i < todo.length; i++) {
-        const t = todo[i];
-        setMaking({ n: done.length + 1, of: withNotes.length, topic: t.name });
-        const notes = (made.notes[t.name] || []).map(blockPlain).filter(Boolean).join("\n");
-        const part = await writeVideo({ topic: t.name, notes });
-        done = [...done, { topic: t.name, video: part }];
-        saveOne(partsKey(made), { scenes: [], list: done });
-      }
-      // In the order the material has them, whatever order they were made in.
-      const ordered = withNotes.map((t) => done.find((p) => p.topic === t.name)).filter(Boolean);
-      const whole = joinChapters(made, ordered);
-      saveOne(materialKey(made), whole);
-      saveOne(partsKey(made), null);
-      prepareNarration(whole);
-      setSaved(loadAll());
-    } catch (err) {
-      setSaved(loadAll());
-      setError(`${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}`);
-    } finally {
-      setMaking(null);
-    }
-  }
+  const withNotes = topicsWithNotes(made);
+  const make = (fresh) => makeVideo(made, fresh);
 
   if (!topics.length) {
     return (
@@ -187,7 +233,16 @@ function VideosPage({ made, go }) {
         {error && <p className="small vd-err" style={{ marginTop: 10 }}>{error}</p>}
       </div>
 
-      {making && <BusyScreen title="Making your video" detail={`Chapter ${making.n} of ${making.of}: ${making.topic}.`} progress={(making.n - 1) / making.of} outfit="dj" />}
+      {making && (
+        <div className="card card-pad vd-making" aria-live="polite">
+          <Duck size={56} outfit="dj" />
+          <div>
+            <b>Making your video: chapter {making.n} of {making.of}</b>
+            <p className="small muted" style={{ margin: "2px 0 8px" }}>{making.topic}. About half a minute a chapter. Go and do something else; it carries on, and a note in the corner says when it is ready.</p>
+            <div className="vd-voice-bar"><i style={{ width: `${Math.round(((making.n - 1) / making.of) * 100)}%` }} /></div>
+          </div>
+        </div>
+      )}
       {open && (
         <Boundary fallback={({ error: e }) => (
           <Portal>

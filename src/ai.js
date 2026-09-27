@@ -120,7 +120,8 @@ let early = false;
 export const setEarlyAccess = (on) => { early = !!on; };
 export const earlyAccess = () => early;
 
-function notesTasks(text, topics) {
+// onTopics(n) is told how many topics each batch covered once it is back.
+function notesTasks(text, topics, onTopics) {
   return chunk(topics, notesBatch(text.length)).map((batch) => async () => {
     try {
       const d = await post("/api/generate", { notes: text, mode: "notes", rich: early, topics: batch.map((t) => ({ name: t.name })) });
@@ -129,6 +130,8 @@ function notesTasks(text, topics) {
       // A missing section is written again later from the Notes page. It is
       // not worth losing the questions over.
       return [];
+    } finally {
+      onTopics?.(batch.length);
     }
   });
 }
@@ -346,8 +349,8 @@ export async function generateInParts(text, { onProgress, onPart, onWait, startA
 
 // Full notes for topics that do not have them yet: material made before full
 // notes existed, or a batch that failed the first time.
-export async function writeNotes(text, topics) {
-  return toNotes(await pool(notesTasks(text, topics), AT_ONCE));
+export async function writeNotes(text, topics, { onTopics } = {}) {
+  return toNotes(await pool(notesTasks(text, topics, onTopics), AT_ONCE));
 }
 
 // No notes needed: the course, subject and syllabus topic are the brief.

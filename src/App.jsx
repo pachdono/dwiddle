@@ -3,6 +3,7 @@ import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
 import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
+import { LikeImFour } from "./LikeImFour.jsx";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +14,7 @@ import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
-import { Videos } from "./Video.jsx";
+import { Videos, VideoJobChip } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
@@ -716,6 +717,7 @@ export default function App() {
       {/* A painted place behind every page, for testers for now; the old
           weather over the home screen for everyone else. */}
       {early && !showPhoto && <ThemeBackdrop theme={look} resolved={resolved} />}
+      {early && <VideoJobChip go={go} page={page} />}
       {page === "home" && !early && <ThemeDrift theme={look} />}
 
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
@@ -1552,7 +1554,9 @@ function firstSentences(text, n) {
 // rather than notes, so it is looked at before anything is written.
 const REQUEST_LIMIT = 1500;
 
-function AddMaterial({ go, setMade, auth }) {
+function AddMaterial({ go, setMade, auth, early }) {
+  const [pageOf, setPageOf] = useState(null); // { p, of } while a long PDF is read
+  const [size, setSize] = useState(0); // words being built from, for the time estimate
   const [files, setFiles] = useState([]); // [{ file, url }] in the order added
   // A notebook page sent here arrives as its text, ready to build from.
   const [notes, setNotes] = useState(() => {
@@ -1693,7 +1697,8 @@ function AddMaterial({ go, setMade, auth }) {
       setState("reading");
       setReading(i + 1);
       try {
-        const read = (files[i].yt ? files[i].yt.transcript : await readFile(files[i].file)).trim();
+        setPageOf(null);
+        const read = (files[i].yt ? files[i].yt.transcript : await readFile(files[i].file, { onPage: (p, of) => { if (of > 1) setPageOf({ p, of }); } })).trim();
         if (read) parts.push(files.length > 1 ? `${files[i].file.name}\n\n${read}` : read);
       } catch (err) {
         setState("error");
@@ -1749,6 +1754,7 @@ function AddMaterial({ go, setMade, auth }) {
   // Carrying on adds to what is already there rather than replacing it, and
   // numbers its parts after the ones already done so nothing collides.
   async function build(text, inParts, carryOn = null) {
+    setSize(text.trim().split(/\s+/).length);
     setState("working");
     setProgress(null);
     setWaiting(null);
@@ -1946,7 +1952,16 @@ function AddMaterial({ go, setMade, auth }) {
                 : state === "asking" ? "Working out what you want to study"
                 : state === "brief" ? "Writing full notes, topic by topic"
                 : "Writing questions with an explanation for every answer"}
-              progress={state === "reading" && files.length > 1 ? (reading - 1) / files.length : null}
+              progress={state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
+                : state === "reading" && pageOf ? pageOf.p / pageOf.of
+                : state === "working" && progress ? (progress.n - 1) / progress.of : null}
+              count={!early ? null
+                : state === "reading" && pageOf ? `Page ${pageOf.p} of ${pageOf.of}${files.length > 1 ? ` · file ${reading} of ${files.length}` : ""}`
+                : state === "reading" && files.length > 1 ? `File ${reading} of ${files.length}`
+                : state === "working" && progress ? `Part ${progress.n} of ${progress.of}` : null}
+              eta={!early ? null
+                : state === "brief" ? 45
+                : state === "working" && !progress ? Math.min(150, 25 + Math.round(size / 70)) : null}
               outfit={state === "reading" ? "detective" : state === "brief" ? "wizard" : "graduate"} />
           )}
           <div className="notes-foot">
@@ -2317,7 +2332,7 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool, len, drillPool = [], ordered = false }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
@@ -2416,6 +2431,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false }) {
                   {picked === q.answer ? "Correct" : "Not quite"}
                 </span>
                 <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
+                {early && <LikeImFour context={askContext(q, picked)} />}
               </div>
             )}
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
@@ -2445,7 +2461,7 @@ function askContext(q, picked) {
 
 // Questions due for another look. Optional in every sense: it is one mode
 // among six, and nothing is withheld from anyone who never opens it.
-function ReviewMode({ grade, pool, drillPool = [], srs }) {
+function ReviewMode({ grade, pool, drillPool = [], srs, early }) {
   const [due] = useState(() => dueFrom([...pool, ...drillPool], srs).slice(0, 20));
   if (!due.length) {
     return (
@@ -2459,7 +2475,7 @@ function ReviewMode({ grade, pool, drillPool = [], srs }) {
       </div>
     );
   }
-  return <QuizMode grade={grade} pool={due} len={due.length} ordered />;
+  return <QuizMode grade={grade} pool={due} len={due.length} ordered early={early} />;
 }
 
 /* ---------- study sheet ---------- */

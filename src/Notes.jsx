@@ -9,6 +9,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
+import { LikeImFour } from "./LikeImFour.jsx";
 import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen, Portal } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
@@ -155,13 +156,17 @@ export function Notes({ made, saveNotes, go, early = false }) {
     return c;
   }, [notes]);
 
+  const [wrote, setWrote] = useState(null); // { n, of } topics written so far
   async function writeMissing() {
     setWriting(true);
     setError("");
+    const of = writable.reduce((n, g) => n + g.topics.length, 0);
+    setWrote({ n: 0, of });
     try {
       const written = {};
       for (const g of writable) {
-        Object.assign(written, await writeNotes(g.notes, g.topics.map((name) => ({ name }))));
+        Object.assign(written, await writeNotes(g.notes, g.topics.map((name) => ({ name })),
+          { onTopics: (k) => setWrote((w) => w && { ...w, n: Math.min(w.of, w.n + k) }) }));
       }
       if (!Object.keys(written).length) throw new Error("The notes did not come back. Try again in a moment.");
       saveNotes(written);
@@ -169,6 +174,7 @@ export function Notes({ made, saveNotes, go, early = false }) {
       setError(err.message || "The notes could not be written.");
     } finally {
       setWriting(false);
+      setWrote(null);
     }
   }
 
@@ -233,7 +239,8 @@ export function Notes({ made, saveNotes, go, early = false }) {
         </div>
       )}
 
-      {writing && <BusyScreen title="Writing your notes" detail="Every definition, list and example from your material, topic by topic. Long material can take a minute." outfit="wizard" />}
+      {writing && <BusyScreen title="Writing your notes" detail="Every definition, list and example from your material, topic by topic. Long material can take a minute." outfit="wizard"
+        count={early && wrote?.of > 1 ? `${wrote.n} of ${wrote.of} topics` : null} progress={wrote?.of > 1 ? wrote.n / wrote.of : null} />}
       <div className="nt-body sheet">
         {topics.map((t, i) => {
           const blocks = notes[t.name];
@@ -242,6 +249,7 @@ export function Notes({ made, saveNotes, go, early = false }) {
             <section key={t.name} id={slug(t.name)} className="nt-sec">
               <h2><span>{i + 1}</span>{t.name}</h2>
               <Topic blocks={blocks} on={on} early={early} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
+              {early && <LikeImFour className="nt-l4" context={`The student's notes on "${t.name}":\n${blocks.map(blockPlain).filter(Boolean).join("\n")}`} />}
             </section>
           );
         })}
