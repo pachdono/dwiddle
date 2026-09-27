@@ -51,7 +51,7 @@ begin
   if char_length(clean) < 2 or char_length(clean) > 40 then raise exception 'A staff name is 2 to 40 characters'; end if;
   select * into them from public.staff where lower(email) = lower(coalesce(target_email, me.email));
   if them.email is null then raise exception 'No such member of staff'; end if;
-  if them.email <> me.email and not me.owner then raise exception 'Only an owner can change another person name'; end if;
+  if them.email <> me.email and not me.owner then raise exception 'Only an owner can change the name of another member of staff'; end if;
   if them.email = me.email and me.staff_name is not null and not me.owner then
     raise exception 'Your staff name is set. Ask dwiddle36@gmail.com or donoplayz2410@gmail.com to change it.';
   end if;
