@@ -4,6 +4,18 @@ import App from "./App.jsx";
 import { ContextMenu } from "./ContextMenu.jsx";
 import "./styles.css";
 
+// After a new deploy, a page that was already open still asks for the old
+// file names, which no longer exist. Load the new version once instead of
+// failing, but never loop if the file really is missing.
+window.addEventListener("vite:preloadError", (e) => {
+  let last = 0;
+  try { last = +sessionStorage.getItem("dwiddle-reloaded") || 0; } catch { /* private mode */ }
+  if (Date.now() - last < 30000) return;
+  e.preventDefault();
+  try { sessionStorage.setItem("dwiddle-reloaded", String(Date.now())); } catch { /* private mode */ }
+  location.reload();
+});
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />

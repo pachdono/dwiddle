@@ -9,7 +9,7 @@
 //   /assets/*   cache first. Vite puts a content hash in every asset name, so
 //               a given URL can never change meaning and is safe to keep.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `dwiddle-shell-${VERSION}`;
 const ASSETS = `dwiddle-assets-${VERSION}`;
 
@@ -54,7 +54,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.match(request).then((hit) =>
         hit || fetch(request).then((reply) => {
-          if (reply.ok) {
+          // Only real files: a missing chunk must not be kept as a page.
+          if (reply.ok && !(reply.headers.get("content-type") || "").includes("text/html")) {
             const copy = reply.clone();
             caches.open(ASSETS).then((c) => c.put(request, copy));
           }
