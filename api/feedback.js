@@ -32,11 +32,39 @@ async function accountFrom(req) {
   }
 }
 
+// The automatic reply for each kind of message: what we got, what happens
+// next, and what they can do.
 const THANKS = {
-  bug: { subject: "We got your bug report", body: "Thanks for reporting this. We've got it and we'll look into it. If we need more details, we'll reply to this email." },
-  review: { subject: "Thanks for your review", body: "Thanks for taking the time to review Dwiddle. We read every one. If yours is picked for the front page, you'll see it there with your first name." },
-  feedback: { subject: "We got your message", body: "Thanks for your feedback. We read every message, and if we have a question we'll reply to this email." },
-  complaint: { subject: "We got your complaint", body: "We're sorry something went wrong. Your complaint has gone to the Dwiddle owners and the staff team, and one of us will reply to this email." },
+  bug: {
+    subject: "We have received your bug report",
+    body: [
+      "Thank you for reporting this issue. Your report has been logged and passed to the team that builds Dwiddle.",
+      "What happens next: we will try to reproduce the problem and work on a fix. If we need more details, such as the device you were using or the steps that led to it, we will reply to this email. We will let you know once it is fixed.",
+      "In the meantime, reloading the page, or updating the desktop app to the latest version, sometimes clears the problem.",
+    ],
+  },
+  review: {
+    subject: "Thank you for your review",
+    body: [
+      "Thank you for taking the time to review Dwiddle. Reviews like yours help other students find us, and help us understand what is working.",
+      "Every review is read by our team before anything is published. If yours is chosen for our website, it will appear with your profile name and picture, never your email address. You can ask us to remove it at any time by replying to this email.",
+    ],
+  },
+  feedback: {
+    subject: "We have received your feedback",
+    body: [
+      "Thank you for your feedback. Every message is read by the team and helps decide what we build next.",
+      "We are not always able to reply to every suggestion individually, but if we have a question or an update for you, we will reply to this email.",
+    ],
+  },
+  complaint: {
+    subject: "We have received your complaint",
+    body: [
+      "We are sorry to hear that something has not gone the way it should. Thank you for taking the time to tell us.",
+      "Your complaint has been recorded and escalated to the Dwiddle owners, who review every complaint personally. We aim to respond as soon as possible, usually within a few days.",
+      "If you have anything to add, such as screenshots, the reference of an email you received from us, or the staff name or ID involved, please reply to this email and it will be added to your complaint.",
+    ],
+  },
 };
 
 async function toTeam({ kind, stars, message, account, contact, reference }) {
@@ -93,7 +121,7 @@ export default async function handler(req, res) {
   const [team, thanks] = await Promise.allSettled([
     toTeam({ kind, stars, message, account, contact, reference }),
     to && gmailReady
-      ? sendGmail({ to, subject: t.subject + (reference ? ` (${reference})` : ""), paragraphs: [`Hi${account?.first ? " " + account.first : ""},`, t.body], quote: account ? message : null, reference })
+      ? sendGmail({ to, subject: t.subject + (reference ? ` (${reference})` : ""), paragraphs: [`Hi${account?.first ? " " + account.first : ""},`, ...t.body], quote: message, reference })
       : Promise.resolve(false),
   ]);
   if (team.status === "rejected") console.error("[feedback] team email error", team.reason?.message);

@@ -18,9 +18,11 @@ export const staffId = (n) => (n ? "DWS-" + String(n).padStart(3, "0") : "");
 // because that is all email apps reliably draw.
 export function letter({ paragraphs, quote, sign, reference }) {
   const p = (t) => `<p style="margin:0 0 14px;white-space:pre-wrap">${escape(t)}</p>`;
+  // Staff sign off as themselves, gamer style: "- Dono" over the team name,
+  // with their staff ID underneath. Automatic emails come from the team.
   const signature = sign?.name
-    ? `<p style="margin:22px 0 0"><b>${escape(sign.name)}</b><br><span style="color:#6b6f80;font-size:13px">Dwiddle Staff${sign.id ? ` &middot; Staff ID ${escape(sign.id)}` : ""}</span></p>`
-    : `<p style="margin:22px 0 0"><b>The Dwiddle team</b></p>`;
+    ? `<p style="margin:22px 0 0">- ${escape(sign.name)}<br><b>The Dwiddle Team</b>${sign.id ? `<br><span style="color:#8a8f9c;font-size:12.5px">Staff ID ${escape(sign.id)}</span>` : ""}</p>`
+    : `<p style="margin:22px 0 0">Kind regards,<br><b>The Dwiddle Team</b></p>`;
   const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f4f3f0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f3f0;padding:24px 12px">
 <tr><td align="center">
@@ -50,7 +52,7 @@ export function letter({ paragraphs, quote, sign, reference }) {
 </td></tr></table></body></html>`;
   const text = [
     ...paragraphs, "",
-    sign?.name ? `${sign.name}\nDwiddle Staff${sign.id ? ` · Staff ID ${sign.id}` : ""}` : "The Dwiddle team",
+    sign?.name ? `- ${sign.name}\nThe Dwiddle Team${sign.id ? `\nStaff ID ${sign.id}` : ""}` : "Kind regards,\nThe Dwiddle Team",
     ...(reference ? ["", `Reference: ${reference}`] : []),
     ...(quote ? ["", "What you sent:", quote] : []),
     "", `Not happy with how we handled something? Email ${OWNER} or send a complaint from ${SITE}/feedback${reference ? `, quoting ${reference}` : ""}.`,
