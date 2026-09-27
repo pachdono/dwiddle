@@ -693,6 +693,8 @@ export default function App() {
       )}
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <ProfileGate user={auth.user} />
+      {/* petals, leaves, bubbles or stars drifting over the home screen */}
+      {page === "home" && <ThemeDrift theme={look} />}
 
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
         <button className="icon-btn drawer-close" aria-label="Close menu"
@@ -1132,7 +1134,6 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
 
   return (
     <div className="page wide fade">
-      <ThemeDrift theme={look} />
       {hasScenery(look) && <div className="home-scene"><ThemeScenery theme={look} /></div>}
 
       <div className="dash-top">

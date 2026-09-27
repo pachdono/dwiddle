@@ -179,14 +179,25 @@ export function ThemeScenery({ theme, className = "" }) {
   );
 }
 
-// A few things drifting across the home page: petals, leaves, bubbles, stars.
-const DRIFT = { sakura: "petal", autumn: "leaf", ocean: "bubble", prismarine: "bubble", midnight: "star", violet: "petal-v", cottage: "petal-c" };
+// Things drifting down over the home screen: petals, leaves, bubbles, stars.
+// Each one is its own size, speed and sway, so it looks like weather rather
+// than a pattern. They float over everything but never catch a tap.
+const DRIFT = { sakura: "petal", autumn: "leaf", ocean: "bubble", prismarine: "glass", midnight: "star", violet: "butterfly", cottage: "fluff", matcha: "leaf-g", sunset: "firefly" };
+const rnd = (n) => { const x = Math.sin(n * 9301 + 49297) * 233280; return x - Math.floor(x); };
 export function ThemeDrift({ theme }) {
   const kind = DRIFT[theme];
   if (!kind) return null;
   return (
     <div className={"theme-drift " + kind} aria-hidden="true">
-      {Array.from({ length: 9 }, (_, i) => <i key={i} style={{ left: `${(i * 11 + 4) % 100}%`, animationDelay: `${(i * 1.7) % 11}s`, animationDuration: `${11 + (i % 4) * 3}s` }} />)}
+      {kind === "star" && <b className="shooting" />}
+      {Array.from({ length: 18 }, (_, i) => {
+        const size = 0.6 + rnd(i) * 0.9;
+        return (
+          <span key={i} style={{ left: `${rnd(i + 40) * 100}%`, animationDelay: `-${rnd(i + 80) * 18}s`, animationDuration: `${12 + rnd(i + 120) * 12}s` }}>
+            <i style={{ transform: `scale(${size.toFixed(2)})`, animationDuration: `${2.5 + rnd(i + 160) * 3}s`, opacity: (0.55 + rnd(i + 200) * 0.4).toFixed(2) }} />
+          </span>
+        );
+      })}
     </div>
   );
 }

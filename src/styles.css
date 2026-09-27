@@ -7191,22 +7191,50 @@ a.btn { text-decoration: none; }
 .ts-flutter { animation: ts-flutter 3s ease-in-out infinite; transform-box: fill-box; }
 @keyframes ts-flutter { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-10px, -8px); } }
 
-/* things drifting across the home page */
-.theme-drift { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
-.theme-drift i { position: absolute; top: -20px; width: 12px; height: 10px; animation: ts-fall linear infinite; opacity: 0.7; }
-.theme-drift.petal i { background: #F7B2C8; border-radius: 12px 2px 12px 2px; }
-.theme-drift.petal-v i { background: #C4B5FD; border-radius: 12px 2px 12px 2px; }
-.theme-drift.petal-c i { background: #FDE68A; border-radius: 50%; width: 7px; height: 7px; }
-.theme-drift.leaf i { background: #E07B39; border-radius: 2px 14px 2px 14px; width: 13px; }
-.theme-drift.star i { background: #FDE68A; width: 4px; height: 4px; border-radius: 50%; box-shadow: 0 0 6px #FDE68A; animation-name: ts-twinkle-fixed; top: auto; }
-.theme-drift.star i:nth-child(odd) { top: 12%; } .theme-drift.star i:nth-child(even) { top: 30%; } .theme-drift.star i:nth-child(3n) { top: 60%; }
-.theme-drift.bubble i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent); background: none; top: auto; bottom: -20px; animation-name: ts-rise; }
-@keyframes ts-fall { from { transform: translate(0, 0) rotate(0deg); } to { transform: translate(-80px, 110vh) rotate(540deg); } }
-@keyframes ts-rise { from { transform: translateY(0); opacity: 0; } 15% { opacity: 0.7; } to { transform: translateY(-110vh); opacity: 0; } }
+/* things drifting over the home screen: each span falls, the shape inside sways */
+.theme-drift { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 60; }
+.theme-drift span { position: absolute; top: -30px; animation: ts-fall linear infinite; }
+.theme-drift i { display: block; width: 14px; height: 11px; animation: ts-sway ease-in-out infinite alternate; }
+.theme-drift.petal i { background: radial-gradient(circle at 30% 30%, #FFE3EC, #F7A8C2); border-radius: 14px 2px 14px 2px; box-shadow: 0 1px 2px rgba(224, 103, 143, 0.25); }
+.theme-drift.petal-v i { background: radial-gradient(circle at 30% 30%, #EDE9FE, #A78BFA); border-radius: 14px 2px 14px 2px; }
+.theme-drift.petal-c i { background: #FDE68A; border-radius: 50%; width: 8px; height: 8px; }
+.theme-drift.leaf i { background: linear-gradient(135deg, #F2A541, #D9602B); border-radius: 2px 16px 2px 16px; width: 16px; height: 12px; }
+.theme-drift.leaf-g i { background: linear-gradient(135deg, #A7D57C, #5E9E47); border-radius: 2px 16px 2px 16px; width: 12px; height: 9px; }
+.theme-drift.sparkle i { background: #FFD08A; width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 0 8px #FFB36B; }
+.theme-drift.star span { animation-name: ts-hang; top: auto; }
+.theme-drift.star span:nth-child(3n) { top: 8%; } .theme-drift.star span:nth-child(3n + 1) { top: 22%; } .theme-drift.star span:nth-child(3n + 2) { top: 40%; }
+.theme-drift.star i { background: #FDE68A; width: 4px; height: 4px; border-radius: 50%; box-shadow: 0 0 6px #FDE68A; animation-name: ts-twinkle-fixed; }
+.theme-drift.bubble span { top: auto; bottom: -30px; animation-name: ts-rise; }
+.theme-drift.bubble i { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.7), transparent 60%); }
+@keyframes ts-fall { from { transform: translate(0, 0); } to { transform: translate(-90px, calc(100vh + 60px)); } }
+@keyframes ts-rise { from { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } to { transform: translateY(calc(-100vh - 60px)); opacity: 0; } }
+@keyframes ts-hang { from { opacity: 1; } to { opacity: 1; } }
+@keyframes ts-sway { from { translate: -14px 0; rotate: -25deg; } to { translate: 14px 0; rotate: 35deg; } }
 @keyframes ts-twinkle-fixed { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.15; } }
-.page:has(> .theme-drift) > *:not(.theme-drift):not(.home-scene) { position: relative; z-index: 1; }
 @media (prefers-reduced-motion: reduce) {
-  .ts-twinkle, .ts-smoke, .ts-wave, .ts-bubble, .ts-flutter, .theme-drift i { animation: none; }
+  .ts-twinkle, .ts-smoke, .ts-wave, .ts-bubble, .ts-flutter, .theme-drift span, .theme-drift i { animation: none; }
   .theme-drift { display: none; }
 }
 .reviews .review-card { margin: 0; }
+/* each theme its own weather */
+.theme-drift.leaf i { clip-path: polygon(50% 0%, 61% 30%, 92% 18%, 76% 48%, 100% 62%, 66% 66%, 70% 100%, 50% 80%, 30% 100%, 34% 66%, 0% 62%, 24% 48%, 8% 18%, 39% 30%); border-radius: 0; width: 18px; height: 18px; background: linear-gradient(160deg, #F2A541, #C8482B); }
+.theme-drift.glass span { animation-duration: 20s !important; }
+.theme-drift.glass i { width: 10px; height: 10px; border-radius: 2px; rotate: 45deg; background: linear-gradient(135deg, rgba(153, 246, 228, 0.95), rgba(94, 234, 212, 0.35)); box-shadow: 0 0 10px rgba(45, 212, 191, 0.55); animation-name: ts-shimmer; }
+@keyframes ts-shimmer { from { opacity: 0.35; translate: -8px 0; } to { opacity: 1; translate: 8px 0; } }
+.theme-drift.butterfly span { top: auto; bottom: -30px; animation-name: ts-flit; }
+.theme-drift.butterfly i { position: relative; width: 4px; height: 12px; border-radius: 3px; background: #6D28D9; animation-name: ts-flap; animation-duration: 0.35s !important; }
+.theme-drift.butterfly i::before, .theme-drift.butterfly i::after { content: ""; position: absolute; top: -3px; width: 11px; height: 14px; border-radius: 60% 60% 40% 40%; background: linear-gradient(160deg, #F0ABFC, #A78BFA); }
+.theme-drift.butterfly i::before { right: 3px; transform-origin: right center; } .theme-drift.butterfly i::after { left: 3px; transform-origin: left center; }
+@keyframes ts-flap { from { scale: 1 1; } to { scale: 0.45 1; } }
+@keyframes ts-flit { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: 1; } 30% { transform: translate(60px, -30vh); } 60% { transform: translate(-40px, -65vh); } 90% { opacity: 1; } 100% { transform: translate(40px, calc(-100vh - 60px)); opacity: 0; } }
+.theme-drift.fluff span { top: auto; bottom: -30px; animation-name: ts-rise; animation-duration: 22s !important; }
+.theme-drift.fluff i { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle, #fff 20%, rgba(255, 255, 255, 0.55) 45%, transparent 70%); box-shadow: 0 0 0 1px rgba(160, 130, 90, 0.15); }
+.theme-drift.firefly span { top: auto; bottom: -20px; animation-name: ts-rise; animation-duration: 18s !important; }
+.theme-drift.firefly i { width: 6px; height: 6px; border-radius: 50%; background: #FFE08A; box-shadow: 0 0 10px 3px rgba(255, 179, 107, 0.7); animation-name: ts-glow; }
+@keyframes ts-glow { from { opacity: 0.25; translate: -10px 0; } to { opacity: 1; translate: 10px 0; } }
+.theme-drift .shooting { position: absolute; top: 12%; left: 70%; width: 90px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(253, 230, 138, 0), #FDE68A); rotate: -28deg; opacity: 0; animation: ts-shoot 9s ease-in 3s infinite; }
+@keyframes ts-shoot { 0% { opacity: 0; transform: translateX(0); } 3% { opacity: 1; } 10% { opacity: 0; transform: translateX(-420px); } 100% { opacity: 0; transform: translateX(-420px); } }
+@media (prefers-reduced-motion: reduce) { .theme-drift .shooting { display: none; } }
+.theme-drift.fluff i { background: radial-gradient(circle, #fff 22%, rgba(255, 255, 255, 0.7) 46%, transparent 70%); box-shadow: 0 0 0 1px rgba(140, 110, 70, 0.35), 0 1px 3px rgba(0, 0, 0, 0.12); }
+.theme-drift.star i { background: #F5C518; width: 5px; height: 5px; box-shadow: 0 0 8px #F5C518; }
+.theme-drift .shooting { background: linear-gradient(90deg, rgba(245, 197, 24, 0), #F5C518); height: 3px; }
