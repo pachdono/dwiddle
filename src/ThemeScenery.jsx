@@ -190,11 +190,11 @@ export function ThemeDrift({ theme }) {
   return (
     <div className={"theme-drift " + kind} aria-hidden="true">
       {kind === "star" && <b className="shooting" />}
-      {Array.from({ length: 18 }, (_, i) => {
+      {Array.from({ length: 7 }, (_, i) => {
         const size = 0.6 + rnd(i) * 0.9;
         return (
           <span key={i} style={{ left: `${rnd(i + 40) * 100}%`, animationDelay: `-${rnd(i + 80) * 18}s`, animationDuration: `${12 + rnd(i + 120) * 12}s` }}>
-            <i style={{ transform: `scale(${size.toFixed(2)})`, animationDuration: `${2.5 + rnd(i + 160) * 3}s`, opacity: (0.55 + rnd(i + 200) * 0.4).toFixed(2) }} />
+            <i style={{ transform: `scale(${size.toFixed(2)})`, animationDuration: `${2.5 + rnd(i + 160) * 3}s`, opacity: (0.45 + rnd(i + 200) * 0.35).toFixed(2) }} />
           </span>
         );
       })}
