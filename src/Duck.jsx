@@ -478,3 +478,62 @@ export function DuckDoor({ size = 220, className = "" }) {
     </svg>
   );
 }
+
+// The same duck, watching a video that will not quite load.
+//
+// Drawn for the warning before a YouTube import on the website, which may or
+// may not work. The duck is curious rather than cross: head tilted, a question
+// over it, the play button on the screen ringed by a buffering spinner.
+export function DuckTV({ size = 230, className = "" }) {
+  const CASE = "#2B2B33";
+  const SCREEN = "#3A3A45";
+  const RED = "#FF3B30";
+  return (
+    <svg
+      className={"duck-tv " + className}
+      width={size}
+      height={size * (160 / 230)}
+      viewBox="0 0 230 160"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Dwiddle duck watching a video that is still loading"
+    >
+      <ellipse cx="118" cy="151" rx="100" ry="6" fill="#000" opacity="0.06" />
+
+      {/* the television, on two short legs */}
+      <path d="M150 128 l-8 18 M196 128 l8 18" stroke={CASE} strokeWidth="5" strokeLinecap="round" />
+      <rect x="120" y="44" width="106" height="86" rx="14" fill={CASE} />
+      <rect x="129" y="53" width="88" height="62" rx="8" fill={SCREEN} />
+      {/* a little static across the screen */}
+      <g className="dtv-static">
+        <path d="M136 64h22M170 72h30M140 100h18M176 106h26" stroke="#fff" strokeOpacity="0.14" strokeWidth="2" strokeLinecap="round" />
+      </g>
+      {/* the play button, and the buffering ring going round it */}
+      <rect x="159" y="72" width="28" height="20" rx="6" fill={RED} />
+      <path d="M169.5 77v10l8.5-5z" fill="#fff" />
+      <circle className="dtv-spin" cx="173" cy="82" r="21" stroke="#fff" strokeOpacity="0.75"
+        strokeWidth="3" strokeLinecap="round" strokeDasharray="22 110" />
+      {/* knobs */}
+      <circle cx="140" cy="122" r="2.6" fill="#55555F" />
+      <circle cx="149" cy="122" r="2.6" fill="#55555F" />
+      {/* the aerial, with a bit of wobble */}
+      <g className="dtv-aerial">
+        <path d="M173 44 L158 22 M173 44 L190 20" stroke={CASE} strokeWidth="3" strokeLinecap="round" />
+        <circle cx="158" cy="22" r="3.2" fill={RED} />
+        <circle cx="190" cy="20" r="3.2" fill={CASE} />
+      </g>
+
+      {/* the question, bobbing over the duck */}
+      <text className="dtv-q" x="82" y="20" textAnchor="middle" fontSize="22" fontWeight="800"
+        fill="#8A8A94" fontFamily="Inter, system-ui, sans-serif">?</text>
+
+      {/* the duck, head tilted at the screen */}
+      <g transform="translate(-4 20)">
+        <g className="dtv-duck">
+          <DuckParts />
+        </g>
+      </g>
+    </svg>
+  );
+}

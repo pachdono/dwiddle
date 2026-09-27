@@ -7241,16 +7241,7 @@ a.btn { text-decoration: none; }
 
 /* ---------- YouTube on the web is experimental ---------- */
 
-/* Drawn from theme tokens so the screen follows every theme; the duck keeps
-   its own colours. */
-.wv-art { display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding-top: 18px; }
-.gate-art.wv-art svg { margin: 0; }
-.wv-frame { fill: var(--sunken); stroke: var(--line); stroke-width: 2; }
-.wv-dot { fill: var(--warn); }
-.wv-play { fill: var(--accent); }
-.wv-tri { fill: var(--accent-ink); }
-.wv-line { fill: var(--ink-3); opacity: 0.6; }
-.wv-stand { stroke: var(--line); }
+.gate.wv .gate-art { padding-top: 16px; }
 .gate.wv .gate-sub { max-width: 36ch; }
 .wv-cancel {
   margin-top: 10px;
@@ -7264,7 +7255,18 @@ a.btn { text-decoration: none; }
   cursor: pointer;
 }
 .wv-cancel:hover { background: var(--hover); color: var(--ink); }
-@media (max-width: 480px) {
-  .wv-art svg:first-child { width: 76px; height: auto; }
-  .wv-screen { width: 92px; height: auto; }
+
+/* The duck watching a video that is still loading. */
+.duck-tv .dtv-duck { transform-box: fill-box; transform-origin: 50% 90%; animation: dtv-tilt 3.2s ease-in-out infinite; }
+.duck-tv .dtv-spin { transform-box: fill-box; transform-origin: center; animation: dtv-spin 1.1s linear infinite; }
+.duck-tv .dtv-q { animation: dtv-q 1.8s ease-in-out infinite; }
+.duck-tv .dtv-static { animation: dtv-static 0.9s steps(3) infinite; }
+.duck-tv .dtv-aerial { transform-box: fill-box; transform-origin: 50% 100%; animation: dtv-aerial 2.6s ease-in-out infinite; }
+@keyframes dtv-tilt { 0%, 100% { transform: rotate(0); } 40%, 60% { transform: rotate(6deg); } }
+@keyframes dtv-spin { to { transform: rotate(360deg); } }
+@keyframes dtv-q { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(-5px); opacity: 1; } }
+@keyframes dtv-static { 0% { transform: translateY(0); } 50% { transform: translateY(4px); } 100% { transform: translateY(-3px); } }
+@keyframes dtv-aerial { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .duck-tv * { animation: none !important; }
 }

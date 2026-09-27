@@ -6,7 +6,7 @@
 // experiment, with the app as the thing that reliably works.
 
 import { useEffect, useRef } from "react";
-import { Duck } from "./Duck.jsx";
+import { DuckTV } from "./Duck.jsx";
 import { Portal } from "./ui.jsx";
 
 export function WebVideoNotice({ onTry, onApp, onClose }) {
@@ -30,17 +30,8 @@ export function WebVideoNotice({ onTry, onApp, onClose }) {
             </svg>
           </button>
 
-          <div className="gate-art wv-art" aria-hidden="true">
-            <Duck size={96} shadow={false} />
-            <svg className="wv-screen" width="112" height="96" viewBox="0 0 112 96" fill="none">
-              <rect x="2" y="2" width="108" height="72" rx="12" className="wv-frame" />
-              <circle cx="14" cy="13" r="2.4" className="wv-dot" />
-              <circle cx="22" cy="13" r="2.4" className="wv-dot" />
-              <rect x="38" y="24" width="36" height="24" rx="7" className="wv-play" />
-              <path d="M52 30.5v11l9-5.5z" className="wv-tri" />
-              <rect x="28" y="56" width="56" height="3" rx="1.5" className="wv-line" />
-              <path d="M56 74v12M40 88h32" className="wv-stand" strokeWidth="4" strokeLinecap="round" />
-            </svg>
+          <div className="gate-art" aria-hidden="true">
+            <DuckTV size={230} />
           </div>
 
           <h2 id="wv-title">YouTube on the web is experimental</h2>

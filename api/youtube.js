@@ -129,7 +129,8 @@ async function transcriptFrom(track, signal) {
 }
 
 export default async function handler(req, res) {
-  if (!allow(req, res, { limit: 10 })) return;
+  // Each try can spend a transcript credit, so a few a minute is plenty.
+  if (!allow(req, res, { limit: 3 })) return;
   const id = videoId(req.body?.url);
   if (!id) return userError(res, 400, "That does not look like a YouTube link. Copy it from the Share button on the video.");
 
