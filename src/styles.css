@@ -7875,83 +7875,97 @@ a.btn { text-decoration: none; }
 
 /* ---------- theme backdrops: a painted place behind the app ---------- */
 .theme-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.tb-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tb-scene * { transform-box: fill-box; }
 .tb-grain { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: multiply; }
 :root[data-theme="dark"] .tb-grain { mix-blend-mode: screen; }
 
-.tb-bokeh i { position: absolute; border-radius: 50%; filter: blur(40px); transform: translate(-50%, -50%); animation: tb-drift ease-in-out infinite alternate; }
-@keyframes tb-drift { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(calc(-50% + 60px), calc(-50% - 40px)) scale(1.15); } }
-
+.tb-stars { position: absolute; inset: 0; }
 .tb-stars i { position: absolute; border-radius: 50%; animation: tb-twinkle ease-in-out infinite alternate; }
 @keyframes tb-twinkle { from { opacity: 0.15; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
-.tb-shooting { position: absolute; top: 12%; left: 70%; width: 140px; height: 2px; border-radius: 2px;
-  background: linear-gradient(90deg, #FFF6D8, transparent); transform: rotate(-24deg); opacity: 0; animation: tb-shoot 9s ease-in 3s infinite; }
+.tb-shooting { position: absolute; top: 12%; left: 60%; width: 140px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, #FFF6D8, transparent); transform: rotate(-24deg); opacity: 0; animation: tb-shoot 11s ease-in 3s infinite; }
 @keyframes tb-shoot { 0% { opacity: 0; translate: 0 0; } 3% { opacity: 1; } 9% { opacity: 0; translate: -420px 190px; } 100% { opacity: 0; translate: -420px 190px; } }
-.tb-moon { position: absolute; top: 7%; right: 9%; width: 70px; height: 70px; border-radius: 50%; background: var(--m);
-  box-shadow: 0 0 60px 18px var(--mg), inset -14px -6px 0 0 color-mix(in srgb, var(--m) 70%, #b8a36a); animation: tb-breathe 7s ease-in-out infinite alternate; }
-@keyframes tb-breathe { to { box-shadow: 0 0 80px 26px var(--mg), inset -14px -6px 0 0 color-mix(in srgb, var(--m) 70%, #b8a36a); } }
 
-.tb-hills { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 26vh; min-height: 150px; }
-.tb-hills.sway path { transform-origin: bottom; animation: tb-sway 14s ease-in-out infinite alternate; }
-.tb-hills.sway .h1 { animation-duration: 18s; } .tb-hills.sway .h2 { animation-duration: 22s; }
-@keyframes tb-sway { to { transform: translateX(-24px) scaleY(1.04); } }
+/* sky */
+.tb-drift-x { animation: tb-drift-x linear infinite; transform-box: view-box; }
+@keyframes tb-drift-x { from { transform: translateX(-1100px); } to { transform: translateX(1500px); } }
+.tb-flap { transform-origin: center; animation: tb-flap 0.9s ease-in-out infinite alternate; }
+@keyframes tb-flap { to { transform: scaleY(-0.4); } }
+.tb-breathe { transform-origin: center; animation: tb-breathe 8s ease-in-out infinite alternate; }
+@keyframes tb-breathe { to { transform: scale(1.06); opacity: 0.85; } }
+.tb-rise { animation: tb-rise 14s ease-in-out infinite alternate; }
+@keyframes tb-rise { to { transform: translateY(-14px); } }
 
-.tb-branch { position: absolute; width: min(34vw, 380px); height: auto; opacity: 0.85; }
-.tb-branch.tl { top: -10px; left: -30px; }
-.tb-branch.br { bottom: -20px; right: -40px; transform: rotate(180deg); }
-.tb-bloom { animation: tb-bloom 5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
-@keyframes tb-bloom { to { scale: 1.08; } }
+/* things that move in the scene */
+.tb-sway { transform-origin: 50% 100%; animation: tb-treesway 7s ease-in-out infinite alternate; }
+.tb-sway.slow { animation-duration: 10s; }
+@keyframes tb-treesway { from { rotate: -0.7deg; } to { rotate: 0.7deg; } }
+.tb-bloom { transform-origin: center; animation: tb-bloom 5s ease-in-out infinite alternate; }
+@keyframes tb-bloom { to { scale: 1.04; } }
+.tb-bob { animation: tb-bob 5s ease-in-out infinite alternate; }
+@keyframes tb-bob { from { transform: translate(-6px, 0) rotate(-2deg); } to { transform: translate(6px, -5px) rotate(2deg); } }
+.tb-beam { transform-box: view-box; animation: tb-beam 6s ease-in-out infinite alternate; }
+@keyframes tb-beam { from { transform: rotate(-9deg); } to { transform: rotate(7deg); } }
+.tb-glint { transform-origin: center; animation: tb-glint 3.2s ease-in-out infinite alternate; }
+@keyframes tb-glint { from { opacity: 0.15; transform: scaleX(0.7); } to { opacity: 0.8; transform: scaleX(1); } }
+.tb-smoke { transform-origin: center; opacity: 0; animation: tb-smoke 6.4s ease-out infinite; }
+@keyframes tb-smoke { 0% { opacity: 0; transform: translate(0, 0) scale(0.5); } 20% { opacity: 0.9; } 100% { opacity: 0; transform: translate(26px, -110px) scale(1.8); } }
+.tb-mist { animation: tb-mist 26s ease-in-out infinite alternate; }
+.tb-mist.slow { animation-duration: 34s; animation-direction: alternate-reverse; }
+@keyframes tb-mist { from { transform: translateX(-80px); } to { transform: translateX(80px); } }
+.tb-weed { transform-origin: 50% 100%; animation: tb-weed 5s ease-in-out infinite alternate; }
+@keyframes tb-weed { from { transform: skewX(-7deg); } to { transform: skewX(7deg); } }
+.tb-swim { transform-box: view-box; animation: tb-swim linear infinite; }
+.tb-swim.back { animation-direction: reverse; }
+@keyframes tb-swim { from { transform: translateX(-80px); } to { transform: translateX(1540px); } }
+.tb-ray { opacity: 0.08; animation: tb-ray 9s ease-in-out infinite alternate; }
+:root[data-theme="dark"] .tb-ray { opacity: 0.04; }
+@keyframes tb-ray { 50% { opacity: 0.16; } }
 
+.tb-fall { position: absolute; inset: 0; }
 .tb-fall span { position: absolute; top: -40px; animation: tb-fall linear infinite; }
 .tb-fall i { display: block; width: 14px; height: 11px; animation: tb-flutter ease-in-out infinite alternate; }
-.tb-fall.petal i { background: radial-gradient(circle at 30% 30%, #FFE3EC, #F7A8C2); border-radius: 14px 2px 14px 2px; opacity: 0.75; }
-.tb-fall.leaf i { background: linear-gradient(135deg, #F2A541, #C2522A); border-radius: 2px 16px 2px 16px; width: 16px; height: 12px; opacity: 0.7; }
-.tb-fall.leaf-g i { background: linear-gradient(135deg, #A7D57C, #5E9E47); border-radius: 2px 16px 2px 16px; width: 12px; height: 9px; opacity: 0.6; }
+.tb-fall.petal i { background: #F7B3C9; border-radius: 14px 2px 14px 2px; opacity: 0.85; }
+.tb-fall.leaf i { background: #D9692E; border-radius: 2px 16px 2px 16px; width: 16px; height: 12px; opacity: 0.8; }
+.tb-fall.leaf span:nth-child(3n) i { background: #E8A33A; }
+.tb-fall.leaf span:nth-child(3n+1) i { background: #B8432A; }
+.tb-fall.leaf-g i { background: #7DB05A; border-radius: 2px 16px 2px 16px; width: 12px; height: 9px; opacity: 0.75; }
 @keyframes tb-fall { from { transform: translateY(-40px); } to { transform: translateY(110vh); } }
 @keyframes tb-flutter { from { transform: translateX(-18px) rotate(-30deg); } to { transform: translateX(18px) rotate(40deg); } }
 
-.tb-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, var(--v) 100%); }
-.tb-glow { position: absolute; left: 50%; top: -20%; width: 90vw; height: 70vh; transform: translateX(-50%); border-radius: 50%;
-  background: radial-gradient(ellipse, var(--g), transparent 65%); animation: tb-flicker 6s ease-in-out infinite; }
-@keyframes tb-flicker { 0%, 100% { opacity: 1; } 40% { opacity: 0.8; } 60% { opacity: 0.95; } 75% { opacity: 0.85; } }
-.tb-botanical { position: absolute; right: 2vw; bottom: 8vh; width: min(22vw, 260px); height: auto; }
+.tb-bubbles { position: absolute; inset: 0; }
+.tb-bubbles i { position: absolute; bottom: -20px; border: 1.5px solid; border-radius: 50%; animation: tb-bubble linear infinite; }
+@keyframes tb-bubble { from { transform: translate(0, 0); opacity: 0; } 10% { opacity: 1; } to { transform: translate(20px, -105vh); opacity: 0; } }
 
-.tb-aurora { position: absolute; inset: -20% -10% 30% -10%; filter: blur(60px); }
-.tb-aurora i { position: absolute; width: 70%; height: 40%; border-radius: 50%; animation: tb-aurora 24s ease-in-out infinite alternate; }
-.tb-aurora i:nth-child(1) { left: -5%; top: 10%; }
-.tb-aurora i:nth-child(2) { left: 35%; top: 25%; animation-duration: 30s; animation-delay: -8s; }
-.tb-aurora i:nth-child(3) { left: 10%; top: 45%; animation-duration: 36s; animation-delay: -15s; }
-@keyframes tb-aurora { from { transform: translateX(-8%) rotate(-6deg) scaleY(0.8); } to { transform: translateX(10%) rotate(5deg) scaleY(1.2); } }
-
-.tb-caustics { position: absolute; inset: 0;
-  background: radial-gradient(ellipse 120px 60px at 20% 30%, #fff 0%, transparent 70%), radial-gradient(ellipse 160px 70px at 70% 20%, #fff 0%, transparent 70%),
-    radial-gradient(ellipse 100px 50px at 45% 55%, #fff 0%, transparent 70%), radial-gradient(ellipse 140px 60px at 85% 60%, #fff 0%, transparent 70%);
-  background-size: 900px 600px; animation: tb-caustics 20s ease-in-out infinite alternate; mix-blend-mode: soft-light; }
-@keyframes tb-caustics { to { background-position: 120px 60px, -80px 40px, 60px -50px, -100px 70px; } }
-.tb-waves { position: absolute; left: 0; right: 0; bottom: 0; height: 22vh; min-height: 130px; }
+.tb-waves { position: absolute; left: 0; right: 0; bottom: 0; height: 20vh; min-height: 120px; }
 .tb-waves svg { position: absolute; left: 0; bottom: 0; width: 200%; height: 100%; animation: tb-roll 26s linear infinite; }
 .tb-waves .w1 { height: 75%; animation-duration: 19s; animation-direction: reverse; }
 .tb-waves .w2 { height: 50%; animation-duration: 14s; }
 @keyframes tb-roll { to { transform: translateX(-50%); } }
 
-.tb-facets { position: absolute; inset: 0; width: 100%; height: 100%; }
-.tb-facet { opacity: 0.1; mix-blend-mode: multiply; animation: tb-shimmer 9s ease-in-out infinite alternate; }
-:root[data-theme="dark"] .tb-facet { mix-blend-mode: screen; opacity: 0.07; }
-@keyframes tb-shimmer { 50% { opacity: 0.2; } }
+.tb-aurora { position: absolute; inset: -20% -10% 45% -10%; filter: blur(50px); }
+.tb-aurora i { position: absolute; width: 70%; height: 36%; border-radius: 50%; animation: tb-aurora 24s ease-in-out infinite alternate; }
+.tb-aurora i:nth-child(1) { left: -5%; top: 20%; }
+.tb-aurora i:nth-child(2) { left: 35%; top: 30%; animation-duration: 30s; animation-delay: -8s; }
+.tb-aurora i:nth-child(3) { left: 10%; top: 48%; animation-duration: 36s; animation-delay: -15s; }
+@keyframes tb-aurora { from { transform: translateX(-8%) rotate(-6deg) scaleY(0.8); } to { transform: translateX(10%) rotate(5deg) scaleY(1.2); } }
 
-.tb-sun { position: absolute; left: 50%; bottom: 14vh; width: 44vh; height: 44vh; transform: translateX(-50%); border-radius: 50%;
-  background: radial-gradient(circle, var(--s1) 0%, var(--s1) 30%, var(--s2) 70%); opacity: 0.55; animation: tb-sun 12s ease-in-out infinite alternate; }
-@keyframes tb-sun { to { transform: translateX(-50%) translateY(-10px) scale(1.04); opacity: 0.65; } }
-.tb-clouds i { position: absolute; height: 40px; border-radius: 40px; background: var(--c); filter: blur(2px); animation: tb-cloud linear infinite; }
-.tb-clouds i::before, .tb-clouds i::after { content: ""; position: absolute; bottom: 10px; border-radius: 50%; background: inherit; }
-.tb-clouds i::before { left: 20%; width: 50%; height: 50px; } .tb-clouds i::after { left: 50%; width: 40%; height: 36px; }
-.tb-clouds i:nth-child(1) { top: 12%; width: 180px; animation-duration: 110s; animation-delay: -30s; }
-.tb-clouds i:nth-child(2) { top: 26%; width: 130px; animation-duration: 90s; animation-delay: -70s; opacity: 0.7; }
-.tb-clouds i:nth-child(3) { top: 6%; width: 220px; animation-duration: 140s; animation-delay: -100s; opacity: 0.8; }
-@keyframes tb-cloud { from { left: -260px; } to { left: 110vw; } }
+/* The panels over a scene are frosted glass, so the picture shows through
+   but the words on them stay easy to read. */
+body:has(.theme-backdrop) .topbar { background: color-mix(in srgb, var(--bg) 62%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
+body:has(.theme-backdrop) .sidebar { background: color-mix(in srgb, var(--panel) 72%, transparent); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%); }
+body:has(.theme-backdrop) main .card,
+body:has(.theme-backdrop) main .stat { background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%); }
+body:has(.theme-backdrop) main .card .card,
+body:has(.theme-backdrop) main .card .stat { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-backdrop *, .theme-backdrop *::before, .theme-backdrop *::after { animation: none !important; }
-  .tb-fall, .tb-shooting { display: none; }
+  .tb-fall, .tb-shooting, .tb-bubbles { display: none; }
 }
+/* The painted scene replaces the little corner scenery: one place, not two. */
+body:has(.theme-backdrop) .side-scene { visibility: hidden; }
+body:has(.theme-backdrop) .home-scene { display: none; }
 /* Behind the notebook, the page already has its own paper: nothing shows. */
 .nb ~ .theme-backdrop, body:has(.nb) .theme-backdrop { display: none; }
