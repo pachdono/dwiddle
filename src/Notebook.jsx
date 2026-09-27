@@ -1594,7 +1594,18 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             </div>
           </>
         )}
-        {tool !== "text" && (
+        {tool === "eraser" && (
+          <div className="nb-erase-size">
+            <div className="nb-erase-preview" aria-hidden="true"><i style={{ width: widthOf("eraser", size) * 0.8, height: widthOf("eraser", size) * 0.8 }} /></div>
+            <div className="nb-erase-slider">
+              <div className="spread"><b className="small">Size</b><span className="small muted">{Math.round(widthOf("eraser", size))} px</span></div>
+              <input type="range" min="0.5" max="12" step="0.5" value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label="Eraser size"
+                style={{ "--fill": `${((size - 0.5) / 11.5) * 100}%` }} />
+              <div className="spread small muted"><span>Fine</span><span>Big</span></div>
+            </div>
+          </div>
+        )}
+        {tool !== "text" && tool !== "eraser" && (
           <div className="nb-sizes" role="radiogroup" aria-label="Thickness">
             {SIZES.map((n) => (
               <button key={n} role="radio" aria-checked={size === n} className={"nb-sizechip" + (size === n ? " on" : "")} onClick={() => setSize(n)} title={`Size ${n}`}>

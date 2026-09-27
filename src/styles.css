@@ -8126,3 +8126,13 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 .nb-pengrid button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
 .nb-pengrid button.on .nb-penicon, .nb-pengrid button:hover .nb-penicon { transform: translateY(2px); }
 .nb-pengrid span { font-size: 9.5px; letter-spacing: -0.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ink-2); white-space: nowrap; margin-top: auto; }
+/* the eraser's size, as a slider with the circle it will rub out */
+.nb-erase-size { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; padding: 12px; border-radius: 14px; background: var(--panel); }
+.nb-erase-preview { flex: none; width: 84px; height: 84px; display: grid; place-items: center; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.nb-erase-preview i { display: block; max-width: 80px; max-height: 80px; border-radius: 50%; border: 1.5px solid var(--ink-3); background: color-mix(in srgb, var(--ink) 6%, transparent); transition: width 0.1s, height 0.1s; }
+.nb-erase-slider { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.nb-erase-slider input[type="range"] { width: 100%; height: 22px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.nb-erase-slider input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--accent) var(--fill), var(--line) var(--fill)); }
+.nb-erase-slider input[type="range"]::-moz-range-track { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--accent) var(--fill), var(--line) var(--fill)); }
+.nb-erase-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.12); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+.nb-erase-slider input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.12); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
