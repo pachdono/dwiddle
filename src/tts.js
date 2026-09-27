@@ -81,6 +81,17 @@ export function characterVoices() {
   return { dwiddle: male || mine || null, puddle: female || (male ? list.find((v) => v !== male && score(v) > -100) : null) || mine || null };
 }
 
+// The narrator: a British woman, like the natural narrator voice, when the
+// device has one (Serena, Kate, Libby, Sonia, Google UK English Female...);
+// failing that Puddle's voice, and failing that the main one.
+export function britishWoman() {
+  const list = allVoices().filter((v) => score(v) > -100);
+  return list.find((v) => /^en-GB/i.test(v.lang) && genderOf(v) === "female")
+    || list.find((v) => /^en-GB/i.test(v.lang) && /female/i.test(v.name))
+    || characterVoices().puddle
+    || mainVoice();
+}
+
 // Voices arrive a moment after the page loads in most browsers.
 export function onVoices(cb) {
   const s = synth();
@@ -219,12 +230,13 @@ const audioCtx = () => (ctx ||= new (window.AudioContext || window.webkitAudioCo
 // Reads text aloud as one of the characters. Uses the natural voice when it
 // is ready, and the device's voice otherwise (starting the natural one
 // downloading for next time). Returns a function that stops it.
-export function sayAs(who, text, { rate = 1, onStart, onEnd } = {}) {
+export function sayAs(who, text, { rate = 1, onStart, onEnd, device = false } = {}) {
   const c = CHARACTERS[who] || CHARACTERS.dwiddle;
-  if (state !== "ready") {
-    if (naturalOn() && naturalSupported() && state === "idle") prepareNatural();
+  if (device || state !== "ready") {
+    if (!device && naturalOn() && naturalSupported() && state === "idle") prepareNatural();
     const v = characterVoices();
-    return say(text, { voice: who === "puddle" ? v.puddle : v.dwiddle, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });
+    const voice = who === "narrator" ? britishWoman() : who === "puddle" ? v.puddle : v.dwiddle;
+    return say(text, { voice, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });
   }
   stopSpeaking();
   stopNatural();

@@ -8,7 +8,7 @@
 // reading speed instead.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { sayAs, stopSpeaking } from "./tts.js";
+import { sayAs, stopSpeaking, prepareNatural, naturalOn, naturalSupported, naturalState, onNaturalProgress } from "./tts.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, BusyScreen } from "./ui.jsx";
@@ -125,6 +125,22 @@ export function VideoPlayer({ video, onClose }) {
   const [rate, setRate] = useState(1);
   const token = useRef(0);
   const list = useRef(null);
+  // One voice for every video: the natural British narrator wherever this
+  // device can run it (waiting for it to download the first time), and the
+  // device's own British woman's voice everywhere else. Never a switch
+  // halfway through.
+  const wantsNatural = naturalOn() && naturalSupported();
+  const [voice, setVoice] = useState(() => (!wantsNatural ? "device" : naturalState() === "ready" ? "natural" : "pending"));
+  const [loadingVoice, setLoadingVoice] = useState(null); // 0..1 while the voice downloads
+  useEffect(() => onNaturalProgress((p) => setLoadingVoice(p)), []);
+  async function readyVoice() {
+    if (voice !== "pending") return true;
+    setLoadingVoice(0);
+    const ok = await prepareNatural();
+    setLoadingVoice(null);
+    setVoice(ok ? "natural" : "device");
+    return true;
+  }
 
   const beat = beats[pos];
   const scene = video.scenes[beat.si];
@@ -135,7 +151,7 @@ export function VideoPlayer({ video, onClose }) {
   // Reads the current line, then moves on. With the sound off, it waits about
   // as long as reading the line takes.
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || (sound && voice === "pending")) return;
     const mine = ++token.current;
     let timer = 0;
     const next = () => {
@@ -152,25 +168,32 @@ export function VideoPlayer({ video, onClose }) {
     if (sound && canSpeak) {
       let done = false;
       const once = () => { if (!done) { done = true; clearTimeout(guard); next(); } };
-      sayAs("narrator", beats[pos].text, { rate, onEnd: once });
+      sayAs("narrator", beats[pos].text, { rate, onEnd: once, device: voice !== "natural" });
       // Some browsers never say when speech ends. Never wait forever on one.
       guard = setTimeout(once, (8000 + words * 700) / rate);
     } else timer = setTimeout(next, Math.max(2200, words * 330) / rate);
     return () => { clearTimeout(timer); clearTimeout(guard); if (token.current === mine) { token.current += 1; stopSpeaking(); } };
-  }, [playing, pos, sound, rate, beats]);
+  }, [playing, pos, sound, rate, beats, voice]);
 
   useEffect(() => {
     list.current?.querySelector(`[data-beat="${pos}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [pos]);
 
-  const play = () => { if (finished) { setPos(0); setFinished(false); } setStarted(true); setPlaying(true); };
+  const play = () => {
+    if (finished) { setPos(0); setFinished(false); }
+    setStarted(true);
+    setPlaying(true);
+    if (sound) readyVoice();
+  };
   const pause = () => { setPlaying(false); stop(); };
   const seek = (i) => { setFinished(false); setStarted(true); setPos(Math.max(0, Math.min(beats.length - 1, i))); };
   const sceneStart = (si) => beats.findIndex((b) => b.si === si);
-  const toggleSound = () => setSound((on) => {
-    try { localStorage.setItem("dwiddle-video-sound", on ? "off" : "on"); } catch { /* fine */ }
-    return !on;
-  });
+  const toggleSound = () => {
+    const on = !sound;
+    try { localStorage.setItem("dwiddle-video-sound", on ? "on" : "off"); } catch { /* fine */ }
+    setSound(on);
+    if (on && playing) readyVoice();
+  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -213,6 +236,14 @@ export function VideoPlayer({ video, onClose }) {
                 <Scene key={beat.si} scene={scene} line={beat.li} />
               )}
               {started && captions && <div className="vd-caption" aria-hidden="true">{beat.text}</div>}
+              {playing && sound && voice === "pending" && (
+                <div className="vd-voice" onClick={(e) => e.stopPropagation()}>
+                  <b>Getting the narrator's voice ready</b>
+                  <span>Only the first time. It is kept on this device after.</span>
+                  <div className="vd-voice-bar"><i style={{ width: `${Math.round((loadingVoice || 0) * 100)}%` }} /></div>
+                  <button className="btn ghost small" onClick={() => { setSound(false); try { localStorage.setItem("dwiddle-video-sound", "off"); } catch { /* fine */ } }}>Read without sound for now</button>
+                </div>
+              )}
               {finished && (
                 <div className="vd-done" onClick={(e) => e.stopPropagation()}>
                   <b>That is the whole video</b>
