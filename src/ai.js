@@ -144,6 +144,13 @@ export async function readYouTube(url) {
   return post("/api/youtube", { url, lang }, { retry: false });
 }
 
+// A narrated explainer video, as scenes the app animates: from a worked
+// solution ({ solution, problem }) or one topic of notes ({ topic, notes }).
+export const writeVideo = (source) => post("/api/video", source, { retry: false }).then((v) => ({
+  ...v,
+  scenes: v.scenes.map((sc) => ({ ...sc, board: sc.board.map((b) => ({ ...b, text: tidyMath(b.text) })) })),
+}));
+
 // A two duck podcast script about a set of notes.
 export const writePodcast = (notes) =>
   post("/api/generate", { notes, mode: "podcast" }).then((d) => ({

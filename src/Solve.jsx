@@ -12,9 +12,10 @@
 // once, in order, and are read as one question.
 
 import { useEffect, useState } from "react";
-import { solveProblem } from "./ai.js";
+import { solveProblem, writeVideo } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
-import { Icon, PageHead, Loading } from "./ui.jsx";
+import { Icon, PageHead, Loading, BusyScreen } from "./ui.jsx";
+import { VideoPlayer } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
 import { AskDwiddleButton, usePageContext } from "./Chat.jsx";
@@ -43,6 +44,25 @@ export function Solve({ go, auth }) {
   const [result, setResult] = useState(null);
   const [shown, setShown] = useState(false); // the answer to the similar question
   const [reading, setReading] = useState(0); // which file is being read, from 1
+  const [problem, setProblem] = useState(""); // the question as read, for the video
+  const [video, setVideo] = useState(null);
+  const [watching, setWatching] = useState(false);
+  const [filming, setFilming] = useState(false);
+  const [videoError, setVideoError] = useState("");
+
+  async function explain() {
+    if (video) { setWatching(true); return; }
+    setFilming(true);
+    setVideoError("");
+    try {
+      setVideo(await writeVideo({ solution: result, problem }));
+      setWatching(true);
+    } catch (err) {
+      setVideoError(err.message || "The video could not be made.");
+    } finally {
+      setFilming(false);
+    }
+  }
 
   const ready = files.length > 0 || text.trim().length > 0;
   usePageContext(solutionContext(state === "done" ? result : null));
@@ -120,6 +140,9 @@ export function Solve({ go, auth }) {
     setState("working");
     try {
       const data = await solveProblem(parts.join("\n\n"));
+      setProblem(parts.join("\n\n"));
+      setVideo(null);
+      setVideoError("");
       countGeneration(auth?.user);
       setResult(data);
       setState("done");
@@ -135,6 +158,8 @@ export function Solve({ go, auth }) {
     setText("");
     setResult(null);
     setShown(false);
+    setVideo(null);
+    setVideoError("");
     setState("idle");
     setError("");
   }
@@ -273,6 +298,21 @@ export function Solve({ go, auth }) {
                 <b>{result.answer}</b>
               </div>
             )}
+
+            <div className="card card-pad sv-video">
+              <span className="sv-video-icon"><Icon name="video" size={20} /></span>
+              <div>
+                <b className="small">{video ? "Your video is ready" : "Watch it explained"}</b>
+                <p className="small muted" style={{ margin: "2px 0 0" }}>
+                  {videoError || "A narrated walk through at a whiteboard, one step at a time, with the transcript beside it."}
+                </p>
+              </div>
+              <button className="btn cta" onClick={explain} disabled={filming}>
+                {filming ? <Loading label="Making it" /> : video ? "Watch" : videoError ? "Try again" : "Make the video"}
+              </button>
+            </div>
+            {filming && <BusyScreen title="Making your video" detail="Planning the scenes, the diagram and what to say at each step. About half a minute." outfit="dj" />}
+            {watching && video && <VideoPlayer video={video} onClose={() => setWatching(false)} />}
 
             <ol className="sv-steps">
               {result.steps.map((s, i) => (

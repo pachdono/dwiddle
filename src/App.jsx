@@ -11,6 +11,7 @@ import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
+import { Videos } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
@@ -63,6 +64,7 @@ const PAGE_PATH = {
   solve: "/solve",
   sheet: "/study-sheet",
   learn: "/learn",
+  videos: "/videos",
   tests: "/test-prep",
   courses: "/courses",
   notebook: "/notebook",
@@ -239,8 +241,8 @@ function greetingSub(now = new Date()) {
 const GROUPS = [
   { id: "home", label: "Home", icon: "home", pages: ["home"] },
   {
-    id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics"],
-    tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics" },
+    id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics", "videos"],
+    tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
   },
   { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
   { id: "solve", label: "Solve", icon: "bulb", pages: ["solve"] },
@@ -256,7 +258,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 // Every page's own name, for the title bar when it is not part of a group.
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
-  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "solve", label: "Solve" },
+  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Solve" },
   { id: "notebook", label: "Notebooks" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
@@ -618,6 +620,7 @@ export default function App() {
     solve: Solve,
     sheet: StudySheet,
     learn: Learn,
+    videos: Videos,
     upload: AddMaterial,
     library: Library,
     reader: Library,
