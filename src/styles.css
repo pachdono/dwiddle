@@ -7238,3 +7238,33 @@ a.btn { text-decoration: none; }
 .theme-drift.fluff i { background: radial-gradient(circle, #fff 22%, rgba(255, 255, 255, 0.7) 46%, transparent 70%); box-shadow: 0 0 0 1px rgba(140, 110, 70, 0.35), 0 1px 3px rgba(0, 0, 0, 0.12); }
 .theme-drift.star i { background: #F5C518; width: 5px; height: 5px; box-shadow: 0 0 8px #F5C518; }
 .theme-drift .shooting { background: linear-gradient(90deg, rgba(245, 197, 24, 0), #F5C518); height: 3px; }
+
+/* ---------- YouTube on the web is experimental ---------- */
+
+/* Drawn from theme tokens so the screen follows every theme; the duck keeps
+   its own colours. */
+.wv-art { display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding-top: 18px; }
+.gate-art.wv-art svg { margin: 0; }
+.wv-frame { fill: var(--sunken); stroke: var(--line); stroke-width: 2; }
+.wv-dot { fill: var(--warn); }
+.wv-play { fill: var(--accent); }
+.wv-tri { fill: var(--accent-ink); }
+.wv-line { fill: var(--ink-3); opacity: 0.6; }
+.wv-stand { stroke: var(--line); }
+.gate.wv .gate-sub { max-width: 36ch; }
+.wv-cancel {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.wv-cancel:hover { background: var(--hover); color: var(--ink); }
+@media (max-width: 480px) {
+  .wv-art svg:first-child { width: 76px; height: auto; }
+  .wv-screen { width: 92px; height: auto; }
+}

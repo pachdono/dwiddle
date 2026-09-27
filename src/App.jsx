@@ -44,6 +44,7 @@ import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
 import { loadHeavy, H } from "./heavy.js";
+import { WebVideoNotice } from "./WebVideoNotice.jsx";
 
 /* ---------- icons ---------- */
 
@@ -1553,6 +1554,10 @@ function AddMaterial({ go, setMade, auth }) {
   const [link, setLink] = useState("");
   const [fetching, setFetching] = useState(false);
   const [videoError, setVideoError] = useState("");
+  // On the website, reading a video goes through our server, which YouTube
+  // often blocks. Say so once before the first try; the app reads it directly.
+  const [videoNotice, setVideoNotice] = useState(false);
+  const [videoWarned, setVideoWarned] = useState(false);
   const notesRef = useRef(null);
   const [recStart, setRecStart] = useState(0);
   const [recNow, setRecNow] = useState(0);
@@ -1579,12 +1584,13 @@ function AddMaterial({ go, setMade, auth }) {
   }, [dictation.on]);
 
   // A YouTube link joins the list like a file, as its transcript.
-  async function addVideo() {
+  async function addVideo(warned = videoWarned) {
     if (!link.trim() || fetching) return;
     if (files.length >= MAX_MATERIAL_FILES) {
       setVideoError(`Up to ${MAX_MATERIAL_FILES} files at a time. Remove one before adding a video.`);
       return;
     }
+    if (!isDesktop && !warned) { setVideoNotice(true); return; }
     setFetching(true);
     setVideoError("");
     try {
@@ -1996,6 +2002,14 @@ function AddMaterial({ go, setMade, auth }) {
               Carry on
             </button>
           </div>
+        )}
+
+        {videoNotice && (
+          <WebVideoNotice
+            onTry={() => { setVideoNotice(false); setVideoWarned(true); addVideo(true); }}
+            onApp={() => { setVideoNotice(false); go("install"); }}
+            onClose={() => setVideoNotice(false)}
+          />
         )}
 
         {state === "toomuch" && (
