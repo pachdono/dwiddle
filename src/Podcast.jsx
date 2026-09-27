@@ -6,7 +6,7 @@
 // talks on screen, and the transcript follows along.
 
 import { useEffect, useRef, useState } from "react";
-import { flatMarks } from "./marks.js";
+import { blockPlain } from "./marks.js";
 import { Icon, Portal, Loading } from "./ui.jsx";
 import { DuckTalk } from "./Chat.jsx";
 import { writePodcast } from "./ai.js";
@@ -17,16 +17,13 @@ const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}
 const saveOne = (id, ep) => { try { const all = loadAll(); all[id] = ep; localStorage.setItem(KEY, JSON.stringify(all)); } catch {} };
 
 
-const flat = (t) => flatMarks(t);
 export function notesText(made) {
   const out = [];
   for (const t of made?.topics || []) {
     out.push(`## ${t.name}`);
     for (const b of made?.notes?.[t.name] || []) {
-      if (b.h) out.push(b.h);
-      else if (b.term) out.push(`${b.term}: ${flat(b.def)}`);
-      else if (b.list) out.push(b.list.map((x) => "- " + flat(x)).join("\n"));
-      else out.push(flat(Object.values(b)[0]));
+      const text = blockPlain(b);
+      if (text) out.push(text);
     }
   }
   return out.join("\n").slice(0, 20000);

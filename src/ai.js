@@ -108,6 +108,8 @@ const chunk = (list, size) => {
 function tidyBlock(b) {
   if (b.term) return { term: tidyMath(b.term), def: tidyMath(b.def) };
   if (b.list) return { list: b.list.map(tidyMath) };
+  if (b.table) return { table: { head: b.table.head.map(tidyMath), rows: b.table.rows.map((r) => r.map(tidyMath)) } };
+  if (b.flow) return { flow: { ...b.flow, title: tidyMath(b.flow.title), steps: b.flow.steps.map(tidyMath) } };
   const [k, v] = Object.entries(b)[0];
   return { [k]: tidyMath(v) };
 }

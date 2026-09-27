@@ -9,7 +9,7 @@
 
 import { newBook, newPage, putBook, uid, PAGE_W } from "./notebookStore.js";
 import { fontById, readyFont } from "./nbFonts.js";
-import { MARK, flatMarks } from "./marks.js";
+import { MARK, flatMarks, blockTexts } from "./marks.js";
 
 const ROW = 32;            // the ruled line spacing
 const TOP = 110;           // the first ruled line
@@ -77,6 +77,97 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
     return lines;
   }
 
+  // Highlighter strokes behind the marked words of some wrapped lines.
+  function highlight(lines, marks, x, y, size = px) {
+    lines.forEach((l, k) => {
+      for (const m of marks) {
+        const a = Math.max(m.a, l.at), b = Math.min(m.b, l.at + l.t.length);
+        if (b <= a) continue;
+        const x1 = x + 4 + measure(l.t.slice(0, a - l.at), size), x2 = x + 4 + measure(l.t.slice(0, b - l.at), size);
+        const cy = y + 2 + k * ROW + ROW * 0.55;
+        page.items.push({ id: uid(), type: "stroke", tool: "highlighter", color: HL[m.kind], size: size * 0.95, pressure: false,
+          tip: "round", stab: 1, points: [[x1 + 3, cy, 0.5], [x2 - 3, cy, 0.5]] });
+      }
+    });
+  }
+
+  const rule = (x1, y1, x2, y2, color = "#9aa3b2", size = 1.5) =>
+    page.items.push({ id: uid(), type: "shape", kind: "line", x1, y1, x2, y2, color, size });
+
+  // A table, a row at a time, with ruled cells. A row that will not fit starts
+  // a new page, with the heading row written again above it.
+  function table({ head, rows }, header) {
+    const n = head.length;
+    const size = px * (n > 3 ? 0.72 : 0.82);
+    const colW = WIDTH / n;
+    const cellLines = (c) => { const { plain, marks } = unmark(c); return { lines: plain ? wrap(plain, colW - 18, size) : [], marks }; };
+    const drawRow = (cells, isHead) => {
+      const laid = cells.map(cellLines);
+      const h = Math.max(1, ...laid.map((c) => c.lines.length));
+      if (h > ROWS) return;
+      need(h, header);
+      const y = rowY(row);
+      laid.forEach((c, i) => {
+        if (!c.lines.length) return;
+        const x = LEFT + i * colW + 4;
+        const item = text(c.lines.map((l) => l.t).join("\n"), x, y, colW - 8, { size, color: isHead || i === 0 ? ACCENT : undefined });
+        item.h = c.lines.length * ROW;
+        highlight(c.lines, c.marks, x, y, size);
+        page.items.push(item);
+      });
+      const top = y + 4, bottom = y + 4 + h * ROW;
+      rule(LEFT, top, LEFT + WIDTH, top);
+      rule(LEFT, bottom, LEFT + WIDTH, bottom);
+      for (let i = 0; i <= n; i++) rule(LEFT + i * colW, top, LEFT + i * colW, bottom);
+      row += h;
+    };
+    need(2, header);
+    drawRow(head, true);
+    for (const r of rows) {
+      const h = Math.max(1, ...r.map((c) => cellLines(c).lines.length));
+      if (row + h > ROWS) { startPage(header); drawRow(head, true); }
+      drawRow(r, false);
+    }
+    row += 1;
+  }
+
+  // Steps as boxes one under another, joined by arrows.
+  function flow({ title, steps, cycle }, header) {
+    const boxW = Math.min(WIDTH - 40, 560), x = LEFT + 20;
+    if (title) { need(2, header); write(title, LEFT, WIDTH, { color: ACCENT, header }); }
+    steps.forEach((step, i) => {
+      const { plain, marks } = unmark(`${i + 1}. ${step}`);
+      const lines = wrap(plain, boxW - 24);
+      need(lines.length + (i ? 1 : 0), header);
+      if (i && row > 0) {
+        const y = rowY(row);
+        page.items.push({ id: uid(), type: "shape", kind: "arrow", x1: x + boxW / 2, y1: y + 4, x2: x + boxW / 2, y2: y + ROW - 2, color: ACCENT, size: 2.5 });
+        row += 1;
+      }
+      const y = rowY(row);
+      const item = text(lines.map((l) => l.t).join("\n"), x + 8, y, boxW - 16);
+      item.h = lines.length * ROW;
+      page.items.push({ id: uid(), type: "shape", kind: "rect", x1: x, y1: y + 5, x2: x + boxW, y2: y + 3 + lines.length * ROW, color: ACCENT, size: 2 });
+      highlight(lines, marks, x + 8, y);
+      page.items.push(item);
+      row += lines.length;
+    });
+    if (cycle) write("↻ and back to step 1", x, boxW, { color: ACCENT, header });
+    row += 1;
+  }
+
+  // A picture and its credit, kept on one page.
+  function picture(pic, header) {
+    const k = Math.min(300 / pic.w, 230 / pic.h);
+    const w = Math.round(pic.w * k), h = Math.round(pic.h * k);
+    const rows = Math.ceil((h + 26) / ROW);
+    need(rows, header);
+    const y = rowY(row) + 6;
+    page.items.push({ id: uid(), type: "image", x: LEFT, y, w, h, src: pic.src });
+    page.items.push(text(`Picture: ${pic.title}, Wikipedia`, LEFT, y + h + 2, WIDTH, { size: px * 0.55, color: "#8a8f9c" }));
+    row += rows;
+  }
+
   // Writes a paragraph at x, w, highlights and all, breaking across pages.
   function write(raw, x, w, { color, header } = {}) {
     const { plain, marks } = unmark(raw);
@@ -90,17 +181,7 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
       const y = rowY(row);
       const item = text(chunk.map((l) => l.t).join("\n"), x, y, w, { color });
       item.h = take * ROW;
-      // highlights, behind the words
-      chunk.forEach((l, k) => {
-        for (const m of marks) {
-          const a = Math.max(m.a, l.at), b = Math.min(m.b, l.at + l.t.length);
-          if (b <= a) continue;
-          const x1 = x + 4 + measure(l.t.slice(0, a - l.at)), x2 = x + 4 + measure(l.t.slice(0, b - l.at));
-          const cy = y + 2 + k * ROW + ROW * 0.55;
-          page.items.push({ id: uid(), type: "stroke", tool: "highlighter", color: HL[m.kind], size: px * 0.95, pressure: false,
-            tip: "round", stab: 1, points: [[x1 + 3, cy, 0.5], [x2 - 3, cy, 0.5]] });
-        }
-      });
+      highlight(chunk, marks, x, y);
       page.items.push(item);
       row += take;
       i += take;
@@ -114,21 +195,12 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
     const header = { t: `${topic.name} (continued)`, size: px * 0.8, color: "#8a8f9c" };
     startPage({ t: `${ti + 1}. ${topic.name}`, size: px * 1.4, color: ACCENT, y: 18 });
 
-    if (pictures) {
+    const blocks = made.notes[topic.name];
+    if (pictures && !blocks.some((b) => b.pic)) {
       const pic = await pictureFor(topic.name).catch(() => null);
-      if (pic) {
-        const k = Math.min(300 / pic.w, 230 / pic.h);
-        const w = Math.round(pic.w * k), h = Math.round(pic.h * k);
-        const rows = Math.ceil((h + 26) / ROW);
-        need(rows, header);
-        const y = rowY(row) + 6;
-        page.items.push({ id: uid(), type: "image", x: LEFT, y, w, h, src: pic.src });
-        page.items.push(text(`Picture: ${pic.title}, Wikipedia`, LEFT, y + h + 2, WIDTH, { size: px * 0.55, color: "#8a8f9c" }));
-        row += rows;
-      }
+      if (pic) picture(pic, header);
     }
 
-    const blocks = made.notes[topic.name];
     for (const b of blocks) {
       if (b.h) {
         if (row > 0) row += 1;
@@ -146,6 +218,14 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
         need(2, header);
         write(b.term, LEFT, WIDTH, { color: ACCENT, header });
         write(b.def, LEFT + 26, WIDTH - 26, { header });
+      } else if (b.table) {
+        table(b.table, header);
+      } else if (b.flow) {
+        flow(b.flow, header);
+      } else if (b.pic) {
+        if (!pictures) continue;
+        const pic = await pictureFor(b.pic).catch(() => null);
+        if (pic) picture(pic, header);
       } else if (b.eg || b.watch) {
         const label = b.eg ? "Example" : "Watch out";
         const color = b.eg ? "#0e7490" : "#c2410c";
@@ -177,7 +257,7 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
 // The words a topic marks as hard, with their meanings, in the order they come.
 function keyWords(blocks) {
   const seen = new Map();
-  const texts = (blocks || []).flatMap((b) => b.list || [b.h, b.p, b.def, b.eg, b.watch].filter((t) => typeof t === "string"));
+  const texts = (blocks || []).flatMap(blockTexts);
   for (const t of texts) {
     String(t).replace(MARK, (whole, kind, _t, w, d) => {
       const key = w?.trim().toLowerCase();
@@ -190,25 +270,14 @@ function keyWords(blocks) {
 
 /* ---------- a picture for a topic ---------- */
 
-const STOP = new Set(["the", "and", "of", "in", "a", "an", "to", "for", "on", "with", "its", "their", "how", "what", "why", "introduction", "basics", "overview", "part", "chapter", "unit", "topic"]);
-const words = (s) => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w));
-
-// The top Wikipedia article for the topic, but only when its title shares a
-// real word with the topic and it has a picture: a wrong picture is worse
-// than none.
-async function pictureFor(topic) {
-  const want = words(topic);
-  if (!want.length) return null;
-  const q = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&srlimit=3&format=json&origin=*`).then((r) => r.json());
-  for (const hit of q?.query?.search || []) {
-    const title = hit.title;
-    if (!words(title).some((w) => want.includes(w))) continue;
-    const s = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`).then((r) => r.json());
-    if (s?.type === "disambiguation" || !s?.thumbnail?.source) continue;
-    const src = await shrink(s.originalimage?.width > 900 ? s.thumbnail.source.replace(/\/\d+px-/, "/640px-") : (s.originalimage?.source || s.thumbnail.source));
-    if (src) return { ...src, title: s.title };
-  }
-  return null;
+// The same match the notes page shows, kept as a small copy inside the
+// notebook so it works offline.
+async function pictureFor(query) {
+  const { findPicture } = await import("./wikiPic.js");
+  const found = await findPicture(query);
+  if (!found) return null;
+  const src = await shrink(found.src);
+  return src ? { ...src, title: found.title } : null;
 }
 
 // Fetches a picture and keeps a small copy in the notebook, so it works offline.

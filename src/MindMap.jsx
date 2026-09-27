@@ -8,7 +8,7 @@
 // ideas they added, are kept on this device for each set of notes.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { flatMarks } from "./marks.js";
+import { flatMarks, blockPlain } from "./marks.js";
 import { Icon, Portal } from "./ui.jsx";
 
 const flat = (t) => flatMarks(t);
@@ -22,7 +22,7 @@ function branchesOf(blocks = []) {
     if (l && l.length < 48 && !out.some((o) => o.label.toLowerCase() === l.toLowerCase())) out.push({ label: l, detail: flat(detail).trim() });
   };
   blocks.forEach((b) => { if (b.term) add(b.term, b.def); });
-  blocks.forEach((b, i) => { if (b.h) add(b.h, blocks[i + 1] ? Object.values(blocks[i + 1])[0] : ""); });
+  blocks.forEach((b, i) => { if (b.h) add(b.h, blocks[i + 1] ? blockPlain(blocks[i + 1]) : ""); });
   blocks.forEach((b) => {
     const text = typeof b.p === "string" ? b.p : Array.isArray(b.list) ? b.list.join(" ") : "";
     for (const m of text.matchAll(/\{key\|([^{}]*)\}/g)) add(m[1], text);

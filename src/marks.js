@@ -27,3 +27,31 @@ export function parseMarks(text) {
   if (last < s.length) out.push({ t: s.slice(last) });
   return out;
 }
+
+// A block of notes as plain text, whatever kind it is, for the chat, lessons,
+// the podcast and the mind map.
+export function blockPlain(b) {
+  if (!b || typeof b !== "object") return "";
+  if (b.term) return `${flatMarks(b.term)}: ${flatMarks(b.def)}`;
+  if (Array.isArray(b.list)) return b.list.map((x) => "- " + flatMarks(x)).join("\n");
+  if (b.table) {
+    const rows = [b.table.head || [], ...(b.table.rows || [])];
+    return rows.map((r) => r.map(flatMarks).join(" | ")).join("\n");
+  }
+  if (b.flow) return (b.flow.title ? flatMarks(b.flow.title) + ": " : "") + (b.flow.steps || []).map(flatMarks).join(" → ") + (b.flow.cycle ? " → (repeats)" : "");
+  if (b.pic) return "";
+  const v = b.h ?? b.p ?? b.eg ?? b.watch;
+  return typeof v === "string" ? flatMarks(v) : "";
+}
+
+// Every piece of marked text in a block, for counting highlights and finding
+// the hard words it defines.
+export function blockTexts(b) {
+  if (!b || typeof b !== "object") return [];
+  if (b.term) return [b.def];
+  if (Array.isArray(b.list)) return b.list;
+  if (b.table) return [...(b.table.head || []), ...(b.table.rows || []).flat()];
+  if (b.flow) return b.flow.steps || [];
+  const v = b.h ?? b.p ?? b.eg ?? b.watch;
+  return typeof v === "string" ? [v] : [];
+}

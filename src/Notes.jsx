@@ -14,7 +14,7 @@ import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
 import { MindMap } from "./MindMap.jsx";
-import { flatMarks, parseMarks } from "./marks.js";
+import { flatMarks, parseMarks, blockPlain, blockTexts } from "./marks.js";
 import { Podcast } from "./Podcast.jsx";
 
 const flatText = flatMarks;
@@ -23,12 +23,7 @@ function notesContext(made) {
   for (const t of made?.topics || []) {
     const blocks = made?.notes?.[t.name] || [];
     out.push(`\n## ${t.name}`);
-    blocks.forEach((b) => {
-      if (b.h) out.push(b.h);
-      else if (b.term) out.push(`${b.term}: ${flatText(b.def)}`);
-      else if (b.list) out.push(b.list.map((x) => "- " + flatText(x)).join("\n"));
-      else out.push(flatText(Object.values(b)[0]));
-    });
+    blocks.forEach((b) => { const text = blockPlain(b); if (text) out.push(text); });
   }
   return out.join("\n").slice(0, 8500);
 }
@@ -130,12 +125,7 @@ function WordCard({ word, at, onClose }) {
   );
 }
 
-function blockText(b) {
-  if (b.term) return [b.def];
-  if (b.list) return b.list;
-  const v = b.h ?? b.p ?? b.eg ?? b.watch;
-  return typeof v === "string" ? [v] : [];
-}
+const blockText = blockTexts;
 
 const slug = (s) => "nt-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
@@ -288,6 +278,37 @@ function Block({ b, on }) {
       </div>
     );
   }
+  if (b.table) {
+    const [head, ...rest] = [b.table.head, ...b.table.rows];
+    return (
+      <div className="nt-table">
+        <table>
+          <thead><tr>{head.map((c, i) => <th key={i} scope="col"><Text text={c} on={on} /></th>)}</tr></thead>
+          <tbody>
+            {rest.map((r, i) => (
+              <tr key={i}>{r.map((c, k) => k === 0
+                ? <th key={k} scope="row"><Text text={c} on={on} /></th>
+                : <td key={k}><Text text={c} on={on} /></td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (b.flow) {
+    return (
+      <figure className={"nt-flow" + (b.flow.cycle ? " cycle" : "")}>
+        {b.flow.title && <figcaption className="nt-label">{flatText(b.flow.title)}</figcaption>}
+        <ol>
+          {b.flow.steps.map((step, i) => (
+            <li key={i}><span className="nt-flow-n">{i + 1}</span><span><Text text={step} on={on} /></span></li>
+          ))}
+        </ol>
+        {b.flow.cycle && <p className="nt-flow-back">↻ and back to step 1</p>}
+      </figure>
+    );
+  }
+  if (b.pic) return <Picture query={b.pic} />;
   if (b.watch) {
     return (
       <div className="nt-aside watch">
@@ -297,6 +318,27 @@ function Block({ b, on }) {
     );
   }
   return null;
+}
+
+// A picture from Wikipedia, when one clearly matches. Nothing shows until it
+// has loaded, and nothing at all when there is no good match.
+function Picture({ query }) {
+  const [pic, setPic] = useState(null);
+  useEffect(() => {
+    let live = true;
+    import("./wikiPic.js").then(({ findPicture }) => findPicture(query)).then((p) => { if (live) setPic(p); }).catch(() => {});
+    return () => { live = false; };
+  }, [query]);
+  if (!pic) return null;
+  return (
+    <figure className="nt-pic">
+      <img src={pic.src} alt={pic.title} loading="lazy" referrerPolicy="no-referrer"
+        style={{ aspectRatio: pic.w && pic.h ? `${pic.w} / ${pic.h}` : undefined }} onError={() => setPic(null)} />
+      <figcaption>
+        {pic.title} · <a href={pic.page} target="_blank" rel="noreferrer">Wikipedia</a>
+      </figcaption>
+    </figure>
+  );
 }
 
 // Turning the notes into a notebook: pick a font and a paper, choose whether

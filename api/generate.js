@@ -175,7 +175,10 @@ Shape:
         { "list": ["one item", "another item"] },
         { "term": "a key term", "def": "its definition" },
         { "eg": "an example from the source" },
-        { "watch": "a common mistake or exam trap" }
+        { "watch": "a common mistake or exam trap" },
+        { "table": { "head": ["", "column", "column"], "rows": [["row label", "cell", "cell"]] } },
+        { "flow": { "title": "what the steps are", "steps": ["first", "then", "then"], "cycle": false } },
+        { "pic": "the exact title of a Wikipedia article whose picture shows this" }
       ]
     }
   ]
@@ -193,6 +196,12 @@ How the notes should read:
 - Every definition goes in a "term" block. Steps of a process go in order in a list.
 - Highlight generously: nearly every bullet has at least one {key|...}, {def|...} or {word|...}, but mark the few words that matter, never a whole bullet.
 - Mark every technical or hard word with {word|...} the first time it appears in the topic, unless it is the "term" of a term block.
+
+Tables, diagrams and pictures, only where they genuinely help:
+- "table" when the source compares two or more things on the same points (for example mitosis and meiosis, or types of market structure). Every row the same length as "head". Short cells, marks allowed. Never a table of one row or one column.
+- "flow" for a process, sequence, cycle or chain of cause and effect with 3 to 7 steps: each step a short phrase, in order, with "cycle" true when the last step leads back to the first. Use it instead of a numbered list for these.
+- "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
+- These add to the notes; the facts in them still come only from the source.
 
 Rules:
 - Write a section for each topic you are given, in that order, and nothing on any other part of the source.
@@ -219,6 +228,21 @@ function cleanQuestions(list, allowed, prefix) {
       answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
       why: String(q.why || ""),
     }));
+}
+
+// A table the notes can draw: a header and rows of the same width, at most
+// six columns and twelve rows, or nothing.
+function cleanTable(t) {
+  const cells = (r) => (Array.isArray(r) ? r : []).map((c) => String(c ?? "").slice(0, 300));
+  const head = cells(t.head).slice(0, 6);
+  const width = head.length;
+  if (width < 2) return null;
+  const rows = (Array.isArray(t.rows) ? t.rows : []).map((r) => {
+    const row = cells(r).slice(0, width);
+    while (row.length < width) row.push("");
+    return row;
+  }).filter((r) => r.some((c) => c.trim())).slice(0, 12);
+  return rows.length ? { table: { head, rows } } : null;
 }
 
 function sheetSize(length) {
@@ -449,7 +473,7 @@ async function part(req, res, mode, notes) {
       temperature: 0.2,
     });
     const data = safeParse(text, "sections");
-    const KINDS = ["h", "p", "list", "term", "eg", "watch"];
+    const KINDS = ["h", "p", "list", "term", "eg", "watch", "table", "flow", "pic"];
     const sections = (Array.isArray(data?.sections) ? data.sections : [])
       .filter((sec) => sec && names.includes(String(sec.topic)) && Array.isArray(sec.blocks))
       .map((sec) => ({
@@ -459,6 +483,12 @@ async function part(req, res, mode, notes) {
           .map((b) => {
             if (b.term) return { term: String(b.term), def: String(b.def || "") };
             if (Array.isArray(b.list)) return { list: b.list.map(String).filter(Boolean) };
+            if (b.table && typeof b.table === "object") return cleanTable(b.table);
+            if (b.flow && typeof b.flow === "object") {
+              const steps = (Array.isArray(b.flow.steps) ? b.flow.steps : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 8);
+              return steps.length >= 2 ? { flow: { title: String(b.flow.title || "").slice(0, 120), steps, cycle: b.flow.cycle === true } } : null;
+            }
+            if (typeof b.pic === "string") { const q = b.pic.trim().slice(0, 80); return q ? { pic: q } : null; }
             const kind = KINDS.find((k) => typeof b[k] === "string" && b[k].trim());
             return kind ? { [kind]: String(b[kind]) } : null;
           })
