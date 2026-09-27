@@ -15,7 +15,7 @@ create index if not exists feedback_replies_by_message on public.feedback_replie
 
 alter table public.feedback_replies enable row level security;
 
--- Staff read them; nothing else can. They are written by the staff site's
+-- Staff read them; nothing else can. They are written by the staff sites
 -- server after the email goes out, as the staff member who sent it.
 drop policy if exists "staff read replies" on public.feedback_replies;
 create policy "staff read replies" on public.feedback_replies

@@ -72,7 +72,7 @@ revoke all on function public.staff_team() from public;
 grant execute on function public.staff_team() to authenticated;
 
 -- ---------- reply templates ----------
--- Shared by all staff. {name} becomes the person's first name.
+-- Shared by all staff. {name} becomes the person s first name.
 create table if not exists public.reply_templates (
   id         uuid primary key default gen_random_uuid(),
   kind       text check (kind is null or kind in ('feedback', 'review', 'bug', 'complaint')),

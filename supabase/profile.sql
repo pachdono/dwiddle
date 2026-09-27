@@ -3,7 +3,7 @@
 -- Safe to run again.
 
 -- ---------- the name and picture people show as ----------
--- avatar is one of Dwiddle's own ("duck:sakura"), or a small picture the
+-- avatar is one of Dwiddle s own ("duck:sakura"), or a small picture the
 -- person uploaded, kept as an image in the row (about 20 KB, never more
 -- than 90 KB), or empty for their Google picture.
 alter table public.profiles add column if not exists display_name text;

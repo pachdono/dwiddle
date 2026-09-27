@@ -18,7 +18,7 @@ insert into public.staff (email) values
   ('dwiddle36@gmail.com')
 on conflict (email) do nothing;
 
--- True when the signed in person's email is on the staff list. The email
+-- True when the signed in person s email is on the staff list. The email
 -- comes from the sign in token, which Supabase signs, so it cannot be faked.
 create or replace function public.is_staff()
 returns boolean

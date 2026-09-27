@@ -1,4 +1,4 @@
--- Roles, testers, bans, and reviews with the reviewer's name.
+-- Roles, testers, bans, and reviews with the reviewer s name.
 -- Run once in the Supabase SQL editor (a new query), after staff-v2.sql.
 -- Safe to run again.
 
@@ -9,7 +9,7 @@ update public.staff set role = 'admin' where role not in ('admin', 'moderator');
 alter table public.staff drop constraint if exists staff_role_check;
 alter table public.staff add constraint staff_role_check check (role in ('admin', 'moderator'));
 
--- The signed in person's staff role, or null. Confirmed emails only.
+-- The signed in person s staff role, or null. Confirmed emails only.
 create or replace function public.staff_role()
 returns text
 language sql
@@ -102,8 +102,8 @@ create policy "anyone may leave feedback" on public.feedback
     and not public.is_banned()
   );
 
--- ---------- changing someone's access ----------
--- what: 'tester', 'ban', 'moderator' or 'admin'. on: give or take away.
+-- ---------- changing someone s access ----------
+-- what: tester, ban, moderator or admin. on: give or take away.
 -- Staff can change testers and bans. Only admins can make or remove staff.
 -- Staff can never be banned, nobody can remove their own staff role, and
 -- the last admin cannot be removed.

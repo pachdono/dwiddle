@@ -2,7 +2,7 @@
 -- Run this once in the Supabase SQL editor: Dashboard, SQL Editor, New query.
 
 -- One row per person. Everything the app remembers lives in `data` as JSON,
--- which keeps the schema stable while the app's shape is still moving.
+-- which keeps the schema stable while the app s shape is still moving.
 create table if not exists public.progress (
   user_id    uuid primary key references auth.users on delete cascade,
   data       jsonb not null default '{}'::jsonb,

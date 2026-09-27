@@ -2,7 +2,7 @@
 -- Run once in the Supabase SQL editor (a new query), after staff.sql.
 -- Safe to run again.
 
--- 1. Staff is decided by the account's own confirmed email, read from the
+-- 1. Staff is decided by the account s own confirmed email, read from the
 --    accounts table, not by the sign in token alone. An account whose email
 --    was never confirmed can never count as staff.
 create or replace function public.is_staff()
