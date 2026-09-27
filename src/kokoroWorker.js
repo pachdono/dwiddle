@@ -1,9 +1,8 @@
 // Runs the Kokoro voice model off the main thread, so speech is made
 // without freezing the page. Kokoro is a small open voice model (Apache
 // licence) that runs on the device: free, private, and offline once its
-// files are downloaded the first time. On the graphics chip (WebGPU) it is
-// quick enough to speak as it goes; on the processor it is slower, which is
-// fine where speech is made ahead of time, as it is for videos.
+// files are downloaded the first time (about 90 MB). It runs on the
+// processor, and speech is made a line or two ahead of where it is played.
 
 import { KokoroTTS } from "kokoro-js";
 import { env } from "@huggingface/transformers";
@@ -19,16 +18,10 @@ const progress_callback = (p) => {
   if (p.status === "progress" && p.total > 5e6) postMessage({ type: "progress", loaded: p.loaded, total: p.total });
 };
 
+// Always on the processor, in 8 bit. On the graphics chip the model's
+// smaller builds garble speech into a low, distorted growl on many machines
+// (Macs among them), which is worse than a line taking a moment to make.
 async function tryLoad() {
-  if (self.navigator?.gpu) {
-    try {
-      // Full precision: the smaller half-precision model garbles speech into
-      // a low, distorted growl on many graphics chips.
-      const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: "fp32", device: "webgpu", progress_callback });
-      device = "webgpu";
-      return tts;
-    } catch { /* no usable graphics chip after all: use the processor */ }
-  }
   const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: "q8", device: "wasm", progress_callback });
   device = "wasm";
   return tts;

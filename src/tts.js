@@ -197,8 +197,7 @@ function getWorker() {
   return worker;
 }
 
-// Downloads the voice the first time (about 90 to 330 MB depending on the
-// device, then kept by the
+// Downloads the voice the first time (about 90 MB, then kept by the
 // browser) and gets it ready. Resolves true when natural speech can be used.
 export function prepareNatural() {
   if (!naturalOn() || !naturalSupported()) return Promise.resolve(false);
@@ -272,7 +271,8 @@ export function sayAs(who, text, { rate = 1, onStart, onEnd, device: onDevice = 
   // Live speech needs the graphics chip; on the processor it would stall
   // between sentences, so the device's own voice reads instead.
   if (onDevice || state !== "ready" || device !== "webgpu") {
-    if (!onDevice && naturalOn() && naturalSupported() && state === "idle") prepareNatural();
+    // The natural voice is for videos, which make their speech ahead of time;
+    // live speech stays on the device's voice rather than downloading it.
     const v = characterVoices();
     const voice = who === "narrator" ? britishWoman() : who === "puddle" ? v.puddle : v.dwiddle;
     return say(text, { voice, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });
