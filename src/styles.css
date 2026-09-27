@@ -7984,3 +7984,91 @@ body:has(.theme-backdrop) .side-scene { visibility: hidden; }
 body:has(.theme-backdrop) .home-scene { display: none; }
 /* Behind the notebook, the page already has its own paper: nothing shows. */
 .nb ~ .theme-backdrop, body:has(.nb) .theme-backdrop { display: none; }
+
+/* ---------- practice company: panels either side, and a cheer now and then ---------- */
+.pz-full > .theme-backdrop { z-index: -1; }
+body:has(.theme-backdrop) .pz-full .pz-bar { background: color-mix(in srgb, var(--surface) 84%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+body:has(.theme-backdrop) .pz-full .pz-inner > * > .card,
+body:has(.theme-backdrop) .pz-full .pc-panel { background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
+body:has(.theme-backdrop) .pz-full .pz-sub { text-shadow: 0 0 2px var(--bg), 0 0 12px var(--bg); }
+
+.pc-side { display: none; }
+@media (min-width: 1200px) {
+  .pz-body.pc-on { display: grid; grid-template-columns: 1fr minmax(0, 820px) 1fr; column-gap: 28px; align-items: start; }
+  .pz-body.pc-on > .pz-inner { grid-column: 2; grid-row: 1; width: 100%; margin: 0; }
+  .pc-side { display: flex; flex-direction: column; gap: 14px; grid-row: 1; position: sticky; top: 0; width: min(240px, 100%); padding-top: 44px; }
+  .pc-side.left { grid-column: 1; justify-self: end; animation: pc-in-l 0.4s cubic-bezier(.2,.8,.2,1) both; }
+  .pc-side.right { grid-column: 3; justify-self: start; animation: pc-in-r 0.4s cubic-bezier(.2,.8,.2,1) both; }
+}
+@keyframes pc-in-l { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes pc-in-r { from { opacity: 0; transform: translateX(16px); } }
+
+.pc-panel { position: relative; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); padding: 16px 16px 18px; }
+.pc-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+
+.pc-streak { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--panel); animation: pc-pop 0.35s cubic-bezier(.3,1.6,.5,1); }
+.pc-streak b { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.pc-streak span { color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.pc-flame { width: 28px; height: 28px; fill: var(--ink-4, #b9b9b9); transition: fill 0.3s; }
+.pc-streak.hot { background: color-mix(in srgb, #FF9F1C 16%, var(--panel)); }
+.pc-streak.hot .pc-flame { fill: #FF8A1C; animation: pc-flicker 0.9s ease-in-out infinite alternate; transform-origin: 50% 90%; }
+.pc-streak.hot b { color: #F07C12; }
+@keyframes pc-flicker { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.12) rotate(3deg); } }
+@keyframes pc-pop { 0% { transform: scale(0.94); } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+.pc-acc { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.pc-ring-wrap { position: relative; width: 70px; height: 70px; flex: none; }
+.pc-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pc-ring circle { fill: none; stroke-width: 7; }
+.pc-ring-bg { stroke: var(--line); }
+.pc-ring-fg { stroke: var(--good, #2E9E6A); stroke-linecap: round; transition: stroke-dashoffset 0.6s cubic-bezier(.2,.8,.2,1); }
+.pc-ring-wrap b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 700; }
+.pc-nums { display: grid; gap: 4px; }
+.pc-nums div { display: flex; align-items: baseline; gap: 6px; }
+.pc-nums b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 18px; }
+.pc-nums span { font-size: 12px; color: var(--ink-3); }
+
+.pc-xp { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pc-xp-gem { font-size: 10px; font-weight: 800; color: #6B4A00; background: linear-gradient(180deg, #FFD95A, #F2B51C); border-radius: 6px; padding: 3px 5px; }
+.pc-xp b { font-size: 16px; font-weight: 800; }
+.pc-xp span { font-size: 12px; color: var(--ink-3); }
+.pc-xp-float { position: absolute; left: 40px; top: 4px; font-style: normal; font-weight: 800; font-size: 13px; color: #E0A100; pointer-events: none; animation: pc-float 1.1s ease-out forwards; }
+@keyframes pc-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-26px); } }
+
+.pc-duck { display: flex; flex-direction: column; align-items: center; padding-top: 14px; color: var(--ink-3); }
+.pc-bubble { position: relative; align-self: stretch; text-align: center; font-size: 13.5px; font-weight: 600; line-height: 1.35; padding: 10px 12px; border-radius: 14px; background: var(--panel); color: var(--ink); margin-bottom: 12px; animation: pc-pop 0.35s cubic-bezier(.3,1.6,.5,1); }
+.pc-bubble::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
+.pc-goal { display: block; font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+.pc-goal-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.pc-goal-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #FFB443, #FF7A1C); transition: width 0.5s cubic-bezier(.2,.8,.2,1); }
+.pc-goal-sub { display: block; margin-top: 8px; font-size: 12px; color: var(--ink-3); }
+
+/* the cheer: Dwiddle pops up from the bottom with a banner and confetti */
+.pc-cheer { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.pc-confetti { position: absolute; left: 50%; bottom: 120px; }
+.pc-confetti i { position: absolute; width: 9px; height: 13px; opacity: 0; animation: pc-burst 1.3s cubic-bezier(.15,.7,.35,1) forwards; }
+.pc-cheer.big .pc-confetti i { animation-duration: 1.7s; }
+@keyframes pc-burst {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 160px)) rotate(var(--r)); }
+}
+.pc-pop { position: absolute; left: 50%; bottom: 0; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, 110%);
+  animation: pc-up 1.7s cubic-bezier(.3,1.4,.5,1) forwards; }
+.pc-cheer.big .pc-pop { animation-duration: 2.3s; }
+@keyframes pc-up { 0% { transform: translate(-50%, 110%); } 18%, 80% { transform: translate(-50%, 8px); } 100% { transform: translate(-50%, 110%); } }
+.pc-banner { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #fff; background: linear-gradient(180deg, #3CC47C, #22A262); padding: 10px 20px; border-radius: 16px;
+  box-shadow: 0 4px 0 #1A7F4B, 0 12px 30px rgba(0,0,0,.18); margin-bottom: 6px; white-space: nowrap; }
+.pc-cheer.big .pc-banner { font-size: 26px; background: linear-gradient(180deg, #FFB443, #FF8A1C); box-shadow: 0 4px 0 #C8620A, 0 12px 30px rgba(0,0,0,.2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-side, .pc-streak, .pc-bubble, .pc-xp-float, .pc-flame { animation: none !important; }
+  .pc-confetti { display: none; }
+  .pc-pop { animation: pc-fade 1.7s ease forwards; transform: translate(-50%, 8px); }
+}
+@keyframes pc-fade { 0%, 100% { opacity: 0; } 15%, 85% { opacity: 1; } }
+/* The session panel counts XP itself, and the cheer rises where the XP note
+   sits, so in practice the note moves up out of the way, or goes when the
+   panel is showing. */
+body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
+@media (min-width: 1200px) { body:has(.pz-body.pc-on) .xp-toasts { display: none; } }

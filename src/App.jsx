@@ -3,6 +3,7 @@ import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
 import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
+import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
@@ -840,6 +841,8 @@ export default function App() {
           key={`${page}:${seq}`}
           go={go}
           early={early}
+          look={look}
+          resolved={resolved}
           theme={theme}
           setTheme={setTheme}
           missed={missed}
@@ -2188,6 +2191,14 @@ function Practice(props) {
   const [playing, setPlaying] = useState(false);
   const [pod, setPod] = useState(false);
   const open = (id) => { setPMode(id); setPlaying(true); };
+  // Testers and above get company while they practise: how the sitting is
+  // going either side of the question, and a cheer now and then.
+  const { early } = props;
+  const [session, record] = usePracticeSession();
+  useCheerSounds(session);
+  const modeProps = early
+    ? { ...props, grade: (id, ok, t) => { props.grade(id, ok, t); record(ok, { quiet: active.id === "mock" }); } }
+    : props;
   useEffect(() => {
     if (!playing) return;
     const onKey = (e) => { if (e.key === "Escape" && !e.target.closest?.("input, textarea")) setPlaying(false); };
@@ -2288,12 +2299,15 @@ function Practice(props) {
               </div>
               <span className="pz-where small muted">{topic || "All topics"}</span>
             </div>
-            <div className="pz-body">
+            {early && <ThemeBackdrop theme={props.look} resolved={props.resolved} />}
+            <div className={"pz-body" + (early ? " pc-on" : "")}>
+              {early && <PracticeSides s={session} />}
               <div className="pz-inner">
                 <p className="pz-sub muted">{active.sub}</p>
-                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...props} pool={pool} drillPool={drillPool} len={quizLen} />
+                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...modeProps} pool={pool} drillPool={drillPool} len={quizLen} />
               </div>
             </div>
+            {early && <Cheer cheer={session.cheer} />}
           </div>
         </Portal>
       )}
