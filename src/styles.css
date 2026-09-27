@@ -7160,3 +7160,6 @@ a.nav-item { text-decoration: none; color: inherit; }
 .reviews.many .review-card { flex: 0 0 min(340px, 82vw); scroll-snap-align: start; }
 .reviews.many::-webkit-scrollbar { height: 8px; }
 .reviews.many::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 8px; }
+.pp-real { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.pp-real .small { margin-right: 4px; color: var(--ink-2); }
+a.btn { text-decoration: none; }

@@ -498,7 +498,7 @@ export default async function handler(req, res) {
       if (!course || !subject || !topics.length) return userError(res, 400, "Which course and topics?");
       const text = await ask({
         system: PAST_PAPER,
-        user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.${level ? `\nLevel: ${level}.` : ""}\nWrite ${count} questions covering these syllabus topics:\n${topics.map((t) => "- " + t).join("\n")}`,
+        user: `Course: ${course} ${subject}${code ? ` (syllabus code ${code})` : ""}.${level ? `\nLevel: ${level}.` : ""}${Number(req.body?.parts) > 1 ? `\nThis is part ${Number(req.body.part) || 1} of ${Number(req.body.parts)} of one paper; write only these topics so the parts do not repeat each other.` : ""}\nWrite ${count} questions covering these syllabus topics:\n${topics.map((t) => "- " + t).join("\n")}`,
         maxTokens: 6000,
         json: true,
         temperature: 0.45,

@@ -10,12 +10,25 @@ import { writePastPaper, markPastPaper } from "./ai.js";
 const KEY = "dwiddle-pastpaper";
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } };
 const keep = (v) => { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch { /* private mode */ } };
-const LENGTHS = [["Short", 6], ["Standard", 10], ["Long", 14]];
+// Lengths the way real papers run: about two minutes a question.
+const LENGTHS = [["15 minutes", 8, 15], ["30 minutes", 15, 30], ["1 hour", 30, 60], ["1 hour 30", 45, 90]];
+
+// Where each board publishes its real past papers and mark schemes.
+function officialPapers(course, subject) {
+  if (course.id === "cie") {
+    const slug = { "cie-bio": "biology-0610", "cie-chem": "chemistry-0620", "cie-phys": "physics-0625", "cie-maths": "mathematics-0580", "cie-econ": "economics-0455" }[subject.id];
+    return [["Cambridge International", slug ? `https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-igcse-${slug}/past-papers/` : "https://www.cambridgeinternational.org/"]];
+  }
+  if (course.id === "edexcel") return [["Pearson Edexcel", "https://qualifications.pearson.com/en/support/support-topics/exams/past-papers.html"]];
+  if (course.id === "ib") return [["International Baccalaureate", "https://www.ibo.org/programmes/diploma-programme/assessment-and-exams/"]];
+  return [["AQA", "https://www.aqa.org.uk/find-past-papers-and-mark-schemes"], ["Pearson Edexcel", "https://qualifications.pearson.com/en/support/support-topics/exams/past-papers.html"], ["OCR", "https://www.ocr.org.uk/qualifications/past-paper-finder/"]];
+}
 
 // The card on a subject's page: choose topics and a length, then write it.
 export function PastPaperCard({ course, subject, canGenerate, onGenerated, onLocked }) {
   const [picked, setPicked] = useState(() => new Set(subject.topics));
-  const [count, setCount] = useState(10);
+  const [len, setLen] = useState(1);
+  const [prog, setProg] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [paper, setPaper] = useState(() => { const p = load(); return p?.subject === subject.id ? p : null; });
@@ -27,9 +40,11 @@ export function PastPaperCard({ course, subject, canGenerate, onGenerated, onLoc
     setBusy(true); setError("");
     try {
       const topics = subject.topics.filter((t) => picked.has(t));
-      const p = await writePastPaper({ course: course.name, subject: subject.name, code: subject.code || "", level: course.ages || "" }, topics, count);
+      const [, count, minutes] = LENGTHS[len];
+      setProg(0.03);
+      const p = await writePastPaper({ course: course.name, subject: subject.name, code: subject.code || "", level: course.ages || "" }, topics, count, setProg);
       onGenerated();
-      const fresh = { ...p, subject: subject.id, course: course.name, subjectName: subject.name, code: subject.code, started: Date.now(), answers: {}, marked: null };
+      const fresh = { ...p, minutes, subject: subject.id, course: course.name, subjectName: subject.name, code: subject.code, started: Date.now(), answers: {}, marked: null };
       keep(fresh); setPaper({ ...fresh, open: true });
     } catch (e) {
       setError(e.message || "The paper could not be written.");
@@ -40,13 +55,13 @@ export function PastPaperCard({ course, subject, canGenerate, onGenerated, onLoc
 
   return (
     <div className="card card-pad pp-card">
-      {busy && <BusyScreen title="Writing your practice paper" detail={`In the style of ${course.name} ${subject.name}${subject.code ? ` (${subject.code})` : ""} past papers, with a mark scheme`} outfit="graduate" />}
+      {busy && <BusyScreen title="Writing your practice paper" detail={`${LENGTHS[len][1]} questions in the style of ${course.name} ${subject.name}${subject.code ? ` (${subject.code})` : ""} past papers, with a mark scheme`} progress={prog} outfit="graduate" />}
       <div className="spread">
         <div>
           <b>Past paper practice</b>
           <p className="small muted" style={{ margin: "4px 0 0" }}>
-            A new paper written in the style of real {course.name} past papers: the same command words, marks and structure.
-            Sit it against the clock, then get it marked against its mark scheme.
+            A full practice paper in the style of real {course.name} past papers: the same command words, marks and structure,
+            timed like the real thing. Sit it against the clock, then get it marked against its mark scheme.
           </p>
         </div>
         {paper && !paper.marked && <button className="btn" onClick={() => setPaper({ ...paper, open: true })}>Carry on with your paper</button>}
@@ -59,11 +74,17 @@ export function PastPaperCard({ course, subject, canGenerate, onGenerated, onLoc
       </div>
       <div className="row" style={{ flexWrap: "wrap", gap: 10 }}>
         <div className="seg tight">
-          {LENGTHS.map(([n, c]) => <button key={c} className={count === c ? "on" : ""} onClick={() => setCount(c)}>{n} ({c} questions)</button>)}
+          {LENGTHS.map(([n, c], k) => <button key={c} className={len === k ? "on" : ""} onClick={() => setLen(k)}>{n} · {c} questions</button>)}
         </div>
         <button className="btn cta" disabled={!picked.size || busy} onClick={write}><Icon name="exam" size={15} /> Write my paper</button>
       </div>
       {error && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>{error}</p>}
+      <div className="pp-real">
+        <span className="small"><b>Real past papers:</b> the exam board publishes them free, with mark schemes.</span>
+        {officialPapers(course, subject).map(([name, url]) => (
+          <a key={name} className="btn ghost small" href={url} target="_blank" rel="noreferrer">{name} past papers <Icon name="arrow" size={13} /></a>
+        ))}
+      </div>
       {paper?.open && <Portal><PaperView paper={paper} onChange={(p) => { keep(p); setPaper(p); }} onClose={() => setPaper({ ...paper, open: false })} onNew={() => { keep(null); setPaper(null); }} /></Portal>}
     </div>
   );

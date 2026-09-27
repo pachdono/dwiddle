@@ -168,10 +168,22 @@ export const writeSyllabusNotes = (syllabus) =>
 
 // A practice paper written in a board's past paper style, and the marking of
 // its written answers against the paper's own mark scheme.
-export const writePastPaper = (syllabus, topics, count) =>
-  post("/api/generate", { mode: "pastpaper", syllabus, topics, count }).then((d) => ({
-    ...d, questions: d.questions.map((q) => ({ ...q, stem: tidyMath(q.stem), options: q.options?.map(tidyMath), scheme: q.scheme.map(tidyMath), model: tidyMath(q.model) })),
-  }));
+// A long paper is written in parts at the same time, each on its own share
+// of the topics, and put together in order.
+export async function writePastPaper(syllabus, topics, count, onProgress) {
+  const parts = Math.max(1, Math.ceil(count / 10));
+  const share = Array.from({ length: parts }, (_, i) => topics.filter((_, k) => k % parts === i));
+  let done = 0;
+  const results = await pool(share.map((ts, i) => () =>
+    post("/api/generate", { mode: "pastpaper", syllabus, topics: ts.length ? ts : topics, count: Math.round(count / parts), part: i + 1, parts })
+      .then((d) => { onProgress?.(++done / parts); return d; })
+      .catch(() => { onProgress?.(++done / parts); return null; })), 3); // one part failing still leaves a paper
+  const questions = results.flatMap((d, i) => (d?.questions || []).map((q, k) => ({
+    ...q, id: `pp${i}-${k}`, stem: tidyMath(q.stem), options: q.options?.map(tidyMath), scheme: q.scheme.map(tidyMath), model: tidyMath(q.model),
+  })));
+  if (questions.length < 3) throw new Error("The paper did not come back complete. Try again.");
+  return { title: results[0]?.title || "Practice paper", questions };
+}
 export const markPastPaper = (items) => post("/api/generate", { mode: "markpaper", items }).then((d) => d.results);
 
 export async function generateFromNotes(notes, { style = "" } = {}) {
