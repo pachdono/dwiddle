@@ -7153,3 +7153,10 @@ a.nav-item { text-decoration: none; color: inherit; }
 .pp-model { margin: 6px 0 0; }
 .pp-foot { display: flex; justify-content: flex-end; gap: 10px; }
 .pp-note { text-align: center; }
+/* more than three reviews: one row that scrolls sideways, so every approved
+   review stays on the page */
+.reviews.many { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 4px 14px; margin: 0 -4px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink) 18%, transparent) transparent; -webkit-overflow-scrolling: touch; }
+.reviews.many .review-card { flex: 0 0 min(340px, 82vw); scroll-snap-align: start; }
+.reviews.many::-webkit-scrollbar { height: 8px; }
+.reviews.many::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink) 18%, transparent); border-radius: 8px; }

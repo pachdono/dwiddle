@@ -618,7 +618,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
   const [reviews, setReviews] = useState([]);
   useEffect(() => {
     let live = true;
-    publicReviews(3).then((r) => live && setReviews(r));
+    publicReviews(24).then((r) => live && setReviews(r));
     return () => { live = false; };
   }, []);
 
@@ -711,7 +711,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
       {reviews.length > 0 && (
         <section className="landing-reviews">
           <div className="marquee-label">What people say</div>
-          <div className="reviews">
+          <div className={"reviews" + (reviews.length > 3 ? " many" : "")}>
             {reviews.map((r) => (
               <figure className="review-card" key={r.id}>
                 {r.title && <h3 className="review-title">{r.title}</h3>}
