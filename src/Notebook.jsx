@@ -1264,31 +1264,70 @@ const DRAWING_TOOLS = ["pen", "highlighter", "revealer", "eraser", "shape", "com
 const MORE_INKS = ["#1b1d26", "#6b7280", "#3B5BFD", "#0891b2", "#16a34a", "#84cc16", "#f59e0b", "#f97316", "#e5484d", "#db2777", "#9333ea", "#7c4a2d"];
 const MORE_HIGHLIGHTS = ["#ffe066", "#fde68a", "#a7f3d0", "#bbf7d0", "#fbcfe8", "#fecdd3", "#bfdbfe", "#c7d2fe", "#fed7aa", "#e9d5ff"];
 
-// The toolbar picture of a pen or highlighter, tipped in its colour.
-function ToolTip({ tool, color }) {
-  const hl = tool !== "pen";
+// A pen standing in the tray: a pale barrel, a band and a tip in its ink.
+// Ballpoint, fountain pen, brush and pencil get their own tips; highlighters
+// and the revealer are chunky markers with a chisel end.
+function PenIcon({ kind, color }) {
+  const marker = kind === "highlighter" || kind === "revealer";
+  const tips = {
+    ball: <path className="tip" d="M9 14 L12 3 L15 14 Z" fill={color} />,
+    fountain: <path className="tip" d="M8.5 15 C9 9 11 5 12 2 C13 5 15 9 15.5 15 Z M11.6 6 L12.4 6 L12.4 12 L11.6 12 Z" fill={color} fillRule="evenodd" />,
+    brush: <path className="tip" d="M9.5 15 C9 10 11 6 12 2 C13 6 15 10 14.5 15 Z" fill={color} />,
+    pencil: <><path d="M8.5 15 L12 3 L15.5 15 Z" fill="#E8C9A0" /><path className="tip" d="M10.8 7 L12 3 L13.2 7 Z" fill={color} /></>,
+  };
   return (
-    <svg width="20" height="22" viewBox="0 0 20 22" aria-hidden="true">
-      <path d={hl ? "M6 2h8v9l-2 5H8l-2-5Z" : "M7 2h6v11l-3 6-3-6Z"} fill="currentColor" opacity="0.28" />
-      <path d={hl ? "M8 16h4l-.5 4h-3Z" : "M8.2 14.5h3.6L10 19Z"} fill={color} stroke="rgba(0,0,0,.25)" strokeWidth="0.5" />
-      <rect x={hl ? 6 : 7} y="6" width={hl ? 8 : 6} height="2.5" fill={color} opacity="0.9" />
+    <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
+      <defs>
+        <linearGradient id={`barrel-${kind}`} x1="0" x2="1">
+          <stop offset="0" stopColor="#f4f4f6" /><stop offset="0.55" stopColor="#ffffff" /><stop offset="1" stopColor="#d9d9df" />
+        </linearGradient>
+      </defs>
+      {marker ? (
+        <>
+          <path className="tip" d="M6.5 16 L8 7 L16 7 L17.5 16 Z" fill={color} opacity={kind === "highlighter" ? 0.85 : 1} />
+          <path className="tip" d="M8 7 L10 2.5 L16 4 L16 7 Z" fill={color} />
+          <rect x="5.5" y="15" width="13" height="31" rx="2.5" fill={`url(#barrel-${kind})`} stroke="rgba(0,0,0,.12)" />
+          <rect x="5.5" y="18" width="13" height="5" fill={color} opacity="0.9" />
+        </>
+      ) : (
+        <>
+          {tips[kind] || tips.ball}
+          <rect x="8" y="14" width="8" height="32" rx="2" fill={`url(#barrel-${kind})`} stroke="rgba(0,0,0,.12)" />
+          <rect x="8" y="17" width="8" height="3.5" fill={color} opacity="0.9" />
+        </>
+      )}
     </svg>
   );
 }
 
-// A sample stroke, drawn with the tool's real settings, so the size and style
-// can be seen before writing.
-function StrokeSample({ tool, size, color, style, tip }) {
-  const pts = Array.from({ length: 40 }, (_, i) => [14 + i * 5.4, 30 + Math.sin(i / 5.5) * 12, 0.3 + 0.5 * Math.sin((i / 39) * Math.PI)]);
-  const it = { tool, size: widthOf(tool, size), points: tool === "pen" ? pts : pts.map(([x, , p]) => [x, 30, p]), style, tip, pressure: tool === "pen" };
+// An on and off switch, like the ones in the system settings.
+function Switch({ on, onChange, label }) {
   return (
-    <svg className="nb-sample" viewBox="0 0 240 60" aria-hidden="true">
-      {tool === "eraser"
-        ? <circle cx="120" cy="30" r={Math.min(28, widthOf("eraser", size) / 2.2)} fill="var(--surface)" stroke="var(--ink-3)" strokeWidth="1.5" />
-        : <path d={inkPath(it)} fill={color} opacity={tool === "highlighter" ? 0.55 : 1} />}
-    </svg>
+    <button type="button" role="switch" aria-checked={!!on} className={"nb-switch" + (on ? " on" : "")} onClick={() => onChange(!on)}>
+      <span>{label}</span><i aria-hidden="true" />
+    </button>
   );
 }
+
+// A slider that moves in steps, with a dot for each one along its track.
+function Stepper({ label, hint, min, max, value, onChange, low, high }) {
+  const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="nb-stepper">
+      <div className="nb-stepper-head"><span>{label}</span><b>{value}</b></div>
+      <div className="nb-stepper-track" style={{ "--p": `${pct}%` }}>
+        {steps.map((n) => <i key={n} className={n <= value ? "on" : ""} style={{ left: `${((n - min) / (max - min)) * 100}%` }} />)}
+        <input type="range" min={min} max={max} step="1" value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
+      </div>
+      <div className="nb-stepper-ends"><span>{low}</span><span>{high}</span></div>
+      {hint && <p className="nb-pop-hint">{hint}</p>}
+    </div>
+  );
+}
+
+// Sizes to pick from, each shown as a stroke of that thickness.
+const SIZES = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 9, 12];
 
 function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, colors, color, setColor, shapeKind, setShapeKind, onShowAll, onHideAll, onClearPage, onClose }) {
   useEffect(() => {
@@ -1297,22 +1336,17 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
     return () => removeEventListener("keydown", onKey);
   }, [onClose]);
   const palette = tool === "highlighter" ? MORE_HIGHLIGHTS : tool === "revealer" ? colors : MORE_INKS;
-  const names = { pen: "Pen", highlighter: "Highlighter", revealer: "Revealer pen", eraser: "Eraser", shape: "Shapes" };
+  const names = { pen: PEN_STYLES.find((x) => x.id === prefs.style)?.name || "Pen", highlighter: "Highlighter", revealer: "Revealer pen", eraser: "Eraser", shape: "Shapes", text: "Text colour" };
+  const inks = tool === "pen" || tool === "highlighter" || tool === "revealer";
   return (
     <>
       <div className="nb-pop-scrim" onPointerDown={onClose} />
-      <div className="nb-pop" role="dialog" aria-label={names[tool] + " settings"}>
+      <div className="nb-pop nb-penpop" role="dialog" aria-label={names[tool] + " settings"}>
         <div className="nb-pop-head"><b>{names[tool]}</b><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button></div>
-        {tool !== "shape" && <StrokeSample tool={tool} size={size} color={color} style={prefs.style} tip={prefs.tip} />}
         {tool === "pen" && (
           <div className="seg tight nb-pop-seg">
             {PEN_STYLES.map((p) => <button key={p.id} className={prefs.style === p.id ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, style: p.id }))}>{p.name}</button>)}
           </div>
-        )}
-        {tool === "highlighter" && (
-          <>
-            <label className="nb-pop-check"><input type="checkbox" checked={!!prefs.hlStraight} onChange={(e) => setPrefs((o) => ({ ...o, hlStraight: e.target.checked }))} /> Always draw straight lines</label>
-          </>
         )}
         {tool === "shape" && (
           <div className="seg tight nb-pop-seg">
@@ -1321,27 +1355,32 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             ))}
           </div>
         )}
-        <label className="nb-pop-size">
-          <span>Size</span>
-          <input type="range" min="1" max="12" step="0.5" value={size} onChange={(e) => setSize(Number(e.target.value))} />
-          <b>{size}</b>
-        </label>
-        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
-          <>
-            <label className="nb-pop-size">
-              <span>Stability</span>
-              <input type="range" min="1" max="10" step="1" value={prefs.stab?.[tool] ?? 4}
-                onChange={(e) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: Number(e.target.value) } }))} />
-              <b>{prefs.stab?.[tool] ?? 4}</b>
-            </label>
-            <p className="small muted nb-pop-hint">Low follows your hand exactly, good for writing (try 2). High smooths out wobble, good for graphs and curves (try 8).</p>
-            {tool === "pen" && <label className="nb-pop-check"><input type="checkbox" checked={prefs.refine !== false} onChange={(e) => setPrefs((o) => ({ ...o, refine: e.target.checked }))} /> Auto refine: tidy each stroke when you lift the pen</label>}
-          </>
+        {tool !== "text" && (
+          <div className="nb-sizes" role="radiogroup" aria-label="Thickness">
+            {SIZES.map((n) => (
+              <button key={n} role="radio" aria-checked={size === n} className={"nb-sizechip" + (size === n ? " on" : "")} onClick={() => setSize(n)} title={`Size ${n}`}>
+                {tool === "eraser"
+                  ? <i className="nb-erasedot" style={{ width: 4 + n * 2, height: 4 + n * 2 }} />
+                  : <i className="nb-sizestroke" style={{ height: Math.max(1, widthOf(tool === "shape" ? "pen" : tool, n) * (tool === "highlighter" ? 0.35 : 0.9)), background: tool === "eraser" ? "var(--ink-3)" : color, opacity: tool === "highlighter" ? 0.7 : 1 }} />}
+                <small>{n}</small>
+              </button>
+            ))}
+          </div>
         )}
         {tool !== "eraser" && (
           <div className="nb-pop-colors">
             {palette.map((c) => <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />)}
             <label className="nb-color nb-custom" title="Any colour"><input type="color" value={color} onChange={(e) => setColor(e.target.value)} /></label>
+          </div>
+        )}
+        {inks && (
+          <div className="nb-pop-card">
+            {tool === "pen" && <Switch label="Auto-refine handwriting" on={prefs.refine !== false} onChange={(v) => setPrefs((o) => ({ ...o, refine: v }))} />}
+            {tool === "highlighter" && <Switch label="Always straight lines" on={!!prefs.hlStraight} onChange={(v) => setPrefs((o) => ({ ...o, hlStraight: v }))} />}
+            <Stepper label="Writing stability" min={1} max={10} value={prefs.stab?.[tool] ?? 4}
+              onChange={(v) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: v } }))}
+              low="Follows your hand" high="Smooth curves"
+              hint="Try 2 for writing, 8 for graphs and curves." />
           </div>
         )}
         {tool === "revealer" && (
@@ -1360,15 +1399,15 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             <div className="nb-pop-row"><button className="btn ghost small danger" onClick={() => { if (window.confirm("Clear everything on this page?")) { onClearPage(); onClose(); } }}>Clear this page</button></div>
           </>
         )}
-        {(tool === "pen" || tool === "highlighter" || tool === "revealer") && (
+        {inks && (
           <div className="nb-pop-case">
-            <span className="small muted">Pencil case</span>
+            <span className="small muted">Pen tray</span>
             <div>
               {(prefs.pens || []).map((pn) => (
-                <span key={pn.id} className="nb-pop-casepen"><ToolTip tool={pn.tool} color={pn.color} />
-                  <button onClick={() => removePen(pn.id)} aria-label="Take out of the pencil case">×</button></span>
+                <span key={pn.id} className="nb-pop-casepen"><PenIcon kind={pn.tool === "pen" ? pn.style || "ball" : pn.tool} color={pn.color} />
+                  <button onClick={() => removePen(pn.id)} aria-label="Take out of the pen tray">×</button></span>
               ))}
-              <button className="btn ghost small" onClick={savePen}>+ Add this pen</button>
+              <button className="btn ghost small" onClick={savePen}>+ Add this pen to the tray</button>
             </div>
           </div>
         )}
@@ -2690,22 +2729,76 @@ function Editor({ id, go, onClose }) {
 
   return (
     <div className="nb" ref={nbRef}>
-      <div className="nb-bar">
+      {/* Two rows, like a good note taking app: the page and its controls
+          along the top, and a tray of pens and tools under it. Colours and
+          sizes live in each pen's settings, opened by tapping it again. */}
+      <div className="nb-bar nb-top">
         <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
-        <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
-        <div className="nb-group">
+        <div className="nb-group nb-undo">
           <button className="icon-btn" onClick={undo} disabled={!past.current.length} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
           <button className="icon-btn" onClick={redo} disabled={!future.current.length} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
         </div>
-        <div className="nb-toolrow">
-        <div className="nb-group nb-tools" role="toolbar" aria-label="Tools">
-          {TOOLS.map((t) => (
+        <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
+        <button className={"nb-paperbtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Paper, pages and printing">
+          {TEMPLATES.find((t) => t.id === book.pages[current]?.template)?.name || "Paper"} <span aria-hidden="true">⌄</span>
+        </button>
+        <div className="nb-spacer" />
+        <div className="nb-modes nb-extra" role="tablist" aria-label="Study this material">
+          <button className="on" role="tab" aria-selected="true">Notebook</button>
+          <button role="tab" aria-selected="false" onClick={() => go?.("sheet")}>Notes</button>
+          <button role="tab" aria-selected="false" onClick={() => go?.("quiz")}>Practice</button>
+        </div>
+        <div className="nb-spacer" />
+        <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
+          {current + 1} / {book.pages.length}
+        </button>
+        <div className="nb-group nb-zoom">
+          <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
+          <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
+          <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
+          <FullscreenButton />
+        </div>
+        <div className="nb-group nb-asks">
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
+          <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
+            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
+          </button>
+        </div>
+      </div>
+
+      <div className="nb-tray" role="toolbar" aria-label="Pens and tools">
+        {/* The pens stand in a row, the one in use lifted, as in a pen tray. */}
+        <div className="nb-pens">
+          {TOOLS.filter((t) => ["pen", "highlighter", "revealer"].includes(t.id)).map((t) => {
+            const c = t.id === "pen" ? ink : t.id === "highlighter" ? hl : cov;
+            const on = tool === t.id && !(prefs.pens || []).some((pn) => pn.tool === t.id && pn.color === c && size === pn.size);
+            return (
+              <button key={t.id} className={"nb-penbtn" + (on ? " on" : "")}
+                onClick={() => { if (tool === t.id) setPop((p) => (p ? null : t.id)); else { setTool(t.id); setPop(null); } }}
+                title={t.name + ". Tap again for size and colour"} aria-label={t.name} aria-pressed={tool === t.id}>
+                <PenIcon kind={t.id === "pen" ? prefs.style || "ball" : t.id} color={c} />
+              </button>
+            );
+          })}
+          {(prefs.pens || []).map((pn) => {
+            const on = tool === pn.tool && (pn.tool === "highlighter" ? hl : pn.tool === "revealer" ? cov : ink) === pn.color && size === pn.size
+              && (pn.tool !== "pen" || prefs.style === pn.style);
+            return (
+              <button key={pn.id} className={"nb-penbtn" + (on ? " on" : "")}
+                onClick={() => { if (on) setPop((p) => (p ? null : pn.tool)); else pickPen(pn); }}
+                title={`${pn.tool === "pen" ? (PEN_STYLES.find((x) => x.id === pn.style)?.name || "Pen") : pn.tool === "highlighter" ? "Highlighter" : "Revealer"}, size ${pn.size}`}>
+                <PenIcon kind={pn.tool === "pen" ? pn.style || "ball" : pn.tool} color={pn.color} />
+              </button>
+            );
+          })}
+        </div>
+        <span className="nb-tray-sep" aria-hidden="true" />
+        <div className="nb-group nb-tools">
+          {TOOLS.filter((t) => !["pen", "highlighter", "revealer"].includes(t.id)).map((t) => (
             <button key={t.id} className={"nb-tool" + (tool === t.id ? " on" : "") + (SETTINGS.includes(t.id) ? " has-opts" : "")}
               onClick={() => { if (tool === t.id && SETTINGS.includes(t.id)) setPop((p) => (p ? null : t.id)); else { setTool(t.id); setPop(null); } }}
-              title={t.name + (SETTINGS.includes(t.id) ? ". Tap again for size and colour" : "")} aria-label={t.name} aria-pressed={tool === t.id}>
-              {t.id === "pen" || t.id === "highlighter" || t.id === "revealer"
-                ? <ToolTip tool={t.id} color={t.id === "pen" ? ink : t.id === "highlighter" ? hl : cov} />
-                : <Icon name={t.icon} size={18} />}
+              title={t.name + (SETTINGS.includes(t.id) ? ". Tap again for its settings" : "")} aria-label={t.name} aria-pressed={tool === t.id}>
+              <Icon name={t.icon} size={18} />
             </button>
           ))}
           <label className="nb-tool nb-extra" title="Add a picture" aria-label="Add a picture">
@@ -2720,6 +2813,16 @@ function Editor({ id, go, onClose }) {
             onClick={() => setVideo((v) => (v === null ? "" : null))}>
             <Icon name="video" size={18} />
           </button>
+          <button className={"nb-tool nb-extra" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
+            aria-label="Ruler" aria-pressed={!!ruler}
+            onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
+            <Icon name="ruler" size={18} />
+          </button>
+          <button className={"nb-tool nb-extra" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
+            aria-label="Protractor" aria-pressed={!!prot}
+            onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}>
+            <Icon name="protractor" size={18} />
+          </button>
           {/* On a phone the rarer tools live in here, so every tool you
               write with fits on one row without scrolling. */}
           <button className={"nb-tool nb-morebtn" + (more ? " on" : "")} aria-label="More tools" aria-expanded={more} title="More tools"
@@ -2727,58 +2830,6 @@ function Editor({ id, go, onClose }) {
             <Icon name="more" size={18} />
           </button>
         </div>
-        <button className={"nb-tool nb-extra" + (ruler ? " on" : "")} title="Ruler: lay it on the page, draw along its edge for a straight line"
-          aria-label="Ruler" aria-pressed={!!ruler}
-          onClick={() => setRuler((r) => (r ? null : { pageId: book.pages[current]?.id, x: 110, y: 420, angle: 0, len: 560 }))}>
-          <Icon name="ruler" size={18} />
-        </button>
-        <button className={"nb-tool nb-extra" + (prot ? " on" : "")} title="Protractor: measure angles, draw along its curve or base"
-          aria-label="Protractor" aria-pressed={!!prot}
-          onClick={() => setProt((p) => (p ? null : { pageId: book.pages[current]?.id, x: 400, y: 620, angle: 0, r: 190 }))}>
-          <Icon name="protractor" size={18} />
-        </button>
-        <button className={"nb-pill nb-drawwith nb-extra" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
-          title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
-          {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
-        </button>
-        {(prefs.pens || []).length > 0 && (
-          <div className="nb-group nb-case nb-extra" aria-label="Pencil case">
-            {prefs.pens.map((pn) => {
-              const on = tool === pn.tool && (pn.tool === "highlighter" ? hl : pn.tool === "revealer" ? cov : ink) === pn.color && size === pn.size
-                && (pn.tool !== "pen" || prefs.style === pn.style);
-              return (
-                <button key={pn.id} className={"nb-casepen" + (on ? " on" : "")} onClick={() => pickPen(pn)}
-                  title={`${pn.tool === "pen" ? (PEN_STYLES.find((x) => x.id === pn.style)?.name || "Pen") : pn.tool === "highlighter" ? "Highlighter" : "Revealer"}, size ${pn.size}`}>
-                  <ToolTip tool={pn.tool} color={pn.color} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className={"nb-group nb-colors" + (tool === "hand" || tool === "select" || tool === "compass" ? " nb-idle" : "")}>
-          {colors.map((c) => (
-            <button key={c} className={"nb-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Colour" />
-          ))}
-          <label className="nb-color nb-custom" title="Any colour">
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-          </label>
-        </div>
-        {(tool === "pen" || tool === "highlighter" || tool === "revealer" || tool === "eraser") && (
-          <div className="nb-group nb-size">
-            {[2, 4, 7].map((s) => (
-              <button key={s} className={"nb-dot" + (size === s ? " on" : "")} onClick={() => setSize(s)} aria-label={`Size ${s}`} title="Tap the tool again for any size">
-                <i style={{ width: Math.min(22, 3 + s * (tool === "pen" ? 1.6 : 2.4)), height: Math.min(22, 3 + s * (tool === "pen" ? 1.6 : 2.4)) }} />
-              </button>
-            ))}
-          </div>
-        )}
-        {tool === "shape" && (
-          <div className="nb-group">
-            {[["line", "Line"], ["arrow", "Arrow"], ["rect", "Box"], ["ellipse", "Circle"]].map(([k, n]) => (
-              <button key={k} className={"nb-pill" + (shapeKind === k ? " on" : "")} onClick={() => setShapeKind(k)}>{n}</button>
-            ))}
-          </div>
-        )}
         {/* Only while the text tool is picked, so selecting something never
             reflows the toolbar and shifts the page under your finger. */}
         {tool === "text" && (
@@ -2793,25 +2844,16 @@ function Editor({ id, go, onClose }) {
                 {[16, 20, 22, 26, 32, 40, 52].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             )}
+            <button className="nb-pill" onClick={() => setPop("text")} title="Colour">
+              <i className="nb-dotcolor" style={{ background: color }} /> Colour
+            </button>
           </div>
         )}
-        </div>
         <div className="nb-spacer" />
-        <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
-          <Icon name="pagesadd" size={15} /> {current + 1} / {book.pages.length}
+        <button className={"nb-pill nb-drawwith nb-extra" + (prefs.finger === false ? " on" : "")} onClick={() => setPrefs((o) => ({ ...o, finger: o.finger === false }))}
+          title={prefs.finger === false ? "Only an Apple Pencil or stylus writes. Fingers scroll." : "Fingers and pens both write. Tap for Pencil only."}>
+          {prefs.finger === false ? "✏️ Pencil only" : "☝️ Finger + pen"}
         </button>
-        <div className="nb-group nb-zoom">
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
-          <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
-          <FullscreenButton />
-        </div>
-        <div className="nb-group">
-          <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
-          <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
-            {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
-          </button>
-        </div>
       </div>
 
       <div ref={ring} className="nb-ring" aria-hidden="true" />

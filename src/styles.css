@@ -7587,3 +7587,140 @@ a.btn { text-decoration: none; }
 .vd-seek input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); box-shadow: var(--shadow); }
 .vd-seek input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); }
 .vd-mark { position: absolute; top: 50%; width: 3px; height: 10px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--surface); pointer-events: none; }
+
+/* ---------- notebook: top bar, pen tray and pen settings ----------
+   Laid out like a good note taking app: a slim bar for the page, a tray of
+   pens that stand up with the one in use lifted, and settings for each pen
+   in a card with thickness chips, colour dots, switches and a stepped slider. */
+.nb-bar.nb-top { flex-wrap: nowrap; gap: 6px; padding: 6px 10px; border-bottom: 0; }
+.nb-top .nb-title { width: auto; min-width: 80px; max-width: 220px; flex: 0 1 auto; font-size: 14.5px; text-overflow: ellipsis; }
+.nb-undo { background: var(--sunken); border-radius: 999px; }
+.nb-undo .icon-btn { width: 32px; height: 32px; border-radius: 50%; }
+.nb-paperbtn { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; padding: 5px 10px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.nb-paperbtn:hover, .nb-paperbtn.on { background: var(--hover); color: var(--ink); }
+.nb-paperbtn span { font-size: 12px; opacity: 0.7; transform: translateY(-2px); }
+.nb-modes { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--sunken); flex: 0 0 auto; }
+.nb-modes button { padding: 5px 14px; border: 0; border-radius: 9px; background: none; color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.nb-modes button:hover { color: var(--ink); }
+.nb-modes button.on { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); cursor: default; }
+
+.nb-tray {
+  display: flex; align-items: flex-end; gap: 8px; flex: 0 0 auto;
+  padding: 0 12px; min-height: 52px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+.nb-tray::-webkit-scrollbar { display: none; }
+.nb-tray > .nb-group, .nb-tray > .nb-pill { align-self: center; }
+.nb-pens { display: flex; align-items: flex-end; gap: 2px; height: 52px; flex: 0 0 auto; }
+.nb-penbtn {
+  position: relative; width: 30px; height: 50px; padding: 0; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
+}
+.nb-penicon { display: block; transform: translateY(14px); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12)); }
+.nb-penbtn:hover .nb-penicon { transform: translateY(9px); }
+.nb-penbtn.on .nb-penicon { transform: translateY(2px); }
+.nb-penbtn.on::after { content: ""; position: absolute; bottom: 1px; left: 50%; width: 14px; height: 3px; margin-left: -7px; border-radius: 3px; background: var(--accent); }
+.nb-penbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.nb-tray-sep { width: 1px; height: 26px; align-self: center; background: var(--line); flex: 0 0 auto; }
+.nb-tray .nb-tools { background: none; }
+.nb-dotcolor { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; box-shadow: 0 0 0 1px var(--line); }
+
+.nb-penpop { width: min(360px, calc(100vw - 24px)); gap: 14px; }
+.nb-sizes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.nb-sizechip {
+  display: grid; justify-items: center; align-content: center; gap: 4px;
+  height: 52px; padding: 6px 4px; border: 0; border-radius: 12px; background: var(--sunken); cursor: pointer;
+}
+.nb-sizechip:hover { background: var(--hover); }
+.nb-sizechip.on { background: var(--surface); box-shadow: 0 0 0 2px var(--ink), var(--shadow); }
+.nb-sizechip small { font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.nb-sizestroke { display: block; width: 26px; max-height: 16px; border-radius: 99px; transform: rotate(-35deg); }
+.nb-erasedot { display: block; max-width: 22px; max-height: 22px; border-radius: 50%; border: 1.5px solid var(--ink-3); }
+.nb-penpop .nb-pop-colors { gap: 10px; }
+.nb-penpop .nb-pop-colors .nb-color { width: 30px; height: 30px; border: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.nb-penpop .nb-pop-colors .nb-color.on { box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 4.5px var(--ink); }
+.nb-penpop .nb-custom { background: conic-gradient(#f43f5e, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #f43f5e) !important; }
+.nb-pop-card { display: grid; gap: 12px; padding: 12px; border-radius: 14px; background: var(--sunken); }
+
+.nb-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.nb-switch i { position: relative; flex: 0 0 44px; height: 26px; border-radius: 99px; background: var(--active); transition: background 0.2s ease; }
+.nb-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.nb-switch.on i { background: #34c759; }
+.nb-switch.on i::after { transform: translateX(18px); }
+.nb-switch:focus-visible i { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.nb-stepper { display: grid; gap: 6px; }
+.nb-stepper-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.nb-stepper-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.nb-stepper-track { position: relative; height: 26px; margin: 0 9px; }
+.nb-stepper-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 4px;
+  background: linear-gradient(to right, var(--ink) var(--p), var(--active) var(--p)); }
+.nb-stepper-track i { position: absolute; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--active); box-shadow: 0 0 0 2px var(--sunken); pointer-events: none; }
+.nb-stepper-track i.on { background: var(--ink); }
+.nb-stepper-track input { position: absolute; inset: 0 -9px; width: calc(100% + 18px); height: 100%; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.nb-stepper-track input::-webkit-slider-runnable-track { background: none; height: 26px; }
+.nb-stepper-track input::-moz-range-track { background: none; }
+.nb-stepper-track input::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.nb-stepper-track input::-moz-range-thumb { width: 20px; height: 20px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.nb-stepper-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); }
+.nb-penpop .nb-pop-hint { margin: 0 !important; font-size: 11.5px; color: var(--ink-3); }
+
+@media (max-width: 700px) {
+  .nb-bar.nb-top { gap: 4px; padding: 6px 8px; }
+  .nb-top .nb-title { max-width: 120px; }
+  .nb-top .nb-zoom, .nb-top .nb-pagebtn { display: none; }
+  .nb-tray { gap: 4px; padding: 0 6px; }
+  .nb-tray .nb-tools { width: auto; flex: 1 1 auto; justify-content: space-between; }
+  .nb-tray .nb-tools .nb-tool { max-width: 40px; }
+  .nb-sizes { grid-template-columns: repeat(4, 1fr); }
+}
+/* A faint edge on pen tips and thickness samples, so black ink still shows
+   on a dark tray and pale ink on a light one. */
+.nb-penicon .tip { stroke: var(--ink-3); stroke-width: 0.6; stroke-opacity: 0.5; }
+.nb-sizestroke { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink-3) 45%, transparent); }
+:root[data-theme="dark"] .nb-penpop .nb-pop-colors .nb-color { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+:root[data-theme="dark"] .nb-penpop .nb-pop-colors .nb-color.on { box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 4.5px var(--ink); }
+.nb-pop-casepen { height: 52px; width: 32px; align-items: end; overflow: visible; padding-bottom: 2px; }
+.nb-pop-casepen .nb-penicon { transform: none; }
+.nb-pop-case > div { align-items: flex-end; row-gap: 12px; padding-top: 6px; }
+
+/* ---------- notes, laid out like a good page of handwritten notes ----------
+   Compact but not cramped: tighter lines, underlined headings, ring bullets
+   and definitions in a tidy two column list. On a wide screen the topics
+   flow into two columns, like a full notebook page, each topic kept whole. */
+.nt-body { display: block; }
+.nt-sec { padding: 20px 22px 16px; margin: 0 0 14px; border-radius: 14px; break-inside: avoid; }
+.nt-sec h2 { gap: 10px; margin: 0 0 12px; padding-bottom: 8px; font-size: 18px; border-bottom: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.nt-sec h2 span { flex: 0 0 24px; height: 24px; border-radius: 7px; font-size: 12.5px; }
+.nt-sec h3 {
+  display: inline-block; margin: 14px 0 6px; padding: 0 2px 1px;
+  font-size: 12.5px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.nt-sec h2 + h3 { margin-top: 2px; }
+.nt-sec > p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; }
+.nt-sec > ul { margin: 0 0 8px; padding-left: 0; list-style: none; }
+.nt-sec > ul li { position: relative; margin: 0 0 3px; padding-left: 18px; font-size: 14.5px; line-height: 1.55; }
+.nt-sec > ul li::before {
+  content: ""; position: absolute; left: 2px; top: 0.52em;
+  width: 7px; height: 7px; border-radius: 50%; border: 1.6px solid var(--accent);
+}
+.nt-term { grid-template-columns: minmax(110px, 170px) 1fr; gap: 12px; padding: 6px 0; font-size: 14px; line-height: 1.5; }
+.nt-term + :not(.nt-term) { margin-top: 8px; }
+.nt-aside { margin: 8px 0; padding: 9px 12px; border-radius: 10px; }
+.nt-aside p { font-size: 14px; line-height: 1.55; }
+.nt-label { margin-bottom: 2px; font-size: 10px; }
+.nt-table, .nt-flow, .nt-pic { margin: 10px 0 12px; }
+.nt-table th, .nt-table td { padding: 7px 10px; font-size: 13.5px; }
+.nt .hl { padding: 0 2px; }
+@media (min-width: 1200px) {
+  .nt-body { columns: 2; column-gap: 14px; }
+}
+@media print {
+  .nt-body { columns: 1; }
+}
+@media (max-width: 620px) {
+  .nt-sec { padding: 16px 16px 12px; }
+  .nt-term { grid-template-columns: 1fr; gap: 1px; }
+}
