@@ -67,6 +67,9 @@ const PROVIDERS = [
     modelEnv: "GROQ_MODEL",
     base: "https://api.groq.com/openai/v1",
     extraHeaders: {},
+    // Groq's daily limits are per model: when one runs out, the others still
+    // have theirs. OpenRouter's are for the whole key.
+    dailyPerModel: true,
     // Groq rejects unknown fields, so it gets none of the OpenRouter extras.
     supportsReasoningFlag: false,
     preferences: [
@@ -139,6 +142,12 @@ const UNSUITABLE_FOR_READING =
   /translate|embed|rerank|guard|reward|coder|-code-|-code:|speech|riva|tts|whisper|content-safety|:batch|:online|moderation/i;
 
 let cachedModel = null; // { provider, model }
+
+// What has used up its daily allowance, until the next midnight UTC, so a
+// warm server does not spend a request on each of them every time.
+const spent = new Map(); // "provider" or "provider/model" -> time it resets
+const nextMidnightUTC = () => { const d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
+const isSpent = (key) => { const until = spent.get(key); if (until && Date.now() < until) return true; spent.delete(key); return false; };
 let paidBlocked = false;
 const rejected = new Set();
 
@@ -338,15 +347,18 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
   let lastError = null;
   // Set when the provider says the allowance for the whole day is spent, which
   // no amount of waiting a minute will fix.
-  let spentForToday = false;
+  let spentProviders = 0;
 
   for (const p of all) {
+    if (isSpent(p.id)) { spentProviders++; continue; }
+    let spentHere = false;
     // Try the cached winner for this provider first, then the rest in order.
     const cached = cachedModel?.provider === p.id ? cachedModel.model : null;
-    let list;
+    let list, full;
     try {
       const found = await candidates({ p });
-      list = cached ? [cached, ...found.filter((m) => m !== cached)] : found;
+      full = cached ? [cached, ...found.filter((m) => m !== cached)] : found;
+      list = full.filter((m) => !isSpent(`${p.id}/${m}`));
     } catch (err) {
       lastError = err;
       continue; // this provider cannot even list models, try the next
@@ -427,12 +439,27 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
         continue;
       }
 
-      if (reply.status === 429 && /per.?day|daily/i.test(body)) {
-        console.warn(`[api] ${p.id} daily allowance spent: ${body.slice(0, 160)}`);
-        spentForToday = true;
+      if (reply.status === 429 && /per.?day|daily|\(TPD\)|\(RPD\)/i.test(body)) {
+        console.warn(`[api] ${p.id}/${model} daily allowance spent: ${body.slice(0, 160)}`);
+        if (cachedModel?.model === model) cachedModel = null;
+        if (p.dailyPerModel) {
+          // Only this model is used up: the next one has its own allowance.
+          spent.set(`${p.id}/${model}`, nextMidnightUTC());
+          lastError = Object.assign(new Error("The AI service is busy at the moment. Wait a minute and try again."), { status: 503 });
+          continue;
+        }
         // Every free model on the key draws on the same daily allowance, so
         // trying the rest only spends more requests on the same refusal.
+        spent.set(p.id, nextMidnightUTC());
+        spentHere = true;
         break;
+      }
+
+      if (reply.status === 413) {
+        // Too long for this model's limits: a larger one may take it.
+        console.warn(`[api] ${p.id}/${model} request too large`);
+        lastError = Object.assign(new Error("That was too long for the AI service. Try a shorter piece."), { status: 413 });
+        continue;
       }
 
       if (reply.status === 429 || reply.status === 529 || reply.status === 503) {
@@ -454,9 +481,13 @@ export async function ask({ system, user, messages, maxTokens = 4000, temperatur
 
       lastError = Object.assign(new Error(`${p.id} returned ${reply.status}`), { status: 502, detail: body.slice(0, 200) });
     }
+    // Used up: the whole key, or, where limits are per model, every model.
+    if (spentHere || (p.dailyPerModel && full?.length && full.every((m) => isSpent(`${p.id}/${m}`)))) spentProviders++;
   }
 
-  if (spentForToday) {
+  // The allowance message only when every provider is used up for the day;
+  // otherwise whatever actually went wrong with the last one tried.
+  if (spentProviders === all.length) {
     throw Object.assign(
       new Error("Dwiddle has used today's AI allowance. It resets at midnight UTC, so try again then."),
       { status: 503, limit: true },

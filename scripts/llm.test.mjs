@@ -1,0 +1,61 @@
+// Falling back between AI providers when daily allowances run out, with the
+// network stubbed. Each test loads a fresh copy of the module, since it keeps
+// what it has learned (used up models, the last good one) between calls.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+process.env.OPENROUTER_API_KEY = "or";
+process.env.GROQ_API_KEY = "gq";
+delete process.env.NVIDIA_API_KEY;
+delete process.env.OPENROUTER_MODEL;
+delete process.env.GROQ_MODEL;
+
+const MODELS = {
+  "openrouter.ai": ["google/gemma-4-27b-it:free"],
+  "api.groq.com": ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
+};
+const DAILY_OR = JSON.stringify({ error: { message: "Rate limit exceeded: free-models-per-day" } });
+const TPD = (m) => JSON.stringify({ error: { message: `Rate limit reached for model \`${m}\` on tokens per day (TPD): Limit 100000, Used 99990` } });
+
+let n = 0;
+async function load(answer) {
+  const calls = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    const host = new URL(url).host;
+    if (url.endsWith("/models")) return new Response(JSON.stringify({ data: MODELS[host].map((id) => ({ id })) }), { status: 200 });
+    const model = JSON.parse(opts.body).model;
+    calls.push(`${host.split(".")[1] === "groq" ? "groq" : host.split(".")[0]}/${model}`);
+    const [status, body] = answer(host, model);
+    return new Response(body, { status });
+  };
+  const mod = await import(`../api/_llm.js?copy=${n++}`);
+  return { ask: () => mod.ask({ system: "s", user: "u" }), calls };
+}
+const ok = (text) => [200, JSON.stringify({ choices: [{ message: { content: text } }] })];
+
+test("when OpenRouter and one Groq model are used up, the next Groq model answers", async () => {
+  const { ask, calls } = await load((host, m) =>
+    host === "openrouter.ai" ? [429, DAILY_OR] : m === "llama-3.3-70b-versatile" ? [429, TPD(m)] : ok("hello"));
+  assert.equal(await ask(), "hello");
+  assert.deepEqual(calls, ["openrouter/google/gemma-4-27b-it:free", "groq/llama-3.3-70b-versatile", "groq/openai/gpt-oss-120b"]);
+  // Next time, neither used up one is asked again.
+  calls.length = 0;
+  assert.equal(await ask(), "hello");
+  assert.deepEqual(calls, ["groq/openai/gpt-oss-120b"]);
+});
+
+test("the allowance message only when every provider is used up", async () => {
+  const { ask } = await load((host, m) => (host === "openrouter.ai" ? [429, DAILY_OR] : [429, TPD(m)]));
+  await assert.rejects(ask(), /today's AI allowance/);
+});
+
+test("OpenRouter used up and Groq busy says busy, not used up", async () => {
+  const { ask } = await load((host) => (host === "openrouter.ai" ? [429, DAILY_OR] : [503, "overloaded"]));
+  await assert.rejects(ask(), /busy/);
+});
+
+test("a request too large for one model is tried on the next", async () => {
+  const { ask } = await load((host, m) =>
+    host === "openrouter.ai" ? [429, DAILY_OR] : m === "llama-3.3-70b-versatile" ? [413, "Request too large"] : ok("fits"));
+  assert.equal(await ask(), "fits");
+});
