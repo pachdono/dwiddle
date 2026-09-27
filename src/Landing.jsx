@@ -609,7 +609,7 @@ function Compare() {
   );
 }
 
-export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
+export function Landing({ onSignIn, onSkip, people, onLegal, onInstall, signedIn = false }) {
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -647,7 +647,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           <button onClick={() => jump("faq")}>FAQ</button>
           <button onClick={onInstall}>Get the app</button>
         </nav>
-        <button className="btn small glass-cta" onClick={onSignIn}>Sign in</button>
+        <button className="btn small glass-cta" onClick={signedIn ? onSkip : onSignIn}>{signedIn ? "Open Dwiddle" : "Sign in"}</button>
       </header>
 
       {news && (
@@ -670,12 +670,14 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall }) {
           </p>
 
           <div className="hero-actions">
-            <button className="btn hero-cta" onClick={onSignIn}>
-              Start for free <Arrow />
+            <button className="btn hero-cta" onClick={signedIn ? onSkip : onSignIn}>
+              {signedIn ? "Open Dwiddle" : "Start for free"} <Arrow />
             </button>
-            <button className="btn hero-skip" onClick={onSkip}>
-              Continue without an account
-            </button>
+            {!signedIn && (
+              <button className="btn hero-skip" onClick={onSkip}>
+                Continue without an account
+              </button>
+            )}
           </div>
 
           <p className="hero-note">

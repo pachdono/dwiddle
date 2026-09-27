@@ -84,7 +84,7 @@ const PATH_PAGE = Object.fromEntries(
 const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http");
 
 const REAL_PATHS = new Set([
-  "/", "/index.html", "", "/privacy", "/terms", "/download",
+  "/", "/index.html", "", "/privacy", "/terms", "/download", "/homepage",
   ...Object.values(PAGE_PATH),
 ]);
 
@@ -282,7 +282,15 @@ export default function App() {
   const [customBg, setCustomBg] = useState(() => loadBg());
 
   const [editing, setEditing] = useState(false);
-  const [atLanding, setAtLanding] = useState(false);
+  // The front page has its own address, /homepage, which always shows it,
+  // signed in or not.
+  const [atLanding, setAtLandingRaw] = useState(() => ROUTABLE && window.location.pathname === "/homepage");
+  const setAtLanding = (on) => {
+    setAtLandingRaw(on);
+    if (!ROUTABLE) return;
+    if (on && window.location.pathname !== "/homepage") window.history.pushState(null, "", "/homepage");
+    if (!on && window.location.pathname === "/homepage") window.history.pushState(null, "", "/");
+  };
 
   function setCustom(next) {
     setCustomRaw(next);
@@ -570,6 +578,7 @@ export default function App() {
       const r = routeOf(path);
       setLegal(r.legal);
       setLost(!REAL_PATHS.has(path));
+      setAtLandingRaw(path === "/homepage");
       if (r.page) setPage(r.page);
       else if (!r.legal) setPage("home");
       setMenuOpen(false);
@@ -669,7 +678,7 @@ export default function App() {
     // screen first, and would otherwise never hear about a new version.
     return isDesktop
       ? <><DesktopWelcome onSkip={() => { setAtLanding(false); enter(); }} /><UpdateBar /></>
-      : <Landing people={people} onSignIn={() => setSignInOpen(true)}
+      : <Landing people={people} signedIn={!!auth.user} onSignIn={() => setSignInOpen(true)}
           onSkip={() => { setAtLanding(false); enter(); }}
           onLegal={openLegal}
           onInstall={() => openLegal("download")} />;
