@@ -201,19 +201,55 @@ function getWorker() {
 // browser) and gets it ready. Resolves true when natural speech can be used.
 export function prepareNatural() {
   if (!naturalOn() || !naturalSupported()) return Promise.resolve(false);
+  return loadModel();
+}
+
+// Where the model runs once loaded: "webgpu" is quick enough to speak live,
+// "wasm" (the processor) only to make speech ahead of time.
+let device = null;
+function loadModel() {
   if (state === "ready") return Promise.resolve(true);
   if (loadPromise) return loadPromise;
   state = "loading";
   loadPromise = new Promise((resolve) => {
     const w = getWorker();
     const on = ({ data }) => {
-      if (data.type === "ready") { state = "ready"; w.removeEventListener("message", on); resolve(true); }
-      if (data.type === "failed") { state = "failed"; w.removeEventListener("message", on); resolve(false); }
+      if (data.type === "ready") { state = "ready"; device = data.device; w.removeEventListener("message", on); resolve(true); }
+      if (data.type === "failed") { state = "failed"; loadPromise = null; w.removeEventListener("message", on); resolve(false); }
     };
     w.addEventListener("message", on);
     w.postMessage({ type: "load" });
   });
   return loadPromise;
+}
+
+/* ---------- the video narrator ---------- */
+
+// Videos are always read by the same British woman: the model's narrator
+// voice, on any device, made a line or two ahead so the processor can keep
+// up where there is no graphics chip.
+export const NARRATOR = CHARACTERS.narrator.voice;
+export const prepareNarrator = () => loadModel();
+
+// One line of narration as audio: { audio, sr }.
+export const narrate = (text, rate = 1) => makeSpeech(text, NARRATOR, rate);
+
+// Plays audio made by narrate. Returns a function that stops it.
+export function playClip(clip, { onEnd } = {}) {
+  const ac = audioCtx();
+  let source = null, stopped = false;
+  (async () => {
+    if (ac.state === "suspended") await ac.resume().catch(() => {});
+    if (stopped) return;
+    const buf = ac.createBuffer(1, clip.audio.length, clip.sr);
+    buf.copyToChannel(clip.audio, 0);
+    source = ac.createBufferSource();
+    source.buffer = buf;
+    source.connect(ac.destination);
+    source.onended = () => { if (!stopped) onEnd?.(); };
+    source.start();
+  })();
+  return () => { stopped = true; try { source?.stop(); } catch { /* already stopped */ } };
 }
 
 function makeSpeech(text, voice, speed) {
@@ -230,10 +266,12 @@ const audioCtx = () => (ctx ||= new (window.AudioContext || window.webkitAudioCo
 // Reads text aloud as one of the characters. Uses the natural voice when it
 // is ready, and the device's voice otherwise (starting the natural one
 // downloading for next time). Returns a function that stops it.
-export function sayAs(who, text, { rate = 1, onStart, onEnd, device = false } = {}) {
+export function sayAs(who, text, { rate = 1, onStart, onEnd, device: onDevice = false } = {}) {
   const c = CHARACTERS[who] || CHARACTERS.dwiddle;
-  if (device || state !== "ready") {
-    if (!device && naturalOn() && naturalSupported() && state === "idle") prepareNatural();
+  // Live speech needs the graphics chip; on the processor it would stall
+  // between sentences, so the device's own voice reads instead.
+  if (onDevice || state !== "ready" || device !== "webgpu") {
+    if (!onDevice && naturalOn() && naturalSupported() && state === "idle") prepareNatural();
     const v = characterVoices();
     const voice = who === "narrator" ? britishWoman() : who === "puddle" ? v.puddle : v.dwiddle;
     return say(text, { voice, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });

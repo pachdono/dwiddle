@@ -140,7 +140,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.googleusercontent.com https://upload.wikimedia.org https://thumb.wikimedia.org",
   "font-src 'self' data:",
-  `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org`,
+  `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co https://huggingface.co https://*.huggingface.co https://*.hf.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org`,
   "media-src 'self' blob:",
   "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
   "object-src 'none'",

@@ -8,7 +8,7 @@
 // reading speed instead.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { sayAs, stopSpeaking, prepareNatural, naturalOn, naturalSupported, naturalState, onNaturalProgress } from "./tts.js";
+import { sayAs, stopSpeaking, prepareNarrator, naturalState, onNaturalProgress, narrate, playClip } from "./tts.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, BusyScreen } from "./ui.jsx";
@@ -125,22 +125,30 @@ export function VideoPlayer({ video, onClose }) {
   const [rate, setRate] = useState(1);
   const token = useRef(0);
   const list = useRef(null);
-  // One voice for every video: the natural British narrator wherever this
-  // device can run it (waiting for it to download the first time), and the
-  // device's own British woman's voice everywhere else. Never a switch
-  // halfway through.
-  const wantsNatural = naturalOn() && naturalSupported();
-  const [voice, setVoice] = useState(() => (!wantsNatural ? "device" : naturalState() === "ready" ? "natural" : "pending"));
+  // One voice for every video: the model's British narrator, on any device.
+  // The first video waits for it to download. Only if it cannot load at all
+  // (no connection the first time) does the device's own British woman's
+  // voice read instead, and then for the whole video.
+  const [voice, setVoice] = useState(() => (naturalState() === "ready" ? "natural" : "pending"));
   const [loadingVoice, setLoadingVoice] = useState(null); // 0..1 while the voice downloads
+  const [buffering, setBuffering] = useState(false); // a line is still being made
   useEffect(() => onNaturalProgress((p) => setLoadingVoice(p)), []);
   async function readyVoice() {
     if (voice !== "pending") return true;
     setLoadingVoice(0);
-    const ok = await prepareNatural();
+    const ok = await prepareNarrator();
     setLoadingVoice(null);
     setVoice(ok ? "natural" : "device");
     return true;
   }
+
+  // Each line's audio, made once per speed and kept while the video is open.
+  const clips = useRef(new Map());
+  const clipFor = useCallback((i, r) => {
+    const key = `${i}@${r}`;
+    if (!clips.current.has(key)) clips.current.set(key, narrate(beats[i].text, r).catch(() => null));
+    return clips.current.get(key);
+  }, [beats]);
 
   const beat = beats[pos];
   const scene = video.scenes[beat.si];
@@ -165,15 +173,30 @@ export function VideoPlayer({ video, onClose }) {
     const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
     const words = wordsOf(beats[pos].text);
     let guard = 0;
-    if (sound && canSpeak) {
+    let stopClip = null;
+    if (sound && voice === "natural") {
+      // The narrator's own voice: this line, with the next two being made
+      // meanwhile so there is no gap between them.
+      setBuffering(true);
+      clipFor(pos, rate).then((clip) => {
+        if (token.current !== mine) return;
+        setBuffering(false);
+        for (let k = 1; k <= 2 && pos + k < beats.length; k++) clipFor(pos + k, rate);
+        if (clip) stopClip = playClip(clip, { onEnd: next });
+        else sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
+      });
+    } else if (sound && canSpeak) {
       let done = false;
       const once = () => { if (!done) { done = true; clearTimeout(guard); next(); } };
-      sayAs("narrator", beats[pos].text, { rate, onEnd: once, device: voice !== "natural" });
+      sayAs("narrator", beats[pos].text, { rate, onEnd: once, device: true });
       // Some browsers never say when speech ends. Never wait forever on one.
       guard = setTimeout(once, (8000 + words * 700) / rate);
     } else timer = setTimeout(next, Math.max(2200, words * 330) / rate);
-    return () => { clearTimeout(timer); clearTimeout(guard); if (token.current === mine) { token.current += 1; stopSpeaking(); } };
-  }, [playing, pos, sound, rate, beats, voice]);
+    return () => {
+      clearTimeout(timer); clearTimeout(guard); stopClip?.(); setBuffering(false);
+      if (token.current === mine) { token.current += 1; stopSpeaking(); }
+    };
+  }, [playing, pos, sound, rate, beats, voice, clipFor]);
 
   useEffect(() => {
     list.current?.querySelector(`[data-beat="${pos}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -236,6 +259,9 @@ export function VideoPlayer({ video, onClose }) {
                 <Scene key={beat.si} scene={scene} line={beat.li} />
               )}
               {started && captions && <div className="vd-caption" aria-hidden="true">{beat.text}</div>}
+              {playing && sound && buffering && voice === "natural" && (
+                <div className="vd-buffer" aria-live="polite"><span className="vd-spin" aria-hidden="true" />Preparing the narration</div>
+              )}
               {playing && sound && voice === "pending" && (
                 <div className="vd-voice" onClick={(e) => e.stopPropagation()}>
                   <b>Getting the narrator's voice ready</b>
