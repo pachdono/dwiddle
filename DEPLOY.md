@@ -3,7 +3,8 @@
 Three things to set up, in this order. Supabase first, because Vercel needs two
 values from it.
 
-The whole thing runs on free tiers.
+The core app can run on free tiers. Optional video importing uses a separate
+transcript provider with its own allowance and pricing.
 
 ---
 
@@ -97,6 +98,33 @@ grant access. The SQL from step 4 is what actually protects the data.
    until you do this.
 
 Every push to `main` now redeploys automatically.
+
+### YouTube links on the website
+
+YouTube often blocks caption requests from cloud server addresses. Changing
+the player client or retrying does not reliably fix this on Vercel.
+
+1. Create a [Supadata API key](https://dash.supadata.ai).
+2. Add `SUPADATA_API_KEY` to the project's Vercel environment variables for
+   each environment where video importing should work, then redeploy.
+3. In **Add material**, submit a public YouTube video that has captions. Its
+   title should appear in the file list; generate material as usual.
+
+The key stays in `/api/youtube` and must never have a `VITE_` prefix. Only the
+public video URL and preferred language go to Supadata. Existing captions are
+requested with `mode=native`, so AI transcription is not automatically billed.
+Provider credits and plan limits still apply; see the
+[transcript documentation](https://docs.supadata.ai/get-transcript).
+
+Without a key, the existing direct reader remains available, but can still be
+blocked by YouTube. Private, restricted and captionless videos may not import.
+The error appears beside the link with a video retry and a shortcut to paste
+a transcript into notes. Provider failures do not silently spend a second
+credit through an automatic retry. The desktop app keeps its local reader.
+
+Run the mocked API regression checks with `node --test scripts/youtube.test.mjs`.
+These do not use a key or spend credits. A live check after setting the key and
+redeploying is still needed to confirm the provider works for your video.
 
 ---
 

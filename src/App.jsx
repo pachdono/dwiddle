@@ -1552,6 +1552,8 @@ function AddMaterial({ go, setMade, auth }) {
   const [ask, setAsk] = useState(null); // { text, questions } while the clarifying questions are up
   const [link, setLink] = useState("");
   const [fetching, setFetching] = useState(false);
+  const [videoError, setVideoError] = useState("");
+  const notesRef = useRef(null);
   const [recStart, setRecStart] = useState(0);
   const [recNow, setRecNow] = useState(0);
   // A recording's words go to their own transcript, not into the notes box,
@@ -1579,16 +1581,19 @@ function AddMaterial({ go, setMade, auth }) {
   // A YouTube link joins the list like a file, as its transcript.
   async function addVideo() {
     if (!link.trim() || fetching) return;
+    if (files.length >= MAX_MATERIAL_FILES) {
+      setVideoError(`Up to ${MAX_MATERIAL_FILES} files at a time. Remove one before adding a video.`);
+      return;
+    }
     setFetching(true);
-    setError("");
+    setVideoError("");
     try {
       const v = await readYouTube(link.trim());
       setFiles((prev) => [...prev, { yt: v, file: { name: v.title, size: v.transcript.length } }]);
       setLink("");
       setState("idle");
     } catch (err) {
-      setError(err.message);
-      setState("error");
+      setVideoError(err.message);
     } finally {
       setFetching(false);
     }
@@ -1810,7 +1815,8 @@ function AddMaterial({ go, setMade, auth }) {
           <form className="yt-in" onSubmit={(e) => { e.preventDefault(); addVideo(); }}>
             <span className="yt-badge small" aria-hidden="true">▶</span>
             <input type="url" inputMode="url" placeholder="Paste a YouTube link" value={link}
-              onChange={(e) => setLink(e.target.value)} disabled={busy || fetching} aria-label="YouTube link" />
+              onChange={(e) => { setLink(e.target.value); setVideoError(""); }} disabled={busy || fetching} aria-label="YouTube link"
+              aria-invalid={!!videoError} aria-describedby={videoError ? "video-import-error" : undefined} />
             <button className="btn small" disabled={!link.trim() || busy || fetching}>
               {fetching ? <Loading label="Reading" /> : "Add video"}
             </button>
@@ -1827,6 +1833,19 @@ function AddMaterial({ go, setMade, auth }) {
             {dictation.on ? `Stop, ${Math.floor((recNow - recStart) / 60000)}:${String(Math.floor(((recNow - recStart) / 1000) % 60)).padStart(2, "0")}` : "Record a lecture"}
           </button>
         </div>
+        {videoError && (
+          <div id="video-import-error" className="card card-pad fade" style={{ borderColor: "var(--warn-line)" }} role="alert">
+            <div className="spread">
+              <span className="pill warn">Could not add video</span>
+              <button className="btn ghost" disabled={!link.trim() || busy || fetching} onClick={addVideo}>Try again</button>
+            </div>
+            <p className="small" style={{ margin: "10px 0", color: "var(--ink-2)" }}>{videoError}</p>
+            <button className="btn small" disabled={busy} onClick={() => {
+              notesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+              notesRef.current?.focus({ preventScroll: true });
+            }}>Paste transcript into notes</button>
+          </div>
+        )}
         {dictation.error && <p className="small" style={{ color: "var(--warn)", margin: "-4px 0 0" }}>{dictation.error}</p>}
         {dictation.on && (
           <RecordingView
@@ -1891,6 +1910,7 @@ function AddMaterial({ go, setMade, auth }) {
           </div>
 
           <textarea
+            ref={notesRef}
             className="notes-area"
             placeholder={files.length ? "Anything the files miss." : "Paste lecture notes or a chapter. Or just type a topic, like \"photosynthesis\" or \"IGCSE chemistry bonding\"."}
             value={notes}
@@ -1913,7 +1933,7 @@ function AddMaterial({ go, setMade, auth }) {
                 : words === 0 ? (files.length ? "Optional" : "Plain text works best")
                 : `${words.toLocaleString()} words, about ${Math.max(1, Math.round(words / 120))} min to read`}
             </span>
-            <button className="btn cta" disabled={!ready || busy}
+            <button className="btn cta" disabled={!ready || busy || fetching}
               onClick={state === "done" ? () => go("quiz") : run}>
               {state === "reading" ? <Loading label={files.length > 1 ? `Reading ${reading} of ${files.length}` : "Reading file"} />
                 : state === "asking" ? <Loading label="Reading your request" />

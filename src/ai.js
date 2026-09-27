@@ -13,7 +13,7 @@ const TRANSIENT = new Set([429, 502, 503, 504]);
 // to name the deployment explicitly.
 const API = (typeof window !== "undefined" && window.DWIDDLE_API) || "";
 
-async function post(path, body, attempt = 0) {
+async function post(path, body, { retry = true } = {}, attempt = 0) {
   let reply;
   try {
     reply = await fetch(API + path, {
@@ -33,9 +33,9 @@ async function post(path, body, attempt = 0) {
   }
 
   // A spent daily allowance is not transient, so it is not retried.
-  if (!reply.ok && TRANSIENT.has(reply.status) && attempt === 0 && !data?.limit) {
+  if (retry && !reply.ok && TRANSIENT.has(reply.status) && attempt === 0 && !data?.limit) {
     await new Promise((r) => setTimeout(r, 1200));
-    return post(path, body, 1);
+    return post(path, body, { retry }, 1);
   }
 
   if (!reply.ok) {
@@ -130,8 +130,7 @@ const toNotes = (sectionLists) => Object.fromEntries(
 );
 
 // The transcript of a YouTube video, to build material from.
-// In the installed app it is read on the person's own connection; YouTube
-// refuses the website's server, so there the message says what to do instead.
+// The installed app reads locally; the website uses its server-side reader.
 export async function readYouTube(url) {
   const lang = (navigator.language || "en").slice(0, 2);
   if (typeof window !== "undefined" && window.DWIDDLE_YT) {
@@ -139,7 +138,8 @@ export async function readYouTube(url) {
     if (r?.error) throw new Error(r.error);
     return r;
   }
-  return post("/api/youtube", { url, lang });
+  // A retry may spend another transcript credit. Leave retries to the user.
+  return post("/api/youtube", { url, lang }, { retry: false });
 }
 
 // A two duck podcast script about a set of notes.
