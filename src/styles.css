@@ -7570,3 +7570,20 @@ a.btn { text-decoration: none; }
 .crash-detail { max-width: 100%; margin-top: 8px; padding: 6px 10px; border-radius: 8px; background: var(--sunken); color: var(--ink-3); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
 .vd-broken { display: grid; place-items: center; }
 .vd-shape.organic { stroke-width: 2.4; }
+
+/* one long video: chapters and timestamps */
+.vd-card-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.vd-card-head > div:nth-child(2) { flex: 1; min-width: 200px; }
+.vd-card-head .row { gap: 8px; }
+.vd-chapters { list-style: none; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line-soft); display: grid; gap: 2px; }
+.vd-chapters button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.vd-chapters button:hover { background: var(--hover); }
+.vd-stamp { flex: 0 0 auto; min-width: 44px; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; text-align: center; }
+.vd-tchapter { display: flex; align-items: center; gap: 8px; width: 100%; margin: 6px 0 4px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--accent); font: inherit; font-weight: 700; font-size: 13px; text-transform: none; text-align: left; cursor: pointer; }
+.vd-thead .vd-stamp { min-width: 38px; background: var(--active); color: var(--ink-2); font-size: 11px; }
+.vd-seek { position: relative; flex: 1; min-width: 60px; height: 36px; display: flex; align-items: center; }
+.vd-seek input { width: 100%; margin: 0; height: 6px; -webkit-appearance: none; appearance: none; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(to right, var(--accent) var(--p), var(--active) var(--p)); }
+.vd-seek input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); box-shadow: var(--shadow); }
+.vd-seek input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); }
+.vd-mark { position: absolute; top: 50%; width: 3px; height: 10px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--surface); pointer-events: none; }

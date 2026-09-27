@@ -1,11 +1,11 @@
-// Explainer videos: a question or a topic talked through at a whiteboard.
+// Explainer videos: a question, or a whole set of material, talked through
+// at a whiteboard.
 //
 // A video here is a script, not a file (see api/video.js). Each scene has a
-// heading, lines that are read aloud one at a time, and a diagram and board
-// whose parts arrive with the line that talks about them. The transcript sits
-// beside it, so someone who cannot play sound, or would rather read, follows
-// the same thing at their own pace; with the sound off, the video moves on at
-// reading speed instead.
+// heading, lines read aloud one at a time by the narrator, and a diagram and
+// board whose parts arrive with the line that talks about them. A set of
+// material becomes one long video with a chapter per topic, and timestamps
+// for every chapter and scene. The transcript sits beside it throughout.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sayAs, stopSpeaking, prepareNarrator, naturalState, onNaturalProgress, narrate, playClip } from "./tts.js";
@@ -24,57 +24,86 @@ const playable = (v) => !!v && Array.isArray(v.scenes) && v.scenes.length > 0 &&
 const loadAll = () => {
   try {
     const all = JSON.parse(localStorage.getItem(KEY) || "{}");
-    return Object.fromEntries(Object.entries(all && typeof all === "object" ? all : {}).filter(([, v]) => playable(v)));
+    return Object.fromEntries(Object.entries(all && typeof all === "object" ? all : {}).filter(([k, v]) => playable(v) || k.startsWith("parts::")));
   } catch { return {}; }
 };
 function saveOne(id, video) {
   try {
     const all = loadAll();
     delete all[id];
-    all[id] = video;
+    if (video) all[id] = video;
     const keys = Object.keys(all);
-    keys.slice(0, Math.max(0, keys.length - 30)).forEach((k) => delete all[k]); // the newest thirty
+    keys.slice(0, Math.max(0, keys.length - 12)).forEach((k) => delete all[k]); // the newest twelve
     localStorage.setItem(KEY, JSON.stringify(all));
   } catch { /* storage full: the video still plays, it just is not kept */ }
 }
-const topicKey = (made, topic) => `${made?.title || "material"}::${topic}`;
+const materialKey = (made) => `all::${made?.title || "material"}`;
+const partsKey = (made) => `parts::${made?.title || "material"}`;
+
+// The chapters made so far, joined into one video.
+function joinChapters(made, parts) {
+  const chapters = [], scenes = [];
+  for (const part of parts) {
+    chapters.push({ title: part.topic, scene: scenes.length });
+    scenes.push(...part.video.scenes);
+  }
+  return { title: made?.title || "Your material", subtitle: `${chapters.length} chapter${chapters.length === 1 ? "" : "s"}`, chapters, scenes };
+}
 
 /* ---------- the Videos page ---------- */
 
 export function Videos({ made, go }) {
   const topics = made?.topics || [];
   const [saved, setSaved] = useState(loadAll);
-  const [making, setMaking] = useState("");
-  const [error, setError] = useState({});
-  const [open, setOpen] = useState(null); // { video, topic }
+  const [making, setMaking] = useState(null); // { n, of, topic } while chapters are being made
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState(null);
 
-  async function make(t) {
-    const blocks = made?.notes?.[t.name] || [];
-    const notes = blocks.map(blockPlain).filter(Boolean).join("\n");
-    if (notes.length < 80) { setError((e) => ({ ...e, [t.name]: "This topic needs its full notes first. Open Notes and write them, then come back." })); return; }
-    setMaking(t.name);
-    setError((e) => ({ ...e, [t.name]: "" }));
+  const video = saved[materialKey(made)];
+  const parts = saved[partsKey(made)]?.list || [];
+  const withNotes = topics.filter((t) => (made?.notes?.[t.name] || []).map(blockPlain).join("\n").length >= 80);
+
+  // A chapter per topic, one request each so every request stays small, one
+  // after another. What is made is kept as it goes, so a failure part way
+  // picks up where it stopped rather than starting again.
+  async function make(fresh) {
+    setError("");
+    let done = fresh ? [] : parts.filter((p) => withNotes.some((t) => t.name === p.topic));
+    if (fresh) { saveOne(partsKey(made), null); saveOne(materialKey(made), null); }
+    const todo = withNotes.filter((t) => !done.some((p) => p.topic === t.name));
     try {
-      const video = await writeVideo({ topic: t.name, notes });
-      saveOne(topicKey(made, t.name), video);
+      for (let i = 0; i < todo.length; i++) {
+        const t = todo[i];
+        setMaking({ n: done.length + 1, of: withNotes.length, topic: t.name });
+        const notes = (made.notes[t.name] || []).map(blockPlain).filter(Boolean).join("\n");
+        const part = await writeVideo({ topic: t.name, notes });
+        done = [...done, { topic: t.name, video: part }];
+        saveOne(partsKey(made), { scenes: [], list: done });
+      }
+      // In the order the material has them, whatever order they were made in.
+      const ordered = withNotes.map((t) => done.find((p) => p.topic === t.name)).filter(Boolean);
+      const whole = joinChapters(made, ordered);
+      saveOne(materialKey(made), whole);
+      saveOne(partsKey(made), null);
       setSaved(loadAll());
-      setOpen({ video, topic: t.name });
+      setOpen(whole);
     } catch (err) {
-      setError((e) => ({ ...e, [t.name]: err.message || "The video could not be made." }));
+      setSaved(loadAll());
+      setError(`${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}`);
     } finally {
-      setMaking("");
+      setMaking(null);
     }
   }
 
   if (!topics.length) {
     return (
       <div className="page fade">
-        <PageHead title="Videos" sub="Every topic explained at a whiteboard, step by step, with the transcript beside it." />
+        <PageHead title="Videos" sub="Your material explained at a whiteboard, step by step, with the transcript beside it." />
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
           <Duck size={84} outfit="dj" />
-          <b style={{ display: "block", marginTop: 10 }}>No videos yet</b>
+          <b style={{ display: "block", marginTop: 10 }}>No video yet</b>
           <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>
-            Add your notes, or pick a course topic, and any topic in it can become a short explainer video here.
+            Add your notes, or pick a course topic, and it can become one narrated video here, a chapter for each topic.
           </p>
           <button className="btn" onClick={() => go("upload")}><Icon name="upload" size={14} /> Add material</button>
         </div>
@@ -82,38 +111,57 @@ export function Videos({ made, go }) {
     );
   }
 
+  const times = video ? chapterTimes(video) : [];
   return (
     <div className="page fade">
       <PageHead
         title="Videos"
-        sub={`A short explainer for any topic in ${made?.title || "your material"}, narrated step by step with the transcript beside it.`}
+        sub={`One narrated video of ${made?.title || "your material"}, a chapter for each topic, with timestamps and the transcript beside it.`}
       />
-      <div className="ln-list">
-        {topics.map((t, i) => {
-          const video = saved[topicKey(made, t.name)];
-          const busy = making === t.name;
-          return (
-            <div key={t.name} className="vd-item-wrap">
-              <button className={"ln-item" + (video ? " ready" : " new")} style={{ "--i": i }} disabled={!!making}
-                onClick={() => (video ? setOpen({ video, topic: t.name }) : make(t))}>
-                <span className="ln-num"><Icon name="video" size={15} /></span>
-                <span className="ln-text">
-                  <b>{t.name}</b>
-                  <span>{video ? `${video.scenes.length} scenes · about ${minutesOf(video)} min` : t.reason}</span>
-                </span>
-                <span className="ln-go">{busy ? "Making…" : video ? "Watch" : "Make video"}<Icon name="arrow" size={14} /></span>
-              </button>
-              {video && !making && (
-                <button className="btn ghost small vd-remake" onClick={() => make(t)}>Make a new one</button>
-              )}
-              {error[t.name] && <p className="small vd-err">{error[t.name]}</p>}
-            </div>
-          );
-        })}
+
+      <div className="card card-pad vd-card">
+        <div className="vd-card-head">
+          <span className="sv-video-icon"><Icon name="video" size={20} /></span>
+          <div>
+            <b>{video ? video.title : "Make the video"}</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>
+              {video
+                ? `${video.chapters?.length || 1} chapters · about ${minutesOf(video)} min`
+                : parts.length
+                  ? `${parts.length} of ${withNotes.length} chapters made so far.`
+                  : `${withNotes.length} chapter${withNotes.length === 1 ? "" : "s"}, one for each topic. Takes about half a minute a chapter.`}
+            </p>
+          </div>
+          <div className="row">
+            {video && <button className="btn cta" onClick={() => setOpen(video)} disabled={!!making}>Watch</button>}
+            {!video && parts.length > 0 && <button className="btn cta" onClick={() => make(false)} disabled={!!making}>Carry on</button>}
+            {!video && !parts.length && <button className="btn cta" onClick={() => make(true)} disabled={!!making || !withNotes.length}>Make the video</button>}
+            {(video || parts.length > 0) && <button className="btn ghost" onClick={() => make(true)} disabled={!!making}>Make a new one</button>}
+          </div>
+        </div>
+
+        {video?.chapters?.length > 0 && (
+          <ol className="vd-chapters">
+            {video.chapters.map((c, i) => (
+              <li key={i}>
+                <button onClick={() => setOpen({ ...video, startScene: c.scene })}>
+                  <span className="vd-stamp">{stamp(times[i])}</span>{c.title}
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+        {withNotes.length < topics.length && (
+          <p className="small muted" style={{ margin: "12px 0 0" }}>
+            {topics.length - withNotes.length} topic{topics.length - withNotes.length === 1 ? " has" : "s have"} no full notes yet, so {topics.length - withNotes.length === 1 ? "it is" : "they are"} left out. Write them on the Notes tab to include them.
+          </p>
+        )}
+        {error && <p className="small vd-err" style={{ marginTop: 10 }}>{error}</p>}
       </div>
-      {making && <BusyScreen title="Making your video" detail={`Planning the scenes, diagrams and narration for ${making}. About half a minute.`} outfit="dj" />}
+
+      {making && <BusyScreen title="Making your video" detail={`Chapter ${making.n} of ${making.of}: ${making.topic}.`} progress={(making.n - 1) / making.of} outfit="dj" />}
       {open && (
-        <Boundary fallback={({ error }) => (
+        <Boundary fallback={({ error: e }) => (
           <Portal>
             <div className="vd vd-broken" role="alert">
               <div className="card card-pad crash">
@@ -121,53 +169,79 @@ export function Videos({ made, go }) {
                 <b>This video could not be played</b>
                 <p className="small muted">Making a new one usually fixes it.</p>
                 <div className="row">
-                  <button className="btn cta" onClick={() => { const t = topics.find((x) => x.name === open.topic); setOpen(null); if (t) make(t); }}>Make a new one</button>
+                  <button className="btn cta" onClick={() => { setOpen(null); make(true); }}>Make a new one</button>
                   <button className="btn ghost" onClick={() => setOpen(null)}>Close</button>
                 </div>
-                <code className="crash-detail">{String(error?.message || error).slice(0, 300)}</code>
+                <code className="crash-detail">{String(e?.message || e).slice(0, 300)}</code>
               </div>
             </div>
           </Portal>
         )}>
-          <VideoPlayer video={open.video} onClose={() => setOpen(null)} />
+          <VideoPlayer video={open} onClose={() => setOpen(null)} />
         </Boundary>
       )}
     </div>
   );
 }
 
+/* ---------- timing ---------- */
+
+// Timestamps from the words: the narrator reads about two and a half words a
+// second, with a short pause after each line.
 const wordsOf = (s) => String(s).split(/\s+/).filter(Boolean).length;
-export const minutesOf = (video) =>
-  Math.max(1, Math.round(video.scenes.flatMap((s) => s.lines).reduce((n, l) => n + wordsOf(l), 0) / 150));
+const lineSeconds = (text) => wordsOf(text) / 2.5 + 0.45;
+const sceneSeconds = (sc) => sc.lines.reduce((n, l) => n + lineSeconds(l), 0);
+function stamp(seconds) {
+  const s = Math.round(seconds || 0);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
+}
+// When each scene starts, in seconds.
+function sceneTimes(video) {
+  const out = [];
+  let t = 0;
+  for (const sc of video.scenes) { out.push(t); t += sceneSeconds(sc); }
+  return out;
+}
+function chapterTimes(video) {
+  const starts = sceneTimes(video);
+  return (video.chapters || []).map((c) => starts[c.scene] || 0);
+}
+export const minutesOf = (video) => Math.max(1, Math.round(video.scenes.reduce((n, sc) => n + sceneSeconds(sc), 0) / 60));
 
 /* ---------- the player ---------- */
 
 export function VideoPlayer({ video, onClose }) {
   const beats = useMemo(() => video.scenes.flatMap((sc, si) => sc.lines.map((text, li) => ({ si, li, text }))), [video]);
-  const [pos, setPos] = useState(0);
+  // Where each line starts, in seconds, for the clock and the timestamps.
+  const at = useMemo(() => { let t = 0; return beats.map((b) => { const s = t; t += lineSeconds(b.text); return s; }); }, [beats]);
+  const total = beats.length ? at[at.length - 1] + lineSeconds(beats[beats.length - 1].text) : 0;
+  const chapters = video.chapters || [];
+  const chapterOf = (si) => { let c = -1; chapters.forEach((ch, i) => { if (ch.scene <= si) c = i; }); return c; };
+
+  const sceneStart = useCallback((si) => beats.findIndex((b) => b.si === si), [beats]);
+  const [pos, setPos] = useState(() => (video.startScene ? Math.max(0, sceneStart(video.startScene)) : 0));
   const [playing, setPlaying] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(!!video.startScene);
   const [finished, setFinished] = useState(false);
-  const [sound, setSound] = useState(() => { try { return localStorage.getItem("dwiddle-video-sound") !== "off"; } catch { return true; } });
   const [captions, setCaptions] = useState(true);
   const [rate, setRate] = useState(1);
   const token = useRef(0);
   const list = useRef(null);
-  // One voice for every video: the model's British narrator, on any device.
-  // The first video waits for it to download. Only if it cannot load at all
-  // (no connection the first time) does the device's own British woman's
-  // voice read instead, and then for the whole video.
+  // Every video is read aloud by the model's British narrator. The first
+  // video waits for her to download. Only if she cannot load at all (no
+  // connection the first time) does the device's own British woman's voice
+  // read instead, and then for the whole video.
   const [voice, setVoice] = useState(() => (naturalState() === "ready" ? "natural" : "pending"));
   const [loadingVoice, setLoadingVoice] = useState(null); // 0..1 while the voice downloads
   const [buffering, setBuffering] = useState(false); // a line is still being made
   useEffect(() => onNaturalProgress((p) => setLoadingVoice(p)), []);
   async function readyVoice() {
-    if (voice !== "pending") return true;
+    if (voice !== "pending") return;
     setLoadingVoice(0);
     const ok = await prepareNarrator();
     setLoadingVoice(null);
     setVoice(ok ? "natural" : "device");
-    return true;
   }
 
   // Each line's audio, made once per speed and kept while the video is open.
@@ -184,12 +258,11 @@ export function VideoPlayer({ video, onClose }) {
   const stop = useCallback(() => { token.current += 1; stopSpeaking(); }, []);
   useEffect(() => stop, [stop]);
 
-  // Reads the current line, then moves on. With the sound off, it waits about
-  // as long as reading the line takes.
+  // Reads the current line, then moves on.
   useEffect(() => {
-    if (!playing || (sound && voice === "pending")) return;
+    if (!playing || voice === "pending") return;
     const mine = ++token.current;
-    let timer = 0;
+    let timer = 0, guard = 0, stopClip = null;
     const next = () => {
       if (token.current !== mine) return;
       timer = setTimeout(() => {
@@ -198,11 +271,7 @@ export function VideoPlayer({ video, onClose }) {
         setPos(pos + 1);
       }, 450 / rate);
     };
-    const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
-    const words = wordsOf(beats[pos].text);
-    let guard = 0;
-    let stopClip = null;
-    if (sound && voice === "natural") {
+    if (voice === "natural") {
       // The narrator's own voice: this line, with the next two being made
       // meanwhile so there is no gap between them.
       setBuffering(true);
@@ -213,18 +282,18 @@ export function VideoPlayer({ video, onClose }) {
         if (clip) stopClip = playClip(clip, { onEnd: next });
         else sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
       });
-    } else if (sound && canSpeak) {
+    } else {
       let done = false;
       const once = () => { if (!done) { done = true; clearTimeout(guard); next(); } };
       sayAs("narrator", beats[pos].text, { rate, onEnd: once, device: true });
       // Some browsers never say when speech ends. Never wait forever on one.
-      guard = setTimeout(once, (8000 + words * 700) / rate);
-    } else timer = setTimeout(next, Math.max(2200, words * 330) / rate);
+      guard = setTimeout(once, (8000 + wordsOf(beats[pos].text) * 700) / rate);
+    }
     return () => {
       clearTimeout(timer); clearTimeout(guard); stopClip?.(); setBuffering(false);
       if (token.current === mine) { token.current += 1; stopSpeaking(); }
     };
-  }, [playing, pos, sound, rate, beats, voice, clipFor]);
+  }, [playing, pos, rate, beats, voice, clipFor]);
 
   useEffect(() => {
     list.current?.querySelector(`[data-beat="${pos}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -234,17 +303,10 @@ export function VideoPlayer({ video, onClose }) {
     if (finished) { setPos(0); setFinished(false); }
     setStarted(true);
     setPlaying(true);
-    if (sound) readyVoice();
+    readyVoice();
   };
   const pause = () => { setPlaying(false); stop(); };
   const seek = (i) => { setFinished(false); setStarted(true); setPos(Math.max(0, Math.min(beats.length - 1, i))); };
-  const sceneStart = (si) => beats.findIndex((b) => b.si === si);
-  const toggleSound = () => {
-    const on = !sound;
-    try { localStorage.setItem("dwiddle-video-sound", on ? "on" : "off"); } catch { /* fine */ }
-    setSound(on);
-    if (on && playing) readyVoice();
-  };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -258,9 +320,8 @@ export function VideoPlayer({ video, onClose }) {
     return () => removeEventListener("keydown", onKey);
   });
 
-  const elapsed = beats.slice(0, pos).reduce((n, b) => n + wordsOf(b.text), 0);
-  const total = beats.reduce((n, b) => n + wordsOf(b.text), 0);
-  const clock = (words) => { const s = Math.round(words / 2.5 / rate); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  const rt = (sec) => stamp(sec / rate);
+  const chapterNow = chapterOf(beat.si);
 
   return (
     <Portal>
@@ -268,7 +329,7 @@ export function VideoPlayer({ video, onClose }) {
         <div className="vd-top">
           <div className="vd-titles">
             <b>{video.title}</b>
-            {video.subtitle && <span>{video.subtitle}</span>}
+            <span>{chapterNow >= 0 && started ? `Chapter ${chapterNow + 1}: ${chapters[chapterNow].title}` : video.subtitle}</span>
           </div>
           <button className="icon-btn" onClick={() => { pause(); onClose(); }} aria-label="Close video"><Icon name="close" size={18} /></button>
         </div>
@@ -281,21 +342,20 @@ export function VideoPlayer({ video, onClose }) {
                   <h2>{video.title}</h2>
                   {video.subtitle && <p className="vd-sub">{video.subtitle}</p>}
                   <span className="vd-bigplay" aria-hidden="true"><PlayIcon size={30} /></span>
-                  <p className="vd-hint">{video.scenes.length} scenes · about {minutesOf(video)} min</p>
+                  <p className="vd-hint">About {minutesOf(video)} min · with sound</p>
                 </div>
               ) : (
                 <Scene key={beat.si} scene={scene} line={beat.li} />
               )}
               {started && captions && <div className="vd-caption" aria-hidden="true">{beat.text}</div>}
-              {playing && sound && buffering && voice === "natural" && (
+              {playing && buffering && voice === "natural" && (
                 <div className="vd-buffer" aria-live="polite"><span className="vd-spin" aria-hidden="true" />Preparing the narration</div>
               )}
-              {playing && sound && voice === "pending" && (
+              {playing && voice === "pending" && (
                 <div className="vd-voice" onClick={(e) => e.stopPropagation()}>
                   <b>Getting the narrator's voice ready</b>
                   <span>Only the first time. It is kept on this device after.</span>
                   <div className="vd-voice-bar"><i style={{ width: `${Math.round((loadingVoice || 0) * 100)}%` }} /></div>
-                  <button className="btn ghost small" onClick={() => { setSound(false); try { localStorage.setItem("dwiddle-video-sound", "off"); } catch { /* fine */ } }}>Read without sound for now</button>
                 </div>
               )}
               {finished && (
@@ -316,23 +376,19 @@ export function VideoPlayer({ video, onClose }) {
               <button className="vd-ctl" onClick={() => seek(beat.si + 1 < video.scenes.length ? sceneStart(beat.si + 1) : beats.length - 1)} aria-label="Next scene">
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M13 4h2v12h-2zM4 4v12l8-6z" /></svg>
               </button>
-              <div className="vd-progress" aria-label="Progress">
-                {beats.map((b, i) => (
-                  <button key={i} className={"vd-tick" + (i < pos ? " past" : i === pos ? " now" : "") + (i && b.si !== beats[i - 1].si ? " gap" : "")}
-                    onClick={() => seek(i)} aria-label={`Line ${i + 1}`} />
+              <div className="vd-seek" aria-label="Progress">
+                <input type="range" min="0" max={beats.length - 1} step="1" value={pos} onChange={(e) => seek(+e.target.value)}
+                  aria-label="Seek" aria-valuetext={rt(at[pos])} style={{ "--p": `${(at[pos] / (total || 1)) * 100}%` }} />
+                {chapters.slice(1).map((c, i) => (
+                  <i key={i} className="vd-mark" style={{ left: `${((at[sceneStart(c.scene)] || 0) / (total || 1)) * 100}%` }} title={c.title} />
                 ))}
               </div>
-              <span className="vd-time">{clock(elapsed)} / {clock(total)}</span>
+              <span className="vd-time">{rt(at[pos])} / {rt(total)}</span>
               <select className="vd-rate" value={rate} onChange={(e) => setRate(+e.target.value)} aria-label="Speed">
                 {[0.75, 1, 1.25, 1.5].map((r) => <option key={r} value={r}>{r}×</option>)}
               </select>
               <button className={"vd-ctl" + (captions ? " on" : "")} onClick={() => setCaptions((c) => !c)} aria-pressed={captions} aria-label="Captions" title="Captions">
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2.5" y="4.5" width="15" height="11" rx="2" /><path d="M8.5 8.4a2 2 0 1 0 0 3.2M14 8.4a2 2 0 1 0 0 3.2" /></svg>
-              </button>
-              <button className={"vd-ctl" + (sound ? " on" : "")} onClick={toggleSound} aria-pressed={sound} aria-label={sound ? "Sound on" : "Sound off"} title={sound ? "Sound on" : "Sound off: moves on at reading speed"}>
-                {sound
-                  ? <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M3 8v4h3l4 3V5L6 8z" fill="currentColor" /><path d="M13 7.5a3.5 3.5 0 0 1 0 5M15.3 5.5a6.5 6.5 0 0 1 0 9" /></svg>
-                  : <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M3 8v4h3l4 3V5L6 8z" fill="currentColor" /><path d="M13 8l4 4M17 8l-4 4" /></svg>}
               </button>
             </div>
           </div>
@@ -340,21 +396,30 @@ export function VideoPlayer({ video, onClose }) {
           <aside className="vd-transcript" aria-label="Transcript">
             <span className="qv-label">Transcript</span>
             <ol ref={list}>
-              {video.scenes.map((sc, si) => (
-                <li key={si} className={"vd-tscene" + (si === beat.si && started ? " on" : "")}>
-                  <button className="vd-thead" onClick={() => seek(sceneStart(si))}>
-                    <i>{si + 1}</i>{sc.heading}
-                  </button>
-                  {sc.lines.map((l, li) => {
-                    const i = sceneStart(si) + li;
-                    return (
-                      <button key={li} data-beat={i} className={"vd-tline" + (started && i === pos ? " now" : started && i < pos ? " past" : "")} onClick={() => seek(i)}>
-                        {l}
+              {video.scenes.map((sc, si) => {
+                const ch = chapters.findIndex((c) => c.scene === si);
+                const first = sceneStart(si);
+                return (
+                  <li key={si} className={"vd-tscene" + (si === beat.si && started ? " on" : "")}>
+                    {ch >= 0 && (
+                      <button className="vd-tchapter" onClick={() => seek(first)}>
+                        <span className="vd-stamp">{rt(at[first])}</span>Chapter {ch + 1}: {chapters[ch].title}
                       </button>
-                    );
-                  })}
-                </li>
-              ))}
+                    )}
+                    <button className="vd-thead" onClick={() => seek(first)}>
+                      <span className="vd-stamp">{rt(at[first])}</span>{sc.heading}
+                    </button>
+                    {sc.lines.map((l, li) => {
+                      const i = first + li;
+                      return (
+                        <button key={li} data-beat={i} className={"vd-tline" + (started && i === pos ? " now" : started && i < pos ? " past" : "")} onClick={() => seek(i)}>
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </li>
+                );
+              })}
             </ol>
           </aside>
         </div>
