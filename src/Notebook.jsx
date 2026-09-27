@@ -211,6 +211,30 @@ function Textures() {
         <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.5" result="mask" />
         <feComposite in="SourceGraphic" in2="mask" operator="in" />
       </filter>
+      <filter id="nb-tex-felt" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02 0.9" numOctaves="2" seed="5" result="grain" />
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.9 1.35" result="mask" />
+        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+      </filter>
+      <filter id="nb-tex-charcoal" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="11" result="grain" />
+        <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.6" xChannelSelector="R" yChannelSelector="G" result="rough" />
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 1.75" result="mask" />
+        <feComposite in="rough" in2="mask" operator="in" />
+      </filter>
+      <filter id="nb-tex-chalk" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.35 1.6" numOctaves="2" seed="17" result="grain" />
+        <feDisplacementMap in="SourceGraphic" in2="grain" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="rough" />
+        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -4.2 2.55" result="mask" />
+        <feComposite in="rough" in2="mask" operator="in" />
+      </filter>
+      <filter id="nb-tex-wash" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="23" result="bloom" />
+        <feDisplacementMap in="SourceGraphic" in2="bloom" scale="5" xChannelSelector="R" yChannelSelector="B" result="spread" />
+        <feGaussianBlur in="spread" stdDeviation="0.8" result="soft" />
+        <feColorMatrix in="bloom" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.8 1.25" result="pool" />
+        <feComposite in="soft" in2="pool" operator="in" />
+      </filter>
       <filter id="nb-tex-crayon" x="-8%" y="-8%" width="116%" height="116%">
         <feTurbulence type="fractalNoise" baseFrequency="0.45 0.9" numOctaves="3" seed="7" result="grain" />
         <feDisplacementMap in="SourceGraphic" in2="grain" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="rough" />
@@ -245,7 +269,44 @@ const PEN_STYLES = [
   { id: "crayon", name: "Crayon", thinning: 0.05, taper: 1, texture: "crayon", scale: 2.3, alpha: 0.92 },
   { id: "marker", name: "Fineliner", thinning: 0, taper: 0, scale: 1.1 },
   { id: "brush", name: "Brush", thinning: 0.6, taper: 5 },
+  // More for the pencil case, as in Notes+.
+  { id: "gel", name: "Gel pen", thinning: 0.22, taper: 1, scale: 1.15 },
+  { id: "calligraphy", name: "Calligraphy", nib: true, scale: 2.4 },
+  { id: "felt", name: "Felt tip", thinning: 0, taper: 0, texture: "felt", scale: 1.9, alpha: 0.9 },
+  { id: "charcoal", name: "Charcoal", thinning: 0.25, taper: 2, texture: "charcoal", scale: 2.6, alpha: 0.92 },
+  { id: "chalk", name: "Chalk", thinning: 0.05, taper: 1, texture: "chalk", scale: 2.4, alpha: 0.8 },
+  { id: "watercolor", name: "Watercolour", thinning: 0.4, taper: 3, texture: "wash", scale: 3.6, alpha: 0.45 },
 ];
+// Drawn live exactly as it will look: textured and see-through pens, and the
+// calligraphy nib, are shown with their texture while the pen moves, so
+// nothing changes when it lifts.
+const livesAsIs = (item) => {
+  const pen = item.tool === "pen" && PEN_STYLES.find((p) => p.id === item.style);
+  return !!(pen && (pen.texture || pen.alpha || pen.nib));
+};
+
+// A calligraphy nib held at 45 degrees: thick one way, hairline the other.
+// Each piece of the stroke is the nib swept along it; the pieces are all
+// wound the same way so they fill as one.
+function nibPath(pts, size, pressure) {
+  const a = -Math.PI / 4;
+  const nx = Math.cos(a), ny = Math.sin(a);
+  const half = (p) => (size / 2) * (pressure ? 0.55 + p[2] * 0.9 : 1);
+  if (pts.length < 2) {
+    const [x, y] = pts[0] || [0, 0], h = half(pts[0] || [0, 0, 0.5]);
+    return `M${x + nx * h} ${y + ny * h} L${x - nx * h + 0.8} ${y - ny * h + 0.8} L${x - nx * h} ${y - ny * h} Z`;
+  }
+  let d = "";
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1], q = pts[i], hp = half(p), hq = half(q);
+    let quad = [[p[0] + nx * hp, p[1] + ny * hp], [q[0] + nx * hq, q[1] + ny * hq], [q[0] - nx * hq, q[1] - ny * hq], [p[0] - nx * hp, p[1] - ny * hp]];
+    let area = 0;
+    for (let k = 0; k < 4; k++) { const [x1, y1] = quad[k], [x2, y2] = quad[(k + 1) % 4]; area += x1 * y2 - x2 * y1; }
+    if (area < 0) quad = quad.reverse();
+    d += `M${quad.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join(" L")}Z`;
+  }
+  return d;
+}
 const penScale = (style) => PEN_STYLES.find((p) => p.id === style)?.scale || 1;
 
 // Evens out a stroke before its ink shape is made: points spaced evenly
@@ -291,6 +352,7 @@ function inkPath(item) {
   // wobble (graphs and diagrams). Strokes from before the setting are 4.
   const st = Math.max(1, Math.min(10, item.stab ?? 4));
   const pts = item.straight ? item.points : smoothPts(item.points);
+  if (pen.nib && !hl) return nibPath(pts, item.size, item.pressure);
   // The pen thins in and out over part of the stroke, never more than it
   // has: short strokes and dots keep their ink.
   let L = 0;
@@ -1398,7 +1460,22 @@ function PenIcon({ kind, color }) {
     brush: <path className="tip" d="M9.5 15 C9 10 11 6 12 2 C13 6 15 10 14.5 15 Z" fill={color} />,
     pencil: <><path d="M8.5 15 L12 3 L15.5 15 Z" fill="#E8C9A0" /><path className="tip" d="M10.8 7 L12 3 L13.2 7 Z" fill={color} /></>,
     marker: <><path d="M9 15 L10.5 8 L13.5 8 L15 15 Z" fill="#d7d7dc" /><rect className="tip" x="10.9" y="3.5" width="2.2" height="5" rx="1" fill={color} /></>,
+    gel: <><path d="M9.5 15 L11 7 L13 7 L14.5 15 Z" fill="#cfd3da" /><path className="tip" d="M11.4 7 L12 2.5 L12.6 7 Z" fill={color} /></>,
+    calligraphy: <><path d="M9 15 L10 6 L14 6 L15 15 Z" fill="#b08d57" /><path className="tip" d="M10 6 L10.5 2 L14.5 3.5 L14 6 Z" fill={color} /></>,
+    felt: <><path d="M8.5 15 L10 8 L14 8 L15.5 15 Z" fill="#d7d7dc" /><path className="tip" d="M10.2 8.5 C10.2 4 13.8 4 13.8 8.5 Z" fill={color} /></>,
+    watercolor: <><path d="M9.5 15 L10.5 9 L13.5 9 L14.5 15 Z" fill="#c9ccd2" /><path className="tip" d="M10.5 9.5 C10 6 11.2 3.5 12 1.5 C12.8 3.5 14 6 13.5 9.5 Z" fill={color} opacity="0.8" /></>,
   };
+  if (kind === "charcoal" || kind === "chalk") {
+    // A bare stick, rough at the drawing end.
+    const stick = kind === "chalk" ? (color === "#ffffff" ? "#f1f1f1" : color) : color;
+    return (
+      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
+        <path className="tip" d="M8 12 L9 5 L11 3.5 L13.5 4.5 L15.5 6 L16 12 Z" fill={stick} />
+        <rect x="8" y="11" width="8" height="35" rx={kind === "chalk" ? 4 : 1.5} fill={stick} />
+        <rect x="8" y="11" width="2.6" height="35" fill="#fff" opacity={kind === "chalk" ? 0.35 : 0.15} />
+      </svg>
+    );
+  }
   if (kind === "pencil") {
     // Six-sided wood with the lead showing: the barrel is the pencil's colour.
     return (
@@ -1490,8 +1567,12 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
       <div className="nb-pop nb-penpop" role="dialog" aria-label={names[tool] + " settings"}>
         <div className="nb-pop-head"><b>{names[tool]}</b><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button></div>
         {tool === "pen" && (
-          <div className="seg tight nb-pop-seg">
-            {PEN_STYLES.map((p) => <button key={p.id} className={prefs.style === p.id ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, style: p.id }))}>{p.name}</button>)}
+          <div className="nb-pengrid" role="radiogroup" aria-label="Pen">
+            {PEN_STYLES.map((p) => (
+              <button key={p.id} role="radio" aria-checked={prefs.style === p.id} className={prefs.style === p.id ? "on" : ""} onClick={() => setPrefs((o) => ({ ...o, style: p.id }))}>
+                <PenIcon kind={p.id} color={color} /><span>{p.name}</span>
+              </button>
+            ))}
           </div>
         )}
         {tool === "shape" && (
@@ -2412,6 +2493,18 @@ function Editor({ id, go, onClose, early = false }) {
     frame.current = requestAnimationFrame(() => {
       frame.current = 0;
       const ls = liveStroke.current, w = wet.current, ctx = w.ctx;
+      if (ls && livesAsIs(ls)) {
+        // Textured pens are drawn as the finished ink itself, texture and all.
+        const el = livePath.current;
+        if (el) {
+          const pen = PEN_STYLES.find((x) => x.id === ls.style);
+          el.setAttribute("d", inkPath(ls));
+          el.setAttribute("fill", ls.color);
+          el.setAttribute("opacity", String(pen?.alpha || 1));
+          if (pen?.texture) el.setAttribute("filter", `url(#nb-tex-${pen.texture})`); else el.removeAttribute("filter");
+        }
+        return;
+      }
       if (!ls || !ctx) return;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w.el.width, w.el.height); ctx.restore();
       paintStroke(ctx, ls);
@@ -2938,7 +3031,7 @@ function Editor({ id, go, onClose, early = false }) {
       }
       setWetPage(page.id);
       clearWet();
-      setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform || (tool === "pen" && prefs.style === "ball"), size: liveStroke.current.size });
+      setLiveOn({ pageId: page.id, color, tool, uniform: !!liveStroke.current.uniform || (tool === "pen" && prefs.style === "ball"), size: liveStroke.current.size, asIs: livesAsIs(liveStroke.current) });
       drawLive();
     }
   }
@@ -3771,6 +3864,7 @@ function Editor({ id, go, onClose, early = false }) {
                   <Item key={it.id} it={it} editing={editingText === it.id} shown={shown.has(it.id)} />
                 ))}
                 {live?.pageId === page.id && <Item it={live.item} />}
+                {liveOn?.asIs && liveOn.pageId === page.id && <path ref={livePath} pointerEvents="none" />}
                 {ruler?.pageId === page.id && <Ruler r={ruler} />}
                 {prot?.pageId === page.id && <Protractor p={prot} />}
                 {compass?.pageId === page.id && tool === "compass" && (

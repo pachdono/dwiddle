@@ -8119,3 +8119,10 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 /* notebook: laser pointer trail and the eyedropper */
 .nb-laser { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 90; }
 .nb-eyedrop { display: grid; place-items: center; background: var(--panel) !important; color: var(--ink-2); border: 1px solid var(--line); cursor: pointer; }
+/* the pen picker: every pen in the case, as in Notes+ */
+.nb-pengrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 12px; }
+.nb-pengrid button { display: flex; flex-direction: column; align-items: center; gap: 2px; height: 78px; padding: 6px 2px 4px; border: 1px solid transparent; border-radius: 12px; background: var(--panel); cursor: pointer; overflow: hidden; }
+.nb-pengrid button .nb-penicon { height: 46px; flex: none; transition: transform 0.15s ease; transform: translateY(8px); }
+.nb-pengrid button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.nb-pengrid button.on .nb-penicon, .nb-pengrid button:hover .nb-penicon { transform: translateY(2px); }
+.nb-pengrid span { font-size: 9.5px; letter-spacing: -0.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--ink-2); white-space: nowrap; margin-top: auto; }
