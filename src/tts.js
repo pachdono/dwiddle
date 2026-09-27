@@ -68,6 +68,19 @@ export function voicePair() {
   return [a, other];
 }
 
+// A voice for each duck: Dwiddle is a boy, Puddle a girl. The student's own
+// choice of voice goes to whichever duck it suits; the other gets the best
+// voice of the other gender. Only when a device has no voice of one gender do
+// both ducks share one (Puddle then speaks a little higher).
+export function characterVoices() {
+  const list = allVoices();
+  const mine = mainVoice();
+  const best = (g) => list.find((v) => genderOf(v) === g && score(v) > -100) || null;
+  const male = genderOf(mine) === "male" ? mine : best("male");
+  const female = genderOf(mine) === "female" ? mine : best("female");
+  return { dwiddle: male || mine || null, puddle: female || (male ? list.find((v) => v !== male && score(v) > -100) : null) || mine || null };
+}
+
 // Voices arrive a moment after the page loads in most browsers.
 export function onVoices(cb) {
   const s = synth();
@@ -210,8 +223,8 @@ export function sayAs(who, text, { rate = 1, onStart, onEnd } = {}) {
   const c = CHARACTERS[who] || CHARACTERS.dwiddle;
   if (state !== "ready") {
     if (naturalOn() && naturalSupported() && state === "idle") prepareNatural();
-    const [a, b] = voicePair();
-    return say(text, { voice: who === "puddle" ? b : a, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });
+    const v = characterVoices();
+    return say(text, { voice: who === "puddle" ? v.puddle : v.dwiddle, rate, pitch: who === "narrator" ? 1 : 1.08, onStart, onEnd });
   }
   stopSpeaking();
   stopNatural();

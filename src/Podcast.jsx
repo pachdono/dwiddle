@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, Portal, Loading } from "./ui.jsx";
 import { DuckTalk } from "./Chat.jsx";
 import { writePodcast } from "./ai.js";
-import { say, sayAs, onVoices, voicePair, stopSpeaking, prepareNatural, naturalOn, naturalSupported, naturalState, onNaturalProgress } from "./tts.js";
+import { say, sayAs, onVoices, characterVoices, stopSpeaking, prepareNatural, naturalOn, naturalSupported, naturalState, onNaturalProgress } from "./tts.js";
 
 const KEY = "dwiddle-podcasts";
 const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
@@ -43,7 +43,7 @@ export function Podcast({ made, onClose }) {
   const playingRef = useRef(false);
 
   useEffect(() => {
-    const off = onVoices(() => { const [a, b] = voicePair(); voices.current = { dwiddle: a, puddle: b }; });
+    const off = onVoices(() => { voices.current = characterVoices(); });
     return () => { off(); stopSpeaking(); };
   }, []);
 
