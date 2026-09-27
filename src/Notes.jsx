@@ -73,13 +73,16 @@ function linkWords(parts, glossary, used) {
   return out;
 }
 
-const Words = createContext({ glossary: new Map(), open: () => {} });
+const Words = createContext({ glossary: new Map(), open: () => {}, early: false });
 
 // Notes text: the coloured highlights, and hard words that show their meaning
 // when tapped.
 function Text({ text, on, skip }) {
-  const { glossary, open } = useContext(Words);
-  const parts = linkWords(parse(text), glossary, new Set(skip ? [skip.toLowerCase()] : []));
+  const { glossary, open, early } = useContext(Words);
+  // Tapping a word for its meaning is for staff and testers for now; for
+  // everyone else the word is plain text.
+  const parts = early ? linkWords(parse(text), glossary, new Set(skip ? [skip.toLowerCase()] : []))
+    : parse(text).map((seg) => (seg.mark === "word" ? { t: seg.t } : seg));
   return parts.map((seg, i) => {
     if (seg.mark === "word") {
       return (
@@ -129,7 +132,7 @@ const blockText = blockTexts;
 
 const slug = (s) => "nt-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-export function Notes({ made, saveNotes, go }) {
+export function Notes({ made, saveNotes, go, early = false }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
   usePageContext(useMemo(() => notesContext(made), [made]));
   const [writing, setWriting] = useState(false);
@@ -195,7 +198,7 @@ export function Notes({ made, saveNotes, go }) {
       )}
       {showMap && <MindMap made={made} onClose={() => setShowMap(false)} />}
       {showPod && <Podcast made={made} onClose={() => setShowPod(false)} />}
-      {toBook && <Portal><ToNotebook made={made} go={go} onClose={() => setToBook(false)} /></Portal>}
+      {toBook && <Portal><ToNotebook made={made} go={go} early={early} onClose={() => setToBook(false)} /></Portal>}
 
       {topics.length > 1 && (
         <nav className="nt-toc" aria-label="Topics in these notes">
@@ -238,7 +241,7 @@ export function Notes({ made, saveNotes, go }) {
           return (
             <section key={t.name} id={slug(t.name)} className="nt-sec">
               <h2><span>{i + 1}</span>{t.name}</h2>
-              <Topic blocks={blocks} on={on} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
+              <Topic blocks={blocks} on={on} early={early} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
             </section>
           );
         })}
@@ -248,10 +251,12 @@ export function Notes({ made, saveNotes, go }) {
   );
 }
 
-function Topic({ blocks, on, open }) {
+function Topic({ blocks, on, open, early }) {
   const glossary = useMemo(() => glossaryOf(blocks), [blocks]);
-  const value = useMemo(() => ({ glossary, open }), [glossary, open]);
-  return <Words.Provider value={value}>{blocks.map((b, n) => <Block key={n} b={b} on={on} />)}</Words.Provider>;
+  const value = useMemo(() => ({ glossary, open, early }), [glossary, open, early]);
+  // Tables, diagrams and pictures are for staff and testers for now.
+  const shown = early ? blocks : blocks.filter((b) => !b.table && !b.flow && !b.pic);
+  return <Words.Provider value={value}>{shown.map((b, n) => <Block key={n} b={b} on={on} />)}</Words.Provider>;
 }
 
 function Block({ b, on }) {
@@ -343,7 +348,7 @@ function Picture({ query }) {
 
 // Turning the notes into a notebook: pick a font and a paper, choose whether
 // to add pictures, and the notebook opens when it is ready.
-function ToNotebook({ made, go, onClose }) {
+function ToNotebook({ made, go, onClose, early }) {
   const [font, setFont] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "arial"; } catch { return "arial"; } });
   const [paper, setPaper] = useState("lined");
   const [pictures, setPictures] = useState(true);
@@ -356,7 +361,7 @@ function ToNotebook({ made, go, onClose }) {
     setErr(""); setBusy("Getting ready"); setProg(0.02);
     try {
       const { notesToNotebook } = await import("./notesToNotebook.js");
-      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, onProgress: (t, p) => { setBusy(t); setProg(p); } });
+      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, rich: early, onProgress: (t, p) => { setBusy(t); setProg(p); } });
       try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
       go?.("notebook");
     } catch (e) {

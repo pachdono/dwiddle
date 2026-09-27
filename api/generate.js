@@ -158,6 +158,20 @@ ${STYLE}`;
 // the student: a PDF would go in and a fraction of it would come out. These
 // are written a few topics at a time, like the questions, with one hard rule:
 // nothing in the source may be left out.
+// Tables, step diagrams and pictures, for staff and testers while they are
+// being tried out.
+const RICH_SHAPE = `,
+        { "table": { "head": ["", "column", "column"], "rows": [["row label", "cell", "cell"]] } },
+        { "flow": { "title": "what the steps are", "steps": ["first", "then", "then"], "cycle": false } },
+        { "pic": "the exact title of a Wikipedia article whose picture shows this" }`;
+const RICH_RULES = `Tables, diagrams and pictures, only where they genuinely help:
+- "table" when the source compares two or more things on the same points (for example mitosis and meiosis, or types of market structure). Every row the same length as "head". Short cells, marks allowed. Never a table of one row or one column.
+- "flow" for a process, sequence, cycle or chain of cause and effect with 3 to 7 steps: each step a short phrase, in order, with "cycle" true when the last step leads back to the first. Use it instead of a numbered list for these.
+- "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
+- These add to the notes; the facts in them still come only from the source.
+`;
+const notesPrompt = (rich) => NOTES.replace("__RICH_SHAPE__", rich ? RICH_SHAPE : "").replace("__RICH_RULES__", rich ? RICH_RULES : "");
+
 const NOTES = `You turn a student's source material into complete, well organised study notes.
 
 ${MATHS}
@@ -175,10 +189,7 @@ Shape:
         { "list": ["one item", "another item"] },
         { "term": "a key term", "def": "its definition" },
         { "eg": "an example from the source" },
-        { "watch": "a common mistake or exam trap" },
-        { "table": { "head": ["", "column", "column"], "rows": [["row label", "cell", "cell"]] } },
-        { "flow": { "title": "what the steps are", "steps": ["first", "then", "then"], "cycle": false } },
-        { "pic": "the exact title of a Wikipedia article whose picture shows this" }
+        { "watch": "a common mistake or exam trap" }__RICH_SHAPE__
       ]
     }
   ]
@@ -197,12 +208,7 @@ How the notes should read:
 - Highlight generously: nearly every bullet has at least one {key|...}, {def|...} or {word|...}, but mark the few words that matter, never a whole bullet.
 - Mark every technical or hard word with {word|...} the first time it appears in the topic, unless it is the "term" of a term block.
 
-Tables, diagrams and pictures, only where they genuinely help:
-- "table" when the source compares two or more things on the same points (for example mitosis and meiosis, or types of market structure). Every row the same length as "head". Short cells, marks allowed. Never a table of one row or one column.
-- "flow" for a process, sequence, cycle or chain of cause and effect with 3 to 7 steps: each step a short phrase, in order, with "cycle" true when the last step leads back to the first. Use it instead of a numbered list for these.
-- "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
-- These add to the notes; the facts in them still come only from the source.
-
+__RICH_RULES__
 Rules:
 - Write a section for each topic you are given, in that order, and nothing on any other part of the source.
 - Stay strictly on topic. Leave out anything in the source that does not teach these topics: greetings, the speaker's life or channel, adverts and sponsors, requests to like or subscribe, course admin, homework reminders, jokes and tangents, page headers and footers, reference lists. If a point belongs to another topic, it goes there, not here.
@@ -466,14 +472,14 @@ async function part(req, res, mode, notes) {
       .map((t) => String(t?.name || t || "").slice(0, 160)).filter(Boolean).slice(0, 4);
     if (!names.length) return userError(res, 400, "Which topics should the notes cover?");
     const text = await ask({
-      system: NOTES,
+      system: notesPrompt(req.body?.rich === true),
       user: `Write the complete notes for these topics only:\n${names.map((n) => `- ${n}`).join("\n")}\n\nThe source:\n\n${notes}`,
       maxTokens: 4000,
       json: true,
       temperature: 0.2,
     });
     const data = safeParse(text, "sections");
-    const KINDS = ["h", "p", "list", "term", "eg", "watch", "table", "flow", "pic"];
+    const KINDS = ["h", "p", "list", "term", "eg", "watch", ...(req.body?.rich === true ? ["table", "flow", "pic"] : [])];
     const sections = (Array.isArray(data?.sections) ? data.sections : [])
       .filter((sec) => sec && names.includes(String(sec.topic)) && Array.isArray(sec.blocks))
       .map((sec) => ({

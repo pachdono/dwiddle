@@ -35,7 +35,7 @@ function solutionContext(r) {
 
 const MAX_FILES = 6;
 
-export function Solve({ go, auth }) {
+export function Solve({ go, auth, early }) {
   const [files, setFiles] = useState([]); // [{ file, url }] in the order they were added
   const [text, setText] = useState("");
   const [over, setOver] = useState(false);
@@ -299,7 +299,7 @@ export function Solve({ go, auth }) {
               </div>
             )}
 
-            <div className="card card-pad sv-video">
+            {early && <div className="card card-pad sv-video">
               <span className="sv-video-icon"><Icon name="video" size={20} /></span>
               <div>
                 <b className="small">{video ? "Your video is ready" : "Watch it explained"}</b>
@@ -310,7 +310,7 @@ export function Solve({ go, auth }) {
               <button className="btn cta" onClick={explain} disabled={filming}>
                 {filming ? <Loading label="Making it" /> : video ? "Watch" : videoError ? "Try again" : "Make the video"}
               </button>
-            </div>
+            </div>}
             {filming && <BusyScreen title="Making your video" detail="Planning the scenes, the diagram and what to say at each step. About half a minute." outfit="dj" />}
             {watching && video && (
               <Boundary fallback={({ error }) => {

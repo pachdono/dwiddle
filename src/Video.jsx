@@ -52,7 +52,24 @@ function joinChapters(made, parts) {
 
 /* ---------- the Videos page ---------- */
 
-export function Videos({ made, go }) {
+export function Videos({ made, go, early }) {
+  if (!early) {
+    return (
+      <div className="page fade">
+        <PageHead title="Videos" sub="Narrated explainer videos of your material." />
+        <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
+          <Duck size={84} outfit="dj" />
+          <b style={{ display: "block", marginTop: 10 }}>Coming soon</b>
+          <p className="muted small" style={{ margin: "6px auto 18px", maxWidth: 400 }}>Videos are being tried out by testers first.</p>
+          <button className="btn" onClick={() => go("sheet")}>Back to your notes</button>
+        </div>
+      </div>
+    );
+  }
+  return <VideosPage made={made} go={go} />;
+}
+
+function VideosPage({ made, go }) {
   const topics = made?.topics || [];
   const [saved, setSaved] = useState(loadAll);
   const [making, setMaking] = useState(null); // { n, of, topic } while chapters are being made

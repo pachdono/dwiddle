@@ -37,7 +37,7 @@ function unmark(text) {
   return { plain: plain.replace(/\s+/g, " ").trim(), marks };
 }
 
-export async function notesToNotebook(made, { fontId = "arial", template = "lined", pictures = true, onProgress } = {}) {
+export async function notesToNotebook(made, { fontId = "arial", template = "lined", pictures = true, rich = false, onProgress } = {}) {
   const f = fontById(fontId);
   const px = ROW / 1.35;                 // one ruled line per line of text
   await readyFont(f, px);
@@ -81,6 +81,7 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
   function highlight(lines, marks, x, y, size = px) {
     lines.forEach((l, k) => {
       for (const m of marks) {
+        if (m.kind === "word" && !rich) continue;
         const a = Math.max(m.a, l.at), b = Math.min(m.b, l.at + l.t.length);
         if (b <= a) continue;
         const x1 = x + 4 + measure(l.t.slice(0, a - l.at), size), x2 = x + 4 + measure(l.t.slice(0, b - l.at), size);
@@ -195,7 +196,9 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
     const header = { t: `${topic.name} (continued)`, size: px * 0.8, color: "#8a8f9c" };
     startPage({ t: `${ti + 1}. ${topic.name}`, size: px * 1.4, color: ACCENT, y: 18 });
 
-    const blocks = made.notes[topic.name];
+    // Tables, diagrams, pictures in place and the Key words list are for
+    // staff and testers for now.
+    const blocks = rich ? made.notes[topic.name] : made.notes[topic.name].filter((b) => !b.table && !b.flow && !b.pic);
     if (pictures && !blocks.some((b) => b.pic)) {
       const pic = await pictureFor(topic.name).catch(() => null);
       if (pic) picture(pic, header);
@@ -240,7 +243,7 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
     }
 
     // The hard words of the topic and what they mean, to learn at the end.
-    const words = keyWords(blocks);
+    const words = rich ? keyWords(blocks) : [];
     if (words.length) {
       if (row > 0) row += 1;
       need(3, header);

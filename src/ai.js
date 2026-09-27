@@ -114,10 +114,16 @@ function tidyBlock(b) {
   return { [k]: tidyMath(v) };
 }
 
+// Staff and testers get features still being tried out, like tables,
+// diagrams and pictures in notes. Set by the app once it knows who is here.
+let early = false;
+export const setEarlyAccess = (on) => { early = !!on; };
+export const earlyAccess = () => early;
+
 function notesTasks(text, topics) {
   return chunk(topics, notesBatch(text.length)).map((batch) => async () => {
     try {
-      const d = await post("/api/generate", { notes: text, mode: "notes", topics: batch.map((t) => ({ name: t.name })) });
+      const d = await post("/api/generate", { notes: text, mode: "notes", rich: early, topics: batch.map((t) => ({ name: t.name })) });
       return d.sections || [];
     } catch {
       // A missing section is written again later from the Notes page. It is

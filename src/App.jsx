@@ -16,7 +16,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
@@ -403,6 +403,10 @@ export default function App() {
     return () => { live = false; };
   }, [auth.user]);
   const staff = !!access.role;
+  // Features still being tried out are for staff and testers only.
+  // VITE_EARLY_ALL=1 turns them on for everyone, for local testing only.
+  const early = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
+  useEffect(() => { setEarlyAccess(early); }, [early]);
   const profile = useMyProfile(auth.user);
 
   // Session storage, so closing the tab brings the landing page back. Anyone
@@ -816,7 +820,7 @@ export default function App() {
           </button>
           {group?.tabs ? (
             <nav className="tabs" aria-label={group.label}>
-              {group.pages.filter((id) => group.tabs[id]).map((id) => (
+              {group.pages.filter((id) => group.tabs[id] && (id !== "videos" || early)).map((id) => (
                 <button key={id} className={page === id ? "on" : ""} onClick={() => go(id)}>
                   {group.tabs[id]}
                 </button>
@@ -832,6 +836,7 @@ export default function App() {
         <Page
           key={`${page}:${seq}`}
           go={go}
+          early={early}
           theme={theme}
           setTheme={setTheme}
           missed={missed}
@@ -2450,7 +2455,7 @@ function sheetParts(sheet) {
   ].flatMap(toSegments);
 }
 
-function StudySheet({ made, go, saveNotes }) {
+function StudySheet({ made, go, saveNotes, early }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
 
   // Full notes where they exist, or where they can be written from the
@@ -2458,7 +2463,7 @@ function StudySheet({ made, go, saveNotes }) {
   // material that has neither.
   const names = (made?.topics || []).map((t) => t.name);
   if (Object.keys(made?.notes || {}).length || sourcesFor(names).length) {
-    return <Notes made={made} saveNotes={saveNotes} go={go} />;
+    return <Notes made={made} saveNotes={saveNotes} go={go} early={early} />;
   }
 
   // Every generation keeps its sheet, so the page grows as material is added
