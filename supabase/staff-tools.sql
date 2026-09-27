@@ -88,16 +88,16 @@ create policy "staff use templates" on public.reply_templates
 
 insert into public.reply_templates (kind, title, body, created_by)
 select * from (values
-  ('bug', 'Fixed', 'Thanks for reporting this. It’s fixed now: reload Dwiddle (or restart the app) and it should work. If it still happens, just reply to this email.', 'Dwiddle'),
+  ('bug', 'Fixed', 'Thanks for reporting this. It is fixed now: reload Dwiddle (or restart the app) and it should work. If it still happens, just reply to this email.', 'Dwiddle'),
   ('bug', 'Need more detail', 'Thanks for letting us know. So we can find the problem, could you tell us which device and browser you were using, and what you tapped just before it happened? A screenshot helps a lot too.', 'Dwiddle'),
-  ('bug', 'Can’t reproduce', 'Thanks for the report. We tried to make this happen and couldn’t yet. If you see it again, could you reply with the steps you took and a screenshot? That will help us track it down.', 'Dwiddle'),
-  ('bug', 'On the list', 'Thanks for reporting this. We’ve confirmed the problem and it’s on our list to fix. We’ll let you know when it’s done.', 'Dwiddle'),
-  ('review', 'Thanks for the review', 'Thank you so much for your review! It really helps a small team like ours. We’re glad Dwiddle is useful for your studying.', 'Dwiddle'),
-  ('review', 'Review on the website', 'Thank you for your review! We loved it, and it’s now on the Dwiddle front page. Good luck with your studying.', 'Dwiddle'),
-  ('feedback', 'Great idea', 'Thanks for the idea! We’ve added it to the list of things we’re considering. We can’t promise when, but we read every suggestion.', 'Dwiddle'),
-  ('feedback', 'Already there', 'Thanks for your message! Good news: Dwiddle can already do this. Here’s how: ', 'Dwiddle'),
-  ('complaint', 'Sorry, looking into it', 'We’re sorry about this, and thank you for telling us. We’re looking into what happened and will get back to you as soon as we can.', 'Dwiddle'),
-  ('complaint', 'Resolved', 'Thank you for your patience. We’ve looked into your complaint and ', 'Dwiddle')
+  ('bug', 'Cannot reproduce', 'Thanks for the report. We tried to make this happen and could not yet. If you see it again, could you reply with the steps you took and a screenshot? That will help us track it down.', 'Dwiddle'),
+  ('bug', 'On the list', 'Thanks for reporting this. We have confirmed the problem and it is on our list to fix. We will let you know when it is done.', 'Dwiddle'),
+  ('review', 'Thanks for the review', 'Thank you so much for your review! It really helps a small team like ours. We are glad Dwiddle is useful for your studying.', 'Dwiddle'),
+  ('review', 'Review on the website', 'Thank you for your review! We loved it, and it is now on the Dwiddle front page. Good luck with your studying.', 'Dwiddle'),
+  ('feedback', 'Great idea', 'Thanks for the idea! We have added it to the list of things we are considering. We cannot promise when, but we read every suggestion.', 'Dwiddle'),
+  ('feedback', 'Already there', 'Thanks for your message! Good news: Dwiddle can already do this. Here is how: ', 'Dwiddle'),
+  ('complaint', 'Sorry, looking into it', 'We are sorry about this, and thank you for telling us. We are looking into what happened and will get back to you as soon as we can.', 'Dwiddle'),
+  ('complaint', 'Resolved', 'Thank you for your patience. We have looked into your complaint and ', 'Dwiddle')
 ) as v(kind, title, body, created_by)
 where not exists (select 1 from public.reply_templates);
 
@@ -126,14 +126,14 @@ set search_path = public
 as $$
 declare
   me record;
-  said text := ’;
+  said text := '';
 begin
   select * into me from public.staff_me() limit 1;
   if new.status is distinct from old.status then said := said || 'Marked ' || new.status || '. '; end if;
   if new.approved is distinct from old.approved then said := said || case when new.approved then 'Put on the website. ' else 'Taken off the website. ' end; end if;
-  if new.title is distinct from old.title then said := said || 'Headline set to "' || coalesce(new.title, ’) || '". '; end if;
-  if new.highlight is distinct from old.highlight then said := said || 'Highlight set to "' || coalesce(new.highlight, ’) || '". '; end if;
-  if said <> ’ then
+  if new.title is distinct from old.title then said := said || 'Headline set to "' || coalesce(new.title, '') || '". '; end if;
+  if new.highlight is distinct from old.highlight then said := said || 'Highlight set to "' || coalesce(new.highlight, '') || '". '; end if;
+  if said <> '' then
     insert into public.feedback_events (feedback_id, what, by_email, by_name, staff_no)
     values (new.id, trim(said), me.email, me.staff_name, me.staff_no);
   end if;

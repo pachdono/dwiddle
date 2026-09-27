@@ -43,7 +43,7 @@ as $$
 declare
   me public.staff%rowtype;
   them public.staff%rowtype;
-  clean text := trim(regexp_replace(coalesce(new_name, ’), '\s+', ' ', 'g'));
+  clean text := trim(regexp_replace(coalesce(new_name, ''), '\s+', ' ', 'g'));
 begin
   select s.* into me from auth.users u join public.staff s on lower(s.email) = lower(u.email)
     where u.id = auth.uid() and u.email_confirmed_at is not null limit 1;
@@ -51,7 +51,7 @@ begin
   if char_length(clean) < 2 or char_length(clean) > 40 then raise exception 'A staff name is 2 to 40 characters'; end if;
   select * into them from public.staff where lower(email) = lower(coalesce(target_email, me.email));
   if them.email is null then raise exception 'No such member of staff'; end if;
-  if them.email <> me.email and not me.owner then raise exception 'Only an owner can change someone else’s name'; end if;
+  if them.email <> me.email and not me.owner then raise exception 'Only an owner can change another person name'; end if;
   if them.email = me.email and me.staff_name is not null and not me.owner then
     raise exception 'Your staff name is set. Ask dwiddle36@gmail.com or donoplayz2410@gmail.com to change it.';
   end if;
@@ -85,7 +85,7 @@ set search_path = public
 stable
 as $$
   select u.id, u.email::text,
-         nullif(trim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', ’)), ’),
+         nullif(trim(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name', '')), ''),
          coalesce(p.avatar, u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture'),
          p.first_name, p.last_name, p.birth_date, p.country, u.created_at, u.last_sign_in_at,
          s.role, t.user_id is not null, b.user_id is not null, b.reason,
