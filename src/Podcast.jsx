@@ -6,6 +6,7 @@
 // talks on screen, and the transcript follows along.
 
 import { useEffect, useRef, useState } from "react";
+import { flatMarks } from "./marks.js";
 import { Icon, Portal, Loading } from "./ui.jsx";
 import { DuckTalk } from "./Chat.jsx";
 import { writePodcast } from "./ai.js";
@@ -16,7 +17,7 @@ const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}
 const saveOne = (id, ep) => { try { const all = loadAll(); all[id] = ep; localStorage.setItem(KEY, JSON.stringify(all)); } catch {} };
 
 
-const flat = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+const flat = (t) => flatMarks(t);
 export function notesText(made) {
   const out = [];
   for (const t of made?.topics || []) {

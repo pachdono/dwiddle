@@ -8,9 +8,10 @@
 // ideas they added, are kept on this device for each set of notes.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flatMarks } from "./marks.js";
 import { Icon, Portal } from "./ui.jsx";
 
-const flat = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+const flat = (t) => flatMarks(t);
 
 // Up to six terms a topic: its defined terms first, then its subheadings,
 // then the phrases its notes mark as key.

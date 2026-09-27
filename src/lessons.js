@@ -10,6 +10,7 @@
 // gets a lesson, written from the questions and summary that did sync.
 
 import { load, save, KEYS } from "./store.js";
+import { flatMarks } from "./marks.js";
 import { generateLesson } from "./ai.js";
 
 const KEEP = 12; // sets of notes held at once
@@ -54,7 +55,7 @@ function contextFor(made, topicName) {
   const blocks = made?.notes?.[topicName];
   if (blocks?.length) {
     return blocks.map((b) => b.term ? `${b.term}: ${b.def}` : b.list ? b.list.join("\n") : Object.values(b)[0])
-      .join("\n").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+      .map(flatMarks).join("\n");
   }
   const qs = (made?.questions || []).filter((q) => q.topic === topicName);
   const lines = qs.map((q) =>

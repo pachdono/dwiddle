@@ -7,16 +7,17 @@
 // parts to learn word for word, the facts to memorise and the places marks are
 // lost picked out in colour.
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
 import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen, Portal } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
 import { MindMap } from "./MindMap.jsx";
+import { flatMarks, parseMarks } from "./marks.js";
 import { Podcast } from "./Podcast.jsx";
 
-const flatText = (t) => String(t || "").replace(/\{(?:def|key|exam)\|([^{}]*)\}/g, "$1");
+const flatText = flatMarks;
 function notesContext(made) {
   const out = [`The student is reading their notes on "${made?.title || "their material"}".`];
   for (const t of made?.topics || []) {
@@ -33,24 +34,107 @@ function notesContext(made) {
 }
 
 // "{def|the wording}" becomes a marked segment; everything else is plain text.
-const MARK = /\{(def|key|exam)\|([^{}]*)\}/g;
-function parse(text) {
+const parse = parseMarks;
+
+// The hard words of a topic and what they mean: the ones the notes mark, and
+// the terms they define. Notes written before words were marked still get
+// their defined terms linked this way.
+function glossaryOf(blocks) {
+  const words = new Map();
+  for (const b of blocks || []) {
+    if (b.term && b.def) words.set(b.term.toLowerCase(), { w: b.term, d: flatMarks(b.def) });
+    for (const t of blockText(b)) {
+      for (const seg of parse(t)) {
+        if (seg.mark === "word" && seg.def && !words.has(seg.t.toLowerCase())) words.set(seg.t.toLowerCase(), { w: seg.t, d: seg.def });
+      }
+    }
+  }
+  return words;
+}
+
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Links the first plain mention of each known word in a block, so a term
+// defined once can be looked up wherever it is used.
+function linkWords(parts, glossary, used) {
+  if (!glossary.size) return parts;
+  const names = [...glossary.keys()].filter((k) => k.length >= 4 && !used.has(k)).sort((a, b) => b.length - a.length);
+  if (!names.length) return parts;
+  const find = new RegExp(`\\b(${names.map(escape).join("|")})\\b`, "i");
   const out = [];
-  let last = 0;
-  String(text || "").replace(MARK, (whole, mark, t, at) => {
-    if (at > last) out.push({ t: text.slice(last, at) });
-    out.push({ t, mark });
-    last = at + whole.length;
-    return whole;
-  });
-  if (last < String(text || "").length) out.push({ t: String(text).slice(last) });
+  for (const seg of parts) {
+    if (seg.mark) { if (seg.mark === "word") used.add(seg.t.toLowerCase()); out.push(seg); continue; }
+    let rest = seg.t;
+    for (let m = rest.match(find); m; m = rest.match(find)) {
+      const key = m[1].toLowerCase();
+      if (used.has(key)) break;
+      used.add(key);
+      if (m.index) out.push({ t: rest.slice(0, m.index) });
+      out.push({ t: m[1], mark: "word", def: glossary.get(key).d });
+      rest = rest.slice(m.index + m[1].length);
+    }
+    if (rest) out.push({ t: rest });
+  }
   return out;
+}
+
+const Words = createContext({ glossary: new Map(), open: () => {} });
+
+// Notes text: the coloured highlights, and hard words that show their meaning
+// when tapped.
+function Text({ text, on, skip }) {
+  const { glossary, open } = useContext(Words);
+  const parts = linkWords(parse(text), glossary, new Set(skip ? [skip.toLowerCase()] : []));
+  return parts.map((seg, i) => {
+    if (seg.mark === "word") {
+      return (
+        <button key={i} type="button" className="nt-word" aria-haspopup="dialog"
+          onClick={(e) => open({ w: seg.t, d: seg.def || glossary.get(seg.t.toLowerCase())?.d || "" }, e.currentTarget)}>
+          {seg.t}
+        </button>
+      );
+    }
+    return <Marked key={i} parts={[seg]} on={on} />;
+  });
+}
+
+// The meaning of a tapped word, in a small card beside it.
+function WordCard({ word, at, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const away = (e) => { if (!ref.current?.contains(e.target) && e.target !== at) onClose(); };
+    const key = (e) => { if (e.key === "Escape") { onClose(); at?.focus(); } };
+    addEventListener("pointerdown", away);
+    addEventListener("keydown", key);
+    addEventListener("scroll", onClose, true);
+    addEventListener("resize", onClose);
+    return () => {
+      removeEventListener("pointerdown", away);
+      removeEventListener("keydown", key);
+      removeEventListener("scroll", onClose, true);
+      removeEventListener("resize", onClose);
+    };
+  }, [at, onClose]);
+  const r = at.getBoundingClientRect();
+  const width = Math.min(300, innerWidth - 24);
+  const left = Math.max(12, Math.min(r.left + r.width / 2 - width / 2, innerWidth - width - 12));
+  const below = r.bottom + 180 < innerHeight;
+  const style = below ? { left, width, top: r.bottom + 8 } : { left, width, bottom: innerHeight - r.top + 8 };
+  return (
+    <Portal>
+      <div ref={ref} className="nt-wordcard" role="dialog" aria-label={`Meaning of ${word.w}`} style={style}>
+        <b>{word.w}</b>
+        <p>{word.d || "No meaning was written for this word."}</p>
+      </div>
+    </Portal>
+  );
 }
 
 function blockText(b) {
   if (b.term) return [b.def];
   if (b.list) return b.list;
-  return [Object.values(b)[0]];
+  const v = b.h ?? b.p ?? b.eg ?? b.watch;
+  return typeof v === "string" ? [v] : [];
 }
 
 const slug = (s) => "nt-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -63,6 +147,7 @@ export function Notes({ made, saveNotes, go }) {
   const [showPod, setShowPod] = useState(false);
   const [toBook, setToBook] = useState(false);
   const [error, setError] = useState("");
+  const [word, setWord] = useState(null); // { w, d, at } while a meaning is showing
 
   const topics = made?.topics || [];
   const notes = made?.notes || {};
@@ -73,7 +158,7 @@ export function Notes({ made, saveNotes, go }) {
   const counts = useMemo(() => {
     const c = { def: 0, key: 0, exam: 0 };
     Object.values(notes).flat().forEach((b) => blockText(b).forEach((t) =>
-      parse(t).forEach((seg) => { if (seg.mark) c[seg.mark] += 1; })));
+      parse(t).forEach((seg) => { if (seg.mark in c) c[seg.mark] += 1; })));
     return c;
   }, [notes]);
 
@@ -163,28 +248,35 @@ export function Notes({ made, saveNotes, go }) {
           return (
             <section key={t.name} id={slug(t.name)} className="nt-sec">
               <h2><span>{i + 1}</span>{t.name}</h2>
-              {blocks.map((b, n) => <Block key={n} b={b} on={on} />)}
+              <Topic blocks={blocks} on={on} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
             </section>
           );
         })}
       </div>
+      {word && <WordCard word={word} at={word.at} onClose={() => setWord(null)} />}
     </div>
   );
 }
 
+function Topic({ blocks, on, open }) {
+  const glossary = useMemo(() => glossaryOf(blocks), [blocks]);
+  const value = useMemo(() => ({ glossary, open }), [glossary, open]);
+  return <Words.Provider value={value}>{blocks.map((b, n) => <Block key={n} b={b} on={on} />)}</Words.Provider>;
+}
+
 function Block({ b, on }) {
-  if (b.h) return <h3>{b.h}</h3>;
-  if (b.p) return <p><Marked parts={parse(b.p)} on={on} /></p>;
+  if (b.h) return <h3>{flatText(b.h)}</h3>;
+  if (b.p) return <p><Text text={b.p} on={on} /></p>;
   if (b.list) {
     return (
-      <ul>{b.list.map((item, i) => <li key={i}><Marked parts={parse(item)} on={on} /></li>)}</ul>
+      <ul>{b.list.map((item, i) => <li key={i}><Text text={item} on={on} /></li>)}</ul>
     );
   }
   if (b.term) {
     return (
       <div className="nt-term">
         <b>{b.term}</b>
-        <span><Marked parts={parse(b.def)} on={on} /></span>
+        <span><Text text={b.def} on={on} skip={b.term} /></span>
       </div>
     );
   }
@@ -192,7 +284,7 @@ function Block({ b, on }) {
     return (
       <div className="nt-aside eg">
         <span className="nt-label">Example</span>
-        <p><Marked parts={parse(b.eg)} on={on} /></p>
+        <p><Text text={b.eg} on={on} /></p>
       </div>
     );
   }
@@ -200,7 +292,7 @@ function Block({ b, on }) {
     return (
       <div className="nt-aside watch">
         <span className="nt-label">Watch out</span>
-        <p><Marked parts={parse(b.watch)} on={on} /></p>
+        <p><Text text={b.watch} on={on} /></p>
       </div>
     );
   }

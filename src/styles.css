@@ -7270,3 +7270,43 @@ a.btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .duck-tv * { animation: none !important; }
 }
+
+/* ---------- hard words in notes, tapped for their meaning ---------- */
+
+.nt-word {
+  display: inline;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1.5px dotted color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  cursor: help;
+  transition: background 0.15s ease;
+}
+.nt-word:hover, .nt-word:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); outline: none; }
+.nt-word:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+
+.nt-wordcard {
+  position: fixed;
+  z-index: 120;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  animation: nt-wordcard 0.16s ease both;
+}
+.nt-wordcard b { display: block; margin-bottom: 4px; font-size: 14px; color: var(--accent); }
+.nt-wordcard p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+@keyframes nt-wordcard { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nt-wordcard { animation: none; } }
+
+@media print {
+  .nt-word { background: none; border-bottom: 1px dotted #888; font-weight: 600; }
+}

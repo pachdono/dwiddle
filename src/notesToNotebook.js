@@ -9,6 +9,7 @@
 
 import { newBook, newPage, putBook, uid, PAGE_W } from "./notebookStore.js";
 import { fontById, readyFont } from "./nbFonts.js";
+import { MARK, flatMarks } from "./marks.js";
 
 const ROW = 32;            // the ruled line spacing
 const TOP = 110;           // the first ruled line
@@ -16,8 +17,7 @@ const LEFT = 112;          // just past the margin line
 const WIDTH = PAGE_W - LEFT - 48;
 const ROWS = 30;           // rows on a page, above the bottom margin
 const ACCENT = "#3B5BFD";
-const HL = { def: "#93c5fd", key: "#ffd84d", exam: "#fda4af" };
-const MARK = /\{(def|key|exam)\|([^{}]*)\}/g;
+const HL = { def: "#93c5fd", key: "#ffd84d", exam: "#fda4af", word: "#c4b5fd" };
 
 // The plain words of a note, and where each highlight starts and ends in them.
 function unmark(text) {
@@ -25,10 +25,11 @@ function unmark(text) {
   const marks = [];
   let last = 0;
   const s = String(text || "");
-  s.replace(MARK, (whole, kind, t, at) => {
+  s.replace(MARK, (whole, kind, t, w, _def, at) => {
+    const shown = kind ? t : w;
     plain += s.slice(last, at);
-    marks.push({ kind, a: plain.length, b: plain.length + t.length });
-    plain += t;
+    marks.push({ kind: kind || "word", a: plain.length, b: plain.length + shown.length });
+    plain += shown;
     last = at + whole.length;
     return whole;
   });
@@ -127,7 +128,8 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
       }
     }
 
-    for (const b of made.notes[topic.name]) {
+    const blocks = made.notes[topic.name];
+    for (const b of blocks) {
       if (b.h) {
         if (row > 0) row += 1;
         need(2, header);
@@ -156,11 +158,34 @@ export async function notesToNotebook(made, { fontId = "arial", template = "line
         }
       }
     }
+
+    // The hard words of the topic and what they mean, to learn at the end.
+    const words = keyWords(blocks);
+    if (words.length) {
+      if (row > 0) row += 1;
+      need(3, header);
+      write("Key words", LEFT, WIDTH, { color: ACCENT, header });
+      for (const { w, d } of words) write(`{word|${w}|}: ${d}`, LEFT, WIDTH, { header });
+    }
   }
   if (!book.pages.length) book.pages.push(newPage(template, "white"));
   onProgress?.("Saving", 1);
   await putBook(book);
   return book.id;
+}
+
+// The words a topic marks as hard, with their meanings, in the order they come.
+function keyWords(blocks) {
+  const seen = new Map();
+  const texts = (blocks || []).flatMap((b) => b.list || [b.h, b.p, b.def, b.eg, b.watch].filter((t) => typeof t === "string"));
+  for (const t of texts) {
+    String(t).replace(MARK, (whole, kind, _t, w, d) => {
+      const key = w?.trim().toLowerCase();
+      if (!kind && key && d?.trim() && !seen.has(key)) seen.set(key, { w: w.trim(), d: flatMarks(d.trim()) });
+      return whole;
+    });
+  }
+  return [...seen.values()];
 }
 
 /* ---------- a picture for a topic ---------- */

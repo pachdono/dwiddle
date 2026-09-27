@@ -56,6 +56,7 @@ Shape:
 
 Rules:
 - Cover every distinct area the notes deal with, one topic per area: 3 for a short page, up to 8 for a whole chapter. Never merge unrelated areas to keep the count down, and never leave an area of the notes out.
+- Only count the study content. Greetings, introductions about the speaker or channel, adverts and sponsors, requests to like or subscribe, course admin, homework reminders, page headers and footers, reference lists, and chat or stories that do not teach the subject are not topics and must not appear in any topic.
 - 3 questions per topic, 4 where a topic is large, and no more than 26 in total. 4 choices each, "answer" is the index of the correct one.
 - Every "q" is a full question a student could answer without guessing what is being asked. For a vocab question write "What is meant by the term demand curve?" or "Define opportunity cost.", never the bare term on its own.
 - Only use what is in the notes. Never invent facts that are not there.
@@ -97,6 +98,7 @@ Shape:
 Rules:
 - Cover every distinct area the notes deal with, one topic per area: 3 for a short page, up to 8 for a whole chapter.
 - Never merge unrelated areas to keep the count down, and never leave an area of the notes out.
+- Only count the study content. Greetings, introductions about the speaker or channel, adverts and sponsors, requests to like or subscribe, course admin, homework reminders, page headers and footers, reference lists, and chat or stories that do not teach the subject are not topics and must not appear in any topic.
 - Order the topics as the notes do.
 - "large" is true when the notes say a lot about that topic.
 ${STYLE}`;
@@ -183,13 +185,22 @@ Marking, inside any text:
 - {def|...} around wording to learn word for word, usually the core of a definition.
 - {key|...} around a fact, figure, name or date to memorise.
 - {exam|...} around the part of a "watch" block where marks are lost.
+- {word|the word|what it means} around a technical, scientific or hard word, the first time it appears in a topic, with a plain meaning a 14 year old would follow in under 15 words. For example: {word|osmosis|the movement of water across a partially permeable membrane}. Never put | or braces inside the meaning.
+
+How the notes should read:
+- Like a top student's revision notes, not a textbook. Short bullet points, one idea each, mostly under 20 words. Note form is fine: drop "it is important to note that" and other filler.
+- Mostly "list" blocks under "h" subheadings. A "p" is at most two short sentences, and only for a link between ideas that a list cannot show.
+- Every definition goes in a "term" block. Steps of a process go in order in a list.
+- Highlight generously: nearly every bullet has at least one {key|...}, {def|...} or {word|...}, but mark the few words that matter, never a whole bullet.
+- Mark every technical or hard word with {word|...} the first time it appears in the topic, unless it is the "term" of a term block.
 
 Rules:
 - Write a section for each topic you are given, in that order, and nothing on any other part of the source.
-- Include EVERY fact, definition, figure, date, name, formula, list item, reason, advantage, disadvantage and example that the source gives for these topics. Nothing may be left out. If the source lists four things, all four appear.
-- Do not summarise or shorten. Reorganise for clarity instead: put each definition in a "term" block, turn anything the source lists into a "list", and break long passages up under subheadings.
+- Stay strictly on topic. Leave out anything in the source that does not teach these topics: greetings, the speaker's life or channel, adverts and sponsors, requests to like or subscribe, course admin, homework reminders, jokes and tangents, page headers and footers, reference lists. If a point belongs to another topic, it goes there, not here.
+- Include every fact, definition, figure, date, name, formula, list item, reason, advantage, disadvantage and example that the source gives for these topics. If the source lists four things, all four appear. Keep the facts, lose the padding.
 - Keep the source's own wording for definitions, marked with {def|...}.
 - Add a "watch" block only where the source makes a common mistake or a distinction clear.
+- Never add facts, examples or background that the source does not give.
 ${STYLE}`;
 
 // Never trust the shape that comes back. Anything malformed is dropped rather
@@ -433,7 +444,7 @@ async function part(req, res, mode, notes) {
     const text = await ask({
       system: NOTES,
       user: `Write the complete notes for these topics only:\n${names.map((n) => `- ${n}`).join("\n")}\n\nThe source:\n\n${notes}`,
-      maxTokens: 3400,
+      maxTokens: 4000,
       json: true,
       temperature: 0.2,
     });
