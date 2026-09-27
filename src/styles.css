@@ -7070,3 +7070,16 @@ a.nav-item { text-decoration: none; color: inherit; }
 .pz-pod > div { flex: 1; min-width: 0; }
 .pz-pod b { font-size: 16px; }
 .pz-pod p { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-3); }
+
+/* ---------- notes to a notebook ---------- */
+.tonb { max-width: 640px; text-align: left; padding: 26px; display: grid; gap: 12px; }
+.tonb h2 { margin: 0; }
+.tonb .gate-sub { text-align: left; margin: 0; }
+.tonb-fonts { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 300px; overflow-y: auto; padding: 2px; }
+.tonb-font { display: grid; gap: 2px; padding: 10px 12px; text-align: left; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.tonb-font span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+.tonb-font small { color: var(--ink-3); font-size: 11.5px; }
+.tonb-font.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tonb-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.tonb-row select { width: auto; }
+.tonb-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; padding-bottom: 10px; }

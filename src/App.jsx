@@ -2392,7 +2392,7 @@ function StudySheet({ made, go, saveNotes }) {
   // material that has neither.
   const names = (made?.topics || []).map((t) => t.name);
   if (Object.keys(made?.notes || {}).length || sourcesFor(names).length) {
-    return <Notes made={made} saveNotes={saveNotes} />;
+    return <Notes made={made} saveNotes={saveNotes} go={go} />;
   }
 
   // Every generation keeps its sheet, so the page grows as material is added

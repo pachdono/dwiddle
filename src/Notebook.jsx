@@ -9,6 +9,7 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getStroke } from "perfect-freehand";
+import { FONTS } from "./nbFonts.js";
 import "@fontsource/caveat/400.css";
 import "@fontsource/caveat/600.css";
 import "@fontsource/patrick-hand/400.css";
@@ -313,36 +314,6 @@ const widthOf = (tool, s) => (tool === "highlighter" || tool === "revealer" ? s 
 
 // Handwriting fonts get a natural wobble when shown (see HandText), so they
 // read as written rather than typed. Most load only when first used.
-const FONTS = [
-  { id: "caveat", name: "Handwriting", css: '"Caveat", cursive', scale: 1.25, hand: true },
-  { id: "nanum", name: "Pen script", css: '"Nanum Pen Script", cursive', scale: 1.45, hand: true, load: () => import("@fontsource/nanum-pen-script/400.css") },
-  { id: "patrick", name: "Neat hand", css: '"Patrick Hand", cursive', scale: 1.1, hand: true },
-  { id: "gochi", name: "Round hand", css: '"Gochi Hand", cursive', scale: 1.1, hand: true, load: () => import("@fontsource/gochi-hand/400.css") },
-  { id: "indie", name: "Bubbly hand", css: '"Indie Flower", cursive', scale: 1.1, hand: true, load: () => import("@fontsource/indie-flower/400.css") },
-  { id: "grace", name: "Casual hand", css: '"Covered By Your Grace", cursive', scale: 1.15, hand: true, load: () => import("@fontsource/covered-by-your-grace/400.css") },
-  { id: "another", name: "Tall hand", css: '"Just Another Hand", cursive', scale: 1.5, hand: true, load: () => import("@fontsource/just-another-hand/400.css") },
-  { id: "reenie", name: "Quick scrawl", css: '"Reenie Beanie", cursive', scale: 1.45, hand: true, load: () => import("@fontsource/reenie-beanie/400.css") },
-  { id: "apple", name: "Joined up", css: '"Homemade Apple", cursive', scale: 0.9, hand: true, load: () => import("@fontsource/homemade-apple/400.css") },
-  { id: "kalam", name: "Marker", css: '"Kalam", cursive', scale: 1.05, hand: true },
-  { id: "shadows", name: "Light scribble", css: '"Shadows Into Light", cursive', scale: 1.15, hand: true },
-  { id: "arial", name: "Arial", css: 'Arial, Helvetica, "Liberation Sans", sans-serif', scale: 1 },
-  { id: "sans", name: "Typed", css: 'Inter, -apple-system, system-ui, sans-serif', scale: 1 },
-  { id: "serif", name: "Book", css: 'Georgia, serif', scale: 1 },
-  { id: "roboto", name: "Roboto", css: '"Roboto", sans-serif', scale: 1, load: () => import("@fontsource/roboto/400.css") },
-  { id: "opensans", name: "Open Sans", css: '"Open Sans", sans-serif', scale: 1, load: () => import("@fontsource/open-sans/400.css") },
-  { id: "lato", name: "Lato", css: '"Lato", sans-serif', scale: 1, load: () => import("@fontsource/lato/400.css") },
-  { id: "montserrat", name: "Montserrat", css: '"Montserrat", sans-serif', scale: 0.95, load: () => import("@fontsource/montserrat/400.css") },
-  { id: "poppins", name: "Poppins", css: '"Poppins", sans-serif', scale: 0.95, load: () => import("@fontsource/poppins/400.css") },
-  { id: "nunito", name: "Nunito", css: '"Nunito", sans-serif', scale: 1, load: () => import("@fontsource/nunito/400.css") },
-  { id: "lexend", name: "Lexend", css: '"Lexend", sans-serif', scale: 0.95, load: () => import("@fontsource/lexend/400.css") },
-  { id: "atkinson", name: "Easy to read", css: '"Atkinson Hyperlegible", sans-serif', scale: 1, load: () => import("@fontsource/atkinson-hyperlegible/400.css") },
-  { id: "comic", name: "Comic Neue", css: '"Comic Neue", cursive', scale: 1.05, load: () => import("@fontsource/comic-neue/400.css") },
-  { id: "lora", name: "Lora", css: '"Lora", serif', scale: 1, load: () => import("@fontsource/lora/400.css") },
-  { id: "merriweather", name: "Merriweather", css: '"Merriweather", serif', scale: 0.92, load: () => import("@fontsource/merriweather/400.css") },
-  { id: "playfair", name: "Playfair", css: '"Playfair Display", serif', scale: 1, load: () => import("@fontsource/playfair-display/400.css") },
-  { id: "sourceserif", name: "Source Serif", css: '"Source Serif 4", serif', scale: 1, load: () => import("@fontsource/source-serif-4/400.css") },
-  { id: "mono", name: "Code", css: '"Roboto Mono", monospace', scale: 0.92, load: () => import("@fontsource/roboto-mono/400.css") },
-];
 const loadedFonts = new Set();
 function loadFont(f) {
   if (f.load && !loadedFonts.has(f.id)) { loadedFonts.add(f.id); f.load().catch(() => loadedFonts.delete(f.id)); }
@@ -683,7 +654,10 @@ export function PagePreview({ page, className = "" }) {
 
 export default function NotebookPage({ go }) {
   const [books, setBooks] = useState(null);
-  const [openId, setOpenId] = useState(null);
+  // a notebook just made from notes opens straight away
+  const [openId, setOpenId] = useState(() => {
+    try { const id = sessionStorage.getItem("dwiddle-open-notebook"); sessionStorage.removeItem("dwiddle-open-notebook"); return id || null; } catch { return null; }
+  });
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState("");
   const [confirm, setConfirm] = useState(null);

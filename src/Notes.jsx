@@ -7,7 +7,8 @@
 // parts to learn word for word, the facts to memorise and the places marks are
 // lost picked out in colour.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { FONTS, readyFont } from "./nbFonts.js";
 import { Icon, PageHead, Loading, Marked, HighlightFilters } from "./ui.jsx";
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
@@ -54,12 +55,13 @@ function blockText(b) {
 
 const slug = (s) => "nt-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-export function Notes({ made, saveNotes }) {
+export function Notes({ made, saveNotes, go }) {
   const [on, setOn] = useState({ def: true, key: true, exam: true });
   usePageContext(useMemo(() => notesContext(made), [made]));
   const [writing, setWriting] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showPod, setShowPod] = useState(false);
+  const [toBook, setToBook] = useState(false);
   const [error, setError] = useState("");
 
   const topics = made?.topics || [];
@@ -109,6 +111,7 @@ export function Notes({ made, saveNotes }) {
           <div className="row nt-tools">
             <button className="btn ghost small" onClick={() => setShowMap(true)}><Icon name="topics" size={14} /> Mind map</button>
             <button className="btn ghost small" onClick={() => setShowPod(true)}><Icon name="mic" size={14} /> Podcast</button>
+            <button className="btn ghost small" onClick={() => setToBook(true)}><Icon name="pen" size={14} /> Turn into notebook</button>
             <button className="btn ghost small nt-print" onClick={() => window.print()}>
               <Icon name="sheet" size={14} /> Print
             </button>
@@ -117,6 +120,7 @@ export function Notes({ made, saveNotes }) {
       )}
       {showMap && <MindMap made={made} onClose={() => setShowMap(false)} />}
       {showPod && <Podcast made={made} onClose={() => setShowPod(false)} />}
+      {toBook && <ToNotebook made={made} go={go} onClose={() => setToBook(false)} />}
 
       {topics.length > 1 && (
         <nav className="nt-toc" aria-label="Topics in these notes">
@@ -200,4 +204,58 @@ function Block({ b, on }) {
     );
   }
   return null;
+}
+
+// Turning the notes into a notebook: pick a font and a paper, choose whether
+// to add pictures, and the notebook opens when it is ready.
+function ToNotebook({ made, go, onClose }) {
+  const [font, setFont] = useState(() => { try { return localStorage.getItem("dwiddle-nb-font") || "arial"; } catch { return "arial"; } });
+  const [paper, setPaper] = useState("lined");
+  const [pictures, setPictures] = useState(true);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  useEffect(() => { FONTS.forEach((f) => readyFont(f)); }, []);
+
+  async function make() {
+    setErr(""); setBusy("Getting ready");
+    try {
+      const { notesToNotebook } = await import("./notesToNotebook.js");
+      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, onProgress: (t) => setBusy(t) });
+      try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
+      go?.("notebook");
+    } catch (e) {
+      setBusy(""); setErr(e?.message || "The notebook could not be made.");
+    }
+  }
+
+  return (
+    <div className="gate-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <div className="gate tonb" role="dialog" aria-modal="true" aria-labelledby="tonb-title">
+        <h2 id="tonb-title">Turn these notes into a notebook</h2>
+        <p className="gate-sub">Every topic on its own pages, with your highlights drawn in, ready to write on.</p>
+        <span className="qv-label">Font</span>
+        <div className="tonb-fonts">
+          {FONTS.map((f) => (
+            <button key={f.id} type="button" className={"tonb-font" + (font === f.id ? " on" : "")} onClick={() => setFont(f.id)}>
+              <span style={{ fontFamily: f.css, fontSize: 20 * f.scale }}>Photosynthesis</span>
+              <small>{f.name}</small>
+            </button>
+          ))}
+        </div>
+        <div className="tonb-row">
+          <label className="field"><span>Paper</span>
+            <select value={paper} onChange={(e) => setPaper(e.target.value)}>
+              <option value="lined">Lined</option><option value="grid">Squared</option><option value="dots">Dotted</option><option value="blank">Plain</option>
+            </select>
+          </label>
+          <label className="tonb-check"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /> Add a picture to topics where a good one exists</label>
+        </div>
+        {err && <p className="small" style={{ color: "var(--warn)" }}>{err}</p>}
+        <div className="profile-actions">
+          <button className="btn ghost" onClick={onClose} disabled={!!busy}>Cancel</button>
+          <button className="btn cta" onClick={make} disabled={!!busy}>{busy ? <Loading label={busy} /> : "Make the notebook"}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
