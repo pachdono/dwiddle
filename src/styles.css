@@ -8344,3 +8344,19 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .dk-goal.due { border-color: color-mix(in srgb, var(--dk, var(--accent)) 60%, var(--line)); background: color-mix(in srgb, var(--dk, var(--accent)) 7%, var(--surface)); }
 .dk-color.theme { background: conic-gradient(var(--accent) 0 50%, color-mix(in srgb, var(--accent) 50%, var(--surface)) 0) !important; }
 .dk-deck .btn:not(.ghost) { background: var(--dk, var(--accent)); color: #fff; border-color: transparent; }
+/* study time: Dwiddle, the time and start */
+.st-card:not(.on) { flex-wrap: wrap; }
+.st-card-icon { background: color-mix(in srgb, #F8DC6E 22%, var(--panel)); }
+.st-card-title { font-size: 17px; letter-spacing: -0.01em; margin-right: auto; }
+.st-picker { display: flex; align-items: flex-start; gap: 4px; }
+.st-seg { display: grid; justify-items: center; gap: 2px; }
+.st-seg input { width: 58px; height: 52px; text-align: center; font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); outline: none; padding: 0; }
+.st-seg input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.st-seg small { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.st-nudge { border: 0; background: none; color: var(--ink-3); font-size: 10px; line-height: 1; padding: 3px 10px; cursor: pointer; border-radius: 6px; }
+.st-nudge:hover { color: var(--ink); background: var(--hover, var(--panel)); }
+.st-colon { font-size: 26px; font-weight: 800; color: var(--ink-3); padding-top: 26px; }
+.st-start { align-self: center; min-width: 96px; }
+@media (max-width: 600px) { .st-card-title { width: 100%; } .st-seg input { width: 50px; font-size: 24px; } }
+.st-ring b.long { font-size: 15px; }

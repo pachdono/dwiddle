@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon, Portal } from "./ui.jsx";
-import { Duck } from "./Duck.jsx";
+import { Duck, DuckMark } from "./Duck.jsx";
 import { playCue } from "./voice.js";
 
 const KEY = "dwiddle-study-timer";
@@ -16,7 +16,8 @@ const LOG = "dwiddle-study-log";
 const read = (k, f) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } };
 
-// { kind: "study" | "break", start, minutes, paused (time it was paused), away (ms spent paused), hidden, done }
+// { kind: "study" | "break", start, seconds, paused (time it was paused), away (ms spent paused), hidden, done }
+// (Timers from before seconds were stored in minutes.)
 let timer = read(KEY, null);
 const listeners = new Set();
 function set(next) { timer = next; write(KEY, next); listeners.forEach((f) => f(next)); }
@@ -26,15 +27,25 @@ export const minutesToday = () => read(LOG, {})[today()] || 0;
 function logMinutes(m) { const log = read(LOG, {}); log[today()] = (log[today()] || 0) + m; write(LOG, log); }
 
 const spent = (t, now = Date.now()) => (t.paused || now) - t.start - (t.away || 0);
-const leftOf = (t, now) => Math.max(0, t.minutes * 60000 - spent(t, now));
-const clock = (ms) => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; };
+const total = (t) => (t.seconds ?? t.minutes * 60) * 1000;
+const leftOf = (t, now) => Math.max(0, total(t) - spent(t, now));
+const clock = (ms) => {
+  const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : `${m}:${String(s % 60).padStart(2, "0")}`;
+};
+// "1 hour 20 minutes", "25 minutes", "45 seconds"
+const say = (sec) => {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const part = (n, w) => (n ? `${n} ${w}${n === 1 ? "" : "s"}` : "");
+  return [part(h, "hour"), part(m, "minute"), h ? "" : part(s, "second")].filter(Boolean).join(" ") || "0 seconds";
+};
 
-export function startTimer(minutes, kind = "study") { set({ kind, start: Date.now(), minutes, paused: 0, away: 0, hidden: false, done: false }); }
+export function startTimer(seconds, kind = "study") { if (seconds > 0) set({ kind, start: Date.now(), seconds, paused: 0, away: 0, hidden: false, done: false }); }
 export function pauseTimer() { if (timer && !timer.paused) set({ ...timer, paused: Date.now() }); }
 export function resumeTimer() { if (timer?.paused) set({ ...timer, away: (timer.away || 0) + Date.now() - timer.paused, paused: 0 }); }
 export function stopTimer() {
   // Stopping early still counts what was studied.
-  if (timer?.kind === "study") { const m = Math.floor(spent(timer) / 60000); if (m > 0) logMinutes(m); }
+  if (timer?.kind === "study" && !timer.done) { const m = Math.floor(spent(timer) / 60000); if (m > 0) logMinutes(m); }
   set(null);
 }
 const hideTimer = (hidden) => timer && set({ ...timer, hidden });
@@ -51,22 +62,44 @@ export function useStudyTimer() {
   return t;
 }
 
-const LENGTHS = [15, 25, 45, 60];
+// The length, as hours : minutes : seconds, each typed or nudged with the
+// arrows. Kept for next time.
+function TimePicker({ value, onChange }) {
+  const h = Math.floor(value / 3600), m = Math.floor((value % 3600) / 60), sec = value % 60;
+  // The arrows move an hour, five minutes or fifteen seconds at a time.
+  const nudge = (which, d) => put(h + (which === 0 ? d : 0), m + (which === 1 ? 5 * d : 0), sec + (which === 2 ? 15 * d : 0));
+  const put = (nh, nm, ns) => onChange(Math.max(0, Math.min(23, nh)) * 3600 + Math.max(0, Math.min(59, nm)) * 60 + Math.max(0, Math.min(59, ns)));
+  const field = (v, which, label) => (
+    <div className="st-seg">
+      <button type="button" className="st-nudge" aria-label={`More ${label}`} onClick={() => nudge(which, 1)}>▲</button>
+      <input inputMode="numeric" aria-label={label} value={String(v).padStart(2, "0")}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, "").slice(-2)) || 0; put(which === 0 ? n : h, which === 1 ? n : m, which === 2 ? n : sec); }}
+        onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); const d = e.key === "ArrowUp" ? 1 : -1; put(h + (which === 0) * d, m + (which === 1) * d, sec + (which === 2) * d); } }} />
+      <button type="button" className="st-nudge" aria-label={`Fewer ${label}`} onClick={() => nudge(which, -1)}>▼</button>
+      <small aria-hidden="true">{label}</small>
+    </div>
+  );
+  return (
+    <div className="st-picker">
+      {field(h, 0, "hours")}<span className="st-colon">:</span>{field(m, 1, "minutes")}<span className="st-colon">:</span>{field(sec, 2, "seconds")}
+    </div>
+  );
+}
 
-// The card on Home: pick a length and start, or see the one running.
+// The card on Home: set a length and start, or see the one running.
 export function StudyTimerCard() {
   const t = useStudyTimer();
-  const [mins, setMins] = useState(() => read("dwiddle-study-length", 25));
-  const done = minutesToday();
+  const [secs, setSecsRaw] = useState(() => { const v = read("dwiddle-study-length", 25); return v > 300 ? v : v * 60; }); // older: minutes
+  const setSecs = (v) => { setSecsRaw(v); write("dwiddle-study-length", v); };
   if (t && !t.done) {
-    const left = leftOf(t), frac = 1 - left / (t.minutes * 60000);
+    const left = leftOf(t), frac = 1 - left / total(t);
     return (
       <div className="card card-pad st-card on">
-        <Ring frac={frac} kind={t.kind}><b>{clock(left)}</b><span>{t.kind === "break" ? "break" : "left"}</span></Ring>
+        <Ring frac={frac} kind={t.kind}><b className={left >= 3600000 ? "long" : ""}>{clock(left)}</b><span>{t.kind === "break" ? "break" : "left"}</span></Ring>
         <div className="st-card-main">
           <b>{t.kind === "break" ? "On a break" : t.paused ? "Paused" : "Studying"}</b>
-          <p className="small muted">{t.kind === "break" ? "Stretch, get some water. The next round is one tap away." : `${t.minutes} minute session. The timer keeps going on every page.`}</p>
-          <div className="row">
+          <div className="row" style={{ marginTop: 10 }}>
             {t.paused ? <button className="btn small" onClick={resumeTimer}>Resume</button> : <button className="btn ghost small" onClick={pauseTimer}>Pause</button>}
             <button className="btn ghost small" onClick={stopTimer}>Stop</button>
             {t.hidden && <button className="btn ghost small" onClick={() => hideTimer(false)}>Show the banner</button>}
@@ -77,15 +110,10 @@ export function StudyTimerCard() {
   }
   return (
     <div className="card card-pad st-card">
-      <div className="st-card-icon" aria-hidden="true">⏱️</div>
-      <div className="st-card-main">
-        <b>Study time</b>
-        <p className="small muted">Set a timer and focus. It shows at the top of the screen while you work{done ? `, and you have done ${done} minute${done === 1 ? "" : "s"} today` : ""}.</p>
-        <div className="row st-lengths">
-          {LENGTHS.map((m) => <button key={m} className={"st-len" + (mins === m ? " on" : "")} onClick={() => { setMins(m); write("dwiddle-study-length", m); }}>{m} min</button>)}
-          <button className="btn cta small" onClick={() => startTimer(mins)}>Start</button>
-        </div>
-      </div>
+      <div className="st-card-icon" aria-hidden="true"><DuckMark size={46} /></div>
+      <b className="st-card-title">Study time</b>
+      <TimePicker value={secs} onChange={setSecs} />
+      <button className="btn cta st-start" disabled={!secs} onClick={() => startTimer(secs)}>Start</button>
     </div>
   );
 }
@@ -107,7 +135,7 @@ export function StudyBanner() {
   const left = t ? leftOf(t) : 0;
   useEffect(() => {
     if (t && !t.done && !t.paused && left <= 0) {
-      if (t.kind === "study") logMinutes(t.minutes);
+      if (t.kind === "study") logMinutes(Math.round(total(t) / 60000));
       playCue("done-great");
       set({ ...t, done: true, hidden: false });
     }
@@ -122,11 +150,11 @@ export function StudyBanner() {
           <div className="st-done">
             <Duck size={96} outfit={study ? "party" : "graduate"} />
             <h2>{study ? "Time's up. Nice work!" : "Break's over"}</h2>
-            <p className="muted">{study ? `You studied for ${t.minutes} minutes. That's ${minutesToday()} minutes today.` : "Ready for another round?"}</p>
+            <p className="muted">{study ? `You studied for ${say(total(t) / 1000)}. That's ${say(minutesToday() * 60)} today.` : "Ready for another round?"}</p>
             <div className="st-done-actions">
               {study
-                ? <><button className="btn cta" onClick={() => startTimer(5, "break")}>5 minute break</button><button className="btn ghost" onClick={() => startTimer(t.minutes)}>Another {t.minutes} minutes</button></>
-                : <button className="btn cta" onClick={() => startTimer(read("dwiddle-study-length", 25))}>Start studying</button>}
+                ? <><button className="btn cta" onClick={() => startTimer(300, "break")}>5 minute break</button><button className="btn ghost" onClick={() => startTimer(total(t) / 1000)}>Go again</button></>
+                : <button className="btn cta" onClick={() => { const v = read("dwiddle-study-length", 1500); startTimer(v > 300 ? v : v * 60); }}>Start studying</button>}
               <button className="btn ghost" onClick={() => set(null)}>Done</button>
             </div>
           </div>
@@ -135,7 +163,7 @@ export function StudyBanner() {
     );
   }
 
-  const frac = 1 - left / (t.minutes * 60000);
+  const frac = 1 - left / total(t);
   if (t.hidden) {
     return (
       <button className={"st-chip " + t.kind} onClick={() => hideTimer(false)} title="Show the study timer">
@@ -145,7 +173,7 @@ export function StudyBanner() {
   }
   return (
     <div className={"st-banner " + t.kind + (t.paused ? " paused" : "")} role="timer" aria-live="off">
-      <span className="st-banner-icon" aria-hidden="true">{t.kind === "break" ? "☕" : "📚"}</span>
+      <span className="st-banner-icon" aria-hidden="true">{t.kind === "break" ? "☕" : <DuckMark size={24} />}</span>
       <span className="st-banner-label">{t.kind === "break" ? "Break" : "Study time"}</span>
       <b className="st-banner-clock">{clock(left)}</b>
       <span className="st-banner-sub">{t.paused ? "paused" : "left"}</span>
