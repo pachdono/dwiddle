@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, PageHead, Loading } from "./ui.jsx";
-import { Duck } from "./Duck.jsx";
+import { Duck, DuckMark } from "./Duck.jsx";
 import { useDictation } from "./Chat.jsx";
 
 const KEY = "dwiddle-decks";
@@ -257,17 +257,30 @@ function DeckCards({ deck, reverse, onKnown, onSrs }) {
   const [gone, setGone] = useState(""); // "know" | "again", the way the last card went
   const card = queue[0];
 
+  // Still learning: back in a few cards, not at the very end. A card once
+  // marked still learning needs "I know it" twice before it is put away.
+  const [lapses, setLapses] = useState({});
+  const [sure, setSure] = useState({}); // id -> known once since the last lapse
+  const [note, setNote] = useState("");
   function next(knew) {
-    setGone(knew ? "know" : "again");
+    const id = card.id;
+    const confirm = knew && lapses[id] && !sure[id];
+    setGone(knew && !confirm ? "know" : "again");
     setFlipped(false);
+    setNote(confirm ? "Once more later to be sure." : knew ? "" : "It'll come back in a few cards.");
     setTimeout(() => {
       setGone("");
-      setQueue((q) => (knew ? q.slice(1) : [...q.slice(1), q[0]]));
+      setQueue((q) => {
+        if (knew && !confirm) return q.slice(1);
+        const rest = q.slice(1), at = Math.min(rest.length, confirm ? 4 : 2);
+        return [...rest.slice(0, at), q[0], ...rest.slice(at)];
+      });
     }, 220);
-    if (knew) { const k = new Set(known); k.add(card.id); setKnown(k); onKnown([...k]); }
+    if (!knew) { setLapses((l) => ({ ...l, [id]: (l[id] || 0) + 1 })); setSure((x) => ({ ...x, [id]: false })); }
+    else if (confirm) setSure((x) => ({ ...x, [id]: true }));
+    else { const k = new Set(known); k.add(id); setKnown(k); onKnown([...k]); }
     // Flashcards feed spaced repetition too: known goes up a box, not yet comes back tomorrow.
-    srsRef.current = schedule(srsRef.current, card.id, !knew);
-    onSrs(srsRef.current);
+    if (!confirm) { srsRef.current = schedule(srsRef.current, id, !knew || !!lapses[id]); onSrs(srsRef.current); }
   }
   useEffect(() => {
     if (!card) return;
@@ -301,6 +314,7 @@ function DeckCards({ deck, reverse, onKnown, onSrs }) {
           <div className="flip-face back"><span className="flash-tag">{reverse ? "Word" : "Meaning"}</span><p className="flash-body answer">{back}</p></div>
         </div>
       </div>
+      {note && <p className="dk-again dk-note">{note}</p>}
       <div className="dk-grade">
         <button className="btn ghost" onClick={() => next(false)}><kbd>1</kbd> Still learning</button>
         <button className="btn cta" onClick={() => next(true)}><kbd>2</kbd> I know it</button>
@@ -317,15 +331,32 @@ function DeckQuiz({ deck, reverse }) {
   const [qs, setQs] = useState(make);
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
-  const [score, setScore] = useState(0);
+  const [score, setScore] = useState(0); // right first time
+  const [missed, setMissed] = useState({}); // card id -> misses
+  const [total] = useState(() => Math.min(15, deck.cards.length));
   const q = qs[i];
+  // A missed question comes back a few questions later, with the choices
+  // shuffled, until it is right; one missed twice must be right twice.
+  function go() {
+    const right = picked === q.c.id;
+    let list = qs;
+    const again = !right || (q.needs > 1);
+    if (again) {
+      const others = shuffle(deck.cards.filter((x) => x.id !== q.c.id)).slice(0, 3);
+      const copy = { c: q.c, options: shuffle([q.c, ...others]), retry: true, needs: right ? q.needs - 1 : Math.min(3, (missed[q.c.id] || 0) + 1) };
+      const at = Math.min(list.length, i + 3);
+      list = [...list.slice(0, at), copy, ...list.slice(at)];
+      setQs(list);
+    }
+    setI(i + 1); setPicked(null);
+  }
   if (!q) {
     return (
       <div className="card card-pad dk-done">
         <Duck size={92} outfit={score / qs.length >= 0.7 ? "party" : "graduate"} />
-        <h3>{score} of {qs.length}</h3>
-        <p className="muted small">{score === qs.length ? "Every one right." : "Run it again: the ones you missed come round differently."}</p>
-        <button className="btn" onClick={() => { setQs(make()); setI(0); setScore(0); setPicked(null); }}>Another quiz</button>
+        <h3>{score} of {total} right first time</h3>
+        <p className="muted small">{score === total ? "Every one right." : `And you got the other ${total - score} right in the end. The trickiest: ${Object.entries(missed).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => deck.cards.find((c) => c.id === id)?.front).filter(Boolean).join(", ")}.`}</p>
+        <button className="btn" onClick={() => { setQs(make()); setI(0); setScore(0); setPicked(null); setMissed({}); }}>Another quiz</button>
       </div>
     );
   }
@@ -333,23 +364,24 @@ function DeckQuiz({ deck, reverse }) {
   const show = (o) => (reverse ? o.front : o.back);
   return (
     <div className="dk-study">
-      <div className="dk-progress"><span className="small muted">Question {i + 1} of {qs.length}</span><div className="dk-bar"><i style={{ width: `${(i / qs.length) * 100}%` }} /></div><span className="small muted">{score} right</span></div>
+      <div className="dk-progress"><span className="small muted">{qs.length - i} to go</span><div className="dk-bar"><i style={{ width: `${(i / qs.length) * 100}%` }} /></div><span className="small muted">{score} right first time</span></div>
       <div className="card card-pad dk-q">
-        <span className="flash-tag">{reverse ? "Which word means" : "What does this mean?"}</span>
+        <span className="flash-tag">{q.retry ? "Again: you missed this one" : reverse ? "Which word means" : "What does this mean?"}</span>
         <h2>{ask}</h2>
         {q.options.map((o, n) => {
           const right = o.id === q.c.id;
           const cls = picked === null ? "" : right ? " right" : picked === o.id ? " wrong" : "";
           return (
             <button key={o.id} className={"choice" + cls} disabled={picked !== null}
-              onClick={() => { setPicked(o.id); if (right) setScore((s) => s + 1); }}>
+              onClick={() => { setPicked(o.id); if (right && !q.retry) setScore((s) => s + 1); if (!right) setMissed((m) => ({ ...m, [q.c.id]: (m[q.c.id] || 0) + 1 })); }}>
               <span className="key">{"ABCD"[n]}</span>{show(o)}
             </button>
           );
         })}
         {picked !== null && (
           <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-            <button className="btn" onClick={() => { setI(i + 1); setPicked(null); }}>{i + 1 >= qs.length ? "See how you did" : "Next"} <Icon name="arrow" /></button>
+            {picked !== q.c.id && <span className="dk-again" style={{ marginRight: "auto" }}>It'll come back in a moment.</span>}
+            <button className="btn" onClick={go}>{i + 1 >= qs.length && picked === q.c.id && !(q.needs > 1) ? "See how you did" : "Next"} <Icon name="arrow" /></button>
           </div>
         )}
       </div>
@@ -410,7 +442,12 @@ function DeckLearn({ deck, reverse, onSrs }) {
   const [pool, setPool] = useState([]); // the cards this session covers
   const [state, setState] = useState({}); // id -> "learning" | "done"
   const [misses, setMisses] = useState({});
-  const [queue, setQueue] = useState([]); // [{ c, w }] w: type it rather than pick it
+  const [streak, setStreak] = useState({}); // right answers in a row, per card
+  // The last few answers: when most are wrong, Learn slows down (smaller
+  // rounds, a first-letter hint when typing) until things pick up.
+  const recent = useRef([]);
+  const [struggling, setStruggling] = useState(false);
+  const [queue, setQueue] = useState([]); // [{ c, w, thenType }] w: type it rather than pick it
   const [roundIds, setRoundIds] = useState([]);
   const [answer, setAnswer] = useState(null);
   const [between, setBetween] = useState(false);
@@ -426,7 +463,7 @@ function DeckLearn({ deck, reverse, onSrs }) {
   function startRound(g, p, st, ms) {
     let left = p.filter((c) => st[c.id] !== "done");
     if (g === "cram") left = shuffle(left).sort((a, b) => (ms[b.id] || 0) - (ms[a.id] || 0));
-    const pick = left.slice(0, ROUND);
+    const pick = left.slice(0, struggling ? 4 : ROUND);
     const w = (c) => g === "review" && (deck.srs?.[c.id]?.box || 0) >= 2;
     setQueue(shuffle(pick).map((c) => ({ c, w: w(c) })));
     setRoundIds(pick.map((c) => c.id));
@@ -444,17 +481,33 @@ function DeckLearn({ deck, reverse, onSrs }) {
   }, [queue]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (writing && !answer) setTimeout(() => input.current?.focus(), 30); }, [queue, answer, writing]);
 
+  // A card that has been missed is only done once it is right two or three
+  // times in a row (more misses, more times), so a lucky guess is not enough.
   function mark(ok, extra = {}) {
-    setAnswer({ ok, ...extra });
-    if (!ok) { setMisses((m) => ({ ...m, [card.id]: (m[card.id] || 0) + 1 })); setState((s) => ({ ...s, [card.id]: "learning" })); }
+    const m = (misses[card.id] || 0) + (ok ? 0 : 1);
+    const run = ok ? (streak[card.id] || 0) + 1 : 0;
+    setStreak((x) => ({ ...x, [card.id]: run }));
+    recent.current = [...recent.current, ok].slice(-8);
+    const r = recent.current;
+    setStruggling(r.length >= 5 && r.filter(Boolean).length / r.length < 0.6);
+    const finalStep = !(goal === "all" && !writing) && !item.thenType;
+    setAnswer({ ok, again: ok && finalStep && run < Math.min(3, 1 + m), ...extra });
+    if (!ok) { setMisses((x) => ({ ...x, [card.id]: m })); setState((st) => ({ ...st, [card.id]: "learning" })); }
   }
   // After the answer: what comes next for this card, decided now.
   function next() {
     const ok = answer?.ok;
     let rest = queue.slice(1);
     let st = state;
-    if (!ok) rest = [...rest, item]; // try again later this round
-    else if (goal === "all" && !writing) { rest = [...rest, { c: card, w: true }]; st = { ...st, [card.id]: "learning" }; } // now type it
+    // Back again soon, a couple of cards later rather than at the very end.
+    const soon = (x, gap = 2) => { const at = Math.min(rest.length, gap); rest = [...rest.slice(0, at), x, ...rest.slice(at)]; };
+    if (!ok) {
+      // Missed while typing: pick it from four first, then type it again.
+      if (writing && goal !== "cram") soon({ c: card, w: false, thenType: true });
+      else soon(item);
+    }
+    else if ((goal === "all" && !writing) || item.thenType) { soon({ c: card, w: true }, 3); st = { ...st, [card.id]: "learning" }; } // now type it
+    else if (answer.again) { soon(item, 3); st = { ...st, [card.id]: "learning" }; } // once more to lock it in
     else {
       st = { ...st, [card.id]: "done" };
       srsRef.current = schedule(srsRef.current, card.id, !!misses[card.id], { cram: goal === "cram" });
@@ -554,12 +607,13 @@ function DeckLearn({ deck, reverse, onSrs }) {
   return (
     <div className="dk-study">
       {bar}
+      {struggling && <div className="dk-slow"><DuckMark size={22} /> This is a tricky set. Let's slow down: smaller rounds, and a hint for the first letter.</div>}
       <div className={"card card-pad dk-q" + (answer ? (answer.ok ? " is-right" : " is-wrong") : "")} key={queue.length + ":" + card.id + ":" + writing}>
         <span className="flash-tag">{writing ? `Type the ${reverse ? "meaning" : "word"}` : reverse ? "Which word means" : "What does this mean?"}</span>
         <h2>{prompt}</h2>
         {writing ? (
           <form onSubmit={(e) => { e.preventDefault(); if (answer || !typed.trim()) return; const ok = near(typed, want); mark(ok, { typed, near: ok && norm(typed) !== norm(want) }); }}>
-            <input ref={input} className="dk-type" value={typed} onChange={(e) => setTyped(e.target.value)} readOnly={!!answer} placeholder="Type your answer" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+            <input ref={input} className="dk-type" value={typed} onChange={(e) => setTyped(e.target.value)} readOnly={!!answer} placeholder={struggling || misses[card.id] ? `Starts with "${want.trim()[0]}"` : "Type your answer"} autoComplete="off" autoCapitalize="off" spellCheck={false} />
             {!answer && (
               <div className="row" style={{ justifyContent: "space-between", marginTop: 10 }}>
                 <button type="button" className="btn ghost small" onClick={() => mark(false, { typed: "" })}>I don't know</button>
@@ -581,7 +635,9 @@ function DeckLearn({ deck, reverse, onSrs }) {
         {answer && (
           <div className={"dk-feedback " + (answer.ok ? "ok" : "no")}>
             <b>{answer.ok ? (answer.near ? "Almost exactly. Counted as right." : ["Nice!", "Spot on!", "You've got it!", "Great memory!"][queue.length % 4]) : "Not quite, you're still learning this one."}</b>
-            {answer.ok && !writing && goal === "all" && <span>Next time round, you'll type it.</span>}
+            {answer.ok && ((!writing && goal === "all") || item.thenType) && <span>Next time round, you'll type it.</span>}
+            {answer.ok && answer.again && <span>You've missed this one before, so it'll come back once more to lock it in.</span>}
+            {!answer.ok && <span className="dk-again">It'll come back in a moment. Keep going until you get it.</span>}
             {!answer.ok && <span>The answer: <strong>{want}</strong>{answer.typed ? <> · you wrote <em>{answer.typed}</em></> : null}</span>}
             {answer.ok && answer.near && <span>Exactly: <strong>{want}</strong></span>}
             <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>

@@ -8360,3 +8360,7 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .st-start { align-self: center; min-width: 96px; }
 @media (max-width: 600px) { .st-card-title { width: 100%; } .st-seg input { width: 50px; font-size: 24px; } }
 .st-ring b.long { font-size: 15px; }
+.dk-again { font-size: 13px; color: var(--ink-3); }
+.dk-note { text-align: center; margin: 10px 0 -6px; animation: dk-pop .25s ease both; }
+.dk-slow { display: flex; align-items: center; gap: 8px; justify-content: center; margin: -4px auto 12px; padding: 8px 14px; border-radius: 12px; font-size: 13.5px; width: fit-content;
+  background: color-mix(in srgb, #F59E0B 12%, var(--surface)); color: var(--ink-2); animation: dk-pop .3s ease both; }
