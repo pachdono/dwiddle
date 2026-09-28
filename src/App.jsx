@@ -5,6 +5,7 @@ import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
+import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
@@ -812,6 +813,7 @@ export default function App() {
       </aside>
 
       <main className="main">
+        {early && <StudyBanner />}
         {warnUnsaved && (
           <div className="notice">
             <span className="notice-dot" />
@@ -1116,7 +1118,7 @@ const SHORTCUTS = [
 ];
 
 function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, setCustom,
-  customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {} }) {
+  customBg, setCustomBg, editing, setEditing, bank = [], setPMode, look, resolved, drills = [], srs = {}, early }) {
   const [pick] = useState(() => Math.random());
   const me = useMyProfile(auth?.user);
   const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
@@ -1195,6 +1197,7 @@ function Dashboard({ go, auth, stats, missed, topics, materials, made, custom, s
       </div>
 
       <div className="stack">
+        {early && <StudyTimerCard />}
         {topics.length === 0 && (
           <div className="card card-pad welcome">
             <Duck size={84} className="welcome-duck" />
