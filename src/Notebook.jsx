@@ -24,6 +24,7 @@ import { openDwiddle } from "./Chat.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { shrink } from "./custom.js";
 import { imageDropCandidates, readDroppedImage } from "./notebookImageDrop.js";
+import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 
 /* ---------- paper ---------- */
 
@@ -2616,6 +2617,13 @@ function Editor({ id, go, onClose, early = false, access }) {
   const saveT = useRef(0);
   const imgInput = useRef(null);
   const pagesRef = useRef(null);
+  const dropHandler = useRef(null);
+  dropHandler.current = handleImageDrop;
+  useEffect(() => {
+    if (!canUseNewNotebookTools) return;
+    return attachNotebookDropTarget({ getPages: () => pagesRef.current, onDrop: (event) => dropHandler.current(event) });
+  }, [canUseNewNotebookTools]);
+
 
   useEffect(() => { getBook(id).then((b) => setBook(b || null)); }, [id]);
 
@@ -3403,6 +3411,39 @@ function Editor({ id, go, onClose, early = false, access }) {
     setLive(null);
   }
 
+  async function handleImageDrop(e) {
+    e.preventDefault();
+    // Where it landed, so the picture goes there.
+    const pageEl = document.elementFromPoint(e.clientX, e.clientY)?.closest(".nb-page");
+    const pg = pageEl && book.pages[Number(pageEl.dataset.index)];
+    let at;
+    if (pg) { const r = pageEl.getBoundingClientRect(); at = { pageId: pg.id, x: ((e.clientX - r.left) / r.width) * pg.w, y: ((e.clientY - r.top) / r.height) * pg.h }; }
+    const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
+    if (f) { remoteImageDrag.current = ""; addImage(f, at); return; }
+    // A picture dragged from a web page (the browser beside the
+    // notebook, or another window) arrives as its address.
+    const html = e.dataTransfer.getData("text/html") || "";
+    let url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
+    if (canUseNewNotebookTools) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const candidates = imageDropCandidates({
+        remote: remoteImageDrag.current,
+        images: [...doc.querySelectorAll("img")].flatMap((img) => [img.getAttribute("src"), img.getAttribute("data-src")]).filter(Boolean),
+        links: e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/x-moz-url") || "",
+        text: e.dataTransfer.getData("text/plain") || "",
+      });
+      remoteImageDrag.current = "";
+      setBusy("Adding picture");
+      try { await addImage(await readDroppedImage(candidates, imageFile), at); }
+      catch (err) { alert(err.message); }
+      finally { setBusy(""); }
+      return;
+    }
+    remoteImageDrag.current = "";
+    if (url) { try { addImage(await imageFile(url), at); } catch { alert("That picture could not be added. Try right-clicking it, Copy image, then paste here."); } }
+
+  }
+
   // at: { pageId, x, y } to centre it where it was dropped.
   async function addImage(file, at) {
     const page = (at && book.pages.find((p) => p.id === at.pageId)) || book.pages[current] || book.pages[0];
@@ -3969,37 +4010,7 @@ function Editor({ id, go, onClose, early = false, access }) {
 
         <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false && DRAWING_TOOLS.includes(tool) ? " pencil-only" : "")} ref={pagesArea}
           onDragOver={(e) => { if ((canUseNewNotebookTools && remoteImageDrag.current) || [...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html" || (canUseNewNotebookTools && (t === "text/plain" || t === "text/x-moz-url")))) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
-          onDrop={async (e) => {
-            e.preventDefault();
-            // Where it landed, so the picture goes there.
-            const pageEl = e.target.closest?.(".nb-page");
-            const pg = pageEl && book.pages[Number(pageEl.dataset.index)];
-            let at;
-            if (pg) { const r = pageEl.getBoundingClientRect(); at = { pageId: pg.id, x: ((e.clientX - r.left) / r.width) * pg.w, y: ((e.clientY - r.top) / r.height) * pg.h }; }
-            const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
-            if (f) { remoteImageDrag.current = ""; addImage(f, at); return; }
-            // A picture dragged from a web page (the browser beside the
-            // notebook, or another window) arrives as its address.
-            const html = e.dataTransfer.getData("text/html") || "";
-            let url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
-            if (canUseNewNotebookTools) {
-              const doc = new DOMParser().parseFromString(html, "text/html");
-              const candidates = imageDropCandidates({
-                remote: remoteImageDrag.current,
-                images: [...doc.querySelectorAll("img")].flatMap((img) => [img.getAttribute("src"), img.getAttribute("data-src")]).filter(Boolean),
-                links: e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/x-moz-url") || "",
-                text: e.dataTransfer.getData("text/plain") || "",
-              });
-              remoteImageDrag.current = "";
-              setBusy("Adding picture");
-              try { await addImage(await readDroppedImage(candidates, imageFile), at); }
-              catch (err) { alert(err.message); }
-              finally { setBusy(""); }
-              return;
-            }
-            remoteImageDrag.current = "";
-            if (url) { try { addImage(await imageFile(url), at); } catch { alert("That picture could not be added. Try right-clicking it, Copy image, then paste here."); } }
-          }}>
+          onDrop={handleImageDrop}>
           {book.pages.map((page, i) => (
             <div key={page.id} className={"nb-page" + (editingText && page.items.some((it) => it.id === editingText) ? " typing" : "")} data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
               <svg viewBox={`0 0 ${page.w} ${page.h}`} width={page.w * zoom} height={page.h * zoom}

@@ -8390,3 +8390,9 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .nb-check-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px;
   background: #22a262; color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 8px 24px rgba(34,162,98,.35); animation: dk-pop .3s ease both; }
 .nb-checkbtn { color: #c22d33; }
+
+/* The notebook owns a picture drag once it has crossed out of Google. */
+.nb-work.nb-image-drop-active .nb-split iframe,
+.nb-work.nb-image-drop-active .nb-split webview { pointer-events: none; }
+.nb-work.nb-image-drop-active .nb-pages { outline: 3px solid var(--accent); outline-offset: -4px; }
+.nb-work.nb-image-drop-active .nb-pages .nb-svg { cursor: copy; }
