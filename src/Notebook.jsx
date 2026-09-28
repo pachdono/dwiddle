@@ -23,6 +23,7 @@ import { readImage, checkPage } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { shrink } from "./custom.js";
+import { imageDropCandidates, readDroppedImage } from "./notebookImageDrop.js";
 
 /* ---------- paper ---------- */
 
@@ -2071,19 +2072,6 @@ function VideoFloat({ id, onId, onClose, early = false }) {
 // has a real one. On the website, pages that allow it are shown live, and
 // the rest (most sites forbid being shown inside another) open as a clean
 // reader view fetched by the server, with their pictures ready to add.
-function notebookImageUrl(value) {
-  if (/^data:image\//i.test(value)) return value;
-  try {
-    const url = new URL(value);
-    if (!["https:", "http:"].includes(url.protocol)) return "";
-    if (/(^|\.)google\.[a-z.]+$/i.test(url.hostname) && url.searchParams.has("imgurl")) {
-      const original = new URL(url.searchParams.get("imgurl"));
-      return ["https:", "http:"].includes(original.protocol) ? original.href : "";
-    }
-    return url.href;
-  } catch { return ""; }
-}
-
 async function imageFile(url) {
   let src = null;
   if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
@@ -3429,6 +3417,7 @@ function Editor({ id, go, onClose, early = false, access }) {
       updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
       setTool("select");
       setSel({ pageId: page.id, itemId: it.id });
+      if (canUseNewNotebookTools) setGroup({ pageId: page.id, ids: [it.id] });
     } catch {
       alert("That picture could not be added.");
     }
@@ -3979,7 +3968,7 @@ function Editor({ id, go, onClose, early = false, access }) {
         </aside>
 
         <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false && DRAWING_TOOLS.includes(tool) ? " pencil-only" : "")} ref={pagesArea}
-          onDragOver={(e) => { if ((canUseNewNotebookTools && remoteImageDrag.current) || [...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
+          onDragOver={(e) => { if ((canUseNewNotebookTools && remoteImageDrag.current) || [...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html" || (canUseNewNotebookTools && (t === "text/plain" || t === "text/x-moz-url")))) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
           onDrop={async (e) => {
             e.preventDefault();
             // Where it landed, so the picture goes there.
@@ -3994,12 +3983,19 @@ function Editor({ id, go, onClose, early = false, access }) {
             const html = e.dataTransfer.getData("text/html") || "";
             let url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
             if (canUseNewNotebookTools) {
-              const nativeUrl = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain") || "").split("\n").find((line) => line.trim() && !line.startsWith("#"))?.trim();
-              const imageSrc = new DOMParser().parseFromString(html, "text/html").querySelector("img")?.getAttribute("src");
-              url = notebookImageUrl(remoteImageDrag.current || imageSrc || nativeUrl || "");
-              // Google can put a result link in uri-list and a thumbnail in HTML.
-              const original = notebookImageUrl(nativeUrl || "");
-              if (nativeUrl?.includes("imgurl=") && original) url = original;
+              const doc = new DOMParser().parseFromString(html, "text/html");
+              const candidates = imageDropCandidates({
+                remote: remoteImageDrag.current,
+                images: [...doc.querySelectorAll("img")].flatMap((img) => [img.getAttribute("src"), img.getAttribute("data-src")]).filter(Boolean),
+                links: e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/x-moz-url") || "",
+                text: e.dataTransfer.getData("text/plain") || "",
+              });
+              remoteImageDrag.current = "";
+              setBusy("Adding picture");
+              try { await addImage(await readDroppedImage(candidates, imageFile), at); }
+              catch (err) { alert(err.message); }
+              finally { setBusy(""); }
+              return;
             }
             remoteImageDrag.current = "";
             if (url) { try { addImage(await imageFile(url), at); } catch { alert("That picture could not be added. Try right-clicking it, Copy image, then paste here."); } }
