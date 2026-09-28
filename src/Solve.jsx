@@ -12,10 +12,10 @@
 // once, in order, and are read as one question.
 
 import { useEffect, useState } from "react";
-import { solveProblem, writeVideo } from "./ai.js";
+import { solveProblem, writeVideo, drawQuestion } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
-import { VideoPlayer } from "./Video.jsx";
+import { VideoPlayer, Diagram } from "./Video.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import { prepareNarration } from "./narration.js";
 import { generationsLeft, countGeneration } from "./limits.js";
@@ -37,6 +37,27 @@ function solutionContext(r) {
 
 const MAX_FILES = 6;
 
+// A line of working set like a printed page: fractions stacked, the equals
+// signs given room. "3/4", "(x + 1)/2" and "8/9" stand as fractions; units
+// like km/h stay as they are.
+const FRAC = /(\([^()]+\)|[0-9][0-9.]*[a-zA-Zπ√²³]*|[a-zA-Zπ]|√\d+)\s*\/\s*(\([^()]+\)|[0-9][0-9.]*[a-zA-Zπ√²³]*|[a-zA-Zπ]|√\d+)/g;
+function MathLine({ text, inline = false }) {
+  const parts = [];
+  let last = 0;
+  const t = String(text || "");
+  for (const m of t.matchAll(FRAC)) {
+    const [whole, a, b] = m;
+    if (/^[a-zA-Z]{2,}$/.test(a) || /^[a-zA-Z]{2,}$/.test(b)) continue;
+    parts.push(t.slice(last, m.index));
+    const bare = (x) => (x.startsWith("(") && x.endsWith(")") ? x.slice(1, -1) : x);
+    parts.push(<span key={m.index} className="sv-frac"><span>{bare(a)}</span><span>{bare(b)}</span></span>);
+    last = m.index + whole.length;
+  }
+  parts.push(t.slice(last));
+  const out = parts.map((p, i) => (typeof p === "string" ? p.split(/(=)/).map((q, k) => (q === "=" ? <span key={i + "e" + k} className="sv-eq">=</span> : q)) : p));
+  return inline ? <>{out}</> : <div className="sv-mline">{out}</div>;
+}
+
 export function Solve({ go, auth, early }) {
   const [files, setFiles] = useState([]); // [{ file, url }] in the order they were added
   const [text, setText] = useState("");
@@ -51,13 +72,16 @@ export function Solve({ go, auth, early }) {
   const [watching, setWatching] = useState(false);
   const [filming, setFilming] = useState(false);
   const [videoError, setVideoError] = useState("");
+  // The question's own diagram, drawn after it is solved (testers): shown
+  // under the question, and used unchanged in its video.
+  const [drawn, setDrawn] = useState(null); // null | "drawing" | { figure, diagram } | "none"
 
   async function explain() {
     if (video) { setWatching(true); return; }
     setFilming(true);
     setVideoError("");
     try {
-      const made = await writeVideo({ solution: result, problem });
+      const made = await writeVideo({ solution: result, problem, ...(drawn?.figure ? { figure: drawn.figure } : {}) });
       setVideo(made);
       // The narration starts making straight away; the player waits for it.
       prepareNarration(made);
@@ -150,6 +174,11 @@ export function Solve({ go, auth, early }) {
       countGeneration(auth?.user);
       setResult(data);
       setState("done");
+      if (early) {
+        setDrawn("drawing");
+        drawQuestion({ problem: parts.join("\n\n"), solution: { asked: data.asked, answer: data.answer } })
+          .then((d) => setDrawn(d?.figure && d.diagram ? d : "none"));
+      }
     } catch (err) {
       setState("error");
       setError(err.message);
@@ -164,6 +193,7 @@ export function Solve({ go, auth, early }) {
     setShown(false);
     setVideo(null);
     setVideoError("");
+    setDrawn(null);
     setState("idle");
     setError("");
   }
@@ -328,18 +358,57 @@ export function Solve({ go, auth, early }) {
 
             {early && <LikeImFour context={`A question the student asked to have solved: ${problem}\nThe worked solution:\n${result.steps.map((s, i) => `${i + 1}. ${s.do}${s.work ? ` (${s.work})` : ""}${s.why ? `: ${s.why}` : ""}`).join("\n")}\nAnswer: ${result.answer || ""}${result.idea ? `\nWhat it is really testing: ${result.idea}` : ""}`} />}
 
-            <ol className="sv-steps">
-              {result.steps.map((s, i) => (
-                <li key={i}>
-                  <span className="sv-n">{i + 1}</span>
-                  <div className="sv-body">
-                    <b>{s.do}</b>
-                    {s.work && <div className="sv-work">{s.work}</div>}
-                    {s.why && <p className="sv-why">{s.why}</p>}
+            {early ? (
+              <>
+                {drawn && drawn !== "none" && (
+                  <div className="card sv-drawn">
+                    <span className="sv-label">Your question, drawn</span>
+                    {drawn === "drawing"
+                      ? <div className="sv-drawn-wait"><Loading label="Drawing the diagram" /></div>
+                      : <Diagram d={drawn.diagram} line={99} />}
                   </div>
-                </li>
-              ))}
-            </ol>
+                )}
+                <ol className="sv2-steps">
+                  {result.steps.map((s, i) => (
+                    <li key={i} className="sv2-step" style={{ animationDelay: `${i * 70}ms` }}>
+                      <div className="sv2-head">
+                        <span className="sv2-n">{i + 1}</span>
+                        <div>
+                          <b>{s.do}</b>
+                          {s.say && <p className="sv2-say">{s.say}</p>}
+                        </div>
+                      </div>
+                      {s.rule && <div className="sv2-rule"><span>Uses</span>{s.rule}</div>}
+                      {(s.lines?.length ? s.lines : s.work ? s.work.split(/\n+/) : []).length > 0 && (
+                        <div className="sv2-math">
+                          {(s.lines?.length ? s.lines : s.work.split(/\n+/)).map((l, k) => <MathLine key={k} text={l} />)}
+                        </div>
+                      )}
+                      {s.why && <p className="sv2-why"><span aria-hidden="true">💡</span><span><b>Why this works: </b>{s.why}</span></p>}
+                    </li>
+                  ))}
+                </ol>
+                {result.answer && (
+                  <div className="sv2-final">
+                    <span>So the answer is</span>
+                    <b><MathLine text={result.answer} inline /></b>
+                  </div>
+                )}
+              </>
+            ) : (
+              <ol className="sv-steps">
+                {result.steps.map((s, i) => (
+                  <li key={i}>
+                    <span className="sv-n">{i + 1}</span>
+                    <div className="sv-body">
+                      <b>{s.do}</b>
+                      {s.work && <div className="sv-work">{s.work}</div>}
+                      {s.why && <p className="sv-why">{s.why}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
 
             {result.idea && (
               <div className="card card-pad sv-idea">

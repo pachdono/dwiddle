@@ -30,7 +30,9 @@ Shape:
   "steps": [
     {
       "do": "what this step does, as a short heading of four to eight words",
-      "work": "the working for this step: the equation, the substitution, the sentence. Use real symbols. May be empty when the step is reasoning rather than calculation.",
+      "say": "what happens in this step in plain everyday words, one sentence under 20 words, as if explaining to a friend who found this hard",
+      "rule": "the rule or formula this step uses, short, like 'Area of a circle: A = πr²' or 'Angles on a straight line add to 180°'. Empty if none.",
+      "work": ["the working, one line each: first the formula or equation, then the numbers substituted in, then each simplification, one equals sign per line. Use real symbols. Empty when the step is reasoning rather than calculation."],
       "why": "one or two sentences on why this is the right move here, not what was done"
     }
   ],
@@ -54,6 +56,7 @@ exactly { "ok": false, "message": "one sentence saying what is missing" }.
 Rules:
 - Between 3 and 7 steps. Never fold two moves into one step to save space, and never pad with a step that does nothing.
 - "why" is the part that teaches. Never let it restate "work" in words.
+- Make it easy to follow for someone who found the question hard: short plain words, no skipped arithmetic, and each line of "work" only one small move on from the line before.
 - Show every substitution and every unit. Carry units through the working and put them in the answer.
 - If the question is ambiguous, solve the most likely reading and say which reading you took in "asked".
 - If the question has no single answer, put the best available answer in "answer" and explain the limitation in "idea".
@@ -93,11 +96,20 @@ export default async function handler(req, res) {
     // to reach the page and render as an empty box.
     const steps = (Array.isArray(data.steps) ? data.steps : [])
       .filter((s) => s && typeof s.do === "string" && s.do.trim())
-      .map((s) => ({
-        do: String(s.do).trim(),
-        work: String(s.work || "").trim(),
-        why: String(s.why || "").trim(),
-      }));
+      .map((s) => {
+        // The working, a line at a time; "work" stays as one string for
+        // anything that reads it whole (the video, older pages).
+        const lines = (Array.isArray(s.work) ? s.work : String(s.work || "").split(/\n+/))
+          .map((l) => String(l ?? "").trim()).filter(Boolean).slice(0, 10);
+        return {
+          do: String(s.do).trim(),
+          say: String(s.say || "").trim(),
+          rule: String(s.rule || "").trim(),
+          lines,
+          work: lines.join("\n"),
+          why: String(s.why || "").trim(),
+        };
+      });
 
     if (steps.length === 0) {
       return userError(res, 502, "The model returned no working. Try again, or send a clearer photo.");

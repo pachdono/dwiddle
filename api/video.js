@@ -72,7 +72,8 @@ Animations, so each step is seen happening rather than only stated. Use them whe
 - In figures, "flow": true on an arrow or segment makes dashes run along it, for anything that moves or flows: water, current, blood, energy, heat, a force acting. A "mover" shape (through: points, color) sends dots travelling along that path over and over, like particles diffusing, electrons in a wire or blood round a loop. "pulse": true on any shape makes it gently pulse while it is being talked about.
 
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
-- A figure is optional. Use one whenever the idea is geometric, a graph, a force, a structure or anything a picture makes clearer; scenes without one set "figure" to null.
+- Every scene has something to look at, and it matches what that scene is saying. In maths it is the question's diagram or a graph of what is being worked on. Anything else gets a simple drawn diagram of the structure or process the scene explains, or a picture of the real thing the scene names: talking about plants, a plant; about the heart, a heart; about a volcano, a volcano. Only a scene of pure algebra with nothing to picture sets "figure" to null.
+- The board supports the picture, it does not replace it. Outside maths: at most 3 board items a scene, each a key term or a point under 8 words. Never paste sentences from the lines onto the board.
 - Only what the source says, or standard facts at its level. Never invent a figure.
 - British English. No em dashes or en dashes in the lines.`;
 
@@ -84,7 +85,23 @@ const FIGURES = `Figures, which the app draws to scale and checks before showing
 - "checks" state every fact the figure must satisfy, and the app tests each one: "tangent" (a, b: circles or segments that touch), "on" (point lies on shape), "length" (from, to, equals), "perpendicular" and "parallel" (a, b: segments), "inside" (inner shape or point lies wholly inside outer). Give a check for every relationship in the question or topic: every touching, every length given, and "inside" for every part drawn within another, like each organelle inside the cell. A figure that fails a check is sent back to you to fix.
 - Draw the diagram yourself, simply, like a clear textbook sketch: only the parts the scene talks about, each a plain shape in its own colour with a "callout" label, nothing decorative. A plant cell is a rounded rect wall, a membrane just inside it, a large vacuole, a nucleus and a few small chloroplasts, not every organelle. Sizes true to life relative to each other: a chloroplast is small beside its cell, the nucleus smaller than the cell. Leave space between parts that do not touch.
 - Maths and coordinate figures set "axes" and "grid" true. Everything else sets them false and labels parts with "callout".
-- Only when a drawing truly cannot show the thing (a real landscape, a rock sample, a painting, a historical photo) give a picture instead: { "id": "rock", "picture": "a short plain name for it, e.g. Granite" }. The app finds a simple diagram or picture of it. Never use a picture for something you can draw.`;
+- For a real thing a scene names that a simple sketch would not do justice to (a plant, an animal, an organ, a volcano, a rock, a place, a person, a painting, an instrument), give a picture instead: { "id": "plant", "picture": "a short plain name for it, e.g. Sunflower", "photo": true }. "photo": true shows a photograph of the thing; false shows a labelled diagram of it, for things like "Plant cell" or "Human heart" where the labels are the point. Give each different thing its own picture figure and show it in the scene that talks about it. Processes, forces, structures and anything with parts to point at are drawn instead.`;
+
+const FIGURE_ONLY = `You draw the diagram for a question a student is solving, so they recognise it at once as their question.
+
+Return ONE JSON object and nothing else: { "figure": { ...a figure with "id": "main"... } }, or { "figure": null } when the question has no diagram and there is nothing a picture would make clearer (pure algebra, a definition, a calculation with no shape or graph).
+
+The figure format:
+{ "id": "main", "axes": false, "grid": false, "values": { "r": "8/9" }, "points": { "O": ["0", "0"] }, "shapes": [ ... ], "checks": [ ... ] }
+
+${FIGURES}
+
+Most of all:
+- Reproduce the question's own diagram: the same shapes, the same letters on the same points, the same lengths, angles and coordinates written beside the same parts, the same orientation and layout (what is on the left, what is above, what is inside), and the same shading. Nothing from the working or the answer is labelled on it, and nothing is added.
+- A diagram described in words ([Diagram: ...]) is drawn exactly as described.
+- A question with no diagram but a clear setup (a triangle with given sides, a graph of a function, a circle and a tangent, a ladder against a wall) is drawn the way a textbook would draw it.
+- Unknowns keep their letters as labels (x, r, θ). To place them truly to scale use the worked answer you are given in "values", but never write the answer on the figure.
+- Label with "callout" or a segment's "label" using the question's own text, like "12 cm", "35°", "x".`;
 
 const FROM_SOLUTION = `You turn a worked solution into a short narrated explainer video that walks a student through it step by step, like a tutor at a whiteboard.
 
@@ -154,8 +171,11 @@ function cleanScenes(data, figures) {
 
 // Builds the figures, sends any that fail their checks back once to be
 // fixed, and leaves out any that still fail.
-async function checkedFigures(list) {
+// specs, when given, is filled with the figure description each id ended up
+// with (the repaired one where it was repaired).
+async function checkedFigures(list, specs) {
   let { figures, problems } = buildFigures(list);
+  for (const f of list) if (specs && f && typeof f === "object") specs[String(f.id || "main")] = f;
   const failing = Object.keys(problems);
   if (!failing.length) return figures;
   try {
@@ -169,7 +189,10 @@ async function checkedFigures(list) {
     if (Array.isArray(fixed)) {
       const again = buildFigures(fixed);
       for (const id of failing) {
-        if (again.figures[id] && !again.problems[id]) { figures[id] = again.figures[id]; delete problems[id]; }
+        if (again.figures[id] && !again.problems[id]) {
+          figures[id] = again.figures[id]; delete problems[id];
+          if (specs) specs[id] = fixed.find((f) => String(f?.id || "main") === id);
+        }
       }
     }
   } catch { /* the repair is a second chance, not a requirement */ }
@@ -177,10 +200,55 @@ async function checkedFigures(list) {
   return figures;
 }
 
+// The question's own diagram, drawn once: shown on Solve under the question
+// and used unchanged in every scene of its video.
+async function questionFigure(body) {
+  const s = body.solution && typeof body.solution === "object" ? body.solution : {};
+  const text = [
+    `The question as the student gave it:\n${short(body.problem || s.asked, 6000)}`,
+    s.asked ? `Restated: ${short(s.asked, 1000)}` : "",
+    s.answer ? `Its worked answer, for placing things to scale only: ${short(s.answer, 300)}` : "",
+  ].filter(Boolean).join("\n\n");
+  const reply = await ask({ system: FIGURE_ONLY, user: text, maxTokens: 2500, temperature: 0.1, json: true });
+  const fig = safeParse(reply, "figure")?.figure;
+  if (!fig || typeof fig !== "object" || fig.picture) return null;
+  const specs = {};
+  const figures = await checkedFigures([{ ...fig, id: "main" }], specs);
+  return figures.main ? { spec: { ...specs.main, id: "main" }, built: figures.main } : null;
+}
+
+// The model's version of the question's diagram, with anything it moved or
+// resized put back: the original's points, values and shapes win, and only
+// new shapes and points (construction lines, marks) are taken from it.
+function keepQuestionFigure(original, drawn) {
+  const merged = JSON.parse(JSON.stringify(original));
+  if (drawn && typeof drawn === "object") {
+    merged.values = { ...(drawn.values || {}), ...(original.values || {}) };
+    merged.points = { ...(drawn.points || {}), ...(original.points || {}) };
+    const have = new Set((original.shapes || []).map((sh) => sh?.id));
+    merged.shapes = [...(original.shapes || []), ...(Array.isArray(drawn.shapes) ? drawn.shapes : []).filter((sh) => sh && !have.has(sh.id))].slice(0, 30);
+  }
+  return merged;
+}
+
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 6 })) return;
   const body = req.body || {};
   let system, user;
+
+  if (body.mode === "figure") {
+    try {
+      if (String(body.problem || body.solution?.asked || "").trim().length < 12) return res.status(200).json({ figure: null });
+      const drawn = await questionFigure(body);
+      return res.status(200).json(drawn ? { figure: drawn.spec, diagram: sceneDiagram(drawn.built, null, 0) } : { figure: null });
+    } catch (err) {
+      return fail(res, err);
+    }
+  }
+  // A question's diagram already drawn (by the figure step above) is kept as
+  // it is in every scene.
+  const given = body.figure && typeof body.figure === "object" && !body.figure.picture && buildFigures([{ ...body.figure, id: "main" }]).figures.main
+    ? { ...body.figure, id: "main" } : null;
 
   if (body.solution && typeof body.solution === "object") {
     const s = body.solution;
@@ -195,7 +263,10 @@ export default async function handler(req, res) {
     ].filter(Boolean).join("\n\n");
     if (text.length < 60) return userError(res, 400, "There is no worked solution to explain yet.");
     system = FROM_SOLUTION;
-    user = text.slice(0, MAX_INPUT);
+    user = text.slice(0, MAX_INPUT - 4000);
+    if (given) {
+      user += `\n\nThe question's own diagram, already drawn to scale, is this figure. Include it in "figures" exactly as it is, with id "main", and use "main" in EVERY scene. Never move, resize or relabel its shapes. To show a step, add new shapes to it (construction lines, a marked angle, a highlighted length, new points) with new ids, and reveal them with "show". Pictures or other figures are not needed for this question.\n${JSON.stringify(given).slice(0, 4000)}`;
+    }
   } else {
     const topic = short(body.topic, 160);
     const notes = String(body.notes || "").trim();
@@ -207,7 +278,21 @@ export default async function handler(req, res) {
   try {
     const text = await ask({ system, user, maxTokens: 6000, temperature: 0.3, json: true });
     const data = safeParse(text, "scenes");
-    const figures = await checkedFigures(Array.isArray(data?.figures) ? data.figures : []);
+    let list = Array.isArray(data?.figures) ? data.figures : [];
+    if (given) {
+      const theirs = list.find((f) => String(f?.id || "main") === "main");
+      list = [keepQuestionFigure(given, theirs), ...list.filter((f) => f !== theirs)];
+      // The question's own shapes are on screen from the start of every scene.
+      const base = (given.shapes || []).map((sh) => sh?.id).filter(Boolean);
+      for (const sc of Array.isArray(data?.scenes) ? data.scenes : []) {
+        if (!sc || (sc.figure && sc.figure !== "main")) continue;
+        sc.figure = "main";
+        const show = Array.isArray(sc.show) ? sc.show.map((x) => (typeof x === "string" ? { id: x, at: 0 } : x)) : [];
+        const shown = new Set(show.map((x) => x?.id));
+        sc.show = [...base.filter((id) => !shown.has(id)).map((id) => ({ id, at: 0 })), ...show];
+      }
+    }
+    const figures = await checkedFigures(list);
     const video = cleanScenes(data, figures);
     if (!video) return userError(res, 502, "The video did not come back complete. Try again.");
     res.status(200).json(video);

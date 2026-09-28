@@ -66,3 +66,31 @@ test("a correct figure needs no repair", async () => {
   assert.equal(replies.length, 0);
   assert.ok(data.scenes[0].diagram && data.scenes[1].diagram);
 });
+
+test("the question's diagram is drawn on its own, and nothing when there is none", async () => {
+  replies.push(JSON.stringify({ figure: semicircle("8/9") }));
+  const { code, data } = await call({ mode: "figure", problem: "Find r, the radius of the circle touching both semicircles.", solution: { answer: "r = 8/9" } });
+  assert.equal(code, 200);
+  assert.equal(data.figure.id, "main");
+  replies.push(JSON.stringify({ figure: null }));
+  const none = await call({ mode: "figure", problem: "Solve 3x + 2 = 11 for x please." });
+  assert.equal(none.data.figure, null);
+});
+
+test("a video keeps the question's diagram in every scene, unmoved, with the steps' new marks added", async () => {
+  const given = { ...semicircle("8/9"), id: "main" };
+  // The model moves the big circle and adds a construction line.
+  const theirs = { ...given, points: { ...given.points, O: ["5", "5"] }, shapes: [...given.shapes, { id: "OC", type: "segment", from: "O", to: "C", color: "blue" }] };
+  replies.push(JSON.stringify({ title: "T", figures: [theirs], scenes: [
+    { heading: "Look", lines: ["One."], board: [], figure: "main", show: [] },
+    { heading: "Join", lines: ["Two.", "Three."], board: [{ kind: "math", text: "OC = 2 − r", at: 1 }], figure: null, show: [{ id: "OC", at: 1 }] },
+  ] }));
+  const { data } = await call({ figure: given, problem: "Find r.", solution: { asked: "Find r", answer: "8/9", steps: [{ do: "Join OC", work: "OC = 2 − r", why: "tangent" }] } });
+  const [a, b] = data.scenes;
+  assert.ok(a.diagram && b.diagram, "every scene shows the question's diagram");
+  assert.deepEqual(a.diagram.shapes.map((s) => s.type), ["circle", "circle", "circle"], "the question's three circles");
+  assert.deepEqual(a.diagram.shapes[0].c, [0, 0], "its centre stays where the question put it");
+  const join = b.diagram.shapes.find((s) => s.type === "segment");
+  assert.ok(join && join.at === 1, "the new construction line arrives with its line");
+  assert.ok(b.diagram.shapes.filter((s) => s.type === "circle").every((s) => s.at === 0), "the question's own shapes are there from the start");
+});

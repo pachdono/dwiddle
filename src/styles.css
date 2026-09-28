@@ -7379,13 +7379,13 @@ a.btn { text-decoration: none; }
   color: var(--ink);
   animation: fade 0.18s ease both;
 }
-:root[data-theme="dark"] .vd { --vd-blue: #5b9df5; --vd-green: #4cc27d; --vd-purple: #a78bfa; --vd-orange: #f5a524; --vd-red: #f47175; }
-.vd .c-ink { --c: var(--vd-ink); }
-.vd .c-blue { --c: var(--vd-blue); }
-.vd .c-green { --c: var(--vd-green); }
-.vd .c-purple { --c: var(--vd-purple); }
-.vd .c-orange { --c: var(--vd-orange); }
-.vd .c-red { --c: var(--vd-red); }
+:root[data-theme="dark"] :is(.vd, .sv-drawn) { --vd-blue: #5b9df5; --vd-green: #4cc27d; --vd-purple: #a78bfa; --vd-orange: #f5a524; --vd-red: #f47175; }
+:is(.vd, .sv-drawn) .c-ink { --c: var(--vd-ink); }
+:is(.vd, .sv-drawn) .c-blue { --c: var(--vd-blue); }
+:is(.vd, .sv-drawn) .c-green { --c: var(--vd-green); }
+:is(.vd, .sv-drawn) .c-purple { --c: var(--vd-purple); }
+:is(.vd, .sv-drawn) .c-orange { --c: var(--vd-orange); }
+:is(.vd, .sv-drawn) .c-red { --c: var(--vd-red); }
 
 .vd-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
 .vd-titles { display: grid; min-width: 0; }
@@ -8142,3 +8142,41 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
    page has its size set, so nothing jumps as they appear. */
 .nb-page { content-visibility: auto; }
 .nb-thumb { content-visibility: auto; contain-intrinsic-size: auto 130px; }
+
+/* ---------- Solve, step by step (testers): each move easy to follow ---------- */
+.sv-drawn { padding: 16px 18px 10px; margin: 14px 0; }
+.sv-drawn .vd-diagram { display: block; width: 100%; max-width: 560px; height: auto; margin: 6px auto 0; }
+.sv-drawn-wait { display: grid; place-items: center; min-height: 160px; }
+.sv2-steps { list-style: none; margin: 16px 0; padding: 0; display: grid; gap: 14px; }
+.sv2-step { border: 1px solid var(--line); border-radius: calc(var(--radius) + 2px); background: var(--surface); box-shadow: var(--shadow); padding: 18px 20px; animation: sv2-in 0.45s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes sv2-in { from { opacity: 0; transform: translateY(10px); } }
+.sv2-head { display: flex; gap: 14px; align-items: flex-start; }
+.sv2-n { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 14px; font-weight: 800; color: #fff; background: var(--accent); box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 60%, #000); }
+.sv2-head b { display: block; font-size: 16px; letter-spacing: -0.01em; line-height: 1.3; margin-top: 4px; }
+.sv2-say { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.sv2-rule { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0 0 44px; padding: 5px 12px 5px 5px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel)); color: var(--ink); }
+.sv2-rule span { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; background: var(--accent); color: #fff; }
+.sv2-math { margin: 14px 0 0 44px; padding: 14px 18px; border-radius: 14px; background: var(--panel); display: grid; gap: 10px; }
+.sv-mline { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", Cambria, Georgia, serif; font-size: 21px; line-height: 1.5; text-align: center; color: var(--ink);
+  animation: sv2-line 0.4s ease both; }
+.sv-mline:nth-child(2) { animation-delay: 0.08s; } .sv-mline:nth-child(3) { animation-delay: 0.16s; } .sv-mline:nth-child(4) { animation-delay: 0.24s; } .sv-mline:nth-child(n+5) { animation-delay: 0.32s; }
+@keyframes sv2-line { from { opacity: 0; transform: translateY(4px); } }
+.sv-mline:last-child:not(:first-child) { color: var(--accent); font-weight: 600; }
+.sv-eq { display: inline-block; margin: 0 0.35em; }
+.sv-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.12em; font-size: 0.86em; line-height: 1.15; }
+.sv-frac > span:first-child { padding: 0 0.2em 0.08em; border-bottom: 1.5px solid currentColor; }
+.sv-frac > span:last-child { padding: 0.08em 0.2em 0; }
+.sv2-why { display: flex; gap: 10px; margin: 14px 0 0 44px; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; color: var(--ink-2);
+  background: color-mix(in srgb, #FFD95A 13%, var(--surface)); border: 1px solid color-mix(in srgb, #F2B51C 30%, var(--line)); }
+.sv2-why b { color: var(--ink); }
+.sv2-final { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px; margin: 6px 0 18px; padding: 18px 22px; border-radius: calc(var(--radius) + 2px);
+  background: color-mix(in srgb, var(--good, #22A262) 12%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--good, #22A262) 45%, var(--line)); }
+.sv2-final span { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.sv2-final b { font-family: "STIX Two Math", "Cambria Math", Cambria, Georgia, serif; font-size: 26px; color: var(--ink); }
+@media (max-width: 600px) {
+  .sv2-rule, .sv2-math, .sv2-why { margin-left: 0; }
+  .sv-mline { font-size: 18px; }
+}
+
+.sv-drawn { --vd-ink: var(--ink); --vd-blue: #2f80ed; --vd-green: #2e9e5b; --vd-purple: #8b5cf6; --vd-orange: #e8890c; --vd-red: #e5484d; }

@@ -155,6 +155,9 @@ export async function readYouTube(url) {
 
 // A narrated explainer video, as scenes the app animates: from a worked
 // solution ({ solution, problem }) or one topic of notes ({ topic, notes }).
+// The question's own diagram, drawn once: { figure, diagram } or { figure: null }.
+export const drawQuestion = (source) => post("/api/video", { ...source, mode: "figure" }, { retry: false }).catch(() => ({ figure: null }));
+
 export const writeVideo = (source) => post("/api/video", source, { retry: false }).then((v) => ({
   ...v,
   scenes: v.scenes.map((sc) => ({ ...sc, board: sc.board.map((b) => ({ ...b, text: tidyMath(b.text) })) })),
@@ -419,6 +422,9 @@ export const solveProblem = (problem) =>
     watch: (d.watch || []).map(tidyMath),
     steps: (d.steps || []).map((st) => ({
       do: tidyMath(st.do),
+      say: tidyMath(st.say || ""),
+      rule: tidyMath(st.rule || ""),
+      lines: (st.lines || []).map(tidyMath),
       work: tidyMath(st.work),
       why: tidyMath(st.why),
     })),

@@ -28,7 +28,7 @@ function distToLine(p, a, b) {
 export function buildFigure(fig) {
   // A standard labelled diagram, shown from Wikipedia rather than drawn.
   if (typeof fig?.picture === "string" && fig.picture.trim()) {
-    return { figure: { picture: short(fig.picture, 80), order: [], shapes: {} }, problems: [] };
+    return { figure: { picture: short(fig.picture, 80), photo: fig.photo === true, order: [], shapes: {} }, problems: [] };
   }
   const problems = [];
   const vars = {};
@@ -282,7 +282,7 @@ export function buildFigures(list) {
 // the line that talks about it.
 export function sceneDiagram(figure, show, lastLine) {
   if (!figure) return null;
-  if (figure.picture) return { picture: figure.picture };
+  if (figure.picture) return { picture: figure.picture, ...(figure.photo ? { photo: true } : {}) };
   const list = Array.isArray(show) && show.length
     ? show.map((s) => (typeof s === "string" ? { id: s, at: 0 } : s))
     : figure.order.map((id) => ({ id, at: 0 }));

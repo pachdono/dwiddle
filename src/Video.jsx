@@ -527,21 +527,24 @@ function PlayIcon({ size }) {
 // A real labelled diagram from Wikipedia, for a figure given as a picture.
 // Kept per query while the page is open, so scenes sharing it do not flicker.
 const pictures = new Map();
-function usePicture(query) {
-  const [pic, setPic] = useState(() => (query ? pictures.get(query) : null));
+// photo: a photograph of the thing itself (the article's picture), rather
+// than a labelled diagram of it.
+function usePicture(query, photo) {
+  const key = query ? (photo ? "photo:" : "") + query : null;
+  const [pic, setPic] = useState(() => (key ? pictures.get(key) : null));
   useEffect(() => {
-    if (!query || pictures.has(query)) { setPic(query ? pictures.get(query) : null); return; }
+    if (!key || pictures.has(key)) { setPic(key ? pictures.get(key) : null); return; }
     let live = true;
-    import("./wikiPic.js").then(({ findDiagram }) => findDiagram(query)).catch(() => null)
-      .then((p) => { pictures.set(query, p || null); if (live) setPic(p || null); });
+    import("./wikiPic.js").then(({ findDiagram, findPicture }) => (photo ? findPicture(query) : findDiagram(query))).catch(() => null)
+      .then((p) => { pictures.set(key, p || null); if (live) setPic(p || null); });
     return () => { live = false; };
-  }, [query]);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return pic;
 }
 
 function Scene({ scene, line }) {
   const board = scene.board.filter((b) => b.at <= line);
-  const pic = usePicture(scene.diagram?.picture);
+  const pic = usePicture(scene.diagram?.picture, scene.diagram?.photo);
   const drawn = scene.diagram && !scene.diagram.picture;
   const figure = drawn || !!pic;
   return (
@@ -571,7 +574,7 @@ function niceStep(span) {
   return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw) || p * 10;
 }
 
-function Diagram({ d, line }) {
+export function Diagram({ d, line }) {
   const [x0, x1] = d.x, [y0, y1] = d.y;
   const k = Math.min((W - 2 * PAD) / (x1 - x0), (H - 2 * PAD) / (y1 - y0));
   const ox = (W - k * (x1 - x0)) / 2, oy = (H - k * (y1 - y0)) / 2;

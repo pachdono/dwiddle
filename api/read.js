@@ -21,7 +21,8 @@ Rules:
 - Write out every word you can read, in reading order.
 - Keep headings on their own line. Keep lists as lines. Keep the original wording.
 - Where the page has a table, write it as lines with columns separated by a tab.
-- Where there is a diagram or a chart, describe it in one or two sentences in square brackets, including any labels, so it can still be revised from.
+- Where there is a diagram or a chart, describe it in square brackets, including every label, so it can still be revised from.
+- A geometry or maths diagram is described so exactly it could be redrawn from the words alone: every shape, every labelled point and which shape it is on, every length, angle and coordinate written on it, what touches what (tangent), what is perpendicular or parallel, what is shaded, and where things sit relative to each other (left, above, inside). Begin it with [Diagram: and use as many sentences as it needs.
 - Do not summarise, do not correct mistakes, and do not add anything of your own.
 - If part of it is genuinely illegible, write [unclear] there rather than guessing.
 
