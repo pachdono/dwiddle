@@ -90,7 +90,9 @@ const PATH_PAGE = Object.fromEntries(
 // The desktop app is loaded from disk, where changing the path would make
 // an address that cannot be reopened. It keeps the same pages, without the
 // URL.
-const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http");
+// A copy hosted as a preview (VITE_STATIC) lives at an address of its own
+// and keeps the pages without changing it, like the desktop app.
+const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http") && import.meta.env.VITE_STATIC !== "1";
 
 const REAL_PATHS = new Set([
   "/", "/index.html", "", "/privacy", "/terms", "/download", "/homepage",
