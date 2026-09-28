@@ -184,7 +184,7 @@ export async function listModels(p = provider()) {
 }
 
 // For providers that report no modality metadata at all.
-const VISION_NAME = /vision|vl[-:]|[-/]vl|llava|pixtral|gemini|gemma-3|internvl|qwen2?\.?5?-vl/i;
+const VISION_NAME = /vision|vl[-:]|[-/]vl|llava|pixtral|gemini|gemma-3|internvl|qwen2?\.?5?-vl|llama-4-(scout|maverick)/i;
 
 export async function listVisionModels(p = provider()) {
   await listModels(p);
@@ -405,10 +405,13 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
     if (isSpent(p.id)) { spentProviders++; continue; }
     let spentHere = false;
     // Try the cached winner for this provider first, then the rest in order.
-    const cached = cachedModel?.provider === p.id ? cachedModel.model : null;
+    // A picture only goes to models that can see; the last text model that
+    // worked is no guide to which of those will.
+    const cached = !vision && cachedModel?.provider === p.id ? cachedModel.model : null;
     let list, full;
     try {
-      const found = await candidates({ p });
+      const found = await candidates({ p, vision });
+      if (!found.length) { lastError = Object.assign(new Error(`No ${p.id} model can read pictures`), { status: 502 }); continue; }
       full = cached ? [cached, ...found.filter((m) => m !== cached)] : found;
       list = full.filter((m) => !isSpent(`${p.id}/${m}`));
     } catch (err) {
@@ -477,9 +480,9 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
         const data = await reply.json().catch(() => null);
         const text = data?.choices?.[0]?.message?.content;
         if (text) {
-          notePace(p.id, Date.now() - began, text.length);
+          if (!vision) notePace(p.id, Date.now() - began, text.length);
           if (cachedModel?.model !== model) console.log(`[api] using ${p.id}/${model}`);
-          cachedModel = { provider: p.id, model };
+          if (!vision) cachedModel = { provider: p.id, model };
           return text;
         }
         lastError = Object.assign(new Error("The model returned an empty answer"), { status: 502 });
@@ -535,7 +538,8 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
 
       if (reply.status === 400 || reply.status === 403 || reply.status === 404) {
         console.warn(`[api] ${p.id}/${model} unusable (${reply.status})`);
-        rejected.add(model);
+        // Refusing a picture says nothing about text, so only text refusals stick.
+        if (!vision) rejected.add(model);
         if (cachedModel?.model === model) cachedModel = null;
         lastError = Object.assign(new Error("No model this key can use accepted the request"), { status: 502 });
         continue;

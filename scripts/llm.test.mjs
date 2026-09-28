@@ -99,3 +99,29 @@ test("a quick answer never asks a second provider", async () => {
   assert.equal(calls.length, 1);
   process.env.LLM_HEDGE_MS = "0";
 });
+
+test("a picture only goes to a model that can see, and a text model is not written off for it", async () => {
+  process.env.LLM_HEDGE_MS = "0";
+  const keep = process.env.LLM_ORDER;
+  process.env.LLM_ORDER = "groq,openrouter";
+  const calls = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    const host = new URL(url).host;
+    if (url.endsWith("/models")) {
+      const data = host === "openrouter.ai"
+        ? [{ id: "google/gemma-4-27b-it:free", architecture: { input_modalities: ["text", "image"] } }]
+        : [{ id: "llama-3.3-70b-versatile" }];
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    }
+    const body = JSON.parse(opts.body);
+    calls.push(body.model);
+    return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 });
+  };
+  const mod = await import(`../api/_llm.js?copy=vision${Date.now()}`);
+  assert.equal(await mod.ask({ system: "s", user: [{ type: "text", text: "read" }], vision: true }), "ok");
+  assert.deepEqual(calls, ["google/gemma-4-27b-it:free"], "the text-only Groq model is not sent the picture");
+  calls.length = 0;
+  assert.equal(await mod.ask({ system: "s", user: "u" }), "ok");
+  assert.deepEqual(calls, ["llama-3.3-70b-versatile"], "and it still answers text afterwards");
+  process.env.LLM_ORDER = keep;
+});
