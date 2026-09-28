@@ -383,6 +383,10 @@ export async function notifyFeedback(payload) {
 // A photograph or scan is transcribed on the server by a model that reads
 // images, and the text then goes through generateFromNotes like anything else.
 export const readImage = (image) => post("/api/read", { image });
+// Mistakes on a notebook page: { errors: [{ wrong, fix, why, kind, box }], summary }.
+export const checkPage = (image, typed) => post("/api/read", { image, typed, mode: "check" }).then((d) => ({
+  ...d, errors: (d.errors || []).map((e) => ({ ...e, wrong: tidyMath(e.wrong), fix: tidyMath(e.fix), why: tidyMath(e.why) })),
+}));
 
 // One topic taught as a sequence of cards, with two checks at the end.
 export const generateLesson = ({ topic, others, notes, syllabus, context }) =>

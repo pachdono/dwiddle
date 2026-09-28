@@ -8364,3 +8364,29 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .dk-note { text-align: center; margin: 10px 0 -6px; animation: dk-pop .25s ease both; }
 .dk-slow { display: flex; align-items: center; gap: 8px; justify-content: center; margin: -4px auto 12px; padding: 8px 14px; border-radius: 12px; font-size: 13.5px; width: fit-content;
   background: color-mix(in srgb, #F59E0B 12%, var(--surface)); color: var(--ink-2); animation: dk-pop .3s ease both; }
+
+/* notebook: Check my work */
+.nb-checks { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.nb-check-box { position: absolute; border: 2.5px solid #e5484d; border-radius: 10px; background: rgba(229, 72, 77, 0.08); box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.12);
+  animation: nb-check-in .45s cubic-bezier(.3,1.5,.5,1) both; }
+.nb-check-box.on { background: rgba(229, 72, 77, 0.16); box-shadow: 0 0 0 5px rgba(229, 72, 77, 0.2); }
+@keyframes nb-check-in { from { opacity: 0; transform: scale(1.12); } }
+.nb-check-badge { position: absolute; top: -12px; right: -12px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; background: #e5484d; color: #fff;
+  font-size: 12px; font-weight: 800; cursor: pointer; pointer-events: auto; box-shadow: 0 2px 6px rgba(0,0,0,.25); display: grid; place-items: center; padding: 0; }
+.nb-check-card { position: absolute; width: 320px; pointer-events: auto; padding: 12px 14px 12px; border-radius: 16px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-top: 4px solid #e5484d; box-shadow: 0 14px 40px rgba(0,0,0,.2); animation: dk-pop .25s ease both; z-index: 5; }
+.nb-check-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.nb-check-kind { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; background: rgba(229,72,77,.12); color: #c22d33; }
+.nb-check-wrong, .nb-check-fix { display: flex; gap: 8px; align-items: baseline; margin: 4px 0; font-size: 15px; }
+.nb-check-wrong span { color: #e5484d; font-weight: 800; }
+.nb-check-wrong s { color: var(--ink-2); text-decoration-color: #e5484d; text-decoration-thickness: 2px; }
+.nb-check-fix span { color: #22a262; font-weight: 800; }
+.nb-check-fix b { color: #1a8a52; }
+.nb-check-why { margin: 8px 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.nb-check-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.nb-check-bar { position: sticky; top: 8px; margin: 8px auto 0; width: fit-content; pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px;
+  border-radius: 999px; background: #e5484d; color: #fff; font-size: 13px; box-shadow: 0 4px 14px rgba(229,72,77,.35); }
+.nb-check-bar button { border: 0; border-radius: 999px; padding: 4px 10px; background: rgba(255,255,255,.18); color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
+.nb-check-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px;
+  background: #22a262; color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 8px 24px rgba(34,162,98,.35); animation: dk-pop .3s ease both; }
+.nb-checkbtn { color: #c22d33; }

@@ -19,7 +19,7 @@ import { Icon, PageHead, Loading, Portal, BusyScreen } from "./ui.jsx";
 import { DuckMark } from "./Duck.jsx";
 import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H, listFonts, putFont } from "./notebookStore.js";
 import { syncNotebooks, queueUpload, queueDelete } from "./notebookSync.js";
-import { readImage } from "./ai.js";
+import { readImage, checkPage } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { shrink } from "./custom.js";
@@ -2567,6 +2567,8 @@ function Editor({ id, go, onClose, early = false }) {
   }, [editingText]);
   const [current, setCurrent] = useState(0); // page index in view
   const [busy, setBusy] = useState("");
+  const [checkOpen, setCheckOpen] = useState(null); // id of the mistake whose card is open (Check my work)
+  const [checkNote, setCheckNote] = useState("");
   const [cov, setCov] = useState(COVERS_INK[0]);
   const [shown, setShown] = useState(() => new Set()); // revealer strokes tapped open
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
@@ -3454,6 +3456,55 @@ function Editor({ id, go, onClose, early = false }) {
 
   // The page in view as a picture, for Dwiddle to read the handwriting, plus
   // whatever was typed, which needs no reading at all.
+  // The page in view drawn to a picture, as the student sees it.
+  async function pageImage(index = current) {
+    const page = book.pages[index];
+    const svg = pagesRef.current.querySelectorAll(".nb-page svg")[index].cloneNode(true);
+    svg.querySelectorAll("foreignObject").forEach((f) => f.remove());
+    svg.setAttribute("width", page.w); svg.setAttribute("height", page.h);
+    const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    await new Promise((r, j) => { img.onload = r; img.onerror = j; img.src = url; });
+    const c = document.createElement("canvas");
+    const k = 1400 / page.w;
+    c.width = page.w * k; c.height = page.h * k;
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    return c.toDataURL("image/jpeg", 0.88);
+  }
+
+  // Check my work (testers): Dwiddle marks the page. Each mistake is ringed in
+  // red where it is, and opens to say why it is wrong and what is right. The
+  // marks are kept with the page until dismissed.
+  async function checkWork() {
+    const page = book.pages[current];
+    if (!page.items.length && !page.bg) { alert("There is nothing on this page to check yet."); return; }
+    setBusy("Checking your work");
+    try {
+      const typed = page.items.filter((i) => i.type === "text" && i.text.trim()).map((i) => i.text.trim()).join("\n");
+      const r = await checkPage(await pageImage(current), typed);
+      const errors = r.errors.map((e) => ({ ...e, id: uid() }));
+      updatePage(page.id, (p) => ({ ...p, checks: { at: Date.now(), summary: r.summary, errors } }), { record: false });
+      setCheckOpen(errors.find((e) => e.box)?.id || null);
+      setCheckNote(errors.length ? "" : r.summary || "No mistakes found. Nice work!");
+      if (!errors.length) setTimeout(() => setCheckNote(""), 4000);
+    } catch (err) {
+      alert(err.message || "Dwiddle could not check this page just now.");
+    } finally {
+      setBusy("");
+    }
+  }
+  function dismissCheck(pageId, id) {
+    updatePage(pageId, (p) => {
+      const left = (p.checks?.errors || []).filter((e) => id && e.id !== id);
+      return { ...p, checks: left.length ? { ...p.checks, errors: left } : undefined };
+    }, { record: false });
+    setCheckOpen(null);
+  }
+
   async function pageForDwiddle() {
     const page = book.pages[current];
     const typed = page.items.filter((i) => i.type === "text" && i.text.trim()).map((i) => i.text.trim()).join("\n");
@@ -3542,6 +3593,7 @@ function Editor({ id, go, onClose, early = false }) {
           <FullscreenButton />
         </div>
         <div className="nb-group nb-asks">
+          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={checkWork} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
             {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
@@ -3757,6 +3809,7 @@ function Editor({ id, go, onClose, early = false }) {
           <FullscreenButton />
         </div>
         <div className="nb-group">
+          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={checkWork} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
             {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
@@ -3766,7 +3819,10 @@ function Editor({ id, go, onClose, early = false }) {
 
       </>)}
       <div ref={ring} className="nb-ring" aria-hidden="true" />
-      {busy && <BusyScreen title={busy === "Adding the PDF" ? "Adding your PDF" : "Dwiddle is reading the page"} detail={busy === "Adding the PDF" ? "Each page becomes a notebook page you can write on." : "Turning your writing into text Dwiddle can work with."} outfit={busy === "Adding the PDF" ? "detective" : "graduate"} />}
+      {busy && <BusyScreen title={busy === "Adding the PDF" ? "Adding your PDF" : busy === "Checking your work" ? "Dwiddle is checking your work" : "Dwiddle is reading the page"}
+        detail={busy === "Adding the PDF" ? "Each page becomes a notebook page you can write on." : busy === "Checking your work" ? "Reading every line for slips, wrong steps and facts that are not quite right." : "Turning your writing into text Dwiddle can work with."}
+        outfit={busy === "Adding the PDF" ? "detective" : busy === "Checking your work" ? "detective" : "graduate"} />}
+      {checkNote && <div className="nb-check-toast" role="status"><Icon name="check" size={16} /> {checkNote}</div>}
       {more && (
         <>
           <div className="nb-pop-scrim" onPointerDown={() => setMore(false)} />
@@ -3932,6 +3988,40 @@ function Editor({ id, go, onClose, early = false }) {
                   </g>;
                 })()}
               </svg>
+              {early && page.checks?.errors?.length > 0 && (
+                <div className="nb-checks" aria-label="Mistakes Dwiddle found">
+                  {page.checks.errors.map((e, n) => e.box && (
+                    <div key={e.id} className={"nb-check-box" + (checkOpen === e.id ? " on" : "")}
+                      style={{ left: e.box[0] * page.w * zoom, top: e.box[1] * page.h * zoom, width: (e.box[2] - e.box[0]) * page.w * zoom, height: (e.box[3] - e.box[1]) * page.h * zoom }}>
+                      <button className="nb-check-badge" onClick={() => setCheckOpen(checkOpen === e.id ? null : e.id)} aria-label={`Mistake ${n + 1}: ${e.wrong}`}>{n + 1}</button>
+                    </div>
+                  ))}
+                  {(() => {
+                    const e = page.checks.errors.find((x) => x.id === checkOpen);
+                    if (!e) return null;
+                    const left = e.box ? Math.min(Math.max(8, e.box[0] * page.w * zoom), page.w * zoom - 330) : 16;
+                    const top = e.box ? e.box[3] * page.h * zoom + 10 : 16;
+                    return (
+                      <div className="nb-check-card" style={{ left, top }} role="dialog" aria-label="Mistake">
+                        <div className="nb-check-head"><span className={"nb-check-kind " + e.kind}>{{ maths: "Maths", fact: "Fact", spelling: "Spelling", units: "Units", other: "Check" }[e.kind]}</span>
+                          <button className="icon-btn" onClick={() => setCheckOpen(null)} aria-label="Close"><Icon name="close" size={13} /></button></div>
+                        <p className="nb-check-wrong"><span>✗</span><s>{e.wrong}</s></p>
+                        {e.fix && <p className="nb-check-fix"><span>✓</span><b>{e.fix}</b></p>}
+                        <p className="nb-check-why">{e.why}</p>
+                        <div className="nb-check-actions">
+                          <button className="btn ghost small" onClick={() => dismissCheck(page.id, e.id)}>Dismiss</button>
+                          {(() => { const i = page.checks.errors.indexOf(e), nx = page.checks.errors.slice(i + 1).concat(page.checks.errors.slice(0, i)).find((x) => x.box); return nx && nx.id !== e.id ? <button className="btn small" onClick={() => setCheckOpen(nx.id)}>Next mistake</button> : null; })()}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div className="nb-check-bar">
+                    <span><b>{page.checks.errors.length}</b> thing{page.checks.errors.length === 1 ? "" : "s"} to look at</span>
+                    {page.checks.errors.some((e) => !e.box) && <button onClick={() => setCheckOpen(page.checks.errors.find((e) => !e.box).id)}>Show the rest</button>}
+                    <button onClick={() => dismissCheck(page.id, null)}>Dismiss all</button>
+                  </div>
+                </div>
+              )}
               {(() => {
                 const ed = editingText && page.items.find((i) => i.id === editingText && i.type === "text");
                 if (!ed) return null;
