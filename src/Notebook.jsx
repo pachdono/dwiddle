@@ -495,6 +495,22 @@ function unionBox(items) {
   const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
   return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
 }
+function cornerAt(box, x, y, tolerance) {
+  if (!box) return null;
+  const corners = [
+    ["tl", box.x, box.y], ["tr", box.x + box.w, box.y],
+    ["bl", box.x, box.y + box.h], ["br", box.x + box.w, box.y + box.h],
+  ];
+  return corners.find(([, cx, cy]) => Math.hypot(x - cx, y - cy) <= tolerance)?.[0] || null;
+}
+function resizeGroup(items, box, corner, x, y) {
+  const left = corner[1] === "l", top = corner[0] === "t";
+  const ax = left ? box.x + box.w : box.x, ay = top ? box.y + box.h : box.y;
+  const sx = (x - ax) / ((left ? -1 : 1) * box.w);
+  const sy = (y - ay) / ((top ? -1 : 1) * box.h);
+  const k = Math.max(0.15, Math.min(6, (sx + sy) / 2));
+  return items.map((item) => scaleItem(item, ax, ay, k));
+}
 // The top thing under a spot. A fingertip is wide and a phone shows the
 // page small, so touches get some room around each thing.
 function itemAt(items, x, y, pad) {
@@ -751,7 +767,7 @@ export function PagePreview({ page, className = "" }) {
   );
 }
 
-export default function NotebookPage({ go, early = false }) {
+export default function NotebookPage({ go, early = false, access }) {
   const [books, setBooks] = useState(null);
   // a notebook just made from notes opens straight away
   const [openId, setOpenId] = useState(() => {
@@ -859,7 +875,7 @@ export default function NotebookPage({ go, early = false }) {
     }
   }
 
-  if (openId) return <Portal><Editor id={openId} go={go} early={early} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
+  if (openId) return <Portal><Editor id={openId} go={go} early={early} access={access} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
 
   return (
     <div className="page wide fade nb-home" onClick={() => setMenu(null)}>
@@ -2055,6 +2071,19 @@ function VideoFloat({ id, onId, onClose, early = false }) {
 // has a real one. On the website, pages that allow it are shown live, and
 // the rest (most sites forbid being shown inside another) open as a clean
 // reader view fetched by the server, with their pictures ready to add.
+function notebookImageUrl(value) {
+  if (/^data:image\//i.test(value)) return value;
+  try {
+    const url = new URL(value);
+    if (!["https:", "http:"].includes(url.protocol)) return "";
+    if (/(^|\.)google\.[a-z.]+$/i.test(url.hostname) && url.searchParams.has("imgurl")) {
+      const original = new URL(url.searchParams.get("imgurl"));
+      return ["https:", "http:"].includes(original.protocol) ? original.href : "";
+    }
+    return url.href;
+  } catch { return ""; }
+}
+
 async function imageFile(url) {
   let src = null;
   if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
@@ -2070,7 +2099,7 @@ async function imageFile(url) {
 // The browser beside the notebook. Its left edge drags to make it wider or
 // narrower, and the width is kept for next time.
 const SPLIT_KEY = "dwiddle-split-width";
-function SplitPanel({ onClose, onAddImage, onAddText }) {
+function SplitPanel({ onClose, onAddImage, onAddText, onImageDrag }) {
   const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
   const [width, setWidth] = useState(() => { try { return Number(localStorage.getItem(SPLIT_KEY)) || 0; } catch { return 0; } });
   const [dragging, setDragging] = useState(false);
@@ -2091,7 +2120,7 @@ function SplitPanel({ onClose, onAddImage, onAddText }) {
     <aside ref={aside} className={"nb-split nb-safari" + (dragging ? " resizing" : "")} aria-label="Browser" style={width ? { flexBasis: width, width } : undefined}>
       <div className="nb-split-grip" onPointerDown={grab} onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(SPLIT_KEY); } catch { /* fine */ } }}
         role="separator" aria-orientation="vertical" aria-label="Drag to resize the browser" title="Drag to resize. Double-click to reset."><i /></div>
-      {desktop ? <WebView onClose={onClose} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} />}
+      {desktop ? <WebView onClose={onClose} onImageDrag={onImageDrag} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} />}
     </aside>
   );
 }
@@ -2265,8 +2294,9 @@ function ReaderPic({ src, alt, onAdd }) {
 }
 
 // The desktop app's real browser, in the same Safari-style bar.
-function WebView({ onClose }) {
+function WebView({ onClose, onImageDrag }) {
   const view = useRef(null);
+  const clearDrag = useRef(0);
   const [addr, setAddr] = useState("https://www.google.com");
   const [src] = useState("https://www.google.com");
   const [editing, setEditing] = useState(false);
@@ -2275,10 +2305,19 @@ function WebView({ onClose }) {
     const v = view.current;
     if (!v) return;
     const on = (e) => setAddr(e.url);
+    const onIpc = (e) => {
+      if (e.channel === "dwiddle:image-drag-start") {
+        clearTimeout(clearDrag.current);
+        onImageDrag?.({ url: String(e.args?.[0] || ""), phase: "start" });
+      } else if (e.channel === "dwiddle:image-drag-end") {
+        clearDrag.current = setTimeout(() => onImageDrag?.({ phase: "end" }), 800);
+      }
+    };
     v.addEventListener("did-navigate", on);
     v.addEventListener("did-navigate-in-page", on);
-    return () => { v.removeEventListener("did-navigate", on); v.removeEventListener("did-navigate-in-page", on); };
-  }, []);
+    v.addEventListener("ipc-message", onIpc);
+    return () => { clearTimeout(clearDrag.current); v.removeEventListener("did-navigate", on); v.removeEventListener("did-navigate-in-page", on); v.removeEventListener("ipc-message", onIpc); };
+  }, [onImageDrag]);
   const go = (t) => {
     const a = toAddress(t);
     view.current?.loadURL(a.url || "https://www.google.com/search?q=" + encodeURIComponent(a.q));
@@ -2349,7 +2388,8 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
-function Editor({ id, go, onClose, early = false }) {
+function Editor({ id, go, onClose, early = false, access }) {
+  const canUseNewNotebookTools = !access?.banned && (access?.tester === true || ["admin", "moderator"].includes(access?.role));
   const [book, setBook] = useState(null);
   const [tool, setTool] = useState("pen");
   const [shapeKind, setShapeKind] = useState("line");
@@ -2580,6 +2620,10 @@ function Editor({ id, go, onClose, early = false }) {
   const [thumbMenu, setThumbMenu] = useState(null); // { i, top } options for a page in the sidebar
   const past = useRef([]);
   const future = useRef([]);
+  const remoteImageDrag = useRef("");
+  const onImageDrag = useCallback((info) => {
+    remoteImageDrag.current = info?.phase === "start" ? info.url : "";
+  }, []);
   const drag = useRef(null);
   const saveT = useRef(0);
   const imgInput = useRef(null);
@@ -2922,8 +2966,9 @@ function Editor({ id, go, onClose, early = false }) {
       capture(svg, e);
       if (group && group.pageId === page.id) {
         const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
-        if (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom) {
-          drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
+        const corner = canUseNewNotebookTools ? cornerAt(gb, x, y, (e.pointerType === "touch" ? 44 : 28) / zoom) : (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom ? "br" : null);
+        if (corner) {
+          drag.current = { groupResize: true, corner, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
           return;
         }
         const gp = (e.pointerType === "mouse" ? 0 : 12) / zoom;
@@ -2981,8 +3026,9 @@ function Editor({ id, go, onClose, early = false }) {
       if (group && group.pageId === page.id) {
         const gb = unionBox(page.items.filter((i) => group.ids.includes(i.id)));
         if (gb) {
-          if (Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom) {
-            drag.current = { groupResize: true, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
+          const corner = canUseNewNotebookTools ? cornerAt(gb, x, y, (e.pointerType === "touch" ? 44 : 28) / zoom) : (gb && Math.hypot(x - (gb.x + gb.w), y - (gb.y + gb.h)) < (e.pointerType === "touch" ? 44 : 28) / zoom ? "br" : null);
+          if (corner) {
+            drag.current = { groupResize: true, corner, pageId: page.id, box: gb, base: page.items.filter((i) => group.ids.includes(i.id)), start: book };
             return;
           }
           const gp = (e.pointerType === "mouse" ? 0 : 12) / zoom;
@@ -3182,9 +3228,8 @@ function Editor({ id, go, onClose, early = false }) {
       return;
     }
     if (drag.current?.groupResize) {
-      const d = drag.current, b = d.box;
-      const k = Math.max(0.15, Math.min(6, ((x - b.x) / b.w + (y - b.y) / b.h) / 2));
-      const scaled = new Map(d.base.map((i) => [i.id, scaleItem(i, b.x, b.y, k)]));
+      const d = drag.current;
+      const scaled = new Map(resizeGroup(d.base, d.box, d.corner, x, y).map((i) => [i.id, i]));
       updatePage(d.pageId, (p) => ({ ...p, items: p.items.map((i) => scaled.get(i.id) || i) }), { record: false });
       return;
     }
@@ -3934,7 +3979,7 @@ function Editor({ id, go, onClose, early = false }) {
         </aside>
 
         <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false && DRAWING_TOOLS.includes(tool) ? " pencil-only" : "")} ref={pagesArea}
-          onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
+          onDragOver={(e) => { if ((canUseNewNotebookTools && remoteImageDrag.current) || [...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
           onDrop={async (e) => {
             e.preventDefault();
             // Where it landed, so the picture goes there.
@@ -3943,11 +3988,20 @@ function Editor({ id, go, onClose, early = false }) {
             let at;
             if (pg) { const r = pageEl.getBoundingClientRect(); at = { pageId: pg.id, x: ((e.clientX - r.left) / r.width) * pg.w, y: ((e.clientY - r.top) / r.height) * pg.h }; }
             const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
-            if (f) { addImage(f, at); return; }
+            if (f) { remoteImageDrag.current = ""; addImage(f, at); return; }
             // A picture dragged from a web page (the browser beside the
             // notebook, or another window) arrives as its address.
             const html = e.dataTransfer.getData("text/html") || "";
-            const url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
+            let url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
+            if (canUseNewNotebookTools) {
+              const nativeUrl = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain") || "").split("\n").find((line) => line.trim() && !line.startsWith("#"))?.trim();
+              const imageSrc = new DOMParser().parseFromString(html, "text/html").querySelector("img")?.getAttribute("src");
+              url = notebookImageUrl(remoteImageDrag.current || imageSrc || nativeUrl || "");
+              // Google can put a result link in uri-list and a thumbnail in HTML.
+              const original = notebookImageUrl(nativeUrl || "");
+              if (nativeUrl?.includes("imgurl=") && original) url = original;
+            }
+            remoteImageDrag.current = "";
             if (url) { try { addImage(await imageFile(url), at); } catch { alert("That picture could not be added. Try right-clicking it, Copy image, then paste here."); } }
           }}>
           {book.pages.map((page, i) => (
@@ -3984,7 +4038,9 @@ function Editor({ id, go, onClose, early = false }) {
                   const u = 1 / zoom;
                   return <g className="nb-sel">
                     <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={4 * u} fill="rgba(59, 91, 253, 0.04)" stroke="#3B5BFD" strokeWidth={1.5 * u} strokeDasharray={`${6 * u} ${4 * u}`} />
-                    <circle cx={b.x + b.w} cy={b.y + b.h} r={9 * u} fill="#fff" stroke="#3B5BFD" strokeWidth={2 * u} />
+                    {[["tl", b.x, b.y], ["tr", b.x + b.w, b.y], ["bl", b.x, b.y + b.h], ["br", b.x + b.w, b.y + b.h]].filter(([corner]) => canUseNewNotebookTools || corner === "br").map(([corner, cx, cy]) =>
+                      <circle key={corner} data-corner={corner} cx={cx} cy={cy} r={9 * u} fill={canUseNewNotebookTools ? "var(--surface, #fff)" : "#fff"} stroke={canUseNewNotebookTools ? "var(--accent, #3B5BFD)" : "#3B5BFD"} strokeWidth={2 * u} style={canUseNewNotebookTools ? { cursor: corner === "tl" || corner === "br" ? "nwse-resize" : "nesw-resize" } : undefined} />
+                    )}
                   </g>;
                 })()}
               </svg>
@@ -4081,7 +4137,7 @@ function Editor({ id, go, onClose, early = false }) {
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
         </div>
         {split && (early
-          ? <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />
+          ? <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} onImageDrag={canUseNewNotebookTools ? onImageDrag : undefined} />
           : <SplitPanelClassic onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />)}
       </div>
 

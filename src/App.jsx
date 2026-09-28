@@ -878,6 +878,7 @@ export default function App() {
           topics={topics}
           materials={materials}
           auth={auth}
+          access={access}
           onSignIn={() => setSignInOpen(true)}
           custom={custom}
           setCustom={setCustom}

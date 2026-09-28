@@ -224,7 +224,9 @@ async function offerToMoveMac() {
 // its links opening inside it rather than in new windows.
 app.on("web-contents-created", (_e, contents) => {
   contents.on("will-attach-webview", (event, prefs, params) => {
-    delete prefs.preload;
+    // The isolated guest preload forwards only image drag URLs to the host
+    // notebook; web pages still cannot access Node or the app's own APIs.
+    prefs.preload = path.join(__dirname, "webview-preload.cjs");
     prefs.nodeIntegration = false;
     prefs.contextIsolation = true;
     prefs.sandbox = true;
