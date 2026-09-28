@@ -8238,3 +8238,52 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 .dk-q h2 { font-size: 26px; margin: 8px 0 18px; letter-spacing: -0.02em; }
 .dk-done { text-align: center; display: grid; justify-items: center; gap: 6px; padding: 40px; max-width: 520px; margin: 0 auto; }
 .dk-done h3 { margin: 6px 0 0; font-size: 20px; }
+
+/* the browser beside the notebook: drag its left edge to resize */
+.nb-split { position: relative; }
+.nb-split-grip { position: absolute; left: -6px; top: 0; bottom: 0; width: 12px; z-index: 5; cursor: col-resize; display: grid; place-items: center; touch-action: none; }
+.nb-split-grip i { width: 4px; height: 44px; border-radius: 4px; background: var(--line); transition: background .15s, height .15s; }
+.nb-split-grip:hover i, .nb-split.resizing .nb-split-grip i { background: var(--accent); height: 72px; }
+/* the page under the browser must not swallow the drag */
+.nb-split.resizing iframe, .nb-split.resizing webview { pointer-events: none; }
+.nb-split.resizing { user-select: none; }
+body:has(.nb-split.resizing) { cursor: col-resize; }
+
+/* Learn, in a deck */
+.dk-learn-pick { text-align: center; max-width: 760px; margin: 10px auto; }
+.dk-learn-pick h2 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+.dk-goals { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+@media (max-width: 640px) { .dk-goals { grid-template-columns: 1fr; } }
+.dk-goal { display: grid; justify-items: center; gap: 8px; padding: 26px 22px; border: 2px solid var(--line); border-radius: 20px; background: var(--surface); cursor: pointer; text-align: center; transition: transform .15s, border-color .15s, box-shadow .15s; color: var(--ink); }
+.dk-goal:hover { transform: translateY(-3px); border-color: var(--dk, var(--accent)); box-shadow: 0 10px 26px color-mix(in srgb, var(--dk, var(--accent)) 18%, transparent); }
+.dk-goal-art { font-size: 38px; line-height: 1; }
+.dk-goal b { font-size: 18px; }
+.dk-goal span { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.dk-learn-bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--line); gap: 2px; margin-bottom: 8px; }
+.dk-learn-bar i { transition: flex .5s cubic-bezier(.2,.8,.2,1); min-width: 0; }
+.dk-learn-bar i.known, .dk-legend i.known { background: #22A262; }
+.dk-learn-bar i.learning, .dk-legend i.learning { background: #F59E0B; }
+.dk-learn-bar i.fresh, .dk-legend i.fresh { background: color-mix(in srgb, var(--ink) 15%, transparent); }
+.dk-legend { display: flex; gap: 16px; justify-content: center; color: var(--ink-2); margin-bottom: 16px; }
+.dk-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dk-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.dk-q { transition: box-shadow .2s, border-color .2s; }
+.dk-q.is-right { border-color: color-mix(in srgb, #22A262 55%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, #22A262 14%, transparent); }
+.dk-q.is-wrong { border-color: color-mix(in srgb, #F59E0B 60%, var(--line)); animation: dk-shake .35s ease; }
+@keyframes dk-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.dk-type { width: 100%; font-size: 20px; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); outline: none; }
+.dk-type:focus { border-color: var(--dk, var(--accent)); }
+.dk-feedback { display: grid; gap: 8px; margin-top: 14px; padding: 14px 16px; border-radius: 14px; animation: dk-pop .25s ease both; }
+.dk-feedback.ok { background: color-mix(in srgb, #22A262 10%, var(--surface)); }
+.dk-feedback.ok > b { color: #1a8a52; }
+.dk-feedback.no { background: color-mix(in srgb, #F59E0B 10%, var(--surface)); }
+.dk-feedback.no > b { color: #b46a00; }
+.dk-feedback span { font-size: 14px; color: var(--ink-2); }
+.dk-round { text-align: center; }
+.dk-round h3 { margin: 4px 0; font-size: 20px; }
+.dk-round ul { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 6px; text-align: left; }
+.dk-round li { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--panel); font-size: 14px; }
+.dk-round li span { color: var(--ink-2); }
+.dk-round li i { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; }
+.dk-round li i.known { background: color-mix(in srgb, #22A262 16%, transparent); color: #1a8a52; }
+.dk-round li i.learning { background: color-mix(in srgb, #F59E0B 18%, transparent); color: #b46a00; }

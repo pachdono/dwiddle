@@ -2067,10 +2067,30 @@ async function imageFile(url) {
   return new File([blob], "picture", { type: blob.type });
 }
 
+// The browser beside the notebook. Its left edge drags to make it wider or
+// narrower, and the width is kept for next time.
+const SPLIT_KEY = "dwiddle-split-width";
 function SplitPanel({ onClose, onAddImage, onAddText }) {
   const desktop = typeof window !== "undefined" && !!window.DWIDDLE_WEB;
+  const [width, setWidth] = useState(() => { try { return Number(localStorage.getItem(SPLIT_KEY)) || 0; } catch { return 0; } });
+  const [dragging, setDragging] = useState(false);
+  const aside = useRef(null);
+  function grab(e) {
+    e.preventDefault();
+    const right = aside.current.getBoundingClientRect().right;
+    setDragging(true);
+    const move = (ev) => setWidth(Math.round(Math.max(300, Math.min(innerWidth * 0.75, right - ev.clientX))));
+    const stop = () => {
+      setDragging(false);
+      removeEventListener("pointermove", move); removeEventListener("pointerup", stop); removeEventListener("pointercancel", stop);
+      setWidth((w) => { try { localStorage.setItem(SPLIT_KEY, String(w)); } catch { /* private mode */ } return w; });
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", stop); addEventListener("pointercancel", stop);
+  }
   return (
-    <aside className="nb-split nb-safari" aria-label="Browser">
+    <aside ref={aside} className={"nb-split nb-safari" + (dragging ? " resizing" : "")} aria-label="Browser" style={width ? { flexBasis: width, width } : undefined}>
+      <div className="nb-split-grip" onPointerDown={grab} onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(SPLIT_KEY); } catch { /* fine */ } }}
+        role="separator" aria-orientation="vertical" aria-label="Drag to resize the browser" title="Drag to resize. Double-click to reset."><i /></div>
       {desktop ? <WebView onClose={onClose} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} />}
     </aside>
   );
@@ -2196,7 +2216,7 @@ function Browser({ onClose, onAddImage, onAddText }) {
       {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
       {here.kind === "google" && tip && (
         <div className="sf-tip">
-          <span>Some sites refuse to open inside other apps. If one does, type its address in the bar to read it here, or open it in your own browser.</span>
+          <span>Drag a picture onto your page, or right-click it, Copy image, then paste on the page. Some sites refuse to open here: type their address in the bar to read them instead.</span>
           <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
         </div>
       )}
@@ -2642,9 +2662,17 @@ function Editor({ id, go, onClose, early = false }) {
   pasteRef.current = (e) => {
     const t = e.target;
     if (t.closest?.("input, textarea, [contenteditable=true], .nb-textedit")) return;
-    const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
+    // A copied picture: as a file, or (Safari) only as a clipboard item.
+    const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"))
+      || [...(e.clipboardData?.items || [])].find((x) => x.kind === "file" && x.type.startsWith("image/"))?.getAsFile();
     if (f) { e.preventDefault(); addImage(f); return; }
+    // "Copy image" in some browsers copies only the picture's web page
+    // markup; its address is fetched instead.
+    const html = e.clipboardData?.getData("text/html") || "";
+    const src = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
+    if (src && /^(https?:|data:image\/)/.test(src)) { e.preventDefault(); imageFile(src).then((file) => addImage(file)).catch(() => alert("That picture could not be added.")); return; }
     const text = e.clipboardData?.getData("text/plain");
+    if (/^https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?\S*)?$/i.test(text?.trim() || "")) { e.preventDefault(); imageFile(text.trim()).then((file) => addImage(file)).catch(() => addText(text)); return; }
     if (text?.trim()) { e.preventDefault(); addText(text); }
   };
   useEffect(() => {
@@ -2824,16 +2852,6 @@ function Editor({ id, go, onClose, early = false }) {
     return () => removeEventListener("keydown", onKey);
   });
 
-  // Pictures can be pasted straight onto the page in view.
-  useEffect(() => {
-    const onPaste = (e) => {
-      if (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.closest("input, textarea"))) return;
-      const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith("image/"));
-      if (f) { e.preventDefault(); addImage(f); }
-    };
-    addEventListener("paste", onPaste);
-    return () => removeEventListener("paste", onPaste);
-  });
 
   // Which page is in view, for the thumbnails and for "this page".
   useEffect(() => {
@@ -3350,14 +3368,17 @@ function Editor({ id, go, onClose, early = false }) {
     setLive(null);
   }
 
-  async function addImage(file) {
-    const page = book.pages[current] || book.pages[0];
+  // at: { pageId, x, y } to centre it where it was dropped.
+  async function addImage(file, at) {
+    const page = (at && book.pages.find((p) => p.id === at.pageId)) || book.pages[current] || book.pages[0];
     try {
       const src = await shrink(file, 1600, 0.85);
       const img = new Image();
       await new Promise((r, j) => { img.onload = r; img.onerror = j; img.src = src; });
       const w = Math.min(page.w * 0.6, img.width), h = w * (img.height / img.width);
-      const it = { id: uid(), type: "image", x: (page.w - w) / 2, y: 140, w, h, src };
+      const x = at ? Math.max(0, Math.min(page.w - w, at.x - w / 2)) : (page.w - w) / 2;
+      const y = at ? Math.max(0, Math.min(page.h - h, at.y - h / 2)) : 140;
+      const it = { id: uid(), type: "image", x, y, w, h, src };
       updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
       setTool("select");
       setSel({ pageId: page.id, itemId: it.id });
@@ -3857,13 +3878,21 @@ function Editor({ id, go, onClose, early = false }) {
         </aside>
 
         <div className={"nb-pages" + (tool === "hand" ? " hand" : "") + (prefs.finger === false && DRAWING_TOOLS.includes(tool) ? " pencil-only" : "")} ref={pagesArea}
-          onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list")) e.preventDefault(); }}
+          onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list" || t === "text/html")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
           onDrop={async (e) => {
             e.preventDefault();
+            // Where it landed, so the picture goes there.
+            const pageEl = e.target.closest?.(".nb-page");
+            const pg = pageEl && book.pages[Number(pageEl.dataset.index)];
+            let at;
+            if (pg) { const r = pageEl.getBoundingClientRect(); at = { pageId: pg.id, x: ((e.clientX - r.left) / r.width) * pg.w, y: ((e.clientY - r.top) / r.height) * pg.h }; }
             const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
-            if (f) { addImage(f); return; }
-            const url = (e.dataTransfer.getData("text/uri-list") || "").split("\n")[0].trim();
-            if (url) { try { addImage(await imageFile(url)); } catch { alert("That picture could not be added. Try copying it and pasting instead."); } }
+            if (f) { addImage(f, at); return; }
+            // A picture dragged from a web page (the browser beside the
+            // notebook, or another window) arrives as its address.
+            const html = e.dataTransfer.getData("text/html") || "";
+            const url = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] || (e.dataTransfer.getData("text/uri-list") || "").split("\n").find((l) => l && !l.startsWith("#"))?.trim();
+            if (url) { try { addImage(await imageFile(url), at); } catch { alert("That picture could not be added. Try right-clicking it, Copy image, then paste here."); } }
           }}>
           {book.pages.map((page, i) => (
             <div key={page.id} className={"nb-page" + (editingText && page.items.some((it) => it.id === editingText) ? " typing" : "")} data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
