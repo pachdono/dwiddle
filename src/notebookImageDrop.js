@@ -34,3 +34,21 @@ export async function readDroppedImage(candidates, read) {
     ? "That site blocked the picture. Try Copy image, then paste it onto the page."
     : "The browser did not share a picture. Drag the image itself, or use Copy image and paste it onto the page.");
 }
+
+// A picture given as a data: address, as a Blob, without fetch(): the site's
+// security policy does not let fetch() read data: addresses, and every web
+// picture arrives as one (a Google thumbnail, or the server's copy of any other).
+export function dataUrlBlob(url) {
+  const m = String(url).match(/^data:([^;,]*)((?:;[^;,]*)*),(.*)$/s);
+  if (!m) throw new Error("not a data address");
+  const type = m[1] || "application/octet-stream";
+  const body = /;base64/i.test(m[2]) ? atob(m[3].replace(/\s+/g, "")) : decodeURIComponent(m[3]);
+  const bytes = new Uint8Array(body.length);
+  for (let i = 0; i < body.length; i++) bytes[i] = body.charCodeAt(i) & 255;
+  return new Blob([bytes], { type });
+}
+
+// Any picture address as a Blob: data: decoded here, anything else fetched.
+export async function blobOf(src) {
+  return /^data:/i.test(src) ? dataUrlBlob(src) : (await fetch(src)).blob();
+}

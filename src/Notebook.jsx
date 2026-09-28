@@ -23,7 +23,7 @@ import { readImage, checkPage } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { shrink } from "./custom.js";
-import { imageDropCandidates, readDroppedImage } from "./notebookImageDrop.js";
+import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDrop.js";
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 
 /* ---------- paper ---------- */
@@ -1842,7 +1842,7 @@ const COMMONS = "https://commons.wikimedia.org/w/api.php";
 async function imageFileClassic(url) {
   let src = null;
   if (window.DWIDDLE_WEB) src = await window.DWIDDLE_WEB.fetchImage(url);
-  const blob = src ? await (await fetch(src)).blob() : await (await fetch(url)).blob();
+  const blob = await blobOf(src || url);
   if (!blob.type.startsWith("image/")) throw new Error("not a picture");
   return new File([blob], "picture", { type: blob.type });
 }
@@ -2080,7 +2080,7 @@ async function imageFile(url) {
     const { browse } = await import("./ai.js");
     src = (await browse("image", { url })).data;
   }
-  const blob = await (await fetch(src || url)).blob();
+  const blob = await blobOf(src || url);
   if (!blob.type.startsWith("image/")) throw new Error("not a picture");
   return new File([blob], "picture", { type: blob.type });
 }
@@ -2378,7 +2378,7 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
 function Editor({ id, go, onClose, early = false, access }) {
-  const canUseNewNotebookTools = !access?.banned && (access?.tester === true || ["admin", "moderator"].includes(access?.role));
+  const canUseNewNotebookTools = early || !access?.banned && (access?.tester === true || ["admin", "moderator"].includes(access?.role));
   const [book, setBook] = useState(null);
   const [tool, setTool] = useState("pen");
   const [shapeKind, setShapeKind] = useState("line");

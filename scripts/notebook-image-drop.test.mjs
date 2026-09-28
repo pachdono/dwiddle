@@ -25,3 +25,15 @@ test('empty and blocked drops produce actionable errors', async () => {
   await assert.rejects(readDroppedImage([], async () => { throw new Error('must not run'); }), /browser did not share/);
   await assert.rejects(readDroppedImage(['https://example.com/blocked.jpg'], async () => { throw new Error('403'); }), /Copy image/);
 });
+
+test("a data: picture becomes a Blob without fetch, which the site's policy forbids", async () => {
+  const { dataUrlBlob, blobOf } = await import("../src/notebookImageDrop.js");
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  const blob = dataUrlBlob(png);
+  assert.equal(blob.type, "image/png");
+  assert.deepEqual([...new Uint8Array(await blob.arrayBuffer())].slice(0, 4), [0x89, 0x50, 0x4e, 0x47]);
+  const saved = globalThis.fetch;
+  globalThis.fetch = () => { throw new Error("fetch must not be used for data:"); };
+  try { assert.equal((await blobOf(png)).type, "image/png"); } finally { globalThis.fetch = saved; }
+  assert.equal(dataUrlBlob("data:image/svg+xml,%3Csvg%2F%3E").type, "image/svg+xml");
+});
