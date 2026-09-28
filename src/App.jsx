@@ -4,6 +4,8 @@ import { PastPaperCard } from "./PastPaper.jsx";
 import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
+import Decks from "./Decks.jsx";
+import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
 import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
@@ -65,6 +67,7 @@ const PAGE_PATH = {
   topics: "/topics",
   quiz: "/practice",
   solve: "/solve",
+  decks: "/decks",
   sheet: "/study-sheet",
   learn: "/learn",
   videos: "/videos",
@@ -249,6 +252,7 @@ const GROUPS = [
   },
   { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
   { id: "solve", label: "Solve", icon: "bulb", pages: ["solve"] },
+  { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
     tabs: { tests: "Test prep", courses: "Courses" },
@@ -261,7 +265,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 // Every page's own name, for the title bar when it is not part of a group.
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
-  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Solve" },
+  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Solve" }, { id: "decks", label: "My decks" },
   { id: "notebook", label: "Notebooks" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
@@ -625,6 +629,7 @@ export default function App() {
     topics: Topics,
     quiz: Practice,
     solve: Solve,
+    decks: early ? Decks : Dashboard,
     sheet: StudySheet,
     learn: Learn,
     videos: Videos,
@@ -742,7 +747,7 @@ export default function App() {
             <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
             New material
           </button>
-          {GROUPS.map((g) => (
+          {GROUPS.filter((g) => !g.early || early).map((g) => (
             <button key={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
               <Icon name={g.icon} />
@@ -2224,7 +2229,7 @@ function Practice(props) {
   const stat = {
     quiz: `${pool.length} question${pool.length === 1 ? "" : "s"}`,
     review: dueCount ? `${dueCount} due now` : "Nothing due",
-    cards: `${pool.length} card${pool.length === 1 ? "" : "s"}`,
+    cards: (() => { const n = pool.length + (early ? notesCards(props.made, topic).length : 0); return `${n} card${n === 1 ? "" : "s"}`; })(),
     mock: `${Math.min(pool.length, 20)} questions, timed`,
     speed: "60 seconds",
     missed: missed.length ? `${missed.length} to fix` : "None yet",
@@ -2885,14 +2890,34 @@ function cardsFrom(questions) {
   }));
 }
 
-function Flashcards({ pool }) {
+// Cards from the notes themselves (testers): every term with its definition,
+// and every hard word with the meaning it pops up with.
+function notesCards(made, topic) {
+  const out = [], seen = new Set();
+  for (const [name, blocks] of Object.entries(made?.notes || {})) {
+    if (topic && name !== topic) continue;
+    for (const b of blocks || []) {
+      const add = (front, back) => {
+        const f = flatMarks(front).trim(), k = f.toLowerCase();
+        if (!f || !back || seen.has(k) || f.length > 80) return;
+        seen.add(k);
+        out.push({ id: "n:" + name + ":" + k, kind: "notes", topic: name, front: f, back: flatMarks(back).trim(), note: "" });
+      };
+      if (b?.term) add(b.term, b.def);
+      for (const t of blockTexts(b)) for (const seg of parseMarks(t)) if (seg.mark === "word") add(seg.t, seg.def);
+    }
+  }
+  return out;
+}
+
+function Flashcards({ pool, made, early, topic }) {
   const [deck, setDeck] = useState("all");
   const [known, setKnown] = useState(() => load(KEYS.known, []));
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [again, setAgain] = useState([]); // cards pushed to the back of the run
 
-  const deckSource = cardsFrom(pool);
+  const deckSource = [...cardsFrom(pool), ...(early ? notesCards(made, topic) : [])];
   const inDeck = deckSource.filter((c) => deck === "all" || c.kind === deck);
   const live = inDeck.filter((c) => !known.includes(c.id));
   const queue = [...live.filter((c) => !again.includes(c.id)), ...live.filter((c) => again.includes(c.id))];
@@ -2947,7 +2972,7 @@ function Flashcards({ pool }) {
 
   const decks = (
     <div className="deck-picker">
-      {DECKS.map((d) => {
+      {[...DECKS, ...(deckSource.some((c) => c.kind === "notes") ? [{ id: "notes", label: "From your notes", hint: "Every term and hard word in your notes" }] : [])].map((d) => {
         const all = deckSource.filter((c) => d.id === "all" || c.kind === d.id);
         const left = all.filter((c) => !known.includes(c.id)).length;
         return (
@@ -2994,7 +3019,7 @@ function Flashcards({ pool }) {
       <div className="flip-scene" onClick={() => setFlipped((f) => !f)}>
         <div className={"flip-card" + (flipped ? " flipped" : "")}>
           <div className="flip-face front">
-            <span className="flash-tag">{card.kind === "vocab" ? "Term" : "Question"}</span>
+            <span className="flash-tag">{card.kind === "vocab" || card.kind === "notes" ? "Term" : "Question"}</span>
             <p className="flash-body">{card.front}</p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
