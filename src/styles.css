@@ -7768,6 +7768,28 @@ a.btn { text-decoration: none; }
 @keyframes sf-load { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 .sf-body { flex: 1; min-height: 0; overflow: auto; position: relative; }
 .sf-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.sf-frame[hidden] { display: none; }
+/* Google or Dwiddle's own pictures, which drag out where Google's do not. */
+.sf-tabs { display: flex; gap: 4px; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.sf-tabs button { flex: 1; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); font: 600 12.5px var(--font); cursor: pointer; }
+.sf-tabs button.on { background: var(--surface, #fff); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.sf-pics { padding: 12px; }
+.sf-pics-search { display: flex; gap: 6px; }
+.sf-pics-search input { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, #fff); color: var(--ink); font: 14px var(--font); }
+.sf-pics-hint { margin: 8px 2px 10px; }
+.sf-pics-empty { padding: 24px 4px; text-align: center; }
+.sf-pics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.sf-pics-item, .sf-pics-ghost { position: relative; display: block; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--panel); }
+.sf-pics-item { padding: 0; border: 1px solid var(--line); cursor: grab; }
+.sf-pics-item:active { cursor: grabbing; }
+.sf-pics-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s ease; }
+.sf-pics-item:hover img { transform: scale(1.04); }
+.sf-pics-item span { position: absolute; right: 6px; bottom: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.65); color: #fff; font: 600 11px var(--font); opacity: 0; transition: opacity 0.15s ease; }
+.sf-pics-item:hover span, .sf-pics-item:focus-visible span, .sf-pics-item.busy span { opacity: 1; }
+.sf-pics-item.busy img { opacity: 0.5; }
+.sf-pics-ghost { animation: sf-ghost 1.2s ease-in-out infinite alternate; }
+@keyframes sf-ghost { from { opacity: 0.45; } to { opacity: 1; } }
+@media (hover: none) { .sf-pics-item span { opacity: 0.9; } }
 .sf-error { display: grid; justify-items: start; gap: 6px; padding: 18px; }
 .sf-error p { margin: 0; }
 

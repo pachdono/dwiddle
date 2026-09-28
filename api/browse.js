@@ -135,6 +135,36 @@ async function search(q) {
   return results;
 }
 
+// Pictures for a search, for the notebook browser's own picture panel.
+// Pictures inside Google's page cannot be dragged out (Google Lens takes the
+// drag), so Dwiddle lists them itself: Bing's image results first, then
+// Wikimedia Commons, which always answers.
+export async function images(q) {
+  const out = [], seen = new Set();
+  const add = (full, thumb, title, page) => {
+    if (!/^https:\/\//.test(full || "") || seen.has(full) || /\.svg(\?|$)/i.test(full)) return;
+    seen.add(full);
+    out.push({ url: full, thumb: /^https:\/\//.test(thumb || "") ? thumb : full, title: strip(title || "").slice(0, 120), page: page || "" });
+  };
+  try {
+    const { buf } = await get(`https://www.bing.com/images/search?q=${encodeURIComponent(q)}&form=HDRSC2&first=1&safeSearch=Strict`);
+    for (const m of buf.toString("utf8").matchAll(/\bm="(\{[^"]*?\})"/g)) {
+      try { const j = JSON.parse(decode(m[1])); add(j.murl, j.turl, j.t, j.purl); } catch { /* skip a malformed one */ }
+      if (out.length >= 30) break;
+    }
+  } catch { /* try Commons instead */ }
+  if (out.length < 6) {
+    const r = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}&gsrlimit=30&prop=imageinfo&iiprop=url|mime&iiurlwidth=320&format=json`,
+      { headers: { "User-Agent": "Dwiddle/1.0 (study app)" }, signal: AbortSignal.timeout(8000) }).then((x) => x.json()).catch(() => null);
+    const pages = Object.values(r?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+    for (const pg of pages) {
+      const i = pg.imageinfo?.[0];
+      if (i && /^image\/(png|jpe?g|gif|webp)$/.test(i.mime)) add(i.url, i.thumburl, pg.title.replace(/^File:|\.\w+$/g, ""), i.descriptionurl);
+    }
+  }
+  return out.slice(0, 30);
+}
+
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 40 })) return;
   const { action, q, url } = req.body || {};
@@ -143,6 +173,11 @@ export default async function handler(req, res) {
       const query = String(q || "").trim().slice(0, 200);
       if (!query) return userError(res, 400, "Type something to search for.");
       return res.status(200).json({ results: await search(query) });
+    }
+    if (action === "images") {
+      const query = String(q || "").trim().slice(0, 200);
+      if (!query) return userError(res, 400, "Type something to find pictures of.");
+      return res.status(200).json({ images: await images(query) });
     }
     if (action === "open") {
       const { url: final, res: r, buf } = await get(url);

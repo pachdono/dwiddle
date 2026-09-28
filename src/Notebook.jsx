@@ -2109,7 +2109,7 @@ function SplitPanel({ onClose, onAddImage, onAddText, onImageDrag }) {
     <aside ref={aside} className={"nb-split nb-safari" + (dragging ? " resizing" : "")} aria-label="Browser" style={width ? { flexBasis: width, width } : undefined}>
       <div className="nb-split-grip" onPointerDown={grab} onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(SPLIT_KEY); } catch { /* fine */ } }}
         role="separator" aria-orientation="vertical" aria-label="Drag to resize the browser" title="Drag to resize. Double-click to reset."><i /></div>
-      {desktop ? <WebView onClose={onClose} onImageDrag={onImageDrag} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} />}
+      {desktop ? <WebView onClose={onClose} onImageDrag={onImageDrag} /> : <Browser onClose={onClose} onAddImage={onAddImage} onAddText={onAddText} pictures={!!onImageDrag} />}
     </aside>
   );
 }
@@ -2161,7 +2161,8 @@ function SafariBar({ address, secure, editing, setEditing, draft, setDraft, onGo
 // view where it does not.
 const googleUrl = (q) => q ? `https://www.google.com/search?igu=1&hl=en-GB&q=${encodeURIComponent(q)}` : "https://www.google.com/webhp?igu=1&hl=en-GB";
 
-function Browser({ onClose, onAddImage, onAddText }) {
+function Browser({ onClose, onAddImage, onAddText, pictures }) {
+  const [pics, setPics] = useState(false);
   // Where the student has been: Google (home or a search) and pages opened by address.
   const [trail, setTrail] = useState([{ kind: "google", q: "" }]);
   const [at, setAt] = useState(0);
@@ -2232,7 +2233,19 @@ function Browser({ onClose, onAddImage, onAddText }) {
         onOpenOutside={() => window.open(here.kind === "page" ? page?.url || here.url : googleUrl(here.q).replace(/[?&]igu=1/, ""), "_blank", "noopener")}
         onClose={onClose} />
       {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
-      {here.kind === "google" && tip && (
+      {pictures && here.kind === "google" && (
+        <div className="sf-tabs" role="tablist" aria-label="Show">
+          <button role="tab" aria-selected={!pics} className={!pics ? "on" : ""} onClick={() => setPics(false)}>Google</button>
+          <button role="tab" aria-selected={pics} className={pics ? "on" : ""} onClick={() => setPics(true)}>Pictures to drag</button>
+        </div>
+      )}
+      {pictures && here.kind === "google" && tip && !pics && (
+        <div className="sf-tip">
+          <span>Google turns a dragged picture into a Google Lens search, so open <b>Pictures to drag</b> to drag one onto your page. Copy image and paste works too.</span>
+          <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
+        </div>
+      )}
+      {!pictures && here.kind === "google" && tip && (
         <div className="sf-tip">
           <span>Drag a picture onto your page, or right-click it, Copy image, then paste on the page. Some sites refuse to open here: type their address in the bar to read them instead.</span>
           <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
@@ -2241,8 +2254,9 @@ function Browser({ onClose, onAddImage, onAddText }) {
       <div className="sf-body">
         {error && <div className="sf-error"><b>That page could not be opened</b><p className="small muted">{error}</p>
           {here.kind === "page" && <button className="btn ghost small" onClick={() => window.open(here.url, "_blank", "noopener")}>Open in your own browser</button>}</div>}
+        {pictures && here.kind === "google" && pics && <PicturePanel q={here.q} onAdd={onAddImage} />}
         {here.kind === "google" && (
-          <iframe key={key + ":" + reload} className="sf-frame" title="Google" src={googleUrl(here.q)} onLoad={onFrameLoad}
+          <iframe key={key + ":" + reload} className="sf-frame" title="Google" src={googleUrl(here.q)} onLoad={onFrameLoad} hidden={pictures && pics}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" />
         )}
         {here.kind === "page" && page && live && (
@@ -2266,6 +2280,69 @@ function Browser({ onClose, onAddImage, onAddText }) {
         )}
       </div>
     </div>
+  );
+}
+
+// Pictures for a search, listed by Dwiddle rather than shown inside Google.
+// Dragging a picture inside Google's own page starts Google Lens instead, and
+// the picture springs back, so these are the ones to drag: each drags onto
+// the page, or goes on it with a tap.
+function PicturePanel({ q, onAdd }) {
+  const [draft, setDraft] = useState(q);
+  const [asked, setAsked] = useState(q);
+  const [state, setState] = useState({ loading: false, error: "", list: [] });
+  const [adding, setAdding] = useState("");
+  useEffect(() => { setDraft(q); setAsked(q); }, [q]);
+  useEffect(() => {
+    if (!asked.trim()) { setState({ loading: false, error: "", list: [] }); return; }
+    let live = true;
+    setState({ loading: true, error: "", list: [] });
+    import("./ai.js").then(({ browse }) => browse("images", { q: asked }))
+      .then((d) => { if (live) setState({ loading: false, error: d.images?.length ? "" : "No pictures found. Try other words.", list: d.images || [] }); })
+      .catch((e) => { if (live) setState({ loading: false, error: e.message || "Pictures could not be found.", list: [] }); });
+    return () => { live = false; };
+  }, [asked]);
+  const add = async (p) => {
+    setAdding(p.url);
+    try { onAdd(await imageFile(p.url)); }
+    catch { try { onAdd(await imageFile(p.thumb)); } catch { alert("That picture could not be added. Try another one."); } }
+    finally { setAdding(""); }
+  };
+  return (
+    <div className="sf-pics">
+      <form className="sf-pics-search" onSubmit={(e) => { e.preventDefault(); setAsked(draft.trim()); }}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Find pictures of…" aria-label="Find pictures of" autoFocus={!q} />
+        <button className="btn small" disabled={!draft.trim()}>Find</button>
+      </form>
+      <p className="sf-pics-hint small muted">Drag a picture onto your page, or tap it to add it.</p>
+      {state.loading && <div className="sf-pics-grid" aria-busy="true">{Array.from({ length: 9 }, (_, i) => <i key={i} className="sf-pics-ghost" />)}</div>}
+      {state.error && <p className="sf-pics-empty muted">{state.error}</p>}
+      {!asked.trim() && <p className="sf-pics-empty muted">Type what you want a picture of.</p>}
+      {state.list.length > 0 && (
+        <div className="sf-pics-grid">
+          {state.list.map((p) => <WebPic key={p.url} p={p} busy={adding === p.url} onAdd={() => add(p)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WebPic({ p, busy, onAdd }) {
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  return (
+    <button type="button" className={"sf-pics-item" + (busy ? " busy" : "")} draggable title={p.title ? p.title + ". Tap to add." : "Tap to add"}
+      onClick={onAdd}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "copy";
+        e.dataTransfer.setData("text/uri-list", p.url);
+        e.dataTransfer.setData("text/plain", p.url);
+        const img = e.currentTarget.querySelector("img");
+        if (img) e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
+      }}>
+      <img src={p.thumb} alt={p.title || ""} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setGone(true)} />
+      <span>{busy ? "Adding…" : "+ Add"}</span>
+    </button>
   );
 }
 
