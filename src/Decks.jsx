@@ -15,7 +15,10 @@ import { Duck } from "./Duck.jsx";
 import { useDictation } from "./Chat.jsx";
 
 const KEY = "dwiddle-decks";
-const COLORS = ["#3B5BFD", "#D1497A", "#16a34a", "#9333ea", "#f97316", "#0891b2", "#e5484d", "#7c4a2d"];
+// "theme" follows the theme's own accent colour; the rest are fixed.
+const COLORS = ["theme", "#D1497A", "#16a34a", "#9333ea", "#f97316", "#0891b2", "#e5484d", "#7c4a2d"];
+// Decks made before "theme" existed started blue; they follow the theme too.
+const colorOf = (c) => (!c || c === "theme" || c === "#3B5BFD" ? "var(--accent)" : c);
 
 const loadDecks = () => { try { const d = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(d) ? d : []; } catch { return []; } };
 const saveDecks = (d) => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* storage full or private */ } };
@@ -61,7 +64,8 @@ export default function Decks() {
     const deck = decks.find((d) => d.id === studying.id);
     if (deck) {
       return <DeckStudy deck={deck} mode={studying.mode} setMode={(mode) => setStudying({ ...studying, mode })} onBack={() => setStudying(null)}
-        onKnown={(known) => setDecks((all) => all.map((x) => (x.id === deck.id ? { ...x, known, studied: Date.now() } : x)))} />;
+        onKnown={(known) => setDecks((all) => all.map((x) => (x.id === deck.id ? { ...x, known, studied: Date.now() } : x)))}
+        onSrs={(srs) => setDecks((all) => all.map((x) => (x.id === deck.id ? { ...x, srs, studied: Date.now() } : x)))} />;
     }
   }
 
@@ -75,12 +79,13 @@ export default function Decks() {
           <span className="small muted">word ; meaning, one a line</span>
         </button>
         {decks.map((d) => {
-          const known = (d.known || []).filter((id) => d.cards.some((c) => c.id === id)).length;
+          const known = knownCards(d).length, due = dueCards(d).length;
           return (
-            <div key={d.id} className="dk-deck" style={{ "--dk": d.color }}>
+            <div key={d.id} className="dk-deck" style={{ "--dk": colorOf(d.color) }}>
               <div className="dk-stack" aria-hidden="true"><i /><i /><i><span>{d.cards[0]?.front || "Empty"}</span></i></div>
               <b className="dk-name">{d.name}</b>
-              <span className="small muted">{d.cards.length} card{d.cards.length === 1 ? "" : "s"} · {known} known</span>
+              <span className="small muted">{d.cards.length} card{d.cards.length === 1 ? "" : "s"} · {known} known{due ? "" : nextDue(d) ? ` · ${nextDue(d)}` : ""}</span>
+              {due > 0 && <span className="dk-due">{due} due for review</span>}
               <div className="dk-bar"><i style={{ width: `${d.cards.length ? (known / d.cards.length) * 100 : 0}%` }} /></div>
               <div className="dk-actions">
                 <button className="btn small" disabled={d.cards.length < 2} onClick={() => setStudying({ id: d.id, mode: "learn" })}>Learn</button>
@@ -107,7 +112,7 @@ export default function Decks() {
 function DeckEditor({ deck, count, onSave, onCancel, onDelete }) {
   const [name, setName] = useState(deck?.name || "");
   const [text, setText] = useState(deck ? textOf(deck.cards) : "");
-  const [color, setColor] = useState(deck?.color || COLORS[count % COLORS.length]);
+  const [color, setColor] = useState(deck?.color || (count ? COLORS[count % COLORS.length] : "theme"));
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const area = useRef(null);
@@ -178,7 +183,7 @@ function DeckEditor({ deck, count, onSave, onCancel, onDelete }) {
       </div>
       <input className="dk-title" value={name} onChange={(e) => setName(e.target.value)} placeholder="Deck name, like Spanish food or Biology key words" autoFocus={!deck} />
       <div className="dk-colors">
-        {COLORS.map((c) => <button key={c} className={"dk-color" + (color === c ? " on" : "")} style={{ background: c }} onClick={() => setColor(c)} aria-label="Deck colour" />)}
+        {COLORS.map((c) => <button key={c} className={"dk-color" + (colorOf(color) === colorOf(c) ? " on" : "") + (c === "theme" ? " theme" : "")} style={{ background: colorOf(c) }} onClick={() => setColor(c)} aria-label={c === "theme" ? "Theme colour" : "Deck colour"} title={c === "theme" ? "Follows your theme" : undefined} />)}
       </div>
 
       <div className="dk-tools">
@@ -203,7 +208,7 @@ function DeckEditor({ deck, count, onSave, onCancel, onDelete }) {
           <div className="dk-write-head"><b className="small">{cards.length} card{cards.length === 1 ? "" : "s"}</b>{loose.length > 0 && <span className="small dk-warn">{loose.length} without a meaning yet</span>}</div>
           <div className="dk-cards">
             {cards.map((c) => (
-              <div key={c.id} className="dk-card" style={{ "--dk": color }}><b>{c.front}</b><span>{c.back}</span></div>
+              <div key={c.id} className="dk-card" style={{ "--dk": colorOf(color) }}><b>{c.front}</b><span>{c.back}</span></div>
             ))}
             {loose.map((l) => <div key={"l" + l.line} className="dk-card loose"><b>{l.text}</b><span>needs ; and a meaning</span></div>)}
             {!cards.length && !loose.length && <p className="small muted" style={{ margin: 8 }}>Cards appear here as you type.</p>}
@@ -221,10 +226,10 @@ const cleanLines = (t) => String(t || "").split("\n").map((l) => l.replace(/^\s*
 
 const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 
-function DeckStudy({ deck, mode, setMode, onBack, onKnown }) {
+function DeckStudy({ deck, mode, setMode, onBack, onKnown, onSrs }) {
   const [reverse, setReverse] = useState(false);
   return (
-    <div className="page fade dk" style={{ "--dk": deck.color }}>
+    <div className="page fade dk" style={{ "--dk": colorOf(deck.color) }}>
       <div className="dk-edit-top">
         <button className="btn ghost small" onClick={onBack}><Icon name="back" size={14} /> My decks</button>
         <b className="dk-study-name">{deck.name}</b>
@@ -237,14 +242,15 @@ function DeckStudy({ deck, mode, setMode, onBack, onKnown }) {
           <button className={"btn ghost small" + (reverse ? " on" : "")} onClick={() => setReverse((r) => !r)} title="Show the meaning first">⇄ {reverse ? "Meaning first" : "Word first"}</button>
         </div>
       </div>
-      {mode === "learn" ? <DeckLearn key={"l" + reverse} deck={deck} reverse={reverse} onKnown={onKnown} />
+      {mode === "learn" ? <DeckLearn key={"l" + reverse} deck={deck} reverse={reverse} onSrs={onSrs} />
         : mode === "quiz" ? <DeckQuiz key={"q" + reverse} deck={deck} reverse={reverse} />
-        : <DeckCards key={"c" + reverse} deck={deck} reverse={reverse} onKnown={onKnown} />}
+        : <DeckCards key={"c" + reverse} deck={deck} reverse={reverse} onKnown={onKnown} onSrs={onSrs} />}
     </div>
   );
 }
 
-function DeckCards({ deck, reverse, onKnown }) {
+function DeckCards({ deck, reverse, onKnown, onSrs }) {
+  const srsRef = useRef(deck.srs || {});
   const [known, setKnown] = useState(() => new Set(deck.known || []));
   const [queue, setQueue] = useState(() => shuffle(deck.cards.filter((c) => !(deck.known || []).includes(c.id))));
   const [flipped, setFlipped] = useState(false);
@@ -259,6 +265,9 @@ function DeckCards({ deck, reverse, onKnown }) {
       setQueue((q) => (knew ? q.slice(1) : [...q.slice(1), q[0]]));
     }, 220);
     if (knew) { const k = new Set(known); k.add(card.id); setKnown(k); onKnown([...k]); }
+    // Flashcards feed spaced repetition too: known goes up a box, not yet comes back tomorrow.
+    srsRef.current = schedule(srsRef.current, card.id, !knew);
+    onSrs(srsRef.current);
   }
   useEffect(() => {
     if (!card) return;
@@ -348,23 +357,44 @@ function DeckQuiz({ deck, reverse }) {
   );
 }
 
+/* ---------- spaced repetition ---------- */
+
+// Each card has a box: the better it is known, the higher the box and the
+// longer until it is asked again, as Quizlet's spaced repetition does it.
+// Right: up a box. Missed along the way: back to box 1, due tomorrow.
+const DAY = 86400000;
+const STEPS = [0, 1, 3, 7, 14, 30, 60, 120]; // days until the next review, by box
+export function schedule(srs, id, missed, { cram = false } = {}) {
+  const s = srs?.[id] || { box: 0, due: 0 };
+  const box = missed ? 1 : cram ? Math.max(1, s.box) : Math.min(STEPS.length - 1, s.box + 1);
+  return { ...srs, [id]: { box, due: Date.now() + STEPS[box] * DAY, seen: Date.now() } };
+}
+export const dueCards = (deck, now = Date.now()) => deck.cards.filter((c) => deck.srs?.[c.id] && deck.srs[c.id].due <= now);
+export const newCards = (deck) => deck.cards.filter((c) => !deck.srs?.[c.id]);
+export const knownCards = (deck) => deck.cards.filter((c) => (deck.srs?.[c.id]?.box || 0) >= 2 || (!deck.srs?.[c.id] && (deck.known || []).includes(c.id)));
+function nextDue(deck) {
+  const t = Math.min(...deck.cards.map((c) => deck.srs?.[c.id]?.due ?? Infinity));
+  if (!isFinite(t)) return "";
+  const d = Math.ceil((t - Date.now()) / DAY);
+  return d <= 0 ? "due now" : d === 1 ? "next review tomorrow" : `next review in ${d} days`;
+}
+
 /* ---------- Learn, as Quizlet does it ---------- */
 
-// Two ways to learn a deck:
-//   Learn it all: every card is asked twice before it counts as known, first
-//   picking the answer from four, then typing it, so it is recalled and not
-//   just recognised.
-//   Cram for a test: quick rounds of four choices, the cards you miss most
-//   first, until each has been right once.
-// Rounds of seven, with how far along you are between rounds. A card missed
-// stays in play and comes back.
+// Three ways in:
+//   Review: the cards spaced repetition says are due today.
+//   Learn it all: every card twice before it counts, first picking the answer
+//     from four, then typing it, so it is recalled and not just recognised.
+//   Cram for a test: quick rounds of four choices, the ones missed most
+//     first, until each has been right once.
+// Rounds of seven. Each question's kind is fixed when it is asked, and a
+// missed card goes to the back of the round to come round again.
 const ROUND = 7;
 const norm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 function near(a, b) {
   a = norm(a); b = norm(b);
   if (a === b) return true;
   if (Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
-  // one letter wrong, missing or extra: a slip, not a wrong answer
   let i = 0, j = 0, edits = 0;
   while (i < a.length && j < b.length) {
     if (a[i] === b[j]) { i++; j++; continue; }
@@ -374,75 +404,100 @@ function near(a, b) {
   return edits + (a.length - i) + (b.length - j) <= 1;
 }
 
-function DeckLearn({ deck, reverse, onKnown }) {
-  const [goal, setGoal] = useState(null); // "all" | "cram"
-  const [level, setLevel] = useState(() => Object.fromEntries(deck.cards.map((c) => [c.id, 0]))); // 0 new, 1 halfway, 2 known
+function DeckLearn({ deck, reverse, onSrs }) {
+  const due = dueCards(deck);
+  const [goal, setGoal] = useState(null); // "review" | "all" | "cram"
+  const [pool, setPool] = useState([]); // the cards this session covers
+  const [state, setState] = useState({}); // id -> "learning" | "done"
   const [misses, setMisses] = useState({});
-  const [round, setRound] = useState([]);
-  const [at, setAt] = useState(0);
-  const [answer, setAnswer] = useState(null); // { ok, chose, typed, near }
+  const [queue, setQueue] = useState([]); // [{ c, w }] w: type it rather than pick it
+  const [roundIds, setRoundIds] = useState([]);
+  const [answer, setAnswer] = useState(null);
   const [between, setBetween] = useState(false);
   const [typed, setTyped] = useState("");
   const input = useRef(null);
-  const need = goal === "cram" ? 1 : 2;
-  const done = (id) => (level[id] || 0) >= need;
-  const left = deck.cards.filter((c) => !done(c.id));
+  const srsRef = useRef(deck.srs || {});
 
-  function newRound(lv = level, ms = misses) {
-    let pool = deck.cards.filter((c) => (lv[c.id] || 0) < need);
-    pool = goal === "cram" ? shuffle(pool).sort((a, b) => (ms[b.id] || 0) - (ms[a.id] || 0)) : pool;
-    setRound(shuffle(pool.slice(0, ROUND)));
-    setAt(0); setAnswer(null); setTyped(""); setBetween(false);
+  function begin(g) {
+    const p = g === "review" ? due : g === "all" ? [...due, ...deck.cards.filter((c) => !due.includes(c))] : deck.cards;
+    setGoal(g); setPool(p); setState({}); setMisses({});
+    startRound(g, p, {}, {});
   }
-  useEffect(() => { if (goal) newRound(); }, [goal]); // eslint-disable-line react-hooks/exhaustive-deps
+  function startRound(g, p, st, ms) {
+    let left = p.filter((c) => st[c.id] !== "done");
+    if (g === "cram") left = shuffle(left).sort((a, b) => (ms[b.id] || 0) - (ms[a.id] || 0));
+    const pick = left.slice(0, ROUND);
+    const w = (c) => g === "review" && (deck.srs?.[c.id]?.box || 0) >= 2;
+    setQueue(shuffle(pick).map((c) => ({ c, w: w(c) })));
+    setRoundIds(pick.map((c) => c.id));
+    setAnswer(null); setTyped(""); setBetween(false);
+  }
 
-  const card = round[at];
-  const writing = card && goal === "all" && (level[card.id] || 0) === 1;
+  const item = queue[0];
+  const card = item?.c;
+  const writing = !!item?.w;
   const prompt = card && (writing ? (reverse ? card.front : card.back) : reverse ? card.back : card.front);
   const want = card && (writing ? (reverse ? card.back : card.front) : reverse ? card.front : card.back);
   const options = useMemo(() => {
     if (!card || writing) return [];
-    const others = shuffle(deck.cards.filter((x) => x.id !== card.id)).slice(0, 3);
-    return shuffle([card, ...others]);
-  }, [card?.id, writing]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (writing && !answer) input.current?.focus(); }, [writing, answer, at]);
+    return shuffle([card, ...shuffle(deck.cards.filter((x) => x.id !== card.id)).slice(0, 3)]);
+  }, [queue]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (writing && !answer) setTimeout(() => input.current?.focus(), 30); }, [queue, answer, writing]);
 
   function mark(ok, extra = {}) {
     setAnswer({ ok, ...extra });
-    if (ok) {
-      const lv = { ...level, [card.id]: (level[card.id] || 0) + 1 };
-      setLevel(lv);
-      if (lv[card.id] >= need) onKnown([...new Set([...(deck.known || []), ...deck.cards.filter((c) => lv[c.id] >= need).map((c) => c.id)])]);
-    } else {
-      setMisses((m) => ({ ...m, [card.id]: (m[card.id] || 0) + 1 }));
-    }
+    if (!ok) { setMisses((m) => ({ ...m, [card.id]: (m[card.id] || 0) + 1 })); setState((s) => ({ ...s, [card.id]: "learning" })); }
   }
+  // After the answer: what comes next for this card, decided now.
   function next() {
-    // A missed card goes to the back of this round to be tried again.
-    if (answer && !answer.ok) setRound((r) => [...r, r[at]]);
+    const ok = answer?.ok;
+    let rest = queue.slice(1);
+    let st = state;
+    if (!ok) rest = [...rest, item]; // try again later this round
+    else if (goal === "all" && !writing) { rest = [...rest, { c: card, w: true }]; st = { ...st, [card.id]: "learning" }; } // now type it
+    else {
+      st = { ...st, [card.id]: "done" };
+      srsRef.current = schedule(srsRef.current, card.id, !!misses[card.id], { cram: goal === "cram" });
+      onSrs(srsRef.current);
+    }
+    setState(st);
     setAnswer(null); setTyped("");
-    if (at + 1 < round.length + (answer && !answer.ok ? 1 : 0)) { setAt(at + 1); return; }
-    setBetween(true);
+    setQueue(rest);
+    if (!rest.length) setBetween(true);
   }
   useEffect(() => {
     if (!answer) return;
-    const onKey = (e) => { if (e.key === "Enter" && !e.target.closest?.("textarea")) { e.preventDefault(); next(); } };
-    const t = setTimeout(() => addEventListener("keydown", onKey), 50);
+    const onKey = (e) => { if (e.key === "Enter") { e.preventDefault(); next(); } };
+    const t = setTimeout(() => addEventListener("keydown", onKey), 60);
     return () => { clearTimeout(t); removeEventListener("keydown", onKey); };
+  });
+  useEffect(() => {
+    if (answer || writing || !options.length) return;
+    const onKey = (e) => { const n = Number(e.key); if (n >= 1 && n <= options.length && !e.target.closest?.("input")) mark(options[n - 1].id === card.id, { chose: options[n - 1].id }); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
   });
 
   if (!goal) {
+    const fresh = newCards(deck).length, known = knownCards(deck).length;
     return (
       <div className="dk-learn-pick">
         <h2>How do you want to study?</h2>
-        <p className="muted">{deck.cards.length} cards in {deck.name}</p>
-        <div className="dk-goals">
-          <button className="dk-goal" onClick={() => setGoal("all")}>
+        <p className="muted">{deck.cards.length} cards · {known} known · {fresh} new{due.length ? ` · ${due.length} due today` : ` · ${nextDue(deck) || "no reviews scheduled yet"}`}</p>
+        <div className={"dk-goals" + (due.length ? " three" : "")}>
+          {due.length > 0 && (
+            <button className="dk-goal due" onClick={() => begin("review")}>
+              <span className="dk-goal-art" aria-hidden="true">🔁</span>
+              <b>Review {due.length} due</b>
+              <span>Spaced repetition: the cards your memory is about to lose, asked just in time. Each right answer pushes the next review further away.</span>
+            </button>
+          )}
+          <button className="dk-goal" onClick={() => begin("all")}>
             <span className="dk-goal-art" aria-hidden="true">🧠</span>
             <b>Learn it all</b>
             <span>Know every card for good. Each one is asked twice: pick the answer, then type it from memory.</span>
           </button>
-          <button className="dk-goal" onClick={() => setGoal("cram")}>
+          <button className="dk-goal" onClick={() => begin("cram")}>
             <span className="dk-goal-art" aria-hidden="true">⚡</span>
             <b>Cram for a test</b>
             <span>Short on time. Quick rounds of four choices, the ones you miss most first, until each is right once.</span>
@@ -452,56 +507,59 @@ function DeckLearn({ deck, reverse, onKnown }) {
     );
   }
 
-  const counts = { fresh: 0, learning: 0, known: 0 };
-  for (const c of deck.cards) { const l = level[c.id] || 0; if (l >= need) counts.known++; else if (l > 0 || misses[c.id]) counts.learning++; else counts.fresh++; }
+  const doneN = pool.filter((c) => state[c.id] === "done").length;
+  const learningN = pool.filter((c) => state[c.id] === "learning").length;
+  const freshN = pool.length - doneN - learningN;
   const bar = (
-    <div className="dk-learn-bar" aria-label={`${counts.known} of ${deck.cards.length} known`}>
-      <i className="known" style={{ flex: counts.known }} /><i className="learning" style={{ flex: counts.learning }} /><i className="fresh" style={{ flex: counts.fresh }} />
-    </div>
-  );
-  const legend = (
-    <div className="dk-legend small">
-      <span><i className="known" />Known {counts.known}</span><span><i className="learning" />Learning {counts.learning}</span><span><i className="fresh" />Not studied {counts.fresh}</span>
-    </div>
+    <>
+      <div className="dk-learn-bar" aria-label={`${doneN} of ${pool.length} done`}>
+        <i className="known" style={{ flex: doneN }} /><i className="learning" style={{ flex: learningN }} /><i className="fresh" style={{ flex: freshN }} />
+      </div>
+      <div className="dk-legend small">
+        <span><i className="known" />{goal === "review" ? "Reviewed" : "Known"} {doneN}</span><span><i className="learning" />Learning {learningN}</span><span><i className="fresh" />{goal === "review" ? "To review" : "Not studied"} {freshN}</span>
+      </div>
+    </>
   );
 
-  if (!left.length && !answer) {
+  if (doneN === pool.length && !answer) {
+    const tricky = Object.entries(misses).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => deck.cards.find((c) => c.id === id)?.front).filter(Boolean);
     return (
       <div className="card card-pad dk-done">
         <Duck size={96} outfit="party" />
-        <h3>{goal === "cram" ? "Ready for the test" : "You learned every card"}</h3>
-        <p className="muted small">All {deck.cards.length} cards{Object.keys(misses).length ? `. The trickiest: ${Object.entries(misses).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => deck.cards.find((c) => c.id === id)?.front).filter(Boolean).join(", ")}` : ", first time"}.</p>
-        <div className="row"><button className="btn" onClick={() => { setLevel(Object.fromEntries(deck.cards.map((c) => [c.id, 0]))); setMisses({}); setGoal(null); }}>Study again</button></div>
+        <h3>{goal === "review" ? "Reviews done for today" : goal === "cram" ? "Ready for the test" : "You learned every card"}</h3>
+        <p className="muted small">{pool.length} card{pool.length === 1 ? "" : "s"}{tricky.length ? `. The trickiest: ${tricky.join(", ")}, back tomorrow` : ", every one right first time"}. {(() => { const n = nextDue({ ...deck, srs: srsRef.current }); return n ? n[0].toUpperCase() + n.slice(1) + "." : ""; })()}</p>
+        <div className="row"><button className="btn" onClick={() => setGoal(null)}>Done</button></div>
       </div>
     );
   }
 
-  if (between || !card) {
-    const seen = [...new Map(round.map((c) => [c.id, c])).values()];
+  if (between) {
+    const seen = roundIds.map((id) => deck.cards.find((c) => c.id === id)).filter(Boolean);
     return (
       <div className="dk-study">
-        {bar}{legend}
+        {bar}
         <div className="card card-pad dk-round">
           <h3>Round done. Keep going!</h3>
-          <p className="muted small">{counts.known} of {deck.cards.length} known. {left.length} to go.</p>
+          <p className="muted small">{doneN} of {pool.length} done.</p>
           <ul>
-            {seen.map((c) => <li key={c.id}><b>{c.front}</b><span>{c.back}</span><i className={(level[c.id] || 0) >= need ? "known" : "learning"}>{(level[c.id] || 0) >= need ? "Known" : "Learning"}</i></li>)}
+            {seen.map((c) => <li key={c.id}><b>{c.front}</b><span>{c.back}</span><i className={state[c.id] === "done" ? "known" : "learning"}>{state[c.id] === "done" ? "Done" : "Learning"}</i></li>)}
           </ul>
-          <button className="btn cta" onClick={() => newRound()}>Next round <Icon name="arrow" /></button>
+          <button className="btn cta" onClick={() => startRound(goal, pool, state, misses)}>Next round <Icon name="arrow" /></button>
         </div>
       </div>
     );
   }
 
+  if (!card) return null;
   return (
     <div className="dk-study">
-      {bar}{legend}
-      <div className={"card card-pad dk-q" + (answer ? (answer.ok ? " is-right" : " is-wrong") : "")}>
+      {bar}
+      <div className={"card card-pad dk-q" + (answer ? (answer.ok ? " is-right" : " is-wrong") : "")} key={queue.length + ":" + card.id + ":" + writing}>
         <span className="flash-tag">{writing ? `Type the ${reverse ? "meaning" : "word"}` : reverse ? "Which word means" : "What does this mean?"}</span>
         <h2>{prompt}</h2>
         {writing ? (
           <form onSubmit={(e) => { e.preventDefault(); if (answer || !typed.trim()) return; const ok = near(typed, want); mark(ok, { typed, near: ok && norm(typed) !== norm(want) }); }}>
-            <input ref={input} className="dk-type" value={typed} onChange={(e) => setTyped(e.target.value)} disabled={!!answer} placeholder="Type your answer" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+            <input ref={input} className="dk-type" value={typed} onChange={(e) => setTyped(e.target.value)} readOnly={!!answer} placeholder="Type your answer" autoComplete="off" autoCapitalize="off" spellCheck={false} />
             {!answer && (
               <div className="row" style={{ justifyContent: "space-between", marginTop: 10 }}>
                 <button type="button" className="btn ghost small" onClick={() => mark(false, { typed: "" })}>I don't know</button>
@@ -522,11 +580,12 @@ function DeckLearn({ deck, reverse, onKnown }) {
         )}
         {answer && (
           <div className={"dk-feedback " + (answer.ok ? "ok" : "no")}>
-            <b>{answer.ok ? (answer.near ? "Almost exactly. Counted as right." : ["Nice!", "Spot on!", "You've got it!", "Great memory!"][at % 4]) : "Not quite, you're still learning this one."}</b>
+            <b>{answer.ok ? (answer.near ? "Almost exactly. Counted as right." : ["Nice!", "Spot on!", "You've got it!", "Great memory!"][queue.length % 4]) : "Not quite, you're still learning this one."}</b>
+            {answer.ok && !writing && goal === "all" && <span>Next time round, you'll type it.</span>}
             {!answer.ok && <span>The answer: <strong>{want}</strong>{answer.typed ? <> · you wrote <em>{answer.typed}</em></> : null}</span>}
             {answer.ok && answer.near && <span>Exactly: <strong>{want}</strong></span>}
             <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-              {!answer.ok && writing && answer.typed && <button className="btn ghost small" onClick={() => { setMisses((m) => ({ ...m, [card.id]: Math.max(0, (m[card.id] || 1) - 1) })); setAnswer(null); mark(true, { typed: answer.typed }); }}>I was right</button>}
+              {!answer.ok && writing && answer.typed && <button className="btn ghost small" onClick={() => { setMisses((m) => { const n = { ...m }; if (n[card.id] > 1) n[card.id] -= 1; else delete n[card.id]; return n; }); setAnswer({ ok: true, typed: answer.typed }); }}>I was right</button>}
               <button className="btn" onClick={next}>Continue <Icon name="arrow" /></button>
             </div>
           </div>

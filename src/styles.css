@@ -7967,7 +7967,7 @@ body:has(.theme-backdrop) main .card .stat { background: var(--surface); backdro
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 62%, transparent) 0%, color-mix(in srgb, var(--bg) 45%, transparent) 50%, color-mix(in srgb, var(--bg) 22%, transparent) 100%); }
 /* Words straight on the picture get a faint halo in the page colour. */
 body:has(.theme-backdrop) main { text-shadow: 0 0 2px var(--bg), 0 0 12px var(--bg), 0 0 24px var(--bg); }
-body:has(.theme-backdrop) main :is(.card, .stat, .drop, .notes, button, input, textarea, select, [role="dialog"]) { text-shadow: none; }
+body:has(.theme-backdrop) main :is(.card, .stat, .drop, .notes, .dk-deck, .dk-new, .dk-goal, .dk-write, .dk-preview, .dk-card, .st-card, .st-banner, .pz-card, .sv2-step, .sv2-final, .l4, button, input, textarea, select, [role="dialog"]) { text-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-backdrop *, .theme-backdrop *::before, .theme-backdrop *::after { animation: none !important; }
@@ -8333,3 +8333,14 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 /* the page's own bar stays under the timer banner when scrolling */
 .main:has(> .st-banner) .topbar { top: 50px; }
 @media (max-width: 700px) { .st-chip { top: auto; bottom: 86px; right: 14px; } .st-banner-label { display: none; } }
+
+/* decks: spaced repetition and the theme's colour */
+.dk-stack i { font-style: normal; }
+.dk-stack span { text-shadow: none; }
+.dk-due { align-self: flex-start; margin-top: 4px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--dk, var(--accent)); animation: dk-pulse 2s ease-in-out infinite; }
+@keyframes dk-pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--dk, var(--accent)) 20%, transparent); } }
+.dk-goals.three { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 860px) { .dk-goals.three { grid-template-columns: 1fr; } }
+.dk-goal.due { border-color: color-mix(in srgb, var(--dk, var(--accent)) 60%, var(--line)); background: color-mix(in srgb, var(--dk, var(--accent)) 7%, var(--surface)); }
+.dk-color.theme { background: conic-gradient(var(--accent) 0 50%, color-mix(in srgb, var(--accent) 50%, var(--surface)) 0) !important; }
+.dk-deck .btn:not(.ghost) { background: var(--dk, var(--accent)); color: #fff; border-color: transparent; }
