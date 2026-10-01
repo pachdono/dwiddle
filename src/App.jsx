@@ -1646,7 +1646,7 @@ function firstSentences(text, n) {
 // rather than notes, so it is looked at before anything is written.
 const REQUEST_LIMIT = 1500;
 
-function AddMaterial({ go, setMade, auth, early }) {
+function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
   const [pageOf, setPageOf] = useState(null); // { p, of } while a long PDF is read
   const [size, setSize] = useState(0); // words being built from, for the time estimate
   const [files, setFiles] = useState([]); // [{ file, url }] in the order added
