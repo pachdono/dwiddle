@@ -8613,3 +8613,26 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .nb-stk-grid button:hover { transform: scale(1.08) rotate(-3deg); }
 .nb-stk-grid button svg, .nb-stk-grid button img { filter: drop-shadow(0 2px 3px rgba(0,0,0,.15)); }
 .nb-stk-tip { margin: 8px 2px 0; font-size: 12px; color: var(--ink-3); }
+
+/* Notebook graph helper */
+.nb-gh { width: min(900px, calc(100vw - 24px)); max-width: none; text-align: left; padding: 20px; }
+.nb-gh-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.nb-gh-head b { font-size: 18px; }
+.nb-gh-body { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; align-items: start; }
+.nb-gh-form { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow: auto; }
+.nb-gh-fn { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.nb-gh-fn span { font-weight: 700; color: var(--c); font-family: Caveat, cursive; font-size: 22px; }
+.nb-gh-fn input { border-left: 4px solid var(--c); }
+.nb-gh-fn em { grid-column: 2; font-style: normal; font-size: 12px; color: var(--warn); }
+.nb-gh-range, .nb-gh-bar { display: flex; align-items: center; gap: 8px; }
+.nb-gh-range input { width: 80px; }
+.nb-gh-bar input:first-child { flex: 2; } .nb-gh-bar input:nth-child(2) { flex: 1; }
+.nb-gh-bar button { border: 0; background: none; font-size: 20px; color: var(--ink-3); cursor: pointer; }
+.nb-gh-title { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.nb-gh-preview { border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 8px; position: sticky; top: 0; }
+.nb-gh-presets > div { margin-bottom: 10px; }
+.nb-gh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 6px; }
+.nb-gh-grid button { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 12px; border: 1px solid var(--line); background: #fff; cursor: pointer; font: inherit; font-size: 12px; color: #2b2d38; text-align: center; }
+.nb-gh-grid button.on, .nb-gh-grid button:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.nb-gh-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+@media (max-width: 720px) { .nb-gh-body { grid-template-columns: 1fr; } .nb-gh-preview { position: static; } }

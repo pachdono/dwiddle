@@ -26,6 +26,7 @@ import { shrink } from "./custom.js";
 import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDrop.js";
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 import { StickerPicker } from "./NotebookStickers.jsx";
+import { GraphView, GraphHelper } from "./NotebookGraph.jsx";
 
 /* ---------- paper ---------- */
 
@@ -629,6 +630,9 @@ function ItemView({ it, editing, onText, shown, bare }) {
       filter={pen?.texture && !bare ? `url(#nb-tex-${pen.texture})` : undefined} />;
   }
   if (it.type === "shape") return <Shape it={it} />;
+  if (it.type === "graph") {
+    return <svg x={it.x} y={it.y} width={it.w} height={it.h} viewBox={`0 0 ${it.w} ${it.h}`} overflow="visible"><GraphView spec={it.spec} w={it.w} h={it.h} /></svg>;
+  }
   if (it.type === "image") {
     // A cropped picture keeps the whole original; only the chosen part shows.
     if (it.crop) {
@@ -2821,6 +2825,7 @@ function Editor({ id, go, onClose, early = false, access }) {
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
   const [split, setSplit] = useState(false); // research beside the notebook
   const [stickers, setStickers] = useState(false);
+  const [graphing, setGraphing] = useState(null); // {} for a new graph, { pageId, itemId } to edit one
   const [adding, setAdding] = useState(false); // the add page menu
   const [pageMenu, setPageMenu] = useState(false); // paper, add, remove, print
   const [more, setMore] = useState(false); // on a phone: pictures, split screen, video, ruler, protractor
@@ -3683,6 +3688,24 @@ function Editor({ id, go, onClose, early = false, access }) {
     }
   }
 
+  // A graph from the helper: a new one in the middle of the page, or an
+  // existing one changed where it is.
+  function placeGraph(spec) {
+    if (graphing?.itemId) {
+      updatePage(graphing.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === graphing.itemId ? { ...i, spec } : i)) }));
+    } else {
+      const page = book.pages[current] || book.pages[0];
+      const w = Math.min(520, page.w - 120), h = Math.round(w * 0.7);
+      const n = page.items.filter((i) => i.type === "graph").length;
+      const it = { id: uid(), type: "graph", x: (page.w - w) / 2, y: 140 + ((n * (h + 30)) % Math.max(1, page.h - h - 200)), w, h, spec };
+      updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
+      setTool("select");
+      setSel({ pageId: page.id, itemId: it.id });
+      if (canUseNewNotebookTools) setGroup({ pageId: page.id, ids: [it.id] });
+    }
+    setGraphing(null);
+  }
+
   // A sticker, put in the middle of the page that is showing.
   function addSticker(src, size = 130) {
     const page = book.pages[current] || book.pages[0];
@@ -3952,6 +3975,11 @@ function Editor({ id, go, onClose, early = false, access }) {
               <Icon name="star" size={18} />
             </button>
           )}
+          {early && (
+            <button className="nb-tool nb-extra" title="Add a graph: plot a formula, or pick a ready made one" aria-label="Add a graph" onClick={() => setGraphing({})}>
+              <Icon name="graph" size={18} />
+            </button>
+          )}
           <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
             onClick={() => setSplit((v) => !v)}>
             <Icon name="split" size={18} />
@@ -4029,6 +4057,11 @@ function Editor({ id, go, onClose, early = false, access }) {
           {early && (
             <button className={"nb-tool nb-extra" + (stickers ? " on" : "")} title="Stickers" aria-label="Stickers" aria-pressed={stickers} onClick={() => setStickers((v) => !v)}>
               <Icon name="star" size={18} />
+            </button>
+          )}
+          {early && (
+            <button className="nb-tool nb-extra" title="Add a graph: plot a formula, or pick a ready made one" aria-label="Add a graph" onClick={() => setGraphing({})}>
+              <Icon name="graph" size={18} />
             </button>
           )}
           <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
@@ -4371,8 +4404,11 @@ function Editor({ id, go, onClose, early = false, access }) {
                     {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "image" && (
                       <button onClick={() => setCropping(group.ids[0])}>Crop</button>
                     )}
+                    {group.ids.length === 1 && page.items.find((i) => i.id === group.ids[0])?.type === "graph" && (
+                      <button onClick={() => setGraphing({ pageId: page.id, itemId: group.ids[0] })}>Edit graph</button>
+                    )}
                     <button onClick={groupDuplicate}>Duplicate</button>
-                    {page.items.some((i) => group.ids.includes(i.id) && i.type !== "image") &&
+                    {page.items.some((i) => group.ids.includes(i.id) && i.type !== "image" && i.type !== "graph") &&
                       INKS.slice(0, 5).map((c) => <button key={c} className="nb-lassocolor" style={{ background: c }} onClick={() => groupColor(c)} aria-label="Colour" />)}
                     <button className="danger" onClick={groupDelete}>Delete</button>
                   </FitBar>
@@ -4385,6 +4421,8 @@ function Editor({ id, go, onClose, early = false, access }) {
           ))}
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
         </div>
+        {graphing && <GraphHelper initial={graphing.itemId ? book.pages.find((p) => p.id === graphing.pageId)?.items.find((i) => i.id === graphing.itemId)?.spec : null}
+          onDone={placeGraph} onClose={() => setGraphing(null)} />}
         {stickers && early && <StickerPicker onPick={(src, size) => addSticker(src, size)} onClose={() => setStickers(false)} />}
         {split && (early
           ? <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} onImageDrag={canUseNewNotebookTools ? onImageDrag : undefined} />

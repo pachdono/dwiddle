@@ -14,6 +14,7 @@
 
 import { newBook, newPage, putBook, uid, PAGE_W, PAGE_H } from "./notebookStore.js";
 import { fontById, readyFont } from "./nbFonts.js";
+import { sketchFor } from "./NotebookGraph.jsx";
 import { MARK, flatMarks, blockTexts } from "./marks.js";
 
 const M = 42;                               // page margin
@@ -221,7 +222,11 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
     }
     y += 12;
 
-    if (pictures && rich && !blocks.some((b) => b.pic)) {
+    // A drawn graph where the topic is one a standard graph shows (enzymes
+    // and temperature, supply and demand), in place of a photograph.
+    const sketch = rich ? sketchFor([topic.name, ...blocks.map(blockTexts).flat()].join(" ")) : null;
+    if (sketch) graph(sketch);
+    else if (pictures && rich && !blocks.some((b) => b.pic)) {
       const pic = await pictureFor(topic.name).catch(() => null);
       if (pic) picture(pic);
     }
@@ -335,6 +340,14 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
     });
     if (cycle) write("↻ back to step 1", { indent: 15, color: accent });
     y += 6;
+  }
+
+  // A hand drawn graph the width of a column.
+  function graph(spec) {
+    const w = Math.round(COL - 8), h = Math.round(w * 0.68);
+    room(h + LH);
+    page.items.push({ id: uid(), type: "graph", x: colX() + 4, y: y + 4, w, h, spec });
+    y = snap(y + h + LH);
   }
 
   // A picture the width of a column at most, with its credit.

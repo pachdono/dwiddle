@@ -76,6 +76,7 @@ const paths = {
   selectall: "M4 4h2M8 4h4M14 4h2v2M16 8v4M16 14v2h-2M12 16H8M6 16H4v-2M4 12V8M4 6V4",
   download: "M6.5 2.5h7a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V4a1.5 1.5 0 0 1 1.5-1.5ZM8.5 15h3",
   search: "M8.5 14a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11ZM12.5 12.5 17 17",
+  graph: "M3 3v14h14M6 13c2-6 4-8 6-4s3 1 5-5",
 };
 
 // The gear needs a 24 grid, so it carries its own viewBox.
