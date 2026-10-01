@@ -19,12 +19,13 @@ import { Icon, PageHead, Loading, Portal, BusyScreen } from "./ui.jsx";
 import { DuckMark } from "./Duck.jsx";
 import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H, listFonts, putFont } from "./notebookStore.js";
 import { syncNotebooks, queueUpload, queueDelete } from "./notebookSync.js";
-import { readImage, checkPage } from "./ai.js";
+import { readImage, checkPage, earlyAccess } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
 import { FullscreenButton } from "./ContextMenu.jsx";
 import { shrink } from "./custom.js";
 import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDrop.js";
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
+import { StickerPicker } from "./NotebookStickers.jsx";
 
 /* ---------- paper ---------- */
 
@@ -35,6 +36,8 @@ export const TEMPLATES = [
   { id: "grid", name: "Squared" },
   { id: "graph", name: "Graph paper" },
   { id: "dots", name: "Dotted" },
+  { id: "pastel", name: "Pastel lined", early: true },
+  { id: "journal", name: "Journal", early: true },
   { id: "cornell", name: "Cornell notes" },
   { id: "mindmap", name: "Mind map" },
   { id: "daily", name: "Daily plan" },
@@ -48,9 +51,16 @@ export const PAPERS = [
   { id: "cream", name: "Cream", bg: "#fbf6e9", line: "#e6dcc4", ink: "#2b2519" },
   { id: "mint", name: "Mint", bg: "#f1faf5", line: "#cfe7da", ink: "#1b2a22" },
   { id: "blush", name: "Blush", bg: "#fdf2f4", line: "#f0d3da", ink: "#2d1c21" },
+  { id: "lavender", name: "Lavender", bg: "#f5f1fd", line: "#ddd3f3", ink: "#251d33", early: true },
+  { id: "sky", name: "Sky", bg: "#f0f7fd", line: "#cfe2f3", ink: "#1a2733", early: true },
+  { id: "butter", name: "Butter", bg: "#fffaea", line: "#f1e3b0", ink: "#2e2814", early: true },
+  { id: "peach", name: "Peach", bg: "#fff4ee", line: "#f5d8c8", ink: "#33221a", early: true },
+  { id: "kraft", name: "Kraft", bg: "#e8d3b0", line: "#cfb388", ink: "#2b2014", early: true },
   { id: "dark", name: "Dark", bg: "#1c1d24", line: "#34363f", ink: "#f1f1f4" },
 ];
 const paperOf = (id) => PAPERS.find((p) => p.id === id) || PAPERS[0];
+// Papers still being tried out are offered to testers and staff only.
+const offered = (list) => list.filter((x) => !x.early || earlyAccess());
 
 const Paper = memo(PaperView, (a, b) => a.page.id === b.page.id && a.page.template === b.page.template && a.page.paper === b.page.paper
   && a.page.bg === b.page.bg && a.page.w === b.page.w && a.page.h === b.page.h);
@@ -84,6 +94,31 @@ function PaperView({ page }) {
         <defs><pattern id={`d-${page.id}`} width="24" height="24" patternUnits="userSpaceOnUse">
           <circle cx="12" cy="12" r="1.4" fill={L} /></pattern></defs>
         <rect width={w} height={h} fill={`url(#d-${page.id})`} />
+      </>;
+      break;
+    case "pastel":
+      // Soft lines, a rounded title band and a dotted margin, for pretty notes.
+      body = <>
+        <rect x="40" y="34" width={w - 80} height="58" rx="29" fill="#f9dfe6" opacity="0.75" />
+        <circle cx="70" cy="63" r="9" fill="#fff" opacity="0.8" />
+        {Array.from({ length: Math.floor((h - 160) / 32) }, (_, i) => {
+          const y = 128 + i * 32, tint = ["#f3d2db", "#d9e8d2", "#ddd6f2", "#f4e6bd", "#d2e4f2"][i % 5];
+          return <line key={y} x1="96" x2={w - 40} y1={y} y2={y} stroke={tint} strokeWidth="1.6" strokeLinecap="round" />;
+        })}
+        {Array.from({ length: Math.floor((h - 160) / 32) }, (_, i) => <circle key={"m" + i} cx="66" cy={128 + i * 32} r="2.2" fill="#e8b4c2" />)}
+      </>;
+      break;
+    case "journal":
+      // A dot grid with a title box and a few doodles in the corners.
+      body = <>
+        <defs><pattern id={`j-${page.id}`} width="28" height="28" patternUnits="userSpaceOnUse">
+          <circle cx="14" cy="14" r="1.3" fill={L} /></pattern></defs>
+        <rect width={w} height={h} fill={`url(#j-${page.id})`} />
+        <rect x="56" y="44" width="300" height="64" rx="14" fill="#fff" opacity="0.85" stroke="#e9d6a7" strokeWidth="2" strokeDasharray="6 6" />
+        <path d={`M${w - 92} 58l6 14 15 1-11 10 3 15-13-8-13 8 3-15-11-10 15-1z`} fill="#ffe7a3" />
+        <path d={`M${w - 140} 96c8-10 20-10 24 0`} stroke="#c9b8ef" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <path d={`M60 ${h - 70}c0-30 22-50 52-50 0 32-20 50-52 50z`} fill="#cfe3c8" opacity="0.9" />
+        <path d={`M${w - 110} ${h - 60}c-12-18 6-30 16-16 10-14 28-2 16 16l-16 14z`} fill="#f9c6d2" />
       </>;
       break;
     case "cornell":
@@ -1183,13 +1218,13 @@ function BookDialog({ folders, folder: startFolder, book, onSave, onClose }) {
           {!editing && (
             <>
               <div className="nb-field" style={{ marginBottom: 6 }}><span>Paper colour</span>
-                <div className="nb-swatches">{PAPERS.map((p) => (
+                <div className="nb-swatches">{offered(PAPERS).map((p) => (
                   <button key={p.id} className={paper === p.id ? "on" : ""} style={{ background: p.bg }} title={p.name} aria-label={p.name} onClick={() => setPaper(p.id)} />
                 ))}</div>
               </div>
               <span className="qv-label">Paper</span>
               <div className="nb-papers">
-                {TEMPLATES.map((t) => (
+                {offered(TEMPLATES).map((t) => (
                   <button key={t.id} className={"nb-paper" + (template === t.id ? " on" : "")} onClick={() => setTemplate(t.id)}>
                     <PagePreview page={{ ...newPage(t.id, paper), id: "p-" + t.id }} />
                     <span>{t.name}</span>
@@ -1471,81 +1506,124 @@ function Ruler({ r }) {
 
 const SETTINGS = ["pen", "highlighter", "revealer", "eraser", "shape"];
 const DRAWING_TOOLS = ["pen", "highlighter", "revealer", "eraser", "shape", "compass", "laser"];
-const MORE_INKS = ["#1b1d26", "#6b7280", "#3B5BFD", "#0891b2", "#16a34a", "#84cc16", "#f59e0b", "#f97316", "#e5484d", "#db2777", "#9333ea", "#7c4a2d"];
+const MORE_INKS = ["#1b1d26", "#6b7280", "#3B5BFD", "#0891b2", "#16a34a", "#84cc16", "#f59e0b", "#f97316", "#e5484d", "#db2777", "#9333ea", "#7c4a2d",
+  // pastels, for pretty notes
+  "#e88aa0", "#8cc9a4", "#a993e6", "#e8b84a", "#7fb6e3", "#f09a74", "#c28fd1", "#7cc4bf"];
 const MORE_HIGHLIGHTS = ["#ffe066", "#fde68a", "#a7f3d0", "#bbf7d0", "#fbcfe8", "#fecdd3", "#bfdbfe", "#c7d2fe", "#fed7aa", "#e9d5ff"];
 
-// A pen standing in the tray: a pale barrel, a band and a tip in its ink.
-// Ballpoint, fountain pen, brush and pencil get their own tips; highlighters
-// and the revealer are chunky markers with a chisel end.
+// A pen standing in the tray, drawn as the real thing so it is recognised at
+// a glance: a pencil with its wood, lead and eraser, a clicky ballpoint, a
+// fountain pen with a gold nib, a paintbrush dipped in its colour, chunky
+// highlighters. Whatever shows the ink is drawn in the ink's colour.
+const METAL = (id) => (
+  <linearGradient id={id} x1="0" x2="1">
+    <stop offset="0" stopColor="#9aa1ad" /><stop offset="0.45" stopColor="#f3f5f8" /><stop offset="1" stopColor="#7d8491" />
+  </linearGradient>
+);
+const GOLD = (id) => (
+  <linearGradient id={id} x1="0" x2="1">
+    <stop offset="0" stopColor="#b8862b" /><stop offset="0.5" stopColor="#ffe08a" /><stop offset="1" stopColor="#a8761f" />
+  </linearGradient>
+);
+const Gloss = ({ x, y, h, w = 1.6 }) => <rect x={x} y={y} width={w} height={h} rx={w / 2} fill="#fff" opacity="0.38" />;
+
 function PenIcon({ kind, color }) {
-  const marker = kind === "highlighter" || kind === "revealer";
-  const tips = {
-    ball: <path className="tip" d="M9 14 L12 3 L15 14 Z" fill={color} />,
-    fountain: <path className="tip" d="M8.5 15 C9 9 11 5 12 2 C13 5 15 9 15.5 15 Z M11.6 6 L12.4 6 L12.4 12 L11.6 12 Z" fill={color} fillRule="evenodd" />,
-    brush: <path className="tip" d="M9.5 15 C9 10 11 6 12 2 C13 6 15 10 14.5 15 Z" fill={color} />,
-    pencil: <><path d="M8.5 15 L12 3 L15.5 15 Z" fill="#E8C9A0" /><path className="tip" d="M10.8 7 L12 3 L13.2 7 Z" fill={color} /></>,
-    marker: <><path d="M9 15 L10.5 8 L13.5 8 L15 15 Z" fill="#d7d7dc" /><rect className="tip" x="10.9" y="3.5" width="2.2" height="5" rx="1" fill={color} /></>,
-    gel: <><path d="M9.5 15 L11 7 L13 7 L14.5 15 Z" fill="#cfd3da" /><path className="tip" d="M11.4 7 L12 2.5 L12.6 7 Z" fill={color} /></>,
-    calligraphy: <><path d="M9 15 L10 6 L14 6 L15 15 Z" fill="#b08d57" /><path className="tip" d="M10 6 L10.5 2 L14.5 3.5 L14 6 Z" fill={color} /></>,
-    felt: <><path d="M8.5 15 L10 8 L14 8 L15.5 15 Z" fill="#d7d7dc" /><path className="tip" d="M10.2 8.5 C10.2 4 13.8 4 13.8 8.5 Z" fill={color} /></>,
-    watercolor: <><path d="M9.5 15 L10.5 9 L13.5 9 L14.5 15 Z" fill="#c9ccd2" /><path className="tip" d="M10.5 9.5 C10 6 11.2 3.5 12 1.5 C12.8 3.5 14 6 13.5 9.5 Z" fill={color} opacity="0.8" /></>,
-  };
-  if (kind === "charcoal" || kind === "chalk") {
-    // A bare stick, rough at the drawing end.
-    const stick = kind === "chalk" ? (color === "#ffffff" ? "#f1f1f1" : color) : color;
-    return (
-      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
-        <path className="tip" d="M8 12 L9 5 L11 3.5 L13.5 4.5 L15.5 6 L16 12 Z" fill={stick} />
-        <rect x="8" y="11" width="8" height="35" rx={kind === "chalk" ? 4 : 1.5} fill={stick} />
-        <rect x="8" y="11" width="2.6" height="35" fill="#fff" opacity={kind === "chalk" ? 0.35 : 0.15} />
-      </svg>
-    );
-  }
-  if (kind === "pencil") {
-    // Six-sided wood with the lead showing: the barrel is the pencil's colour.
-    return (
-      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
-        {tips.pencil}
-        <rect x="8.5" y="14" width="7" height="32" fill={color} opacity="0.85" />
-        <rect x="8.5" y="14" width="2.3" height="32" fill="#fff" opacity="0.22" />
-        <rect x="13.2" y="14" width="2.3" height="32" fill="#000" opacity="0.12" />
-      </svg>
-    );
-  }
-  if (kind === "crayon") {
-    // A blunt waxy point and a paper wrapper, in the crayon's own colour.
-    return (
-      <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
-        <path className="tip" d="M7.5 13 C8 7 10 4 12 3 C14 4 16 7 16.5 13 Z" fill={color} />
-        <rect x="7" y="12" width="10" height="34" rx="2" fill={color} />
-        <rect x="7" y="17" width="10" height="24" fill="#fff" opacity="0.28" />
-        <path d="M7 20h10M7 38h10" stroke="#000" strokeOpacity="0.18" strokeWidth="1" />
-      </svg>
-    );
-  }
-  return (
+  const k = String(kind || "ball").replace(/[^a-z]/g, "");
+  const m = `pm-${k}`, g = `pg-${k}`;
+  const svg = (body) => (
     <svg className="nb-penicon" width="24" height="46" viewBox="0 0 24 46" aria-hidden="true">
-      <defs>
-        <linearGradient id={`barrel-${kind}`} x1="0" x2="1">
-          <stop offset="0" stopColor="#f4f4f6" /><stop offset="0.55" stopColor="#ffffff" /><stop offset="1" stopColor="#d9d9df" />
-        </linearGradient>
-      </defs>
-      {marker ? (
-        <>
-          <path className="tip" d="M6.5 16 L8 7 L16 7 L17.5 16 Z" fill={color} opacity={kind === "highlighter" ? 0.85 : 1} />
-          <path className="tip" d="M8 7 L10 2.5 L16 4 L16 7 Z" fill={color} />
-          <rect x="5.5" y="15" width="13" height="31" rx="2.5" fill={`url(#barrel-${kind})`} stroke="rgba(0,0,0,.12)" />
-          <rect x="5.5" y="18" width="13" height="5" fill={color} opacity="0.9" />
-        </>
-      ) : (
-        <>
-          {tips[kind] || tips.ball}
-          <rect x="8" y="14" width="8" height="32" rx="2" fill={`url(#barrel-${kind})`} stroke="rgba(0,0,0,.12)" />
-          <rect x="8" y="17" width="8" height="3.5" fill={color} opacity="0.9" />
-        </>
-      )}
+      <defs>{METAL(m)}{GOLD(g)}</defs>
+      {body}
     </svg>
   );
+  if (k === "pencil") return svg(<>
+    <path d="M8.3 14 L11.2 5.6 L12.8 5.6 L15.7 14 Z" fill="#EBC99B" />
+    <path d="M8.3 14 Q9.5 12.6 10.7 14 Q12 12.6 13.3 14 Q14.5 12.6 15.7 14 Z" fill="#D9AE78" />
+    <path className="tip" d="M11.2 5.6 L12 2.6 L12.8 5.6 Z" fill={color} />
+    <rect x="8.3" y="14" width="7.4" height="23" fill={color} />
+    <rect x="10.75" y="14" width="2.5" height="23" fill="#fff" opacity="0.22" />
+    <rect x="13.4" y="14" width="2.3" height="23" fill="#000" opacity="0.14" />
+    <rect x="8" y="37" width="8" height="4.6" fill={`url(#${m})`} />
+    <path d="M8 38.6h8M8 40.1h8" stroke="#6b7280" strokeWidth="0.5" />
+    <rect x="8.2" y="41.4" width="7.6" height="4.6" rx="1.6" fill="#F4A3B4" />
+  </>);
+  if (k === "brush" || k === "watercolor") {
+    const wet = k === "watercolor";
+    return svg(<>
+      <path className="tip" d={wet ? "M12 1.2 C14.6 5 15.6 9 14.6 14.5 L9.4 14.5 C8.4 9 9.4 5 12 1.2 Z" : "M12 1.5 C13.5 5.5 14.6 9.5 14.2 14.5 L9.8 14.5 C9.4 9.5 10.5 5.5 12 1.5 Z"} fill={color} opacity={wet ? 0.85 : 1} />
+      <path d="M9.6 11.5 C10.6 12.4 13.4 12.4 14.4 11.5 L14.4 14.5 L9.6 14.5 Z" fill="#E9D7B5" opacity="0.9" />
+      {wet && <path d="M18.5 4.5 C19.6 6.2 20.2 7.2 20.2 8 a1.7 1.7 0 0 1-3.4 0 c0-.8.6-1.8 1.7-3.5z" fill={color} opacity="0.7" />}
+      <rect x="9" y="14.5" width="6" height="7" rx="0.8" fill={`url(#${m})`} />
+      <path d="M9 16.4h6M9 19.4h6" stroke="#6b7280" strokeWidth="0.5" />
+      <path d="M9.2 21.5 L14.8 21.5 L13.6 46 L10.4 46 Z" fill={wet ? "#3d5a80" : "#B5835A"} />
+      <Gloss x={10.6} y={22.5} h={21} w={1.2} />
+    </>);
+  }
+  if (k === "fountain" || k === "calligraphy") {
+    const dip = k === "calligraphy";
+    return svg(<>
+      <path d={dip ? "M9.6 13 L10.4 4 L13.6 4 L14.4 13 Z" : "M9.2 13.5 C9.8 8.5 11.2 4.5 12 1.8 C12.8 4.5 14.2 8.5 14.8 13.5 Z"} fill={`url(#${g})`} />
+      <path d={dip ? "M12 4.5v5" : "M12 2.8v6.2"} stroke="#6b4a12" strokeWidth="0.7" />
+      <circle cx="12" cy={dip ? 10.4 : 9.6} r="0.9" fill="#6b4a12" />
+      <path className="tip" d={dip ? "M10.4 4 L11 1.8 L13.6 2.8 L13.6 4 Z" : "M11.5 3.3 L12 1.8 L12.5 3.3 Z"} fill={color} />
+      <rect x="8.6" y="13.5" width="6.8" height="5" rx="1.2" fill={dip ? "#7a5230" : "#20232b"} />
+      <rect x="8.2" y="18.5" width="7.6" height="27.5" rx="2.4" fill={dip ? "#9b6a3f" : color} />
+      {!dip && <rect x="8.2" y="21" width="7.6" height="1.6" fill={`url(#${g})`} />}
+      {!dip && <rect x="15.2" y="23.5" width="1.5" height="15" rx="0.7" fill={`url(#${g})`} />}
+      <Gloss x={9.8} y={19.5} h={25} />
+    </>);
+  }
+  if (k === "highlighter" || k === "revealer") return svg(<>
+    <path className="tip" d="M8.6 7.8 L10.4 2.6 L15.6 4.4 L15.6 7.8 Z" fill={color} />
+    <path d="M7 15.5 L8.4 7.6 L15.8 7.6 L17 15.5 Z" fill={color} opacity={k === "highlighter" ? 0.55 : 0.85} />
+    <rect x="5.6" y="15" width="12.8" height="31" rx="3" fill={color} opacity={k === "highlighter" ? 0.88 : 1} />
+    <rect x="5.6" y="15" width="12.8" height="7" rx="2" fill="#fff" opacity="0.32" />
+    <rect x="5.6" y="27" width="12.8" height="1.5" fill="#000" opacity="0.12" />
+    <Gloss x={7.2} y={23.5} h={20} w={2} />
+  </>);
+  if (k === "marker" || k === "felt") return svg(<>
+    <path className="tip" d="M10.3 8.5 C10.3 3.6 13.7 3.6 13.7 8.5 Z" fill={color} />
+    <path d="M8.6 15 L10 8.2 L14 8.2 L15.4 15 Z" fill="#d9dce2" />
+    <rect x="7.6" y="15" width="8.8" height="31" rx="2.2" fill="#fbfbfd" stroke="rgba(0,0,0,.14)" strokeWidth="0.6" />
+    <rect x="7.6" y="18" width="8.8" height="5.5" fill={color} />
+    <rect x="7.6" y="40" width="8.8" height="6" rx="2" fill={color} />
+    <Gloss x={9} y={24.5} h={14} />
+  </>);
+  if (k === "gel") return svg(<>
+    <path d="M10.6 12.5 L12 3.5 L13.4 12.5 Z" fill={`url(#${m})`} />
+    <circle className="tip" cx="12" cy="3.4" r="1" fill={color} />
+    <rect x="8.4" y="12.5" width="7.2" height="8" rx="2" fill="#2b2f38" />
+    <path d="M8.4 14.5h7.2M8.4 16.5h7.2M8.4 18.5h7.2" stroke="#4b5160" strokeWidth="0.6" />
+    <rect x="8.4" y="20.5" width="7.2" height="25.5" rx="2" fill="#eef3f8" opacity="0.92" stroke="rgba(0,0,0,.12)" strokeWidth="0.6" />
+    <rect x="11.2" y="20.5" width="1.6" height="23" fill={color} />
+    <rect x="15.1" y="22" width="1.5" height="15" rx="0.7" fill={`url(#${m})`} />
+  </>);
+  if (k === "crayon") return svg(<>
+    <path className="tip" d="M7.6 13 C8 7.5 10 4.2 12 3 C14 4.2 16 7.5 16.4 13 Z" fill={color} />
+    <rect x="7" y="12" width="10" height="34" rx="2" fill={color} />
+    <rect x="7" y="16.5" width="10" height="25" fill="#fff" opacity="0.32" />
+    <path d="M7 18.5 q2.5 1.4 5 0 t5 0 M7 39.5 q2.5 1.4 5 0 t5 0" stroke={color} strokeWidth="1.1" fill="none" />
+    <rect x="8.6" y="26" width="6.8" height="7" rx="1" fill={color} opacity="0.75" />
+  </>);
+  if (k === "charcoal" || k === "chalk") {
+    // A bare stick, rough at the drawing end.
+    const stick = k === "chalk" ? (color === "#ffffff" ? "#f1f1f1" : color) : color;
+    return svg(<>
+      <path className="tip" d="M8 12 L9 5 L11 3.5 L13.5 4.5 L15.5 6 L16 12 Z" fill={stick} />
+      <rect x="8" y="11" width="8" height="35" rx={k === "chalk" ? 4 : 1.5} fill={stick} />
+      <rect x="8" y="11" width="2.6" height="35" fill="#fff" opacity={k === "chalk" ? 0.35 : 0.15} />
+    </>);
+  }
+  // The ballpoint: a metal cone, a rubber grip, a barrel in its ink and a clip.
+  return svg(<>
+    <path d="M10.1 12.5 L12 3.6 L13.9 12.5 Z" fill={`url(#${m})`} />
+    <circle className="tip" cx="12" cy="3.5" r="1" fill={color} />
+    <rect x="8.5" y="12.5" width="7" height="8" rx="2" fill="#30343c" />
+    <path d="M8.5 14.6h7M8.5 16.6h7M8.5 18.6h7" stroke="#545a66" strokeWidth="0.6" />
+    <rect x="8.5" y="20.5" width="7" height="25.5" rx="2" fill={color} />
+    <rect x="15" y="22.5" width="1.6" height="16" rx="0.8" fill={`url(#${m})`} />
+    <Gloss x={9.8} y={21.5} h={22} />
+  </>);
 }
 
 // An on and off switch, like the ones in the system settings.
@@ -2742,6 +2820,7 @@ function Editor({ id, go, onClose, early = false, access }) {
   const [shown, setShown] = useState(() => new Set()); // revealer strokes tapped open
   const [video, setVideo] = useState(null); // YouTube id playing beside the notes
   const [split, setSplit] = useState(false); // research beside the notebook
+  const [stickers, setStickers] = useState(false);
   const [adding, setAdding] = useState(false); // the add page menu
   const [pageMenu, setPageMenu] = useState(false); // paper, add, remove, print
   const [more, setMore] = useState(false); // on a phone: pictures, split screen, video, ruler, protractor
@@ -3604,6 +3683,19 @@ function Editor({ id, go, onClose, early = false, access }) {
     }
   }
 
+  // A sticker, put in the middle of the page that is showing.
+  function addSticker(src, size = 130) {
+    const page = book.pages[current] || book.pages[0];
+    // Somewhere free-ish on the page, so several in a row do not pile up.
+    const n = page.items.filter((i) => i.sticker).length;
+    const x = 60 + ((n * 197) % Math.max(1, page.w - size - 120)), y = 140 + ((n * 131) % Math.max(1, Math.min(page.h, 900) - size - 160));
+    const it = { id: uid(), type: "image", x, y, w: size, h: size, src, sticker: true };
+    updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
+    setTool("select");
+    setSel({ pageId: page.id, itemId: it.id });
+    if (canUseNewNotebookTools) setGroup({ pageId: page.id, ids: [it.id] });
+  }
+
   // What the lasso bar does to everything selected.
   function groupDelete() {
     if (!group) return;
@@ -3855,6 +3947,11 @@ function Editor({ id, go, onClose, early = false, access }) {
             <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addImage(f); }} />
             <Icon name="image" size={18} />
           </label>
+          {early && (
+            <button className={"nb-tool nb-extra" + (stickers ? " on" : "")} title="Stickers" aria-label="Stickers" aria-pressed={stickers} onClick={() => setStickers((v) => !v)}>
+              <Icon name="star" size={18} />
+            </button>
+          )}
           <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
             onClick={() => setSplit((v) => !v)}>
             <Icon name="split" size={18} />
@@ -3929,6 +4026,11 @@ function Editor({ id, go, onClose, early = false, access }) {
             <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) addImage(f); }} />
             <Icon name="image" size={18} />
           </label>
+          {early && (
+            <button className={"nb-tool nb-extra" + (stickers ? " on" : "")} title="Stickers" aria-label="Stickers" aria-pressed={stickers} onClick={() => setStickers((v) => !v)}>
+              <Icon name="star" size={18} />
+            </button>
+          )}
           <button className={"nb-tool nb-extra" + (split ? " on" : "")} title="Split screen: search and browse beside your notes" aria-label="Split screen" aria-pressed={split}
             onClick={() => setSplit((v) => !v)}>
             <Icon name="split" size={18} />
@@ -4081,9 +4183,9 @@ function Editor({ id, go, onClose, early = false, access }) {
           <div className="nb-pop nb-pagemenu" role="dialog" aria-label="Page">
             <div className="nb-pop-head"><b>Page {current + 1} of {book.pages.length}</b><button className="icon-btn" onClick={() => { setPageMenu(false); setAdding(false); }} aria-label="Close"><Icon name="close" size={15} /></button></div>
             <label className="nb-pm-row"><span>Paper</span>            <select value={book.pages[current]?.template} onChange={(e) => setPageTemplate(e.target.value)} aria-label="Page paper">
-              {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {offered(TEMPLATES).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select></label>
-            <div className="nb-pm-row"><span>Colour</span><div className="nb-swatches small">{PAPERS.map((pp) => (
+            <div className="nb-pm-row"><span>Colour</span><div className="nb-swatches small">{offered(PAPERS).map((pp) => (
               <button key={pp.id} className={book.pages[current]?.paper === pp.id ? "on" : ""} style={{ background: pp.bg }} onClick={() => setPagePaper(pp.id)} aria-label={pp.name} title={pp.name} />
             ))}</div></div>
             <div className="nb-addwrap">
@@ -4092,7 +4194,7 @@ function Editor({ id, go, onClose, early = false, access }) {
                 <div className="nb-addmenu">
                   <span className="qv-label">Paper</span>
                   <div className="nb-addpapers">
-                    {TEMPLATES.map((t) => (
+                    {offered(TEMPLATES).map((t) => (
                       <button key={t.id} className="nb-paper" onClick={() => { addPage(current, t.id); setAdding(false); setPageMenu(false); }}>
                         <PagePreview page={{ ...newPage(t.id, book.pages[current]?.paper || "white"), id: "a-" + t.id }} />
                         <span>{t.name}</span>
@@ -4283,6 +4385,7 @@ function Editor({ id, go, onClose, early = false, access }) {
           ))}
           <button className="nb-add-end" onClick={() => addPage(book.pages.length - 1)}><Icon name="plus" size={15} /> Add a page</button>
         </div>
+        {stickers && early && <StickerPicker onPick={(src, size) => addSticker(src, size)} onClose={() => setStickers(false)} />}
         {split && (early
           ? <SplitPanel onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} onImageDrag={canUseNewNotebookTools ? onImageDrag : undefined} />
           : <SplitPanelClassic onClose={() => setSplit(false)} onAddImage={addImage} onAddText={addText} />)}
