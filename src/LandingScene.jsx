@@ -7,13 +7,16 @@
 // Everything moves gently and stops for anyone who asks for less motion.
 
 import { DuckParts } from "./Duck.jsx";
+import { CHARACTERS } from "./DuckAvatars.jsx";
 
 // A duck at (x, y), its feet on that spot, `s` times the usual size.
-function D({ x, y, s = 0.5, flip, hat = true, className = "", children }) {
+// `outfit` dresses it as one of the Dwiddle characters (pirate, chef, wizard).
+function D({ x, y, s = 0.5, flip, hat = true, outfit, className = "", children }) {
+  const dress = outfit && CHARACTERS.find((c) => c.id === outfit);
   return (
     <g transform={`translate(${x} ${y}) scale(${flip ? -s : s} ${s}) translate(-63 -128)`}>
       <g className={className}>
-        <DuckParts hat={hat} />
+        {dress ? <><DuckParts hat={false} shades={!dress.eyes} />{dress.eyes}{dress.hat}</> : <DuckParts hat={hat} />}
         {children}
       </g>
     </g>
@@ -21,12 +24,12 @@ function D({ x, y, s = 0.5, flip, hat = true, className = "", children }) {
 }
 
 // A duck sitting in a swim ring: the ring's back, the duck, then its front.
-function Ring({ x, y, color, delay = 0, flip }) {
+function Ring({ x, y, color, delay = 0, flip, outfit }) {
   return (
     <g className="ls-bob" style={{ animationDelay: `${delay}s` }}>
       <ellipse cx={x} cy={y} rx="46" ry="15" fill={color} />
       <ellipse cx={x} cy={y - 1} rx="28" ry="8" className="ls-water-deep" />
-      <D x={x} y={y + 10} s={0.42} flip={flip} />
+      <D x={x} y={y + 10} s={0.42} flip={flip} outfit={outfit} />
       <path d={`M${x - 46} ${y}a46 15 0 0 0 92 0`} fill={color} />
       <path d={`M${x - 38} ${y + 6}h14M${x + 6} ${y + 12}h16`} stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
     </g>
@@ -45,9 +48,9 @@ export default function LandingScene() {
             <stop offset="0" className="ls-pool-a" /><stop offset="1" className="ls-pool-b" />
           </linearGradient>
           <linearGradient id="ls-fall" x1="0" x2="1">
-            <stop offset="0" stopColor="#bfe8ff" /><stop offset="0.5" stopColor="#ffffff" /><stop offset="1" stopColor="#a6dcfb" />
+            <stop offset="0" stopColor="#8fd0f0" /><stop offset="0.3" stopColor="#d6f1fc" /><stop offset="0.55" stopColor="#ffffff" /><stop offset="0.8" stopColor="#c7ebfa" /><stop offset="1" stopColor="#86c9ec" />
           </linearGradient>
-          <clipPath id="ls-fallclip"><path d="M1196 300h150c4 120 0 260-6 360h-140c-8-100-8-240-4-360z" /></clipPath>
+          <clipPath id="ls-fallclip"><path d="M1204 292c40-8 104-8 144 0 4 130 10 260 22 392h-188c10-130 18-262 22-392z" /></clipPath>
           <clipPath id="ls-poolclip"><path d="M0 640c260-24 520-30 800-26s560 18 800 34V900H0z" /></clipPath>
         </defs>
 
@@ -86,24 +89,44 @@ export default function LandingScene() {
           ))}
         </g>
         <g transform="translate(190 0)">
-        {/* the cliff and the waterfall */}
-        <path d="M1120 700c10-140 20-300 60-420 30-30 100-40 190-30 70 10 120 30 150 60 50 120 60 260 80 390z" className="ls-rock" />
-        <path d="M1180 280c40-26 110-30 190-20 60 8 110 26 140 52-60-14-130-20-200-20s-110 4-130-12z" className="ls-grass" />
-        <path d="M1196 300h150c4 120 0 260-6 360h-140c-8-100-8-240-4-360z" fill="url(#ls-fall)" />
-        <g clipPath="url(#ls-fallclip)">
-          <g className="ls-fall-flow">
-            {Array.from({ length: 14 }, (_, i) => (
-              <path key={i} d={`M${1206 + i * 10} 200v${120 + (i % 3) * 40}`} stroke="#7cc7f2" strokeWidth="3" strokeLinecap="round" opacity="0.55" />
-            ))}
-            {Array.from({ length: 14 }, (_, i) => (
-              <path key={"b" + i} d={`M${1210 + i * 10} 500v${100 + (i % 4) * 30}`} stroke="#ffffff" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
-            ))}
-          </g>
-        </g>
-        {/* a duck sliding down the falls, round and round */}
-        <g className="ls-slide"><D x={1270} y={360} s={0.36} /></g>
+        {/* the cliff, in layers of rock with moss on top */}
+        <path d="M1110 704c6-150 18-310 58-430 34-34 110-44 196-34 74 10 126 32 156 64 46 126 58 266 76 400z" className="ls-rock" />
+        <path d="M1130 704c8-120 20-240 52-340 10 60 6 200 4 340z" fill="#7d8877" />
+        <path d="M1400 300c40 90 56 250 64 404h40c-14-140-28-280-62-380z" fill="#7d8877" />
+        <path d="M1150 420c30-6 50 4 54 18M1420 470c24-4 40 6 44 20M1160 560c26-4 44 6 46 18" stroke="#6f7a69" strokeWidth="6" fill="none" strokeLinecap="round" />
+        <path d="M1166 278c44-28 116-32 198-22 62 8 114 28 146 56-64-12-136-18-206-18-62 0-112 4-138-16z" className="ls-grass" />
+        <path d="M1172 270c20-16 46-20 64-12M1460 290c16-8 34-6 46 4" stroke="#4f8d4d" strokeWidth="8" fill="none" strokeLinecap="round" />
 
-        {/* splash and mist where the water lands */}
+        {/* the water: a curtain that widens as it falls, in three layers of streaks */}
+        <path d="M1204 292c40-8 104-8 144 0 4 130 10 260 22 392h-188c10-130 18-262 22-392z" fill="url(#ls-fall)" />
+        <g clipPath="url(#ls-fallclip)">
+          <g className="ls-fall-c">
+            {Array.from({ length: 9 }, (_, i) => <path key={"c" + i} d={`M${1210 + i * 16} 140v${180 + (i % 3) * 70}`} stroke="#9fd8f6" strokeWidth="9" strokeLinecap="round" opacity="0.45" />)}
+          </g>
+          <g className="ls-fall-b">
+            {Array.from({ length: 12 }, (_, i) => <path key={"b" + i} d={`M${1206 + i * 12} 200v${110 + (i % 4) * 40}`} stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.75" />)}
+          </g>
+          <g className="ls-fall-a">
+            {Array.from({ length: 16 }, (_, i) => <path key={"a" + i} d={`M${1203 + i * 10} 300v${60 + (i % 5) * 26}`} stroke="#e6f7ff" strokeWidth="2" strokeLinecap="round" opacity="0.9" />)}
+          </g>
+          <path d="M1182 640c60-14 130-14 190 0v60h-190z" fill="#ffffff" opacity="0.55" />
+        </g>
+        {/* foam where it tips over the edge */}
+        {[[1214, 294, 12], [1240, 288, 14], [1268, 286, 13], [1296, 287, 14], [1324, 290, 12], [1344, 295, 9]].map(([x, y, r], i) => (
+          <circle key={"l" + i} className="ls-lip" style={{ animationDelay: `${i * 0.3}s` }} cx={x} cy={y} r={r} fill="#ffffff" />
+        ))}
+        {/* a duck sliding down the falls, round and round */}
+        <g className="ls-slide"><D x={1276} y={360} s={0.36} outfit="party" /></g>
+
+        {/* splash and mist where the water lands, a faint rainbow in it */}
+        <path className="ls-rainbow" d="M1150 640a130 110 0 0 1 260 0" stroke="#f6a5b6" strokeWidth="7" fill="none" />
+        <path className="ls-rainbow" d="M1160 640a120 100 0 0 1 240 0" stroke="#ffe08a" strokeWidth="7" fill="none" />
+        <path className="ls-rainbow" d="M1170 640a110 90 0 0 1 220 0" stroke="#a8dcb5" strokeWidth="7" fill="none" />
+        <path className="ls-rainbow" d="M1180 640a100 80 0 0 1 200 0" stroke="#a9d3f0" strokeWidth="7" fill="none" />
+        {[0, 1, 2].map((i) => <ellipse key={"r" + i} className="ls-ring-out" style={{ animationDelay: `${i * 0.85}s` }} cx="1276" cy="690" rx="110" ry="18" fill="none" stroke="#ffffff" strokeWidth="3" />)}
+        {[[1210, 640, 40], [1340, 636, 44], [1276, 620, 52]].map(([x, y, r], i) => (
+          <circle key={"m" + i} className="ls-mist" style={{ animationDelay: `${i * 1.2}s` }} cx={x} cy={y} r={r} fill="#ffffff" opacity="0.4" />
+        ))}
         <g className="ls-splash">
           {[[1230, 660, 26], [1270, 652, 34], [1312, 662, 28], [1250, 676, 18], [1300, 680, 20]].map(([x, y, r], i) => (
             <circle key={i} cx={x} cy={y} r={r} fill="#fff" opacity="0.85" style={{ animationDelay: `${i * 0.25}s` }} />
@@ -112,7 +135,7 @@ export default function LandingScene() {
 
         {/* the duck under the falls, on a rock, getting soaked */}
         <path d="M1170 700c10-24 40-34 74-30 30 4 42 20 40 34z" className="ls-stone" />
-        <D x={1222} y={692} s={0.4} className="ls-shiver" />
+        <D x={1222} y={692} s={0.4} className="ls-shiver" outfit="viking" />
         </g>
 
         {/* lily pads and a frog-free flower */}
@@ -120,14 +143,14 @@ export default function LandingScene() {
         <ellipse cx="470" cy="724" rx="26" ry="8" className="ls-pad" />
         <circle cx="426" cy="694" r="7" fill="#f6a5b6" />
 
-        <Ring x={560} y={738} color="#ff8fab" />
-        <Ring x={900} y={700} color="#ffd36b" delay={1.1} flip />
+        <Ring x={560} y={738} color="#ff8fab" outfit="puddle" />
+        <Ring x={900} y={700} color="#ffd36b" delay={1.1} flip outfit="pirate" />
 
         {/* a duck on a lilo, sunbathing */}
         <g className="ls-bob slow">
           <rect x="640" y="788" width="190" height="26" rx="13" fill="#7fd1c4" />
           <path d="M650 796h170M650 806h170" stroke="#fff" strokeWidth="3" opacity="0.6" />
-          <D x={735} y={796} s={0.34} />
+          <D x={735} y={796} s={0.34} outfit="dj" />
         </g>
 
         {/* a diving duck: just the tail and feet */}
@@ -143,8 +166,8 @@ export default function LandingScene() {
 
         {/* the near bank */}
         <path d="M0 860c200-30 420-36 640-20s420 30 520 14V900H0z" className="ls-bank" />
-        <D x={120} y={868} s={0.5} className="ls-wave" />
-        <D x={1460} y={872} s={0.46} flip className="ls-hop" />
+        <D x={120} y={868} s={0.5} className="ls-wave" outfit="wizard" />
+        <D x={1460} y={872} s={0.46} flip className="ls-hop" outfit="chef" />
       </svg>
     </div>
   );
