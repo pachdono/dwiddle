@@ -14,7 +14,7 @@
 
 import { newBook, newPage, putBook, uid, PAGE_W, PAGE_H } from "./notebookStore.js";
 import { fontById, readyFont } from "./nbFonts.js";
-import { sketchFor } from "./NotebookGraph.jsx";
+import { sketchFor, graphItems } from "./NotebookGraph.jsx";
 import { MARK, flatMarks, blockTexts } from "./marks.js";
 
 const M = 42;                               // page margin
@@ -350,7 +350,7 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
   function graph(spec) {
     const w = Math.round(COL - 8), h = Math.round(w * 0.68);
     room(h + LH);
-    page.items.push({ id: uid(), type: "graph", x: colX() + 4, y: y + 4, w, h, spec });
+    page.items.push(...graphItems(spec, colX() + 4, y + 4, w, h, uid));
     y = snap(y + h + LH);
   }
 

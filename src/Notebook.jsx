@@ -26,7 +26,7 @@ import { shrink } from "./custom.js";
 import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDrop.js";
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 import { StickerPicker } from "./NotebookStickers.jsx";
-import { GraphView, GraphHelper } from "./NotebookGraph.jsx";
+import { GraphView, GraphHelper, graphItems } from "./NotebookGraph.jsx";
 
 /* ---------- paper ---------- */
 
@@ -3723,14 +3723,15 @@ function Editor({ id, go, onClose, early = false, access }) {
     if (graphing?.itemId) {
       updatePage(graphing.pageId, (p) => ({ ...p, items: p.items.map((i) => (i.id === graphing.itemId ? { ...i, spec } : i)) }));
     } else {
+      // Put down as separate lines, strokes and text boxes, all selected
+      // together to move as one, each editable on its own afterwards.
       const page = book.pages[current] || book.pages[0];
       const w = Math.min(520, page.w - 120), h = Math.round(w * 0.7);
-      const n = page.items.filter((i) => i.type === "graph").length;
-      const it = { id: uid(), type: "graph", x: (page.w - w) / 2, y: 140 + ((n * (h + 30)) % Math.max(1, page.h - h - 200)), w, h, spec };
-      updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
+      const n = page.items.filter((i) => i.fromGraph).length ? 1 + Math.floor(Math.random() * 3) : 0;
+      const parts = graphItems(spec, (page.w - w) / 2, 140 + ((n * (h + 30)) % Math.max(1, page.h - h - 200)), w, h, uid).map((i) => ({ ...i, fromGraph: true }));
+      updatePage(page.id, (p) => ({ ...p, items: [...p.items, ...parts] }));
       setTool("select");
-      setSel({ pageId: page.id, itemId: it.id });
-      if (canUseNewNotebookTools) setGroup({ pageId: page.id, ids: [it.id] });
+      if (canUseNewNotebookTools) setGroup({ pageId: page.id, ids: parts.map((i) => i.id) });
     }
     setGraphing(null);
   }

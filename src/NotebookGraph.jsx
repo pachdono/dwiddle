@@ -52,10 +52,10 @@ export const SKETCHES = {
   hooke: { title: "Stretching a spring", x: "Extension", y: "Force", series: [{ pts: [[0, 0], [5, 6], [6.5, 7.2], [8, 7.9], [9.5, 8.2]], label: "limit of proportionality", mark: 1 }] },
   supplyOnly: { title: "Supply curve", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }] },
   demandOnly: { title: "Demand curve", x: "Quantity", y: "Price", series: [{ pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }] },
-  supplyShift: { title: "Supply rises", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [8, 8.5]], straight: true, label: "S1", end: true }, { pts: [[2.6, 1.5], [9.6, 8.5]], straight: true, label: "S2", end: true, dash: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }], shift: [[5.2, 6.4], [6.6, 6.4]], dots: [[4.6, 4.9, "E1"], [5.4, 4.1, "E2"]] },
+  supplyShift: { title: "Supply rises", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [8, 8.5]], straight: true, label: "S1", end: true }, { pts: [[2.6, 1.5], [9.6, 8.5]], straight: true, label: "S2", end: true, dash: true, color: 0 }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }], shift: [[5.2, 6.4], [6.6, 6.4]], dots: [[4.6, 4.9, "E1"], [5.4, 4.1, "E2"]] },
   demandShift: { title: "Demand rises", x: "Quantity", y: "Price", series: [{ pts: [[1, 8.5], [8, 1.5]], straight: true, label: "D1", end: true, color: 1 }, { pts: [[2.6, 8.5], [9.6, 1.5]], straight: true, label: "D2", end: true, color: 1, dash: true }, { pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }], shift: [[3.4, 6.1], [4.8, 6.1]], dots: [[4.5, 5, "E1"], [5.3, 5.8, "E2"]] },
   ppf: { title: "Production possibility frontier", x: "Good B", y: "Good A", series: [{ pts: [[0, 8.6], [2.5, 8.1], [4.5, 7], [6.2, 5.2], [7.4, 3], [8.2, 0]], label: "PPF", mark: 3 }], dots: [[3, 4, "inside: unused resources"], [4.5, 7, "on: efficient"], [7, 7, "outside: not possible yet"]] },
-  ppfShift: { title: "PPF shifts out (economic growth)", x: "Good B", y: "Good A", series: [{ pts: [[0, 7], [2, 6.6], [3.6, 5.6], [5, 4.1], [6, 2.4], [6.6, 0]], label: "PPF1", mark: 3 }, { pts: [[0, 8.8], [2.5, 8.3], [4.6, 7.1], [6.4, 5.2], [7.6, 3], [8.4, 0]], label: "PPF2", mark: 4, dash: true }], shift: [[4.6, 4.4], [5.8, 5.6]] },
+  ppfShift: { title: "PPF shifts out (economic growth)", x: "Good B", y: "Good A", series: [{ pts: [[0, 7], [2, 6.6], [3.6, 5.6], [5, 4.1], [6, 2.4], [6.6, 0]], label: "PPF1", mark: 3 }, { pts: [[0, 8.8], [2.5, 8.3], [4.6, 7.1], [6.4, 5.2], [7.6, 3], [8.4, 0]], label: "PPF2", mark: 4, dash: true, color: 0 }], shift: [[4.6, 4.4], [5.8, 5.6]] },
   adas: { title: "Aggregate demand and supply", x: "Real output (Y)", y: "Price level", series: [{ pts: [[1, 8.5], [9, 1.5]], straight: true, label: "AD", end: true, color: 1 }, { pts: [[1, 1.5], [5, 3.5], [7, 5.5], [8, 8.5]], label: "SRAS", end: true }, { pts: [[7.6, 0.5], [7.6, 9.5]], straight: true, label: "LRAS", end: true, color: 2 }], dots: [[6.3, 4.6, "equilibrium"]] },
   ceiling: { title: "Maximum price (price ceiling)", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }, { pts: [[0.5, 3.5], [9.5, 3.5]], straight: true, label: "max price", end: true, color: 3, dash: true }], dots: [[3.3, 3.5, "Qs"], [6.7, 3.5, "Qd, shortage between"]] },
   floor: { title: "Minimum price (price floor)", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }, { pts: [[0.5, 6.5], [9.5, 6.5]], straight: true, label: "min price", end: true, color: 3, dash: true }], dots: [[3.3, 6.5, "Qd"], [6.7, 6.5, "Qs, surplus between"]] },
@@ -107,7 +107,7 @@ export function sketchFor(text) {
 
 export function GraphView({ spec, w, h, colors = GRAPH_COLORS }) {
   const drawn = useMemo(() => layout(spec, w, h), [spec, w, h]);
-  const { pad, inner, plots, xticks, yticks, origin, title, xl, yl, extras } = drawn;
+  const { pad, inner, plots, xticks, yticks, origin, title, xl, yl, marks } = drawn;
   const X0 = pad.l, Y0 = pad.t, W = inner.w, H = inner.h;
   return (
     <g fontFamily={HAND}>
@@ -130,13 +130,18 @@ export function GraphView({ spec, w, h, colors = GRAPH_COLORS }) {
       )) : plots.map((p, i) => p.runs.map((run, k) => (
         <path key={i + ":" + k} d={p.straight ? `M${run.map((q) => q.join(" ")).join("L")}` : smooth(run)} stroke={colors[(p.color ?? i) % colors.length]} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={p.dash ? "9 7" : undefined} />
       )))}
-      {extras}
+      {marks.dashes.map((d, i) => <path key={"ds" + i} d={`M${d.x1} ${d.y1}L${d.x2} ${d.y2}`} stroke={INK} strokeWidth="1.6" strokeDasharray="5 5" />)}
+      {marks.arrows.map((a, i) => <path key={"ar" + i} d={`M${a.x1} ${a.y1}L${a.x2} ${a.y2}`} stroke={INK} strokeWidth="2.4" markerEnd="url(#gh-arrow)" fill="none" />)}
+      {marks.dots.map((d, i) => <circle key={"dt" + i} cx={d.x} cy={d.y} r="5" fill={INK} />)}
+      {marks.texts.map((t, i) => <text key={"tx" + i} x={t.x} y={t.y} textAnchor={t.anchor || "start"} fontSize={t.size} fill={t.color}>{t.t}</text>)}
       {title && <text x={w / 2} y={22} textAnchor="middle" fontSize="21" fontWeight="700" fill={INK}>{title}</text>}
       {xl && <text x={X0 + W} y={h - 6} textAnchor="end" fontSize="18" fill={INK}>{xl}</text>}
       {yl && <text x={14} y={Y0 + H / 2} textAnchor="middle" fontSize="18" fill={INK} transform={`rotate(-90 14 ${Y0 + H / 2})`}>{yl}</text>}
     </g>
   );
 }
+
+const emptyMarks = () => ({ texts: [], dots: [], arrows: [], dashes: [] });
 
 function layout(spec, w, h) {
   const sketch = spec.kind === "sketch" ? SKETCHES[spec.id] : null;
@@ -152,7 +157,7 @@ function layout(spec, w, h) {
     const step = niceStep(top, 5);
     const py = (v) => Y0 + inner.h - (v / top) * inner.h;
     return {
-      pad, inner, title, xl, yl, extras: null, origin: { x: X0, y: Y0 + inner.h },
+      pad, inner, title, xl, yl, marks: emptyMarks(), origin: { x: X0, y: Y0 + inner.h },
       xticks: [],
       yticks: Array.from({ length: Math.floor(top / step) }, (_, k) => ({ py: py((k + 1) * step), label: fmt((k + 1) * step) })),
       plots: values.map((v, i) => ({ x: X0 + slot * i + slot * 0.18, w: slot * 0.64, base: Y0 + inner.h, top: py(v), value: fmt(v), label: String(spec.labels?.[i] ?? "") })),
@@ -160,23 +165,27 @@ function layout(spec, w, h) {
   }
   if (sketch) {
     const px = (x) => X0 + (x / 10) * inner.w, py = (y) => Y0 + inner.h - (y / 10) * inner.h;
-    const extras = [];
+    const m = emptyMarks();
     sketch.series.forEach((s, i) => {
       const at = s.end ? s.pts[s.pts.length - 1] : s.pts[s.mark] || null;
-      if (s.label && at) extras.push(<text key={"l" + i} x={px(at[0]) + (s.end ? 8 : 6)} y={py(at[1]) - 10} fontSize="18" fill={GRAPH_COLORS[(s.color ?? i) % GRAPH_COLORS.length]}>{s.label}</text>);
+      if (s.label && at) m.texts.push({ x: px(at[0]) + (s.end ? 8 : 6), y: py(at[1]) - 10, t: s.label, size: 18, color: GRAPH_COLORS[(s.color ?? i) % GRAPH_COLORS.length] });
     });
-    (sketch.dots || []).forEach(([x, y, label], i) => extras.push(
-      <g key={"d" + i}><circle cx={px(x)} cy={py(y)} r="5" fill={INK} />{label && <text x={px(x) + 9} y={py(y) - 8} fontSize="16" fill={INK}>{label}</text>}</g>));
+    (sketch.dots || []).forEach(([x, y, label]) => {
+      m.dots.push({ x: px(x), y: py(y) });
+      if (label) m.texts.push({ x: px(x) + 9, y: py(y) - 8, t: label, size: 16, color: INK });
+    });
     if (sketch.shift) {
       const [[a, b], [c, d]] = sketch.shift;
-      extras.push(<path key="shift" d={`M${px(a)} ${py(b)}L${px(c)} ${py(d)}`} stroke={INK} strokeWidth="2.4" markerEnd="url(#gh-arrow)" fill="none" />);
+      m.arrows.push({ x1: px(a), y1: py(b), x2: px(c), y2: py(d) });
     }
     if (sketch.meet) {
       const [mx, my] = sketch.meet;
-      extras.push(<g key="meet"><path d={`M${px(mx)} ${py(my)}L${px(mx)} ${py(0)}M${px(mx)} ${py(my)}L${px(0)} ${py(my)}`} stroke={INK} strokeWidth="1.6" strokeDasharray="5 5" /><circle cx={px(mx)} cy={py(my)} r="5" fill={INK} /><text x={px(mx) + 10} y={py(my) + 22} fontSize="18" fill={INK}>{sketch.meetLabel}</text></g>);
+      m.dashes.push({ x1: px(mx), y1: py(my), x2: px(mx), y2: py(0) }, { x1: px(mx), y1: py(my), x2: px(0), y2: py(my) });
+      m.dots.push({ x: px(mx), y: py(my) });
+      m.texts.push({ x: px(mx) + 10, y: py(my) + 22, t: sketch.meetLabel, size: 18, color: INK });
     }
     return {
-      pad, inner, title, xl, yl, extras, origin: { x: X0, y: Y0 + inner.h }, xticks: [], yticks: [],
+      pad, inner, title, xl, yl, marks: m, origin: { x: X0, y: Y0 + inner.h }, xticks: [], yticks: [],
       plots: sketch.series.map((s) => ({ straight: s.straight, dash: s.dash, color: s.color, runs: [s.pts.map(([x, y]) => [px(x), py(y)])] })),
     };
   }
@@ -191,11 +200,11 @@ function layout(spec, w, h) {
   const sx = niceStep(xr[1] - xr[0], Math.max(4, Math.round(inner.w / 60))), sy = niceStep(yr[1] - yr[0], Math.max(4, Math.round(inner.h / 50)));
   const ox = xr[0] <= 0 && xr[1] >= 0 ? px(0) : X0, oy = yr[0] <= 0 && yr[1] >= 0 ? py(0) : Y0 + inner.h;
   const ticks = (a, b, s) => { const out = []; for (let v = Math.ceil(a / s) * s; v <= b + 1e-9; v += s) if (Math.abs(v) > 1e-9) out.push(+v.toFixed(10)); return out; };
-  const extras = (spec.fns || []).map((src, i) => fns[i] && (
-    <text key={"k" + i} x={X0 + inner.w - 4} y={Y0 + 18 + i * 22} textAnchor="end" fontSize="18" fill={GRAPH_COLORS[i % GRAPH_COLORS.length]}>y = {String(src).replace(/^\s*y\s*=\s*/i, "").replace(/\^2/g, "²").replace(/\^3/g, "³")}</text>
-  ));
+  const marks = emptyMarks();
+  (spec.fns || []).forEach((src, i) => fns[i] && marks.texts.push({ x: X0 + inner.w - 4, y: Y0 + 18 + i * 22, anchor: "end", size: 18, color: GRAPH_COLORS[i % GRAPH_COLORS.length],
+    t: "y = " + String(src).replace(/^\s*y\s*=\s*/i, "").replace(/\^2/g, "²").replace(/\^3/g, "³") }));
   return {
-    pad, inner, title, xl, yl, extras, origin: { x: ox, y: oy },
+    pad, inner, title, xl, yl, marks, origin: { x: ox, y: oy },
     xticks: ticks(xr[0], xr[1], sx).map((v) => ({ px: px(v), label: fmt(v) })),
     yticks: ticks(yr[0], yr[1], sy).map((v) => ({ py: py(v), label: fmt(v) })),
     plots: runsData.map((runs) => ({ runs: runs.map((run) => run.filter(([, y]) => y >= yr[0] - (yr[1] - yr[0]) * 0.5 && y <= yr[1] + (yr[1] - yr[0]) * 0.5).map(([x, y]) => [px(x), py(clampY(y))])).filter((r) => r.length > 1) })),
@@ -286,4 +295,81 @@ export function GraphHelper({ initial, onDone, onClose }) {
       </div>
     </Portal>
   );
+}
+
+// A graph as ordinary page items, each one editable on its own like anything
+// drawn by hand: the axes and ticks as lines and arrows, each curve as a pen
+// stroke, every label as a text box, bars as boxes, points as dots. Placed
+// with its top left corner at (gx, gy).
+export function graphItems(spec, gx, gy, w, h, newId) {
+  const d = layout(spec, w, h);
+  const { pad, inner, plots, xticks, yticks, origin, title, xl, yl, marks } = d;
+  const X0 = pad.l, Y0 = pad.t, W = inner.w, H = inner.h;
+  const X = (v) => +(gx + v).toFixed(1), Y = (v) => +(gy + v).toFixed(1);
+  const items = [];
+  const shape = (kind, x1, y1, x2, y2, o = {}) => items.push({ id: newId(), type: "shape", kind, x1: X(x1), y1: Y(y1), x2: X(x2), y2: Y(y2), color: INK, size: 2, ...o });
+  const stroke = (pts, color, size = 3) => items.push({ id: newId(), type: "stroke", tool: "pen", style: "ball", color, size, pressure: false, tip: "round", stab: 1,
+    points: pts.map(([x, y]) => [X(x), Y(y), 0.5]) });
+  // Handwriting text boxes; (x, y) is where the words sit, as in the preview.
+  // Words grow and shrink with the graph, from the size they have in a
+  // 420 wide preview.
+  const k = Math.max(0.6, Math.min(2.2, w / 420));
+  const text = (t, x, y, size0, color = INK, anchor = "start") => {
+    const size = size0 * k;
+    const str = String(t ?? "");
+    if (!str.trim()) return;
+    const bw = Math.ceil(str.length * size * 0.45 + 16);
+    const left = anchor === "end" ? x - bw + 6 : anchor === "middle" ? x - bw / 2 : x - 6;
+    items.push({ id: newId(), type: "text", x: X(left), y: Y(y - size * 1.05), w: bw, h: Math.ceil(size * 1.45), text: str,
+      font: "caveat", fontSize: +(size / 1.25).toFixed(2), color, tilt: 0, wobble: false });
+  };
+
+  if (spec.kind === "fn" && spec.grid !== false) {
+    xticks.forEach((t) => shape("line", t.px, Y0, t.px, Y0 + H, { color: "#d9dee8", size: 1 }));
+    yticks.forEach((t) => shape("line", X0, t.py, X0 + W, t.py, { color: "#d9dee8", size: 1 }));
+  }
+  shape("arrow", origin.x, Y0 + H + 2, origin.x, Y0 - 8, { size: 2.4 });
+  shape("arrow", X0 - 2, origin.y, X0 + W + 8, origin.y, { size: 2.4 });
+  xticks.forEach((t) => { shape("line", t.px, origin.y - 4, t.px, origin.y + 4, { size: 1.6 }); text(t.label, t.px, origin.y + 20, 16, INK, "middle"); });
+  yticks.forEach((t) => { shape("line", origin.x - 4, t.py, origin.x + 4, t.py, { size: 1.6 }); text(t.label, origin.x - 8, t.py + 5, 16, INK, "end"); });
+
+  if (spec.kind === "bar") {
+    plots.forEach((b, i) => {
+      const c = GRAPH_COLORS[i % GRAPH_COLORS.length];
+      shape("rect", b.x, b.top, b.x + b.w, b.base, { color: c, size: 2.4, fill: true });
+      text(b.label, b.x + b.w / 2, b.base + 20, 17, INK, "middle");
+      text(b.value, b.x + b.w / 2, b.top - 6, 16, c, "middle");
+    });
+  } else {
+    plots.forEach((p, i) => {
+      const c = GRAPH_COLORS[(p.color ?? i) % GRAPH_COLORS.length];
+      p.runs.forEach((run) => {
+        // Straight lines and curves alike become strokes; dashed ones are
+        // drawn as short strokes with gaps, so each dash can still be erased.
+        const pts = p.straight ? densify(run) : run;
+        if (!p.dash) { stroke(pts, c); return; }
+        for (let k = 0; k < pts.length - 1; k += 6) stroke(pts.slice(k, k + 4), c);
+      });
+    });
+  }
+  marks.dashes.forEach((m) => shape("line", m.x1, m.y1, m.x2, m.y2, { size: 1.6, dash: "dash" }));
+  marks.arrows.forEach((m) => shape("arrow", m.x1, m.y1, m.x2, m.y2, { size: 2.4 }));
+  marks.dots.forEach((m) => stroke([[m.x, m.y]], INK, 10));
+  marks.texts.forEach((t) => text(t.t, t.x, t.y, t.size, t.color, t.anchor));
+  if (title) text(title, w / 2, 22, 21, INK, "middle");
+  if (xl) text(xl, X0 + W, h - 6, 18, INK, "end");
+  if (yl) text(yl, origin.x + 12, Y0 + 12, 18, INK, "start");
+  return items;
+}
+
+// Points every few units along straight segments, so a stroke drawn through
+// them is a proper line that can be partly erased.
+function densify(run) {
+  const out = [run[0]];
+  for (let i = 1; i < run.length; i++) {
+    const [ax, ay] = run[i - 1], [bx, by] = run[i];
+    const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 8));
+    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
+  }
+  return out;
 }
