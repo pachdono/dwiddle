@@ -11,6 +11,7 @@
 // diagram on the next, part (c) over the page. So several files can go in at
 // once, in order, and are read as one question.
 
+import { M } from "./MathText.jsx";
 import { ready as notifyReady, askOnce as askNotify } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
 import { Reply } from "./Chat.jsx";
@@ -56,7 +57,7 @@ function MathLine({ text, inline = false }) {
     last = m.index + whole.length;
   }
   parts.push(t.slice(last));
-  const out = parts.map((p, i) => (typeof p === "string" ? p.split(/(=)/).map((q, k) => (q === "=" ? <span key={i + "e" + k} className="sv-eq">=</span> : q)) : p));
+  const out = parts.map((p, i) => (typeof p === "string" ? p.split(/(=)/).map((q, k) => (q === "=" ? <span key={i + "e" + k} className="sv-eq">=</span> : <M key={i + "t" + k} t={q} />)) : p));
   return inline ? <>{out}</> : <div className="sv-mline">{out}</div>;
 }
 

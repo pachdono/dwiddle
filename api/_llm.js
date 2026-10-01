@@ -376,7 +376,7 @@ const HEDGE_MS = Number(process.env.LLM_HEDGE_MS || 12000);
 function pitched(opts) {
   const level = asked.getStore()?.level;
   if (!level) return opts;
-  const note = `\n\nThe student studies at this level: ${level}. Pitch the wording, explanations and examples at that level. Wherever you choose what to cover, keep to what students at that level are taught and to what was asked, and never add more advanced material, extra topics or tangents nobody asked for. Anything in the student's own notes is still kept.`;
+  const note = `\n\nThe student studies at this level: ${level}. Pitch the wording, explanations and examples at that level. Wherever you choose what to cover, keep to what students at that level are taught and to what was asked, and never add more advanced material, extra topics or tangents nobody asked for. When the student's own notes are given, everything you write comes from those notes alone: the level only changes how it is worded, never what is covered.`;
   if (opts.system) return { ...opts, system: opts.system + note };
   if (Array.isArray(opts.messages) && opts.messages[0]?.role === "system" && typeof opts.messages[0].content === "string") {
     return { ...opts, messages: [{ ...opts.messages[0], content: opts.messages[0].content + note }, ...opts.messages.slice(1)] };

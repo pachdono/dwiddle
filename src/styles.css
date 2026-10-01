@@ -8807,3 +8807,6 @@ body:has(.theme-backdrop) main .page {
   background: var(--accent-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); font-size: 13.5px; width: calc(100% - 48px); }
 .focus-bar span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lib-item.on { background: var(--accent-soft); }
+/* Powers and subscripts with no symbol of their own, set as printed */
+.mt-sup, .mt-sub { font-size: 0.72em; line-height: 0; position: relative; }
+.mt-sup { vertical-align: 0.45em; } .mt-sub { vertical-align: -0.25em; }

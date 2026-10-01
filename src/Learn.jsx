@@ -6,6 +6,7 @@
 // checks. It fills the screen while it runs, because a lesson read beside a
 // sidebar and a list of other things to do is a lesson half read.
 
+import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
 import { Icon, PageHead, Portal } from "./ui.jsx";
@@ -113,8 +114,8 @@ export function Learn({ made, go, setTopic, saveLesson, finishLesson }) {
 function Rich({ text }) {
   const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
   return parts.map((p, i) => p.startsWith("**") && p.endsWith("**")
-    ? <b key={i}>{p.slice(2, -2)}</b>
-    : <span key={i}>{p}</span>);
+    ? <b key={i}><M t={p.slice(2, -2)} /></b>
+    : <span key={i}><M t={p} /></span>);
 }
 
 const plain = (s) => String(s || "").replace(/\*\*/g, "");

@@ -3,6 +3,7 @@
 // like the real thing, then marked against its own mark scheme with feedback
 // on every answer and a full marks answer to compare with.
 
+import { M } from "./MathText.jsx";
 import { ready as notifyReady } from "./notify.js";
 import { useEffect, useState } from "react";
 import { Icon, Portal, BusyScreen } from "./ui.jsx";
@@ -160,14 +161,14 @@ function PaperView({ paper, onChange, onClose, onNew }) {
                 <span className="small muted">{q.topic}</span>
                 <span className="pp-marks">{m ? `${m.awarded} / ${q.marks}` : `[${q.marks}]`}</span>
               </div>
-              <p className="pp-stem">{q.stem}</p>
+              <p className="pp-stem"><M t={q.stem} /></p>
               {q.type === "mcq" ? (
                 <div className="pp-opts">
                   {q.options.map((o, k) => (
                     <button key={k} disabled={!!paper.marked}
                       className={"pp-opt" + (a === k ? " on" : "") + (m && k === q.answer ? " right" : "") + (m && a === k && k !== q.answer ? " wrong" : "")}
                       onClick={() => answer(q.id, k)}>
-                      <span>{String.fromCharCode(65 + k)}</span>{o}
+                      <span>{String.fromCharCode(65 + k)}</span><M t={o} />
                     </button>
                   ))}
                 </div>
@@ -181,8 +182,8 @@ function PaperView({ paper, onChange, onClose, onNew }) {
                   {q.type !== "mcq" && (
                     <details>
                       <summary>Mark scheme and a full marks answer</summary>
-                      <ul>{q.scheme.map((s, k) => <li key={k}>{s}</li>)}</ul>
-                      {q.model && <p className="pp-model"><b>Full marks answer: </b>{q.model}</p>}
+                      <ul>{q.scheme.map((s, k) => <li key={k}><M t={s} /></li>)}</ul>
+                      {q.model && <p className="pp-model"><b>Full marks answer: </b><M t={q.model} /></p>}
                     </details>
                   )}
                 </div>

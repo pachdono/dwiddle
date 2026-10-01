@@ -1,4 +1,5 @@
 import { Component, useEffect, useState } from "react";
+import { M } from "./MathText.jsx";
 import { createPortal } from "react-dom";
 import { HL_KINDS } from "./mock.js";
 import { Duck } from "./Duck.jsx";
@@ -141,8 +142,8 @@ export function toSegments(parts) {
 export function Marked({ parts, on }) {
   return toSegments(parts).map((seg, i) =>
     !seg.mark || !on[seg.mark]
-      ? <span key={i}>{seg.t}</span>
-      : <mark key={i} className={"hl " + seg.mark}>{seg.t}</mark>,
+      ? <span key={i}><M t={seg.t} /></span>
+      : <mark key={i} className={"hl " + seg.mark}><M t={seg.t} /></mark>,
   );
 }
 

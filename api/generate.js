@@ -126,6 +126,7 @@ Shape:
 
 Rules:
 - Write questions only for the topics you are given, and nothing on any other part of the notes.
+- Every question must be answerable from the notes alone. Only ask about terms, names, facts, figures and definitions that are written in the notes; never ask about anything the notes do not mention, however closely related. The right answer must be stated in the notes. Wrong options can be other believable terms.
 - 3 questions for each topic, 4 when it is marked large.
 - 4 choices each; "answer" is the index of the correct one. The wrong options must be believable.
 - Every "q" is a full question a student could answer without guessing what is being asked. For a vocab question write "What is meant by the term demand curve?" or "Define opportunity cost.", never the bare term on its own.
@@ -230,6 +231,22 @@ ${STYLE}`;
 
 // Never trust the shape that comes back. Anything malformed is dropped rather
 // than allowed into the app, where it would break a quiz halfway through.
+// Whether a question is about the notes: a defined term must appear in them,
+// and the right answer must share at least one real word with them. A quiz
+// asking about things the student never wrote down is worse than a shorter
+// quiz.
+const WORDS = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3);
+const STOPS = new Set(["that", "this", "with", "from", "they", "their", "there", "which", "when", "what", "into", "have", "been", "were", "will", "than", "more", "most", "less", "only", "also", "because", "about", "other", "some", "none", "both", "each", "does", "does", "true", "false", "above", "below", "always", "never"]);
+export function fromNotes(q, notes) {
+  if (!notes) return true;
+  const text = " " + WORDS(notes).join(" ") + " ";
+  const has = (w) => text.includes(" " + w) ;
+  if (q.kind === "vocab" && q.term) return WORDS(q.term).every((w) => has(w.slice(0, Math.max(4, w.length - 2))));
+  const key = WORDS(q.choices?.[q.answer]).filter((w) => !STOPS.has(w));
+  if (!key.length) return true; // a number or a short word: nothing to check
+  return key.some((w) => has(w.slice(0, Math.max(4, w.length - 2))));
+}
+
 function cleanQuestions(list, allowed, prefix) {
   return (Array.isArray(list) ? list : [])
     .filter((q) => q && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2)
@@ -480,7 +497,11 @@ async function part(req, res, mode, notes) {
     });
     const data = safeParse(text, "questions");
     const prefix = `ai${String(req.body?.batch ?? 0).replace(/[^0-9]/g, "")}q`;
-    const questions = cleanQuestions(data?.questions, names, prefix);
+    const all = cleanQuestions(data?.questions, names, prefix);
+    // Questions about things the notes never mention are dropped, unless that
+    // would leave almost nothing, when the check itself is probably wrong.
+    const kept = all.filter((q) => fromNotes(q, notes));
+    const questions = kept.length >= Math.ceil(all.length / 2) ? kept : all;
     if (questions.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
     return res.status(200).json({ questions });
   }

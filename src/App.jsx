@@ -1,4 +1,5 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { M } from "./MathText.jsx";
 import { withMaterials, noteMaterial, viewOf, withoutMaterial } from "./materials.js";
 import { NotifyCard } from "./NotifyCard.jsx";
 import { ready as notifyReady, askOnce as askNotify, startDesktopReminder } from "./notify.js";
@@ -2563,7 +2564,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         ) : (
           <>
             <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
-              {q.q}
+              <M t={q.q} />
             </h3>
 
             {q.choices.map((c, n) => {
@@ -2573,7 +2574,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
               return (
                 <button key={n} className={cls} onClick={() => pick(n)} disabled={answered}>
                   <span className="key">{"ABCD"[n]}</span>
-                  {c}
+                  <M t={c} />
                 </button>
               );
             })}
@@ -2587,7 +2588,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
                 <span className={"pill " + (picked === q.answer ? "good" : "warn")}>
                   {picked === q.answer ? "Correct" : "Not quite"}
                 </span>
-                <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
+                <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}><M t={q.why} /></p>
                 {early && <LikeImFour context={askContext(q, picked)} />}
               </div>
             )}
@@ -3302,9 +3303,9 @@ function MockExam({ grade, pool }) {
               <div key={q.id} className="review">
                 <span className={"pill " + (ok ? "good" : "warn")}>{ok ? "Correct" : "Wrong"}</span>
                 <div>
-                  <div className="list-title">{q.q}</div>
+                  <div className="list-title"><M t={q.q} /></div>
                   <div className="small muted">
-                    You put {got === undefined ? "nothing" : q.choices[got]}. Answer: {q.choices[q.answer]}.
+                    You put {got === undefined ? "nothing" : q.choices[got]}. Answer: <M t={q.choices[q.answer]} />.
                   </div>
                 </div>
               </div>
@@ -3335,7 +3336,7 @@ function MockExam({ grade, pool }) {
       </div>
 
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
-        {q.q}
+        <M t={q.q} />
       </h3>
 
       {q.choices.map((c, n) => (
@@ -3343,7 +3344,7 @@ function MockExam({ grade, pool }) {
           className={"choice" + (answers[i] === n ? " picked" : "")}
           onClick={() => setAnswers((a) => ({ ...a, [i]: n }))}>
           <span className="key">{"ABCD"[n]}</span>
-          {c}
+          <M t={c} />
         </button>
       ))}
 
@@ -3413,7 +3414,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
         </div>
 
         <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          {q.q}
+          <M t={q.q} />
         </h3>
 
         {q.choices.map((c, n) => {
@@ -3423,7 +3424,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
           return (
             <button key={n} className={cls} onClick={() => pick(n)} disabled={picked !== null}>
               <span className="key">{"ABCD"[n]}</span>
-              {c}
+              <M t={c} />
             </button>
           );
         })}
@@ -3434,7 +3435,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
               <span className={"pill " + (picked === q.answer ? "good" : "warn")}>
                 {picked === q.answer ? "Cleared from your list" : "Still on the list"}
               </span>
-              <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}>{q.why}</p>
+              <p className="small" style={{ margin: "10px 0 0", color: "var(--ink-2)" }}><M t={q.why} /></p>
             </div>
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
               <button className="btn" onClick={next}>Next <Icon name="arrow" /></button>
@@ -3527,13 +3528,13 @@ function SpeedRound({ grade, pool }) {
       </div>
 
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
-        {q.q}
+        <M t={q.q} />
       </h3>
 
       {q.choices.map((c, k) => (
         <button key={`${n}-${k}`} className="choice" onClick={() => answer(k)}>
           <span className="key">{"ABCD"[k]}</span>
-          {c}
+          <M t={c} />
         </button>
       ))}
     </div>
@@ -3600,7 +3601,7 @@ function AnswerInput({ q, testId, index, value, onChange, disabled }) {
         {q.choices.map((c, n) => (
           <button key={n} className={"tf-btn" + (value === n ? " on" : "")}
             disabled={disabled} onClick={() => onChange(n)}>
-            {c}
+            <M t={c} />
           </button>
         ))}
       </div>
@@ -3615,7 +3616,7 @@ function AnswerInput({ q, testId, index, value, onChange, disabled }) {
             <button className={"heading-opt" + (value === n ? " on" : "")}
               disabled={disabled} onClick={() => onChange(n)}>
               <span className="key roman">{ROMAN[n]}</span>
-              {c}
+              <M t={c} />
             </button>
           </li>
         ))}
@@ -3630,7 +3631,7 @@ function AnswerInput({ q, testId, index, value, onChange, disabled }) {
         <button key={n} className={"choice" + (value === n ? " picked" : "")}
           disabled={disabled} onClick={() => onChange(n)}>
           <span className={"key" + (letters ? "" : " blank")}>{letters ? letters[n] : ""}</span>
-          {c}
+          <M t={c} />
         </button>
       ))}
     </>
@@ -4116,14 +4117,14 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
                 <span className="pill warn">{q.skill}</span>
                 <div>
                   {q.passage && <div className="small muted" style={{ marginBottom: 4 }}>{q.passage}</div>}
-                  <div className="list-title">{q.q}</div>
+                  <div className="list-title"><M t={q.q} /></div>
                   <div className="small muted">
                     You put {!isAnswered(answers[n])
                       ? "nothing"
                       : formatOf(q) === "gap" ? `"${answers[n]}"` : q.choices[answers[n]]}.
-                    Answer: {q.choices[q.answer]}.
+                    Answer: <M t={q.choices[q.answer]} />.
                   </div>
-                  <div className="small" style={{ marginTop: 4, color: "var(--ink-2)" }}>{q.why}</div>
+                  <div className="small" style={{ marginTop: 4, color: "var(--ink-2)" }}><M t={q.why} /></div>
                 </div>
               </div>
             ))}
@@ -4168,7 +4169,7 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
         </div>
       )}
 
-      <h3 className="q-text">{q.q}</h3>
+      <h3 className="q-text"><M t={q.q} /></h3>
 
       <AnswerInput q={q} testId={test.id} index={i} value={answers[i]}
         onChange={(v) => setAnswers((a) => ({ ...a, [i]: v }))} />
@@ -4747,7 +4748,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
         )}
 
         <div className="card card-pad">
-          <h3 className="q-text">{q.q}</h3>
+          <h3 className="q-text"><M t={q.q} /></h3>
 
           <AnswerInput q={q} testId={test.id} index={i} value={given}
             onChange={setGiven} disabled={locked} />
@@ -4759,9 +4760,9 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
                   <span className={"pill " + (ok ? "good" : "warn")}>
                     {ok ? "Correct" : "Not quite"}
                   </span>
-                  {!ok && <span className="small muted">Answer: {q.choices[q.answer]}</span>}
+                  {!ok && <span className="small muted">Answer: <M t={q.choices[q.answer]} /></span>}
                 </div>
-                <p className="small" style={{ margin: 0, color: "var(--ink-2)" }}>{q.why}</p>
+                <p className="small" style={{ margin: 0, color: "var(--ink-2)" }}><M t={q.why} /></p>
               </div>
             </div>
           )}

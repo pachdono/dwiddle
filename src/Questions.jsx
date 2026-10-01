@@ -15,6 +15,7 @@
 //
 // One component renders them all so Learn and Practice behave the same.
 
+import { M } from "./MathText.jsx";
 import { useMemo, useState } from "react";
 import { Icon } from "./ui.jsx";
 
@@ -124,7 +125,7 @@ function Blank({ q, result, settle }) {
       </p>
       {result === null
         ? <button className="btn cta qv-check" onClick={check} disabled={!value.trim()}>Check</button>
-        : <Verdict ok={result}>{result ? q.why : <>It is <b>{q.answer}</b>. {q.why}</>}</Verdict>}
+        : <Verdict ok={result}>{result ? q.why : <>It is <b>{q.answer}</b>. <M t={q.why} /></>}</Verdict>}
     </>
   );
 }
@@ -137,7 +138,7 @@ function Word({ q, result, settle }) {
   const check = () => rest.trim() && settle(sameAnswer(given + rest.trim(), [word]));
   return (
     <>
-      <h3 className="qv-q">{q.q}</h3>
+      <h3 className="qv-q"><M t={q.q} /></h3>
       <div className="qv-word">
         <b>{given}</b>
         <input value={rest} onChange={(e) => setRest(e.target.value.replace(/\s/g, ""))}
@@ -149,7 +150,7 @@ function Word({ q, result, settle }) {
       </div>
       {result === null
         ? <button className="btn cta qv-check" onClick={check} disabled={!rest.trim()}>Check</button>
-        : <Verdict ok={result}>{result ? q.why : <>It is <b>{word}</b>. {q.why}</>}</Verdict>}
+        : <Verdict ok={result}>{result ? q.why : <>It is <b>{word}</b>. <M t={q.why} /></>}</Verdict>}
     </>
   );
 }
@@ -159,7 +160,7 @@ function Open({ q, result, settle }) {
   const [shown, setShown] = useState(false);
   return (
     <>
-      <h3 className="qv-q">{q.q}</h3>
+      <h3 className="qv-q"><M t={q.q} /></h3>
       <textarea className="qv-write" value={text} readOnly={shown} onChange={(e) => setText(e.target.value)}
         placeholder={q.type === "finish" ? "Finish it in your own words." : "Write your answer. A few sentences is plenty."}
         onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setShown(true); } }} />
@@ -171,7 +172,7 @@ function Open({ q, result, settle }) {
       ) : (
         <div className="qv-model fade">
           <span className="qv-label">A full marks answer</span>
-          <p>{q.answer}</p>
+          <p><M t={q.answer} /></p>
           {q.points?.length > 0 && (
             <>
               <span className="qv-label">What the examiner looks for</span>
@@ -267,7 +268,7 @@ function Order({ q, result, settle }) {
       )}
       {result === null
         ? <button className="btn cta qv-check" disabled={!full} onClick={() => settle(seq.every((i, k) => i === k))}>Check the order</button>
-        : <Verdict ok={result}>{result ? (q.why || "That is the order.") : <>The order is: {items.join(", then ")}. {q.why}</>}</Verdict>}
+        : <Verdict ok={result}>{result ? (q.why || "That is the order.") : <>The order is: {items.join(", then ")}. <M t={q.why} /></>}</Verdict>}
     </>
   );
 }
@@ -277,7 +278,7 @@ function TrueFalse({ q, result, settle }) {
   const pick = (v) => { if (result !== null) return; setChose(v); settle(v === !!q.answer); };
   return (
     <>
-      <h3 className="qv-q">{q.q}</h3>
+      <h3 className="qv-q"><M t={q.q} /></h3>
       <div className="qv-tf">
         {[true, false].map((v) => (
           <button key={String(v)} onClick={() => pick(v)} disabled={result !== null}
@@ -288,7 +289,7 @@ function TrueFalse({ q, result, settle }) {
       </div>
       {result !== null && (
         <Verdict ok={result}>
-          {!q.answer && q.correction ? <>It is false: {q.correction} </> : null}{q.why}
+          {!q.answer && q.correction ? <>It is false: {q.correction} </> : null}<M t={q.why} />
         </Verdict>
       )}
     </>

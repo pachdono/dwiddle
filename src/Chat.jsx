@@ -13,6 +13,7 @@
 // about something specific with openDwiddle. Both go through window events,
 // so any page, including the full screen lesson, can reach the one panel.
 
+import { M } from "./MathText.jsx";
 import { sayAs, stopSpeaking } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckParts, PuddleParts } from "./Duck.jsx";
@@ -224,7 +225,7 @@ const plainText = (t) => String(t).replace(/\*\*/g, "").replace(/^\s*[-*]\s+/gm,
 
 function Bold({ text }) {
   return String(text).split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? <b key={i}>{part.slice(2, -2)}</b> : <span key={i}>{part}</span>);
+    part.startsWith("**") && part.endsWith("**") ? <b key={i}><M t={part.slice(2, -2)} /></b> : <span key={i}><M t={part} /></span>);
 }
 
 export function Reply({ text }) {
