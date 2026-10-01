@@ -441,7 +441,9 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
 
       if (outer?.aborted) throw Object.assign(new Error("Answered elsewhere"), { status: 499 });
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), Math.min(34000, remaining - 2000));
+      // A model that has said nothing for 20 seconds is usually stuck, not
+      // thinking; the next one is tried rather than waiting it out.
+      const timeout = setTimeout(() => controller.abort(), Math.min(json ? 20000 : 30000, remaining - 2000));
       const stop = () => controller.abort();
       outer?.addEventListener("abort", stop, { once: true });
       const began = Date.now();

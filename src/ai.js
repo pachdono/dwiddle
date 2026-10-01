@@ -42,9 +42,10 @@ async function post(path, body, { retry = true } = {}, attempt = 0) {
   // else that failed on the server (a slow model, an answer that came back
   // broken) usually works on the next go, which is what people found
   // themselves doing by pressing the button again, so it is done for them,
-  // twice at most.
+  // once. More than that piles up behind a busy provider and only makes the
+  // wait longer.
   const serverSide = reply.status >= 500;
-  if (retry && !reply.ok && serverSide && attempt < 2 && !data?.limit && reply.status !== 404) {
+  if (retry && !reply.ok && serverSide && attempt < 1 && !data?.limit && reply.status !== 404) {
     await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
     return post(path, body, { retry }, attempt + 1);
   }
@@ -226,6 +227,8 @@ export async function generateFromNotes(notes, { style = "" } = {}) {
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];
 
+  // A batch of questions that fails costs those questions, not the whole
+  // material: the notes and the other batches still arrive.
   const questionTasks = chunk(topics, Q_BATCH).map((batch, n) => () =>
     post("/api/generate", {
       notes,
@@ -233,7 +236,7 @@ export async function generateFromNotes(notes, { style = "" } = {}) {
       style,
       batch: n,
       topics: batch.map((t) => ({ name: t.name, large: t.large })),
-    }));
+    }).catch(() => ({ questions: [] })));
   const noteTasks = notesTasks(notes, topics);
 
   const results = await pool([...questionTasks, ...noteTasks], AT_ONCE);
