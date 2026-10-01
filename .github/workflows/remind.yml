@@ -11,4 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send the reminders that are due
-        run: curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://dwiddle.vercel.app/api/models?cron=remind"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://dwiddle.vercel.app/api/models?cron=remind"
