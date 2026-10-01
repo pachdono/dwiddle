@@ -417,9 +417,10 @@ export default function App() {
     return () => { live = false; };
   }, [auth.user]);
   const staff = !!access.role;
-  // Features still being tried out are for staff and testers only.
-  // VITE_EARLY_ALL=1 turns them on for everyone, for local testing only.
-  const early = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
+  // Everything testers were trying out is now out for everyone. For the next
+  // feature to be tried by staff and testers first, gate it on
+  // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
+  const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
   const profile = useMyProfile(auth.user);
 
