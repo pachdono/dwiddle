@@ -11,6 +11,7 @@
 // diagram on the next, part (c) over the page. So several files can go in at
 // once, in order, and are read as one question.
 
+import { ready as notifyReady, askOnce as askNotify } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
 import { Reply } from "./Chat.jsx";
 import { useEffect, useState } from "react";
@@ -89,6 +90,7 @@ export function Solve({ go, auth, early }) {
       setVoicing({ done: 0, total: 0 });
       await voice(made, (done, total) => setVoicing({ done, total }));
       setVideo(made);
+      notifyReady("Your video is ready", made?.title || "Tap to watch it.", "/solve");
     } catch (err) {
       setVideoError(err.message || "The video could not be made.");
     } finally {
@@ -150,6 +152,7 @@ export function Solve({ go, auth, early }) {
 
   async function run() {
     if (generationsLeft(auth?.user) <= 0) { setState("locked"); return; }
+    askNotify();
     setError("");
     setShown(false);
     const parts = [];
@@ -179,6 +182,7 @@ export function Solve({ go, auth, early }) {
       countGeneration(auth?.user);
       setResult(data);
       setState("done");
+      notifyReady("Solved!", "Dwiddle has worked your question through, step by step.", "/solve");
       if (early) {
         setDrawn("drawing");
         drawQuestion({ problem: parts.join("\n\n"), solution: { asked: data.asked, answer: data.answer } })

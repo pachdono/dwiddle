@@ -9,6 +9,7 @@
 //
 // The conversation is kept on this device, so it is there when you come back.
 
+import { ready as notifyReady } from "./notify.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckTalk, Reply, useDictation } from "./Chat.jsx";
 import { chatWithDwiddle, writeVideo, generateFromNotes } from "./ai.js";
@@ -161,6 +162,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
 
   // A narrated video of an answer, made and voiced right here in the chat.
   async function makeVideo(afterId, topic, notes) {
+    import("./notify.js").then((m) => m.askOnce());
     const id = Date.now() + "v";
     setMsgs((m) => {
       const at = m.findIndex((x) => x.id === afterId);
@@ -176,6 +178,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
       const { voice } = await import("./Video.jsx");
       await voice(video, (done, total) => update(id, { video: { state: "voicing", done, total } }));
       update(id, { video: { state: "ready", data: video } });
+      notifyReady("Your video is ready", video?.title || "It is waiting in your chat.", "/chat");
       setSay("Your video is ready! Press play.");
       moodFor("jump", 1400);
     } catch (err) {

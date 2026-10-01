@@ -65,3 +65,23 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// A push from the server: the daily study reminder.
+self.addEventListener("push", (event) => {
+  let msg = {};
+  try { msg = event.data ? event.data.json() : {}; } catch { msg = { body: event.data && event.data.text() }; }
+  event.waitUntil(self.registration.showNotification(msg.title || "Dwiddle", {
+    body: msg.body || "Time for a little study?", icon: "/icon-192.png", badge: "/icon-192.png", data: { url: msg.url || "/" },
+  }));
+});
+
+// Tapping a notification opens Dwiddle, or brings an open tab to the front.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const open = list.find((c) => "focus" in c);
+    if (open) { open.navigate && url !== "/" && open.navigate(url); return open.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});

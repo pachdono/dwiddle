@@ -7,6 +7,7 @@
 // material becomes one long video with a chapter per topic, and timestamps
 // for every chapter and scene. The transcript sits beside it throughout.
 
+import { ready as notifyReady, askOnce as askNotify } from "./notify.js";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
 import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
@@ -67,6 +68,7 @@ const topicsWithNotes = (made) => (made?.topics || []).filter((t) => notesOf(mad
 
 export function makeVideo(made, fresh) {
   if (job?.state === "making" || job?.state === "voicing") return;
+  askNotify();
   const withNotes = topicsWithNotes(made);
   const parts = loadAll()[partsKey(made)]?.list || [];
   let done = fresh ? [] : parts.filter((p) => withNotes.some((t) => t.name === p.topic));
@@ -93,6 +95,7 @@ export function makeVideo(made, fresh) {
       await voice(whole, (done, total) => { job = { ...job, state: "voicing", n: done, of: total }; tellJob(); });
       if (whole.silent) saveOne(materialKey(made), whole);
       job = { ...job, state: "ready" };
+      notifyReady("Your video is ready", whole.title || "Tap to watch it.", "/videos");
     } catch (err) {
       job = { ...job, state: "failed", error: `${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}` };
     }

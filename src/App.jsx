@@ -1,4 +1,6 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { NotifyCard } from "./NotifyCard.jsx";
+import { ready as notifyReady, askOnce as askNotify, startDesktopReminder } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
 import ChatRoom from "./ChatRoom.jsx";
 import { LevelCard } from "./LevelPicker.jsx";
@@ -422,6 +424,7 @@ export default function App() {
   // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
   const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
+  useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
 
   // Session storage, so closing the tab brings the landing page back. Anyone
@@ -1730,6 +1733,7 @@ function AddMaterial({ go, setMade, auth, early }) {
       setState("locked");
       return;
     }
+    askNotify();
     dictation.stop();
     setError("");
     const parts = [];
@@ -1822,6 +1826,7 @@ function AddMaterial({ go, setMade, auth, early }) {
       setResult(data);
       setMade(data, { replace: !carryOn });
       setState("done");
+      notifyReady("Your study material is ready", `${data?.title || "Your notes"}: notes, lessons and questions are waiting.`, "/study-sheet");
     } catch (err) {
       setState("error");
       setError(err.message);
@@ -2757,6 +2762,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         <Account user={auth?.user} syncedAt={auth?.syncedAt} signOut={auth?.signOut} />
 
         <LevelCard />
+
+        <NotifyCard user={auth?.user} />
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>

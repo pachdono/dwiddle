@@ -3,6 +3,7 @@
 // like the real thing, then marked against its own mark scheme with feedback
 // on every answer and a full marks answer to compare with.
 
+import { ready as notifyReady } from "./notify.js";
 import { useEffect, useState } from "react";
 import { Icon, Portal, BusyScreen } from "./ui.jsx";
 import { writePastPaper, markPastPaper } from "./ai.js";
@@ -46,6 +47,7 @@ export function PastPaperCard({ course, subject, canGenerate, onGenerated, onLoc
       onGenerated();
       const fresh = { ...p, minutes, subject: subject.id, course: course.name, subjectName: subject.name, code: subject.code, started: Date.now(), answers: {}, marked: null };
       keep(fresh); setPaper({ ...fresh, open: true });
+      notifyReady("Your practice paper is ready", `${fresh.questions?.length || ""} questions, ${minutes} minutes. Good luck!`.trim(), "/courses");
     } catch (e) {
       setError(e.message || "The paper could not be written.");
     } finally {

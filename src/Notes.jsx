@@ -7,6 +7,7 @@
 // parts to learn word for word, the facts to memorise and the places marks are
 // lost picked out in colour.
 
+import { ready as notifyReady } from "./notify.js";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
 import { LikeImFour } from "./LikeImFour.jsx";
@@ -370,12 +371,14 @@ function ToNotebook({ made, go, onClose, early }) {
   useEffect(() => { FONTS.forEach((f) => readyFont(f)); }, []);
 
   async function make() {
+    import("./notify.js").then((m) => m.askOnce());
     setErr(""); setBusy("Getting ready"); setProg(0.02);
     try {
       // The hand drawn, two column pages are for testers for now.
       const { notesToNotebook } = early ? await import("./notesToNotebook.js") : await import("./notesToNotebookClassic.js");
       const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, rich: early, spacing, onProgress: (t, p) => { setBusy(t); setProg(p); } });
       try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
+      notifyReady("Your notebook is ready", `${made?.title || "Your notes"}, written out with highlights.`, "/notebook");
       go?.("notebook");
     } catch (e) {
       setBusy(""); setErr(e?.message || "The notebook could not be made.");

@@ -7,6 +7,7 @@
 
 import { listModels, candidates, provider, providers, fail } from "./_llm.js";
 import { admin } from "./_guard.js";
+import { remind } from "./_remind.js";
 
 export const config = { maxDuration: 60 };
 
@@ -56,6 +57,9 @@ async function probe(model, tokens = 40) {
 }
 
 export default async function handler(req, res) {
+  // The daily reminder rides on this endpoint, since the plan allows twelve
+  // functions and all twelve are taken.
+  if (req.query?.cron === "remind") return remind(req, res);
   // Reports which provider and models the account can use, and the probe spends
   // quota on every model it tries, so it is not something to leave open.
   if (!admin(req, res)) return;
