@@ -2891,7 +2891,9 @@ function Editor({ id, go, onClose, early = false, access }) {
     const fit = () => {
       const el = nbRef.current;
       if (!el) return;
-      const shrunk = vv.height < window.innerHeight - 80;
+      // Only the on-screen keyboard: a pinch zoom also makes the visible area
+      // smaller, and squeezing the notebook then put the pen off its mark.
+      const shrunk = vv.scale < 1.01 && vv.height < window.innerHeight - 80;
       el.style.height = shrunk ? vv.height + "px" : "";
       el.style.transform = shrunk && vv.offsetTop ? `translateY(${vv.offsetTop}px)` : "";
     };
@@ -3068,7 +3070,37 @@ function Editor({ id, go, onClose, early = false, access }) {
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd);
     el.addEventListener("touchcancel", onEnd);
+    // A Mac trackpad pinch: Chrome and the desktop app send it as a wheel with
+    // ctrl held, Safari as gesture events. Either way the notebook zooms
+    // itself, about the spot under the pointer, instead of the browser
+    // magnifying the whole page, which left the pen landing off its mark.
+    const zoomAbout = (z, x, y) => {
+      const old = zoomRef.current, r = el.getBoundingClientRect();
+      z = Math.max(0.4, Math.min(3, z));
+      if (Math.abs(z - old) < 0.002) return;
+      const cx = el.scrollLeft + (x - r.left), cy = el.scrollTop + (y - r.top);
+      zoomRef.current = z;
+      setZoom(+z.toFixed(3));
+      requestAnimationFrame(() => { el.scrollLeft = cx * (z / old) - (x - r.left); el.scrollTop = cy * (z / old) - (y - r.top); });
+    };
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoomAbout(zoomRef.current * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+    };
+    let gesture = null;
+    const onGestureStart = (e) => { e.preventDefault(); gesture = zoomRef.current; };
+    const onGestureChange = (e) => { e.preventDefault(); if (gesture != null) zoomAbout(gesture * e.scale, e.clientX, e.clientY); };
+    const onGestureEnd = (e) => { e.preventDefault(); gesture = null; };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", onGestureStart);
+    el.addEventListener("gesturechange", onGestureChange);
+    el.addEventListener("gestureend", onGestureEnd);
     return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGestureStart);
+      el.removeEventListener("gesturechange", onGestureChange);
+      el.removeEventListener("gestureend", onGestureEnd);
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
