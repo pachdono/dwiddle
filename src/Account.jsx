@@ -3,6 +3,8 @@
 // Magic link rather than a password: there is no password to store, to leak,
 // or to get wrong, and it needs no extra fields.
 
+import { LevelPicker } from "./LevelPicker.jsx";
+import { myLevel, setMyLevel } from "./level.js";
 import { useEffect, useState } from "react";
 import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
@@ -251,6 +253,7 @@ export function SignInPage({ onClose }) {
 // after signing up, and changeable in Settings.
 export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" }) {
   const [f, setF] = useState({ first_name: "", last_name: "", birth_date: "", country: "", ...(initial || {}) });
+  const [level, setLevel] = useState(() => myLevel()?.id || null);
   const [state, setState] = useState("idle");
   const [err, setErr] = useState("");
   const today = new Date().toISOString().slice(0, 10);
@@ -259,12 +262,13 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
   // of birth cannot complete an account.
   const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 8);
   const young = !!f.birth_date && f.birth_date > minAge.toISOString().slice(0, 10);
-  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young;
+  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young && level;
 
   async function submit(e) {
     e.preventDefault();
     if (!ok) return;
     setState("saving"); setErr("");
+    setMyLevel(level);
     const r = await saveProfile(user.id, f);
     if (!r.ok) { setState("idle"); setErr(r.reason || "It could not be saved. Try again."); return; }
     onSaved?.({ ...f, country: f.country?.trim() || null });
@@ -282,6 +286,9 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
         <input required type="date" autoComplete="bday" min="1900-01-02" max={today} value={f.birth_date} onChange={set("birth_date")} /></label>
       <label className="field"><span>Country <em className="muted">(optional)</em></span>
         <input type="text" autoComplete="country-name" maxLength={60} value={f.country || ""} onChange={set("country")} /></label>
+      <div className="field"><span>What are you studying for?</span>
+        <LevelPicker value={level} onChange={setLevel} />
+        <em className="muted small">So everything is written for your level. You can change it in Settings.</em></div>
       {young && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>Dwiddle is for people aged 8 and over, so an account can't be set up with this date of birth.</p>}
       {err && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>{err}</p>}
       <div className="profile-actions">

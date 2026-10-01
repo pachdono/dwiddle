@@ -1,4 +1,5 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { LevelCard } from "./LevelPicker.jsx";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
 import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
@@ -22,7 +23,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
 import { pushProgress, localSnapshot, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, moreQuestions, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
@@ -2189,7 +2190,7 @@ const MODES = [
   { id: "missed", label: "Missed", icon: "flag", sub: "Only the questions you have got wrong." },
 ];
 
-const QUIZ_LENGTHS = [5, 10, 15, 20];
+const QUIZ_LENGTHS = [5, 10, 20, 30, 50];
 
 function Practice(props) {
   const { pMode, setPMode, missed, topic, setTopic, go, hidden, bank, topics } = props;
@@ -2286,8 +2287,9 @@ function Practice(props) {
                 <span className={"pz-stat" + ((m.id === "review" && dueCount) || (m.id === "missed" && missed.length) ? " hot" : "")}>{stat[m.id]}</span>
                 {m.id === "quiz" && (
                   <div className="seg tight" onClick={(e) => e.stopPropagation()}>
-                    {QUIZ_LENGTHS.map((k) => (
-                      <button key={k} className={quizLen === k ? "on" : ""} disabled={k > pool.length && k !== QUIZ_LENGTHS[0]} onClick={() => setQuizLen(k)}>{k}</button>
+                    {QUIZ_LENGTHS.filter((k) => early || k <= 20).map((k) => (
+                      <button key={k} className={quizLen === k ? "on" : ""} disabled={!pool.length && k !== QUIZ_LENGTHS[0]}
+                        title={k > pool.length ? "More questions are written in the same style for a run this long" : undefined} onClick={() => setQuizLen(k)}>{k}</button>
                     ))}
                   </div>
                 )}
@@ -2343,21 +2345,62 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  // A run longer than the questions there are gets new ones first, written in
+  // the style of the ones it has, and they are kept for next time.
+  const short = !ordered && !!setMade && pool.length > 0 && len > pool.length;
+  const [more, setMore] = useState(short ? null : []);
+  useEffect(() => {
+    if (!short) return;
+    let live = true;
+    moreQuestions(made, [...new Set(pool.map((x) => x.topic))], len - pool.length).then((qs) => {
+      if (qs.length) setMade({ title: made?.title, topics: [], questions: qs });
+      if (live) setMore(qs.map(phraseQuestion));
+    });
+    return () => { live = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // A run mixes kinds: about one question in three is another way of
   // recalling the same material, when the topic has any.
-  const [QUIZ] = useState(() => {
-    if (ordered) return pool.slice(0, len);
-    const main = shuffle(pool).slice(0, Math.min(len, pool.length));
-    const extra = shuffle(drillPool);
-    return main.map((q, n) => (n % 3 === 2 && extra.length ? extra.pop() : q));
+  const [QUIZ, setQUIZ] = useState(null);
+  if (!QUIZ && more) {
+    const build = () => {
+      if (ordered) return pool.slice(0, len);
+      const main = [...shuffle(pool), ...shuffle(more)].slice(0, len);
+      const extra = shuffle(drillPool);
+      return main.map((q, n) => (n % 3 === 2 && extra.length ? extra.pop() : q));
+    };
+    setQUIZ(build());
+  }
+
+  const q = QUIZ?.[i];
+  const answeredNow = picked !== null;
+  // Enter moves on once a question is answered, as the button does.
+  useEffect(() => {
+    if (!answeredNow || finished) return;
+    const onKey = (e) => {
+      if (e.key !== "Enter" || e.repeat || e.target.closest?.("input, textarea, button, select, [contenteditable]")) return;
+      e.preventDefault();
+      next();
+    };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
   });
 
-  const q = QUIZ[i];
+  if (!QUIZ) {
+    return (
+      <div className="card card-pad quiz-more">
+        <Duck size={90} outfit="wizard" />
+        <b>Writing {len - pool.length} more questions</b>
+        <p className="small muted">In the same style as yours, on the same topics, with different numbers and answers. They are kept for next time.</p>
+        <div className="busy-bar sweep"><span /></div>
+      </div>
+    );
+  }
+
   const drill = isDrill(q);
   const answered = picked !== null;
 
@@ -2688,6 +2731,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
       <div className="stack">
         <Account user={auth?.user} syncedAt={auth?.syncedAt} signOut={auth?.signOut} />
+
+        <LevelCard />
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
@@ -4518,6 +4563,16 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
   const [done, setDone] = useState(false);
 
   const q = qs[i];
+  // Enter checks the answer, then moves on, as the buttons do.
+  useEffect(() => {
+    if (done) return;
+    const onKey = (e) => {
+      if (e.key !== "Enter" || e.repeat || e.target.closest?.("input, textarea, button, select, [contenteditable]")) return;
+      if (locked) { e.preventDefault(); next(); } else if (isAnswered(given)) { e.preventDefault(); check(); }
+    };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  });
 
   // Defensive: a drill should never start empty, but rendering undefined would
   // take the whole page down rather than showing a message.

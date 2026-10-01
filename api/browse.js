@@ -14,7 +14,8 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { userError, fail } from "./_llm.js";
-import { allow } from "./_guard.js";
+import { allow, allowFrame } from "./_guard.js";
+import { randomBytes } from "node:crypto";
 
 export const config = { maxDuration: 20 };
 
@@ -165,7 +166,101 @@ export async function images(q) {
   return out.slice(0, 30);
 }
 
+// A page shown live in the notebook browser, for sites that refuse to be
+// framed. It is fetched here and served from this site, so it is locked down
+// hard: none of the site's own scripts run, and it is sandboxed into an
+// origin of its own, so nothing on it can reach a Dwiddle account or storage.
+// One small script of ours tells the notebook where a click leads, so every
+// link and search form opens the next page the same way.
+const HOP = `
+(function () {
+  var send = function (m) { parent.postMessage(Object.assign({ dw: "browse" }, m), "*"); };
+  var here = document.querySelector("base").href;
+  document.addEventListener("DOMContentLoaded", function () {
+    var text = (document.body && document.body.innerText) || "";
+    send({ type: "loaded", url: here, title: document.title, words: text.split(/\\s+/).length,
+      needsScript: /enable javascript|javascript is (disabled|required|turned off)|requires javascript/i.test(text.slice(0, 3000)) });
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[href]");
+    if (!a || e.defaultPrevented) return;
+    var href = a.getAttribute("href") || "";
+    if (href.charAt(0) === "#") return;
+    var u; try { u = new URL(href, here); } catch (x) { return; }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return;
+    e.preventDefault();
+    if (u.href.split("#")[0] === here.split("#")[0] && u.hash) { location.hash = u.hash; return; }
+    send({ type: "open", url: u.href });
+  }, true);
+  document.addEventListener("submit", function (e) {
+    var f = e.target; e.preventDefault();
+    if ((f.method || "get").toLowerCase() !== "get") return;
+    var u; try { u = new URL(f.getAttribute("action") || here, here); } catch (x) { return; }
+    new FormData(f).forEach(function (v, k) { if (typeof v === "string") u.searchParams.set(k, v); });
+    send({ type: "open", url: u.href });
+  }, true);
+})();`;
+
+function liveView(html, base, nonce) {
+  let out = html
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<script\b[^>]*\/>/gi, "")
+    .replace(/<\/?noscript\b[^>]*>/gi, "")
+    .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?(refresh|content-security-policy|x-frame-options)[^>]*>/gi, "")
+    .replace(/<base\b[^>]*>/gi, "")
+    // Pictures that only appear once a script swaps them in.
+    .replace(/<img\b([^>]*?)\sdata-src\s*=\s*("[^"]*"|'[^']*')([^>]*)>/gi, (m, a, src, b) => {
+      if (/\ssrc\s*=/.test(a + b) && !/\ssrc\s*=\s*["']data:/.test(a + b)) return m;
+      const drop = (x) => x.replace(/\ssrc\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+      return `<img${drop(a)} src=${src}${drop(b)}>`;
+    })
+    .replace(/\sloading\s*=\s*["']?lazy["']?/gi, "");
+  const head = `<base href="${base.href.replace(/"/g, "&quot;")}" target="_self"><meta name="referrer" content="no-referrer"><script nonce="${nonce}">${HOP}</script>`;
+  if (/<head\b[^>]*>/i.test(out)) out = out.replace(/<head\b[^>]*>/i, (m) => m + head);
+  else out = head + out;
+  return out;
+}
+
+function decodePage(buf, type) {
+  const named = (type.match(/charset=([\w-]+)/i) || [])[1] || (buf.subarray(0, 2048).toString("latin1").match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1] || "utf-8";
+  try { return new TextDecoder(named.toLowerCase()).decode(buf); } catch { return buf.toString("utf8"); }
+}
+
+async function frame(req, res) {
+  if (!allowFrame(req, res)) return;
+  const page = (status, text) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self' file:");
+    res.status(status).send(`<!doctype html><meta charset="utf-8"><body style="font:15px -apple-system,system-ui,sans-serif;color:#555;display:grid;place-items:center;height:90vh;text-align:center;padding:20px"><div><b style="color:#222">That page could not be opened here</b><p>${text}</p></div>`);
+  };
+  try {
+    const { url: final, res: r, buf } = await get(String(req.query?.view || ""));
+    const type = r.headers.get("content-type") || "";
+    if (!/text\/html|application\/xhtml/i.test(type)) return page(415, "It is not a web page. Open it in your own browser instead.");
+    const nonce = randomBytes(16).toString("base64");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Content-Security-Policy", [
+      "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox",
+      "default-src 'none'",
+      `script-src 'nonce-${nonce}'`,
+      "style-src * data: 'unsafe-inline'",
+      "img-src * data: blob:",
+      "font-src * data:",
+      "media-src *",
+      "frame-src https:",
+      "form-action 'none'",
+      "frame-ancestors 'self' file:",
+    ].join("; "));
+    return res.status(r.ok ? 200 : r.status).send(liveView(decodePage(buf, type), final, nonce));
+  } catch (err) {
+    return page(err.status && err.status < 500 ? err.status : 502, err.name === "TimeoutError" ? "It took too long to answer." : err.message || "Try another page.");
+  }
+}
+
 export default async function handler(req, res) {
+  if (req.method === "GET" && req.query?.view) return frame(req, res);
   if (!allow(req, res, { limit: 40 })) return;
   const { action, q, url } = req.body || {};
   try {

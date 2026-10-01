@@ -16,7 +16,7 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/browse).*)",
       "headers": [
         {
           "key": "Strict-Transport-Security",
@@ -45,6 +45,19 @@
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://huggingface.co https://*.huggingface.co https://*.hf.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org; worker-src 'self' blob:; media-src 'self' blob:; frame-src https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        }
+      ]
+    },
+    {
+      "source": "/api/browse",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     },

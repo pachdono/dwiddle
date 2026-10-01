@@ -14,6 +14,8 @@
 // Files in /api beginning with an underscore are not routed, so this is a
 // module rather than an endpoint.
 
+import { asked } from "./_guard.js";
+
 const PROVIDERS = [
   {
     id: "openrouter",
@@ -369,7 +371,21 @@ export function byPace(list) {
 // requests finish well inside it, so the second is rarely asked.
 const HEDGE_MS = Number(process.env.LLM_HEDGE_MS || 12000);
 
+// The student's level, when the app knows it, so nothing comes back pitched
+// above them or wandering beyond what they asked for.
+function pitched(opts) {
+  const level = asked.getStore()?.level;
+  if (!level) return opts;
+  const note = `\n\nThe student studies at this level: ${level}. Pitch the wording, explanations and examples at that level. Wherever you choose what to cover, keep to what students at that level are taught and to what was asked, and never add more advanced material, extra topics or tangents nobody asked for. Anything in the student's own notes is still kept.`;
+  if (opts.system) return { ...opts, system: opts.system + note };
+  if (Array.isArray(opts.messages) && opts.messages[0]?.role === "system" && typeof opts.messages[0].content === "string") {
+    return { ...opts, messages: [{ ...opts.messages[0], content: opts.messages[0].content + note }, ...opts.messages.slice(1)] };
+  }
+  return opts;
+}
+
 export async function ask(opts) {
+  opts = pitched(opts);
   const all = byPace(providers());
   const deadline = Date.now() + 44000;
   const usable = all.filter((p) => !isSpent(p.id));

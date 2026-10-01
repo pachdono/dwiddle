@@ -85,6 +85,7 @@ const SYNCED = [
   KEYS.madeCleared,
   KEYS.seen,
   KEYS.testBank,
+  KEYS.level,
 ];
 
 // Roughly how much of a row Supabase will take happily. The question bank is

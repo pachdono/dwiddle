@@ -2161,8 +2161,20 @@ function SafariBar({ address, secure, editing, setEditing, draft, setDraft, onGo
 // view where it does not.
 const googleUrl = (q) => q ? `https://www.google.com/search?igu=1&hl=en-GB&q=${encodeURIComponent(q)}` : "https://www.google.com/webhp?igu=1&hl=en-GB";
 
+// A page that will not be framed is shown through Dwiddle's own copy of it,
+// sandboxed with the site's scripts off (api/browse.js), so it still opens
+// live. Pages that cannot work without their scripts fall back to the reader.
+const API_BASE = (typeof window !== "undefined" && window.DWIDDLE_API) || "";
+const liveCopy = (url) => `${API_BASE}/api/browse?view=${encodeURIComponent(url)}`;
+const ENGINE_KEY = "dwiddle-nb-engine";
+
 function Browser({ onClose, onAddImage, onAddText, pictures }) {
   const [pics, setPics] = useState(false);
+  // "web": Dwiddle's own results, where every site opens. "google": the real
+  // Google, where some sites refuse to open once clicked.
+  const [engine, setEngineRaw] = useState(() => { try { return localStorage.getItem(ENGINE_KEY) || "web"; } catch { return "web"; } });
+  const setEngine = (v) => { setEngineRaw(v); setPics(false); try { localStorage.setItem(ENGINE_KEY, v); } catch { /* private mode */ } };
+  const copyFrame = useRef(null);
   // Where the student has been: Google (home or a search) and pages opened by address.
   const [trail, setTrail] = useState([{ kind: "google", q: "" }]);
   const [at, setAt] = useState(0);
@@ -2216,6 +2228,18 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
 
   const page = got;
   const live = page && page.framable && !readerOn;
+  const copied = page && !page.framable && !readerOn;
+  // Where a click inside the copy leads, and whether it needed its scripts.
+  useEffect(() => {
+    if (!copied) return;
+    const onMsg = (e) => {
+      if (e.source !== copyFrame.current?.contentWindow || e.data?.dw !== "browse") return;
+      if (e.data.type === "open" && /^https?:\/\//.test(e.data.url)) visit({ kind: "page", url: e.data.url });
+      if (e.data.type === "loaded" && (e.data.needsScript || e.data.words < 40)) setReaderOn(true);
+    };
+    addEventListener("message", onMsg);
+    return () => removeEventListener("message", onMsg);
+  }, [copied, key]); // eslint-disable-line react-hooks/exhaustive-deps
   const address = here.kind === "page" ? { shown: hostOf(page?.url || here.url), full: page?.url || here.url }
     : { shown: here.q ? here.q : "google.com", full: here.q };
   const addSelected = () => {
@@ -2229,25 +2253,20 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
         editing={editing} setEditing={setEditing} draft={draft} setDraft={setDraft} onGo={go}
         canBack={at > 0 || inFrame > 0} canForward={at < trail.length - 1} onBack={back} onForward={() => setAt((n) => n + 1)}
         onReload={() => { if (here.kind === "page") setData((m) => { const c = { ...m }; delete c[key]; return c; }); setReload((n) => n + 1); }}
-        reader={here.kind === "page" && !live} onReader={page?.framable ? () => setReaderOn((v) => !v) : null}
+        reader={here.kind === "page" && readerOn} onReader={page ? () => setReaderOn((v) => !v) : null}
         onOpenOutside={() => window.open(here.kind === "page" ? page?.url || here.url : googleUrl(here.q).replace(/[?&]igu=1/, ""), "_blank", "noopener")}
         onClose={onClose} />
       {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
-      {pictures && here.kind === "google" && (
+      {here.kind === "google" && (
         <div className="sf-tabs" role="tablist" aria-label="Show">
-          <button role="tab" aria-selected={!pics} className={!pics ? "on" : ""} onClick={() => setPics(false)}>Google</button>
-          <button role="tab" aria-selected={pics} className={pics ? "on" : ""} onClick={() => setPics(true)}>Pictures to drag</button>
+          <button role="tab" aria-selected={!pics && engine === "web"} className={!pics && engine === "web" ? "on" : ""} onClick={() => setEngine("web")}>All websites</button>
+          <button role="tab" aria-selected={!pics && engine === "google"} className={!pics && engine === "google" ? "on" : ""} onClick={() => setEngine("google")}>Google</button>
+          {pictures && <button role="tab" aria-selected={pics} className={pics ? "on" : ""} onClick={() => setPics(true)}>Pictures to drag</button>}
         </div>
       )}
-      {pictures && here.kind === "google" && tip && !pics && (
+      {here.kind === "google" && engine === "google" && tip && !pics && (
         <div className="sf-tip">
-          <span>Google turns a dragged picture into a Google Lens search, so open <b>Pictures to drag</b> to drag one onto your page. Copy image and paste works too.</span>
-          <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
-        </div>
-      )}
-      {!pictures && here.kind === "google" && tip && (
-        <div className="sf-tip">
-          <span>Drag a picture onto your page, or right-click it, Copy image, then paste on the page. Some sites refuse to open here: type their address in the bar to read them instead.</span>
+          <span>Some sites refuse to open inside Google here. <b>All websites</b> opens every one of them{pictures ? <>, and <b>Pictures to drag</b> has pictures to drag onto your page</> : null}.</span>
           <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
         </div>
       )}
@@ -2255,9 +2274,16 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
         {error && <div className="sf-error"><b>That page could not be opened</b><p className="small muted">{error}</p>
           {here.kind === "page" && <button className="btn ghost small" onClick={() => window.open(here.url, "_blank", "noopener")}>Open in your own browser</button>}</div>}
         {pictures && here.kind === "google" && pics && <PicturePanel q={here.q} onAdd={onAddImage} />}
-        {here.kind === "google" && (
+        {here.kind === "google" && engine === "google" && (
           <iframe key={key + ":" + reload} className="sf-frame" title="Google" src={googleUrl(here.q)} onLoad={onFrameLoad} hidden={pictures && pics}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" />
+        )}
+        {here.kind === "google" && engine === "web" && !pics && (
+          <WebResults key={key + ":" + reload} q={here.q} onSearch={(q) => visit({ kind: "google", q })} onOpen={(url) => visit({ kind: "page", url })} />
+        )}
+        {here.kind === "page" && page && copied && (
+          <iframe ref={copyFrame} key={key + ":" + reload} className="sf-frame" title={page.title || "Web page"} src={liveCopy(page.url)}
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="strict-origin" />
         )}
         {here.kind === "page" && page && live && (
           <iframe key={key + ":" + reload} className="sf-frame" title={page.title || "Web page"} src={page.url} onLoad={onFrameLoad}
@@ -2266,7 +2292,7 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
         {here.kind === "page" && page && !live && (
           <article className="sf-reader">
             <div className="sf-reader-tools">
-              <span className="small muted">{page.framable ? "Reader view" : "Shown in reader view: this site does not allow being opened inside other apps."}</span>
+              <span className="small muted">Reader view</span>
               <button className="btn ghost small" onClick={addSelected}>Add selected text to page</button>
             </div>
             <h1>{page.title}</h1>
@@ -2279,6 +2305,43 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
           </article>
         )}
       </div>
+    </div>
+  );
+}
+
+// Search results Dwiddle fetches itself, laid out the way Google lays them out.
+// Unlike results inside Google's own frame, every one of these opens here.
+function WebResults({ q, onSearch, onOpen }) {
+  const [draft, setDraft] = useState(q);
+  const [state, setState] = useState({ loading: !!q, error: "", list: [] });
+  useEffect(() => {
+    if (!q.trim()) return;
+    let live = true;
+    import("./ai.js").then(({ browse }) => browse("search", { q }))
+      .then((d) => live && setState({ loading: false, error: "", list: d.results || [] }))
+      .catch((e) => live && setState({ loading: false, error: e.message || "The search did not work. Try again.", list: [] }));
+    return () => { live = false; };
+  }, [q]);
+  return (
+    <div className="sf-web">
+      <form className="sf-web-search" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) onSearch(draft.trim()); }}>
+        <Icon name="search" size={16} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search every website" aria-label="Search" />
+      </form>
+      {!q && <p className="sf-web-hint muted">Search for anything. Every result opens right here, beside your page.</p>}
+      {state.loading && <div className="sf-web-loading">{[0, 1, 2, 3].map((i) => <div key={i} className="sf-web-skel" />)}</div>}
+      {state.error && <p className="small" style={{ color: "var(--warn)" }}>{state.error}</p>}
+      {!state.loading && q && !state.error && !state.list.length && <p className="muted">Nothing came up. Try other words.</p>}
+      {state.list.map((r) => (
+        <button key={r.url} className="sf-web-hit" onClick={() => onOpen(r.url)}>
+          <span className="sf-web-site">
+            <img src={`https://icons.duckduckgo.com/ip3/${r.site}.ico`} alt="" width="18" height="18" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+            <span><b>{r.site}</b><small>{r.url.replace(/^https?:\/\//, "").slice(0, 70)}</small></span>
+          </span>
+          <span className="sf-web-title">{r.title}</span>
+          {r.snippet && <span className="sf-web-snip">{r.snippet}</span>}
+        </button>
+      ))}
     </div>
   );
 }

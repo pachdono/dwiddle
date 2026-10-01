@@ -2,6 +2,7 @@
 // lives only on the server, so nothing in this file can leak it.
 
 import { tidyQuestion, tidyMath } from "./mathText.js";
+import { levelForAI } from "./level.js";
 
 const TRANSIENT = new Set([429, 502, 503, 504]);
 
@@ -19,9 +20,14 @@ async function post(path, body, { retry = true } = {}, attempt = 0) {
     reply = await fetch(API + path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ level: levelForAI() || undefined, ...body }),
     });
   } catch {
+    // A dropped connection or a function still starting up: worth one more go.
+    if (retry && attempt < 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return post(path, body, { retry }, attempt + 1);
+    }
     throw Object.assign(new Error("Could not reach the server. Check your connection and try again."), { status: 0 });
   }
 
@@ -32,10 +38,15 @@ async function post(path, body, { retry = true } = {}, attempt = 0) {
     // A non JSON body means the function itself fell over.
   }
 
-  // A spent daily allowance is not transient, so it is not retried.
-  if (retry && !reply.ok && TRANSIENT.has(reply.status) && attempt === 0 && !data?.limit) {
-    await new Promise((r) => setTimeout(r, 1200));
-    return post(path, body, { retry }, 1);
+  // A spent daily allowance is not transient, so it is not retried. Anything
+  // else that failed on the server (a slow model, an answer that came back
+  // broken) usually works on the next go, which is what people found
+  // themselves doing by pressing the button again, so it is done for them,
+  // twice at most.
+  const serverSide = reply.status >= 500;
+  if (retry && !reply.ok && serverSide && attempt < 2 && !data?.limit && reply.status !== 404) {
+    await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+    return post(path, body, { retry }, attempt + 1);
   }
 
   if (!reply.ok) {
@@ -158,7 +169,7 @@ export async function readYouTube(url) {
 // The question's own diagram, drawn once: { figure, diagram } or { figure: null }.
 export const drawQuestion = (source) => post("/api/video", { ...source, mode: "figure" }, { retry: false }).catch(() => ({ figure: null }));
 
-export const writeVideo = (source) => post("/api/video", source, { retry: false }).then((v) => ({
+export const writeVideo = (source) => post("/api/video", source).then((v) => ({
   ...v,
   scenes: v.scenes.map((sc) => ({ ...sc, board: sc.board.map((b) => ({ ...b, text: tidyMath(b.text) })) })),
 }));
@@ -240,6 +251,35 @@ export async function generateFromNotes(notes, { style = "" } = {}) {
     notes: toNotes(sections),
     sheet: null,
   });
+}
+
+// A longer quiz than the material has questions for: new ones written in the
+// style of the ones already there, each testing the same idea with different
+// numbers or examples, so the answer changes and nothing is a repeat.
+const plainText = (t) => String(t || "").replace(/\{(?:def|key|exam|word)\|([^{}|]*)(?:\|[^{}]*)?\}/g, "$1");
+function notesText(made, names) {
+  return names.map((name) => {
+    const blocks = made?.notes?.[name] || [];
+    const lines = blocks.map((b) => b.h || b.p || b.eg || b.watch || (b.term ? `${b.term}: ${b.def}` : "") || (b.list ? b.list.map((x) => `- ${x}`).join("\n") : "")).filter(Boolean);
+    return `${name}\n${lines.map(plainText).join("\n")}`;
+  }).join("\n\n");
+}
+
+export async function moreQuestions(made, names, count) {
+  const have = (made?.questions || []).filter((q) => names.includes(q.topic));
+  if (!have.length || count < 1) return [];
+  const notes = notesText(made, names).slice(0, 20000);
+  const calls = Math.ceil(count / 10);
+  const stamp = Date.now() % 1e6;
+  const results = await pool(Array.from({ length: calls }, (_, n) => () => {
+    const want = Math.min(10, count - n * 10);
+    const like = Array.from({ length: want }, (_, k) => have[(n * 10 + k) % have.length])
+      .map(({ q, choices, topic }) => ({ q, choices, topic }));
+    const topics = [...new Set(like.map((q) => q.topic))].map((name) => ({ name }));
+    return post("/api/generate", { notes, mode: "questions", topics, like, count: want, batch: `${stamp}${n}` })
+      .then((d) => d.questions || []).catch(() => []);
+  }), 3);
+  return results.flat().map(tidyQuestion);
 }
 
 // ---------- more than fits in one go ----------

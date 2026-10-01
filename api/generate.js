@@ -284,7 +284,7 @@ Decide two things and return ONE JSON object, nothing else:
 
 Only when a request is genuinely unclear, ask at most 2 questions, most important first:
 - which part of a broad subject they mean, with the main parts as options and "multi": true, since several can be chosen together;
-- the level, when it changes what should be taught, with options such as "GCSE / IGCSE", "A Level / IB", "University", "Just the basics", and "multi": false.
+- the level, when it changes what should be taught and the student's level is not already given, with options such as "GCSE / IGCSE", "A Level / IB", "University", "Just the basics", and "multi": false.
 Options are specific to what they typed, 1 to 5 words each. Never ask about something they already said. Never add "All of the above" or "Other"; the app adds those.
 When "clear" is true, "questions" is [].
 Write in British English. Do not use em dashes or en dashes.`;
@@ -294,7 +294,7 @@ const BRIEF = `You write complete, accurate study notes on a topic a student ask
 Plain text only, no JSON and no markdown symbols. Put each heading on its own line in Title Case. Under each heading write short paragraphs and lists, one item per line starting with a hyphen.
 
 Include every definition a student at that level must know, the key facts and figures, how and why things happen, formulae with what each symbol means, one or two concrete examples per section, and the mistakes students commonly make.
-Cover the whole of what was asked, in the order a teacher would teach it, in 5 to 8 sections and about 1,200 to 1,600 words.
+Cover the whole of what was asked, in the order a teacher would teach it, in 5 to 8 sections and about 1,200 to 1,600 words. Stay inside what was asked: when the request names a narrow topic, write about that topic only and never drift into neighbouring topics, history or applications nobody asked for.
 First decide which points that level's syllabus lists for this topic, then write about those points only. What each level covers:
 - Just the basics: what it is, why it matters, the key words, everyday examples. No equations beyond the simplest.
 - GCSE / IGCSE: what happens and why, in plain terms; word and balanced symbol equations; the factors that affect it and how they show on graphs; the standard practical experiments. No molecular mechanisms, biochemical pathways or named intermediates: for photosynthesis that means no thylakoids, stroma, ATP, NADPH, electron transport or Calvin cycle; for respiration, no glycolysis or Krebs cycle.
@@ -457,18 +457,26 @@ async function part(req, res, mode, notes) {
 
   if (mode === "questions") {
     const topics = (Array.isArray(req.body?.topics) ? req.body.topics : [])
-      .filter((t) => t && t.name).slice(0, 4)
+      .filter((t) => t && t.name).slice(0, Array.isArray(req.body?.like) ? 10 : 4)
       .map((t) => ({ name: String(t.name).slice(0, 160), large: !!t.large }));
     if (!topics.length) return userError(res, 400, "Which topics should the questions cover?");
     const names = topics.map((t) => t.name);
     const list = topics.map((t) => `- ${t.name}${t.large ? " (large)" : ""}`).join("\n");
     const style = String(req.body?.style || "").slice(0, 120);
+    // More of the same: new questions modelled on ones the student already
+    // has, so a longer quiz is not padded with repeats.
+    const like = (Array.isArray(req.body?.like) ? req.body.like : []).filter((q) => q && q.q).slice(0, 12)
+      .map((q, n) => `${n + 1}. [${String(q.topic || "").slice(0, 120)}] ${String(q.q).slice(0, 400)}${Array.isArray(q.choices) ? `\n   Options: ${q.choices.map((c) => String(c).slice(0, 160)).join(" | ")}` : ""}`);
+    const count = Math.max(1, Math.min(12, Number(req.body?.count) || like.length || 3));
+    const asking = like.length
+      ? `Write exactly ${count} NEW questions for these topics only:\n${list}\n\nModel each one on one of these questions the student has already answered, going through them in turn: the same kind, the same style and the same idea being tested, but with different numbers, examples, situations or wording, so the correct answer is different. Never repeat an example or only reword it. The "3 or 4 for each topic" rule does not apply; write ${count} in total.\n\nThe questions to model them on:\n${like.join("\n")}`
+      : `Write questions for these topics only:\n${list}`;
     const text = await ask({
       system: QUESTIONS,
-      user: `Write questions for these topics only:\n${list}${style ? `\n\nWrite them in the style of ${style} exam papers: its command words, its structure and its difficulty, with the marks a real question like it would carry reflected in how much the answer needs. They must be new questions; never reproduce a real past paper question.` : ""}\n\nThe notes:\n\n${notes}`,
-      maxTokens: 2600,
+      user: `${asking}${style ? `\n\nWrite them in the style of ${style} exam papers: its command words, its structure and its difficulty, with the marks a real question like it would carry reflected in how much the answer needs. They must be new questions; never reproduce a real past paper question.` : ""}\n\nThe notes:\n\n${notes}`,
+      maxTokens: like.length ? 4200 : 2600,
       json: true,
-      temperature: 0.3,
+      temperature: like.length ? 0.6 : 0.3,
     });
     const data = safeParse(text, "questions");
     const prefix = `ai${String(req.body?.batch ?? 0).replace(/[^0-9]/g, "")}q`;

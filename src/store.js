@@ -64,5 +64,6 @@ export const KEYS = {
   srs: "dwiddle-srs",         // when each question is next due for review
   srsOn: "dwiddle-srs-on",    // whether review is suggested at all
   name: "dwiddle-name",       // what to call you before you sign in
+  level: "dwiddle-level",     // the level they study at, sent with every AI request
   sources: "dwiddle-sources", // the notes each topic came from; kept on this device, never synced
 };

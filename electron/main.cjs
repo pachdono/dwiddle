@@ -142,7 +142,7 @@ const CSP = [
   "font-src 'self' data:",
   `connect-src 'self' ${SITE} https://*.supabase.co wss://*.supabase.co https://huggingface.co https://*.huggingface.co https://*.hf.co https://en.wikipedia.org https://commons.wikimedia.org https://upload.wikimedia.org https://thumb.wikimedia.org`,
   "media-src 'self' blob:",
-  "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+  "frame-src https:",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",

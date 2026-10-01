@@ -1,4 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+// What the request said about the student, for the model to pitch its answer
+// at. Set once by allow(), read by ask() in _llm.js, so no endpoint has to pass
+// it along by hand.
+export const asked = new AsyncLocalStorage();
 
 // Who is allowed to call the AI endpoints, and how often.
 //
@@ -26,7 +32,7 @@ function tooMany(ip, limit) {
   return b.count > limit;
 }
 
-function allowedOrigin(value) {
+export function allowedOrigin(value) {
   if (!value) return true; // same origin browser requests often send nothing
   try {
     const host = new URL(value).host;
@@ -78,6 +84,28 @@ export function allow(req, res, { limit = 12 } = {}) {
     return false;
   }
 
+  const level = String(req.body?.level || "").replace(/[^\w ()/,.-]/g, "").slice(0, 80).trim();
+  asked.enterWith({ level });
+  return true;
+}
+
+// The notebook browser's live view is a page shown in a frame, so it arrives
+// as a GET with no body. It must come from a frame on one of our own pages.
+export function allowFrame(req, res, { limit = 60 } = {}) {
+  const dest = String(req.headers["sec-fetch-dest"] || "");
+  if (req.method !== "GET" || (dest && dest !== "iframe")) {
+    res.status(405).json({ error: "Not available" });
+    return false;
+  }
+  if (!allowedOrigin(req.headers.referer)) {
+    res.status(403).json({ error: "Not allowed from this origin" });
+    return false;
+  }
+  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket?.remoteAddress || "unknown";
+  if (tooMany("frame:" + ip, limit)) {
+    res.status(429).send("Too many pages at once. Wait a minute.");
+    return false;
+  }
   return true;
 }
 
