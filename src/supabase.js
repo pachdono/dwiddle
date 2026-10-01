@@ -88,13 +88,14 @@ const SYNCED = [
   KEYS.level,
   KEYS.srs,
   KEYS.srsOn,
+  KEYS.focus,
   "dwiddle-look",
   "dwiddle-decks",
   "dwiddle-study-log",
 ];
 // Values that are one choice (a theme, a quiz length), where the copy changed
 // most recently is the one to keep.
-const LATEST = new Set([KEYS.topic, KEYS.quizLen, KEYS.level, KEYS.srsOn, "dwiddle-look", "dwiddle-decks"]);
+const LATEST = new Set([KEYS.topic, KEYS.quizLen, KEYS.level, KEYS.srsOn, KEYS.focus, "dwiddle-look", "dwiddle-decks"]);
 
 // Roughly how much of a row Supabase will take happily. The question bank is
 // the only thing that can approach it.
@@ -155,7 +156,15 @@ function mergeMade(a, b) {
   const names = new Set(topics.map((t) => t.name));
   b.topics.forEach((t) => { if (!names.has(t.name)) topics.push(t); });
 
-  return { ...b, topics, questions, sheet: b.sheet || a.sheet };
+  // Library items from both, each once.
+  const items = [...(a.materials || [])];
+  const itemIds = new Set(items.map((m) => m.id));
+  (b.materials || []).forEach((m) => {
+    if (!itemIds.has(m.id)) items.push(m);
+    else { const i = items.findIndex((x) => x.id === m.id); items[i] = { ...items[i], topics: [...new Set([...items[i].topics, ...m.topics])] }; }
+  });
+  items.sort((x, y) => (x.at || 0) - (y.at || 0));
+  return { ...b, topics, questions, sheet: b.sheet || a.sheet, notes: { ...(a.notes || {}), ...(b.notes || {}) }, lessons: { ...(a.lessons || {}), ...(b.lessons || {}) }, ...(items.length ? { materials: items } : {}) };
 }
 
 function mergeBank(a, b) {

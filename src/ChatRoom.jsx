@@ -200,7 +200,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
     try {
       const data = await generateFromNotes(notes);
       countGeneration(auth?.user);
-      setMade(data);
+      setMade(data, { material: "new" });
       setMaking("");
       go("sheet");
     } catch (err) {

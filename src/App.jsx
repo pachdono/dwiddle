@@ -1,4 +1,5 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { withMaterials, noteMaterial, viewOf, withoutMaterial } from "./materials.js";
 import { NotifyCard } from "./NotifyCard.jsx";
 import { ready as notifyReady, askOnce as askNotify, startDesktopReminder } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
@@ -472,14 +473,21 @@ export default function App() {
     userCount().then((n) => live && setPeople(n));
     return () => { live = false; };
   }, []);
-  const [made, setMadeRaw] = useState(() => load(KEYS.made, null));
+  const [made, setMadeRaw] = useState(() => withMaterials(load(KEYS.made, null)));
+  // The library item Study is focused on, or null for everything.
+  const [focus, setFocusRaw] = useState(() => load(KEYS.focus, null));
+  const setFocus = (id) => { setFocusRaw(id); save(KEYS.focus, id); };
 
   // Generated material accumulates. Doing one syllabus topic and then another
   // used to throw the first away, which made Courses close to useless: you
   // could only ever hold the last thing you generated.
-  function setMade(data, { replace = false } = {}) {
-    setMadeRaw((prev) => {
-      let next = data;
+  // material: "new" when this is a new library item, "same" when it is more
+  // of the one being made (a long source in parts), "none" for extra
+  // questions on topics already there.
+  function setMade(data, { replace = false, material = "new" } = {}) {
+    setMadeRaw((prev0) => {
+      const prev = withMaterials(prev0);
+      let next = data && { ...data, materials: noteMaterial(replace ? null : prev, data, material) };
 
       if (prev && data && !replace) {
         const ids = new Set(prev.questions.map((q) => q.id));
@@ -499,6 +507,7 @@ export default function App() {
             (acc, [name, blocks]) => ({ ...acc, [name]: [...(acc[name] || []), ...blocks] }),
             { ...(prev.notes || {}) },
           ),
+          materials: noteMaterial(prev, data, material),
         };
       }
 
@@ -511,6 +520,7 @@ export default function App() {
   // Your streak and totals stay: they are what you did, not what you added.
   function deleteMaterial() {
     setMadeRaw(null);
+    setFocus(null);
     save(KEYS.made, null);
     save(KEYS.madeCleared, Date.now());
     save(KEYS.sources, { list: [], topics: {} });
@@ -582,12 +592,15 @@ export default function App() {
   // Everything comes from the person's own notes. There is no built in content.
   // Phrased on the way out as well as on the way in, so material saved before
   // bare terms were turned into questions reads properly too.
-  const bank = (made?.questions || []).map(phraseQuestion);
+  // Study shows the focused library item only; everything else (saving,
+  // syncing) works on the whole store.
+  const study = focus ? viewOf(made, focus) : made;
+  const bank = (study?.questions || []).map(phraseQuestion);
   // The other kinds: those written with lessons, and those built from the
   // vocabulary questions every set already has.
-  const drills = made ? [...(made.drills || []), ...derivedDrills(made.questions || [])] : [];
-  const topics = (made?.topics || []).map((t) => ({ ...t, material: "made", source: made.title }));
-  const materials = made ? [{ id: "made", title: made.title, kind: "Yours" }] : [];
+  const drills = study ? [...(study.drills || []), ...derivedDrills(study.questions || [])] : [];
+  const topics = (study?.topics || []).map((t) => ({ ...t, material: "made", source: study.title }));
+  const materials = (made?.materials || []).map((m) => ({ ...m, kind: "Yours" }));
 
   // Push progress up whenever it changes, debounced so a run of answers does
   // not become a run of requests.
@@ -610,7 +623,8 @@ export default function App() {
   }, [auth.user]);
   useEffect(() => {
     const reload = () => {
-      setMadeRaw(load(KEYS.made, null));
+      setMadeRaw(withMaterials(load(KEYS.made, null)));
+      setFocusRaw(load(KEYS.focus, null));
       setMissed(load(KEYS.missed, []));
       setSrs(loadSrs());
       setStats(load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
@@ -898,9 +912,17 @@ export default function App() {
           ) : (
             <span className="topbar-title">{title}</span>
           )}
-          <span className="crumb small">{made ? made.title : ""}</span>
+          <span className="crumb small">{study ? study.title : ""}</span>
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
+        {group?.id === "study" && focus && (made?.materials?.length || 0) > 1 && (
+          <div className="focus-bar">
+            <Icon name="spark" size={14} />
+            <span>Studying <b>{study?.title}</b></span>
+            <button className="btn small ghost" onClick={() => go("library")}>Switch</button>
+            <button className="btn small ghost" onClick={() => setFocus(null)}>Show everything</button>
+          </div>
+        )}
         <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
         <Page
           key={`${page}:${seq}`}
@@ -920,8 +942,12 @@ export default function App() {
           hidden={hidden}
           setHidden={setHidden}
           stats={stats}
-          made={made}
+          made={study}
+          fullMade={made}
           setMade={setMade}
+          focus={focus}
+          setFocus={setFocus}
+          deleteItem={(id) => { setMadeRaw((prev) => { const next = withoutMaterial(prev, id); save(KEYS.made, next && { ...next, savedAt: Date.now() }); return next; }); if (focus === id) setFocus(null); }}
           saveLesson={saveLesson}
           finishLesson={finishLesson}
           saveNotes={saveNotes}
@@ -1845,7 +1871,10 @@ function AddMaterial({ go, setMade, auth, early }) {
       }
       if (!carryOn) countGeneration(auth?.user);
       setResult(data);
-      setMade(data, { replace: !carryOn });
+      // A new item in the library; earlier ones are kept. More parts of the
+      // same long source join the item they belong to.
+      setMade(data, { material: carryOn ? "same" : "new" });
+      if (!carryOn) setFocus(null);
       setState("done");
       notifyReady("Your study material is ready", `${data?.title || "Your notes"}: notes, lessons and questions are waiting.`, "/study-sheet");
     } catch (err) {
@@ -2168,16 +2197,22 @@ function AddMaterial({ go, setMade, auth, early }) {
 
 /* ---------- library ---------- */
 
-function Library({ go, made, materials, deleteMaterial }) {
-  const [confirm, setConfirm] = useState(false);
-  const counts = made ? {
-    topics: made.topics.length,
-    questions: made.questions.length,
-    lessons: Object.keys(made.lessons || {}).length,
-  } : null;
+function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {
+  const [confirm, setConfirm] = useState(null); // the item about to be deleted
+  const made = fullMade;
+  const countsOf = (m) => {
+    const names = new Set(m.topics);
+    return {
+      topics: m.topics.length,
+      questions: (made?.questions || []).filter((q) => names.has(q.topic)).length,
+      lessons: Object.keys(made?.lessons || {}).filter((k) => names.has(k)).length,
+    };
+  };
+  const learn = (m) => { setFocus(m.id); go("sheet"); };
+  const when = (t) => (t ? new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "");
   return (
     <div className="page fade">
-      <PageHead title="Library" sub="Everything you have added so far." />
+      <PageHead title="Library" sub="Everything you have added, each with its own topics. Press Learn to study just that one." />
       {materials.length === 0 ? (
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
           <Duck size={84} outfit="detective" />
@@ -2192,50 +2227,52 @@ function Library({ go, made, materials, deleteMaterial }) {
           <div className="card">
             <div className="card-head">
               <h3>{materials.length} item{materials.length === 1 ? "" : "s"}</h3>
-              <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
+              <div className="row">
+                {focus && materials.length > 1 && <button className="btn quiet" onClick={() => { setFocus(null); go("sheet"); }}>Study everything</button>}
+                <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
+              </div>
             </div>
             <div className="list">
-              {materials.map((m) => (
-                <div key={m.id} className="list-item"
-                  onClick={() => go(m.id === "made" ? "quiz" : "reader")}>
-                  <span className="muted"><Icon name={m.id === "made" ? "spark" : "file"} /></span>
-                  <div style={{ flex: 1 }}>
-                    <div className="list-title">{m.title}</div>
-                    <div className="small muted">
-                      {m.pages ? `${m.pages} pages` : "Generated from your notes"}
+              {[...materials].reverse().map((m) => {
+                const c = countsOf(m);
+                return (
+                  <div key={m.id} className={"list-item lib-item" + (focus === m.id ? " on" : "")} onClick={() => learn(m)}>
+                    <span className="muted"><Icon name="spark" /></span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="list-title">{m.title}</div>
+                      <div className="small muted">
+                        {c.topics} topic{c.topics === 1 ? "" : "s"} · {c.questions} question{c.questions === 1 ? "" : "s"}{when(m.at) ? ` · added ${when(m.at)}` : ""}
+                      </div>
                     </div>
-                  </div>
-                  <span className={"pill" + (m.kind === "Yours" ? " accent" : "")}>{m.kind}</span>
-                  {m.id === "made" && deleteMaterial && (
-                    <button className="icon-btn lib-del" title="Delete this material" aria-label={`Delete ${m.title}`}
-                      onClick={(e) => { e.stopPropagation(); setConfirm(true); }}>
+                    {focus === m.id && <span className="pill accent">Studying</span>}
+                    <button className="btn small cta" onClick={(e) => { e.stopPropagation(); learn(m); }}>Learn</button>
+                    <button className="icon-btn lib-del" title="Delete this item" aria-label={`Delete ${m.title}`}
+                      onClick={(e) => { e.stopPropagation(); setConfirm(m); }}>
                       <Icon name="trash" size={15} />
                     </button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
-
         </div>
       )}
 
-      {confirm && counts && (
+      {confirm && (
         <Portal>
-          <div className="gate-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirm(false); }}>
+          <div className="gate-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setConfirm(null); }}>
             <div className="gate lib-confirm" role="alertdialog" aria-modal="true" aria-labelledby="lib-del-title">
               <div className="lib-confirm-icon"><Icon name="trash" size={22} /></div>
-              <h2 id="lib-del-title">Delete "{made.title}"?</h2>
+              <h2 id="lib-del-title">Delete "{confirm.title}"?</h2>
               <p className="gate-sub">
-                This removes its {counts.topics} topic{counts.topics === 1 ? "" : "s"}, {counts.questions} question{counts.questions === 1 ? "" : "s"}
-                {counts.lessons ? `, ${counts.lessons} lesson${counts.lessons === 1 ? "" : "s"}` : ""} and notes, from this
-                device and from your account. Your streak and totals stay. It cannot be undone.
+                This removes its {countsOf(confirm).topics} topic{countsOf(confirm).topics === 1 ? "" : "s"}, {countsOf(confirm).questions} questions, lessons and notes,
+                from this device and from your account. Your other items, your streak and your totals stay. It cannot be undone.
               </p>
               <div className="gate-actions">
-                <button className="btn lib-confirm-go" autoFocus onClick={() => { deleteMaterial(); setConfirm(false); }}>
+                <button className="btn lib-confirm-go" autoFocus onClick={() => { if (materials.length === 1) deleteMaterial(); else deleteItem(confirm.id); setConfirm(null); }}>
                   Delete it
                 </button>
-                <button className="btn ghost" onClick={() => setConfirm(false)}>Keep it</button>
+                <button className="btn ghost" onClick={() => setConfirm(null)}>Keep it</button>
               </div>
             </div>
           </div>
@@ -2424,7 +2461,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     if (!short) return;
     let live = true;
     moreQuestions(made, [...new Set(pool.map((x) => x.topic))], len - pool.length).then((qs) => {
-      if (qs.length) setMade({ title: made?.title, topics: [], questions: qs });
+      if (qs.length) setMade({ title: made?.title, topics: [], questions: qs }, { material: "none" });
       if (live) setMore(qs.map(phraseQuestion));
     });
     return () => { live = false; };

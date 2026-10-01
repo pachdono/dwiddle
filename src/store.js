@@ -77,5 +77,6 @@ export const KEYS = {
   srsOn: "dwiddle-srs-on",    // whether review is suggested at all
   name: "dwiddle-name",       // what to call you before you sign in
   level: "dwiddle-level",     // the level they study at, sent with every AI request
+  focus: "dwiddle-focus",     // the library item Study is focused on
   sources: "dwiddle-sources", // the notes each topic came from; kept on this device, never synced
 };
