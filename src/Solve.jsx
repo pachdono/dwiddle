@@ -15,9 +15,8 @@ import { useEffect, useState } from "react";
 import { solveProblem, writeVideo, drawQuestion } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
-import { VideoPlayer, Diagram } from "./Video.jsx";
+import { VideoPlayer, Diagram, voice } from "./Video.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
-import { prepareNarration } from "./narration.js";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
 import { AskDwiddleButton, usePageContext } from "./Chat.jsx";
@@ -71,6 +70,7 @@ export function Solve({ go, auth, early }) {
   const [video, setVideo] = useState(null);
   const [watching, setWatching] = useState(false);
   const [filming, setFilming] = useState(false);
+  const [voicing, setVoicing] = useState(null); // { done, total } while the narration is recorded
   const [videoError, setVideoError] = useState("");
   // The question's own diagram, drawn after it is solved (testers): shown
   // under the question, and used unchanged in its video.
@@ -82,12 +82,15 @@ export function Solve({ go, auth, early }) {
     setVideoError("");
     try {
       const made = await writeVideo({ solution: result, problem, ...(drawn?.figure ? { figure: drawn.figure } : {}) });
+      // The narration is recorded before Watch appears, so the video plays
+      // with its voice from the first second.
+      setVoicing({ done: 0, total: 0 });
+      await voice(made, (done, total) => setVoicing({ done, total }));
       setVideo(made);
-      // The narration starts making straight away; the player waits for it.
-      prepareNarration(made);
     } catch (err) {
       setVideoError(err.message || "The video could not be made.");
     } finally {
+      setVoicing(null);
       setFilming(false);
     }
   }
@@ -339,7 +342,8 @@ export function Solve({ go, auth, early }) {
                 <b className="small">{video ? "Your video is ready" : "Watch it explained"}</b>
                 <p className="small muted" style={{ margin: "2px 0 0" }}>
                   {videoError || (filming
-                    ? "Being made in the background, about half a minute. Keep reading; the button turns to Watch when it is ready."
+                    ? voicing ? `Recording the narration${voicing.total ? `, ${voicing.done} of ${voicing.total} lines` : ""}. The button turns to Watch when it is ready.`
+                      : "Being made in the background, about half a minute. Keep reading; the button turns to Watch when it is ready."
                     : video ? "Tap Watch whenever you are ready." : "A narrated walk through at a whiteboard, one step at a time, with the transcript beside it.")}
                 </p>
               </div>

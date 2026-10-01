@@ -14,6 +14,7 @@ import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck } from "./Duck.jsx";
+import { PropStage, propsFor, PROPS } from "./VideoProps.jsx";
 
 /* ---------- saved videos ---------- */
 
@@ -65,7 +66,7 @@ const notesOf = (made, t) => (made?.notes?.[t.name] || []).map(blockPlain).filte
 const topicsWithNotes = (made) => (made?.topics || []).filter((t) => notesOf(made, t).length >= 80);
 
 export function makeVideo(made, fresh) {
-  if (job?.state === "making") return;
+  if (job?.state === "making" || job?.state === "voicing") return;
   const withNotes = topicsWithNotes(made);
   const parts = loadAll()[partsKey(made)]?.list || [];
   let done = fresh ? [] : parts.filter((p) => withNotes.some((t) => t.name === p.topic));
@@ -87,7 +88,9 @@ export function makeVideo(made, fresh) {
       const whole = joinChapters(made, ordered);
       saveOne(materialKey(made), whole);
       saveOne(partsKey(made), null);
-      prepareNarration(whole);
+      // The narration is recorded before the video counts as ready, so it
+      // plays the moment it is opened instead of making the student wait.
+      await voice(whole, (done, total) => { job = { ...job, state: "voicing", n: done, of: total }; tellJob(); });
       job = { ...job, state: "ready" };
     } catch (err) {
       job = { ...job, state: "failed", error: `${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}` };
@@ -96,12 +99,25 @@ export function makeVideo(made, fresh) {
   })();
 }
 
+// Records a video's narration, telling how many lines are done. If the voice
+// cannot be made the video is still ready: the device's own voice reads it.
+export function voice(video, onProgress) {
+  const job = prepareNarration(video);
+  return new Promise((resolve) => {
+    const stop = onNarration(video, (n) => {
+      onProgress?.(n.done, n.total);
+      if (n.state !== "making") { setTimeout(stop, 0); resolve(n.state === "ready"); }
+    });
+    job.promise?.then(resolve, () => resolve(false));
+  });
+}
+
 export function useVideoJob() {
   const [now, setNow] = useState(() => job && { ...job });
   useEffect(() => { jobListeners.add(setNow); return () => { jobListeners.delete(setNow); }; }, []);
   return now;
 }
-export const clearVideoJob = () => { if (job?.state !== "making") { job = null; tellJob(); } };
+export const clearVideoJob = () => { if (job?.state !== "making" && job?.state !== "voicing") { job = null; tellJob(); } };
 
 // A small chip in the corner while a video is being made, anywhere in the
 // app, and once when it is ready. Tapping it goes to the video.
@@ -111,15 +127,16 @@ export function VideoJobChip({ go, page }) {
   return (
     <div className={"vd-chip " + j.state} role="status">
       <button className="vd-chip-main" onClick={() => { go("videos"); if (j.state !== "making") clearVideoJob(); }}>
-        {j.state === "making" && <span className="vd-chip-spin" aria-hidden="true" />}
+        {(j.state === "making" || j.state === "voicing") && <span className="vd-chip-spin" aria-hidden="true" />}
         {j.state === "ready" && <Icon name="video" size={15} />}
         <span>
           {j.state === "making" ? <>Making your video · chapter {j.n} of {j.of}</>
+            : j.state === "voicing" ? <>Recording the narration · {j.n} of {j.of} lines</>
             : j.state === "ready" ? <>Your video is ready · <b>Watch</b></>
             : <>The video stopped part way · <b>Carry on</b></>}
         </span>
       </button>
-      {j.state !== "making" && <button className="vd-chip-x" onClick={clearVideoJob} aria-label="Dismiss"><Icon name="close" size={13} /></button>}
+      {j.state !== "making" && j.state !== "voicing" && <button className="vd-chip-x" onClick={clearVideoJob} aria-label="Dismiss"><Icon name="close" size={13} /></button>}
     </div>
   );
 }
@@ -361,6 +378,25 @@ export function VideoPlayer({ video, onClose }) {
     el.pause();
   }, [mode, playing, pos, at, rate]);
 
+  // How far through the current line the voice is, for the captions to keep up
+  // word by word.
+  const [lineShare, setLineShare] = useState(0);
+  useEffect(() => {
+    setLineShare(0);
+    if (!playing) return;
+    const start = performance.now();
+    const length = mode === "track" ? Math.max(0.4, (at[pos + 1] ?? total) - at[pos]) : lineSeconds(beats[pos].text);
+    let raf = 0;
+    const tick = () => {
+      const el = audio.current;
+      const done = mode === "track" && el ? (el.currentTime - at[pos]) / length : ((performance.now() - start) / 1000) * rate / length;
+      setLineShare(Math.max(0, Math.min(1, done)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [pos, playing, mode, at, total, rate, beats]);
+
   // Without it: the device's voice, a line at a time.
   const token = useRef(0);
   useEffect(() => {
@@ -439,7 +475,7 @@ export function VideoPlayer({ video, onClose }) {
               ) : (
                 <Scene key={beat.si} scene={scene} line={beat.li} />
               )}
-              {started && captions && <div className="vd-caption" aria-hidden="true">{beat.text}</div>}
+              {started && captions && <Caption text={beat.text} share={lineShare} />}
               {track && <audio ref={audio} src={track.url} preload="auto" onEnded={() => { setPlaying(false); setFinished(true); }} />}
               {playing && mode === "waiting" && (
                 <div className="vd-voice" onClick={(e) => e.stopPropagation()}>
@@ -542,16 +578,41 @@ function usePicture(query, photo) {
   return pic;
 }
 
+// Captions the way study videos have them: the line being said, with each
+// word lit up as it is spoken.
+function Caption({ text, share }) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const chars = words.reduce((n, w) => n + w.length + 1, 0) || 1;
+  let seen = 0;
+  return (
+    <div className="vd-caption karaoke" aria-hidden="true">
+      {words.map((w, i) => {
+        const from = seen / chars;
+        seen += w.length + 1;
+        return <span key={i} className={share >= from ? "said" : ""}>{w} </span>;
+      })}
+    </div>
+  );
+}
+
 function Scene({ scene, line }) {
   const board = scene.board.filter((b) => b.at <= line);
-  const pic = usePicture(scene.diagram?.picture, scene.diagram?.photo);
   const drawn = scene.diagram && !scene.diagram.picture;
-  const figure = drawn || !!pic;
+  // Moving drawings: the ones the scene names, or, where it names none and
+  // has no drawn diagram, the things it talks about.
+  const props = useMemo(() => {
+    const named = (scene.props || []).filter((p) => PROPS[p.kind]);
+    return named.length ? named : drawn ? [] : propsFor(scene);
+  }, [scene, drawn]);
+  const moving = props.length > 0 && !(drawn && !scene.props?.length);
+  const pic = usePicture(moving ? null : scene.diagram?.picture, scene.diagram?.photo);
+  const figure = drawn || !!pic || moving;
   return (
     <div className={"vd-scene" + (figure ? " with-diagram" : "")}>
       <h3 className="vd-heading">{scene.heading}</h3>
       <div className="vd-body">
-        {drawn && <Diagram d={scene.diagram} line={line} />}
+        {drawn && !moving && <Diagram d={scene.diagram} line={line} />}
+        {moving && <PropStage props={props} links={scene.links || []} line={line} />}
         {pic && (
           <figure className="vd-picture">
             <img src={pic.src} alt={pic.title} referrerPolicy="no-referrer" />

@@ -8448,3 +8448,83 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .sf-web-snip { font-size: 14px; line-height: 1.55; color: #4d5156; }
 .sf-web-skel { height: 76px; border-radius: 12px; margin-bottom: 14px; background: linear-gradient(90deg, #f1f3f4, #e8eaed, #f1f3f4); background-size: 200% 100%; animation: sfSkel 1.2s linear infinite; }
 @keyframes sfSkel { to { background-position: -200% 0; } }
+
+/* Video: moving drawings and the arrows between them (VideoProps.jsx) */
+.vp-stage { width: 100%; height: 100%; max-height: 100%; overflow: visible; }
+.vp-stage [class*="vp-"] { transform-box: fill-box; }
+.vp-prop { transform-origin: center; }
+.vp-prop.fresh { animation: vp-pop 0.7s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes vp-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.vp-label { font: 700 15px var(--font, system-ui), sans-serif; fill: var(--vd-ink, #1b1d26); }
+.vp-spin { animation: vp-spin 14s linear infinite; transform-origin: center; }
+.vp-spin-back { animation: vp-spin 9s linear infinite reverse; transform-origin: center; }
+.vp-spin-slow { animation: vp-spin 30s linear infinite; transform-origin: center; }
+@keyframes vp-spin { to { transform: rotate(360deg); } }
+.vp-glow { animation: vp-glow 2.4s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-glow { 50% { transform: scale(1.12); opacity: 0.25; } }
+.vp-grow { stroke-dasharray: 100; stroke-dashoffset: 100; animation: vp-draw 1.2s ease 0.1s forwards; }
+.vp-prop:not(.fresh) .vp-grow { stroke-dashoffset: 0; animation: none; }
+@keyframes vp-draw { to { stroke-dashoffset: 0; } }
+.vp-leaf { transform-origin: center; animation: vp-leaf 0.6s cubic-bezier(.2, 1.4, .4, 1) both; }
+.vp-leaf.l1 { animation-delay: 0.7s; } .vp-leaf.l2 { animation-delay: 0.95s; } .vp-leaf.l3 { animation-delay: 1.2s; }
+.vp-prop:not(.fresh) .vp-leaf { animation: none; }
+@keyframes vp-leaf { from { transform: scale(0); } to { transform: scale(1); } }
+.vp-sway { animation: vp-sway 3.4s ease-in-out infinite; transform-origin: bottom center; }
+@keyframes vp-sway { 50% { transform: rotate(3deg); } }
+.vp-drip { animation: vp-drip 1.5s ease-in infinite; }
+@keyframes vp-drip { 0% { transform: translateY(-14px) scale(0.8); opacity: 0; } 20% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(46px) scale(0.8); opacity: 0; } }
+.vp-ripple { animation: vp-ripple 1.5s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-ripple { 50% { transform: scaleX(1.06); opacity: 0.7; } }
+.vp-drift { animation: vp-drift 4s ease-in-out infinite; }
+@keyframes vp-drift { 50% { transform: translateX(6px); } }
+.vp-rain { animation: vp-rain 0.9s linear infinite; }
+@keyframes vp-rain { from { transform: translateY(-4px); opacity: 0; } 40% { opacity: 1; } to { transform: translateY(18px); opacity: 0; } }
+.vp-bob { animation: vp-bob 2.6s ease-in-out infinite; }
+@keyframes vp-bob { 50% { transform: translateY(-6px); } }
+.vp-wobble { animation: vp-wobble 3s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-wobble { 33% { transform: scale(1.03, 0.98); } 66% { transform: scale(0.98, 1.03); } }
+.vp-beat { animation: vp-beat 1.1s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-beat { 15% { transform: scale(1.1); } 30% { transform: scale(1); } 45% { transform: scale(1.06); } 60% { transform: scale(1); } }
+.vp-breathe { animation: vp-breathe 3s ease-in-out infinite; transform-origin: top center; }
+@keyframes vp-breathe { 50% { transform: scale(1.08); } }
+.vp-spark { animation: vp-spark 1.4s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-spark { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.2); } }
+.vp-turn { animation: vp-turn 8s linear infinite; }
+@keyframes vp-turn { from { transform: translateX(0); } to { transform: translateX(-120px); } }
+.vp-field { animation: vp-field 1.2s linear infinite; }
+@keyframes vp-field { to { stroke-dashoffset: -22; } }
+.vp-charge { animation: vp-charge 2.6s ease-in-out infinite; transform-origin: left center; }
+@keyframes vp-charge { 0% { transform: scaleX(0.15); } 70%, 100% { transform: scaleX(1); } }
+.vp-bubble { animation: vp-bubble 1.8s ease-in infinite; }
+@keyframes vp-bubble { from { transform: translateY(0); opacity: 0.9; } to { transform: translateY(-40px); opacity: 0; } }
+.vp-rise { animation: vp-rise 3s ease-in-out infinite; transform-origin: bottom center; }
+@keyframes vp-rise { 50% { transform: scaleY(1.35); } }
+.vp-twist { animation: vp-twist 3s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-twist { 50% { transform: scaleX(-1); } }
+.vp-flip { animation: vp-flip 2s ease-in-out infinite; transform-origin: center; }
+@keyframes vp-flip { 50% { transform: scaleX(0.1); } }
+.vp-hand-h { animation: vp-spin 20s linear infinite; transform-origin: bottom center; }
+.vp-hand-m { animation: vp-spin 4s linear infinite; transform-origin: bottom center; }
+.vp-page { animation: vp-page 2.6s ease-in-out infinite; transform-origin: left center; }
+@keyframes vp-page { 50% { transform: scaleX(0.2); } }
+.vp-flame { animation: vp-flame 0.8s ease-in-out infinite alternate; transform-origin: bottom center; }
+.vp-flame.inner { animation-duration: 0.6s; }
+@keyframes vp-flame { to { transform: scale(0.94, 1.08) skewX(2deg); } }
+.vp-slide { animation: vp-slide 1.6s linear infinite; }
+@keyframes vp-slide { to { transform: translateX(60px); } }
+.vp-wiggle { animation: vp-wiggle 1.6s ease-in-out infinite; }
+@keyframes vp-wiggle { 50% { transform: translate(3px, -3px) rotate(4deg); } }
+.vp-link-path { fill: none; stroke: var(--c); stroke-width: 4; stroke-linecap: round; }
+.vp-link.fresh .vp-link-path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: vp-draw 0.9s ease forwards; }
+.vp-link-flow { fill: none; stroke: #fff; stroke-width: 1.6; stroke-dasharray: 4 10; opacity: 0.8; animation: vp-field 0.8s linear infinite; }
+.vp-link-dot { fill: var(--c); }
+.vp-link.fresh .vp-link-dot, .vp-link.fresh .vp-link-label { animation: vp-fade 0.4s ease 0.8s both; }
+@keyframes vp-fade { from { opacity: 0; } to { opacity: 1; } }
+.vp-link-label rect { fill: var(--surface, #fff); stroke: var(--c); stroke-width: 2; }
+.vp-link-label text { font: 700 14px system-ui, sans-serif; fill: var(--c); }
+@media (prefers-reduced-motion: reduce) { .vp-stage *, .vp-stage *::before { animation: none !important; } }
+/* Captions light up word by word as the narrator says them */
+.vd-caption.karaoke { background: rgba(14, 16, 24, 0.82); color: rgba(255, 255, 255, 0.55); font-weight: 600; font-size: clamp(13px, 2.1cqw, 21px); }
+.vd-caption.karaoke span { transition: color 0.15s ease; }
+.vd-caption.karaoke span.said { color: #fff; }
+.vd-caption.karaoke span.said:has(+ span:not(.said)) { color: #FFD84D; }

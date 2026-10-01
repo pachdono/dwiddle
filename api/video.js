@@ -15,6 +15,9 @@ import { buildFigures, sceneDiagram } from "./_figure.js";
 
 export const config = { maxDuration: 60 };
 
+// The moving drawings the app can draw (src/VideoProps.jsx), kept in step.
+const PROP_KINDS = ["sun", "plant", "tree", "water", "cloud", "co2", "o2", "glucose", "cell", "atom", "molecule", "heart", "lungs", "brain", "earth", "magnet", "battery", "bulb", "flask", "thermometer", "dna", "coin", "gear", "clock", "book", "fire", "wave", "bacteria"];
+
 const SHAPE = `Return ONE JSON object and nothing else. No prose, no code fences.
 
 Shape:
@@ -54,7 +57,9 @@ Shape:
         { "kind": "answer", "text": "r = 8/9 units", "color": "green", "at": 2 }
       ],
       "figure": "main",
-      "show": [{ "id": "big", "at": 0 }, { "id": "c", "at": 1 }, { "id": "OC", "at": 1 }]
+      "show": [{ "id": "big", "at": 0 }, { "id": "c", "at": 1 }, { "id": "OC", "at": 1 }],
+      "props": [{ "kind": "sun", "label": "light", "at": 0 }, { "kind": "plant", "label": "leaf", "at": 0 }],
+      "links": [{ "from": 0, "to": 1, "label": "light energy", "at": 1 }]
     }
   ]
 }`;
@@ -70,6 +75,11 @@ Animations, so each step is seen happening rather than only stated. Use them whe
 - "move": the part "term" of "text" (written exactly as it appears there) flies across the equals sign, its sign flipping, then "result" appears. Use it when a term is moved to the other side.
 - "mark": part of an item's "text" (exactly as it appears) that gets a hand drawn ring round it, to point at what matters now.
 - In figures, "flow": true on an arrow or segment makes dashes run along it, for anything that moves or flows: water, current, blood, energy, heat, a force acting. A "mover" shape (through: points, color) sends dots travelling along that path over and over, like particles diffusing, electrons in a wire or blood round a loop. "pulse": true on any shape makes it gently pulse while it is being talked about.
+
+Moving drawings, for anything real a scene talks about:
+- "props": 1 to 4 animated drawings the app draws itself, chosen ONLY from: ${PROP_KINDS.join(", ")}. Each has a short "label" (1 to 3 words) and "at", the line it appears on. Pick the ones the line is actually about: talking about photosynthesis, a sun, a plant, co2, water, o2 and glucose; about blood, a heart; about circuits, a battery and a bulb.
+- "links": arrows between props, by their index in "props", with a short "label" for what goes from one to the other ("light energy", "oxygen out", "blood pumped") and "at", the line it is drawn on. Use them to show processes: inputs flowing in, products flowing out, one thing causing another.
+- Give every scene that is not pure maths its props, and links wherever something moves or changes. A scene with props needs no picture; keep "figure" for a real diagram the props cannot show, like a labelled cross section or a graph.
 
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
 - Every scene has something to look at, and it matches what that scene is saying. In maths it is the question's diagram or a graph of what is being worked on. Anything else gets a simple drawn diagram of the structure or process the scene explains, or a picture of the real thing the scene names: talking about plants, a plant; about the heart, a heart; about a volcano, a volcano. Only a scene of pure algebra with nothing to picture sets "figure" to null.
@@ -163,7 +173,12 @@ function cleanScenes(data, figures) {
       })
       .slice(0, 8);
     const fig = typeof sc.figure === "string" ? figures[sc.figure] : null;
-    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last) };
+    const props = (Array.isArray(sc.props) ? sc.props : []).filter((p) => p && PROP_KINDS.includes(p.kind)).slice(0, 4)
+      .map((p) => ({ kind: p.kind, label: short(p.label, 24), at: at(p.at, last) }));
+    const links = (Array.isArray(sc.links) ? sc.links : [])
+      .filter((l) => l && Number.isInteger(l.from) && Number.isInteger(l.to) && l.from !== l.to && props[l.from] && props[l.to]).slice(0, 5)
+      .map((l) => ({ from: l.from, to: l.to, label: short(l.label, 22), at: Math.max(at(l.at, last), props[l.from].at, props[l.to].at) }));
+    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last), ...(props.length ? { props, links } : {}) };
   }).filter(Boolean).slice(0, 8);
   if (scenes.length < 2) return null;
   return { title: short(data.title, 100) || "Explained", subtitle: short(data.subtitle, 120), scenes };
