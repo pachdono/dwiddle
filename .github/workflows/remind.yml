@@ -1,0 +1,14 @@
+# Every hour, asks Dwiddle to send the daily study reminders that are due:
+# each person gets theirs at the hour they chose, on their own clock.
+# (Vercel's free plan only runs its own scheduler once a day.)
+name: Study reminders
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send the reminders that are due
+        run: curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://dwiddle.vercel.app/api/models?cron=remind"

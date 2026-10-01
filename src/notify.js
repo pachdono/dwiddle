@@ -15,7 +15,7 @@ const PREFS = "dwiddle-notify"; // { ready: bool, daily: bool }
 const desktop = typeof window !== "undefined" && !!window.DWIDDLE_DESKTOP;
 
 export const supported = () => typeof window !== "undefined" && "Notification" in window;
-export const prefs = () => ({ ready: true, daily: false, ...load(PREFS, {}) });
+export const prefs = () => ({ ready: true, daily: false, hour: 17, ...load(PREFS, {}) });
 const setPrefs = (p) => save(PREFS, { ...prefs(), ...p });
 
 // Asked once, at a moment the student is waiting for something, rather than
@@ -62,7 +62,7 @@ export async function setDaily(on, user) {
       const j = sub.toJSON();
       const { error } = await supabase.from("push_subs").upsert({
         endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", hour: prefs().hour,
       });
       if (error) throw new Error(/push_subs/.test(error.message) ? "Reminders are not switched on for Dwiddle yet (run supabase/push.sql)." : error.message);
     }
@@ -77,8 +77,18 @@ export async function setDaily(on, user) {
   setPrefs({ daily: on });
 }
 
-// The desktop app reminds by itself: from five in the afternoon, once a day,
-// if nothing has been studied yet.
+// A new time for the reminder: kept here, and sent to the server too when
+// reminders are on.
+export async function setHour(hour, user) {
+  setPrefs({ hour });
+  if (!desktop && prefs().daily && user && "serviceWorker" in navigator) {
+    const sub = await (await navigator.serviceWorker.getRegistration())?.pushManager?.getSubscription();
+    if (sub) await supabase?.from("push_subs").update({ hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" }).eq("endpoint", sub.endpoint);
+  }
+}
+
+// The desktop app reminds by itself: from the chosen hour, once a day, if
+// nothing has been studied yet.
 const LINES = [
   ["Dwiddle misses you", "Pop in for five minutes. Your notes are right where you left them."],
   ["Your streak is waiting!", "A few minutes today keeps it going."],
@@ -88,8 +98,8 @@ export function startDesktopReminder() {
   if (!desktop) return () => {};
   const tick = () => {
     if (!prefs().daily) return;
-    const now = new Date(), today = now.toISOString().slice(0, 10);
-    if (now.getHours() < 17 || load("dwiddle-reminded", "") === today) return;
+    const now = new Date(), today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (now.getHours() < prefs().hour || load("dwiddle-reminded", "") === today) return;
     const days = load(KEYS.stats, {})?.days || [];
     if (days.includes(today)) return;
     save("dwiddle-reminded", today);
