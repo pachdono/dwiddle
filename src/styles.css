@@ -3105,6 +3105,7 @@ kbd {
    rather than with a card whose button does nothing yet. */
 .is-desktop .brand { order: 1; }
 .is-desktop .nav { order: 2; }
+.is-desktop .side-scene { order: 2; }
 .is-desktop .nav-bottom { order: 3; }
 .is-desktop .sidebar-foot { order: 4; margin-top: 10px; }
 
@@ -7999,7 +8000,7 @@ html, body, .main { overscroll-behavior-y: none; }
    opens up at the top or bottom when the browser's bars slide away. */
 .theme-backdrop { bottom: auto; height: 100lvh; min-height: 100%; }
 /* The painted scene replaces the little corner scenery: one place, not two. */
-body:has(.theme-backdrop) .side-scene { visibility: hidden; }
+body:has(.theme-backdrop) .side-scene { display: none; }
 body:has(.theme-backdrop) .home-scene { display: none; }
 /* Behind the notebook, the page already has its own paper: nothing shows. */
 .nb ~ .theme-backdrop, body:has(.nb) .theme-backdrop { display: none; }

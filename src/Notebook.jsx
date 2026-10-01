@@ -2248,14 +2248,12 @@ const googleUrl = (q) => q ? `https://www.google.com/search?igu=1&hl=en-GB&q=${e
 // live. Pages that cannot work without their scripts fall back to the reader.
 const API_BASE = (typeof window !== "undefined" && window.DWIDDLE_API) || "";
 const liveCopy = (url) => `${API_BASE}/api/browse?view=${encodeURIComponent(url)}`;
-const ENGINE_KEY = "dwiddle-nb-engine";
 
 function Browser({ onClose, onAddImage, onAddText, pictures }) {
   const [pics, setPics] = useState(false);
   // "web": Dwiddle's own results, where every site opens. "google": the real
   // Google, where some sites refuse to open once clicked.
-  const [engine, setEngineRaw] = useState(() => { try { return localStorage.getItem(ENGINE_KEY) || "web"; } catch { return "web"; } });
-  const setEngine = (v) => { setEngineRaw(v); setPics(false); try { localStorage.setItem(ENGINE_KEY, v); } catch { /* private mode */ } };
+  const engine = "google";
   const copyFrame = useRef(null);
   // Where the student has been: Google (home or a search) and pages opened by address.
   const [trail, setTrail] = useState([{ kind: "google", q: "" }]);
@@ -2339,16 +2337,15 @@ function Browser({ onClose, onAddImage, onAddText, pictures }) {
         onOpenOutside={() => window.open(here.kind === "page" ? page?.url || here.url : googleUrl(here.q).replace(/[?&]igu=1/, ""), "_blank", "noopener")}
         onClose={onClose} />
       {loading && <div className="sf-progress" aria-hidden="true"><i /></div>}
-      {here.kind === "google" && (
+      {here.kind === "google" && pictures && (
         <div className="sf-tabs" role="tablist" aria-label="Show">
-          <button role="tab" aria-selected={!pics && engine === "web"} className={!pics && engine === "web" ? "on" : ""} onClick={() => setEngine("web")}>All websites</button>
-          <button role="tab" aria-selected={!pics && engine === "google"} className={!pics && engine === "google" ? "on" : ""} onClick={() => setEngine("google")}>Google</button>
+          <button role="tab" aria-selected={!pics} className={!pics ? "on" : ""} onClick={() => setPics(false)}>Google</button>
           {pictures && <button role="tab" aria-selected={pics} className={pics ? "on" : ""} onClick={() => setPics(true)}>Pictures to drag</button>}
         </div>
       )}
       {here.kind === "google" && engine === "google" && tip && !pics && (
         <div className="sf-tip">
-          <span>Some sites refuse to open inside Google here. <b>All websites</b> opens every one of them{pictures ? <>, and <b>Pictures to drag</b> has pictures to drag onto your page</> : null}.</span>
+          <span>Sites that refuse to open here can be read by typing their address in the bar{pictures ? <>, and <b>Pictures to drag</b> has pictures to drag onto your page</> : null}.</span>
           <button className="sf-btn" onClick={() => setTip(false)} aria-label="Hide this tip"><Icon name="close" size={13} /></button>
         </div>
       )}

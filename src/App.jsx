@@ -23,7 +23,7 @@ import { Videos, VideoJobChip } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
-import { pushProgress, localSnapshot, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
+import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { setEarlyAccess, moreQuestions, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
@@ -570,9 +570,34 @@ export default function App() {
   // not become a run of requests.
   useEffect(() => {
     if (!auth.user) return;
-    const t = setTimeout(() => pushProgress(auth.user.id, localSnapshot()), 1200);
+    const t = setTimeout(() => syncNow(auth.user.id), 1200);
     return () => clearTimeout(t);
-  }, [auth.user, missed, hidden, topic, theme, made]);
+  }, [auth.user, missed, hidden, topic, theme, made, look, stats]);
+
+  // What another device changed: fetched once a minute and whenever Dwiddle
+  // comes back into view, then shown without a reload.
+  useEffect(() => {
+    if (!auth.user) return;
+    const id = auth.user.id;
+    const tick = () => { if (document.visibilityState === "visible") syncNow(id); };
+    const t = setInterval(tick, 60000);
+    addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(t); removeEventListener("focus", tick); document.removeEventListener("visibilitychange", tick); };
+  }, [auth.user]);
+  useEffect(() => {
+    const reload = () => {
+      setMadeRaw(load(KEYS.made, null));
+      setMissed(load(KEYS.missed, []));
+      setSrs(loadSrs());
+      setStats(load(KEYS.stats, { answered: 0, correct: 0, days: [], byTopic: {} }));
+      setTopicRaw(load(KEYS.topic, null));
+      setHiddenRaw(load(KEYS.hidden, []));
+      setLookRaw(loadLook());
+    };
+    addEventListener("dwiddle:synced", reload);
+    return () => removeEventListener("dwiddle:synced", reload);
+  }, []);
 
   const go = (p, mode) => {
     if (p !== "home") setEditing(false);

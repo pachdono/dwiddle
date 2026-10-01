@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, PageHead, Loading } from "./ui.jsx";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { useDictation } from "./Chat.jsx";
+import { save } from "./store.js";
 
 const KEY = "dwiddle-decks";
 // "theme" follows the theme's own accent colour; the rest are fixed.
@@ -21,7 +22,8 @@ const COLORS = ["theme", "#D1497A", "#16a34a", "#9333ea", "#f97316", "#0891b2", 
 const colorOf = (c) => (!c || c === "theme" || c === "#3B5BFD" ? "var(--accent)" : c);
 
 const loadDecks = () => { try { const d = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(d) ? d : []; } catch { return []; } };
-const saveDecks = (d) => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* storage full or private */ } };
+// Through the store, so the change is timed and syncs to your other devices.
+const saveDecks = (d) => save(KEY, d);
 const uid = () => Math.random().toString(36).slice(2, 10);
 // The same word keeps the same card, so editing a deck keeps what is known.
 const cardId = (front) => { let h = 5381; for (const ch of front.toLowerCase()) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return "c" + h.toString(36); };
@@ -48,6 +50,12 @@ const textOf = (cards) => cards.map((c) => `${c.front} ; ${c.back}`).join("\n");
 
 export default function Decks() {
   const [decks, setDecksRaw] = useState(loadDecks);
+  // Decks changed on another device arrive with a sync.
+  useEffect(() => {
+    const reload = () => setDecksRaw(loadDecks());
+    addEventListener("dwiddle:synced", reload);
+    return () => removeEventListener("dwiddle:synced", reload);
+  }, []);
   const setDecks = (fn) => setDecksRaw((d) => { const next = typeof fn === "function" ? fn(d) : fn; saveDecks(next); return next; });
   const [editing, setEditing] = useState(null); // deck id, or "new"
   const [studying, setStudying] = useState(null); // { id, mode }

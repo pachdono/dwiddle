@@ -6,7 +6,7 @@
 // The app works without these variables set, falling back to local storage.
 
 import { createClient } from "@supabase/supabase-js";
-import { load, save, KEYS } from "./store.js";
+import { load, save, KEYS, changedAt, setChangedAt } from "./store.js";
 
 const rawUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
 const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
@@ -86,7 +86,15 @@ const SYNCED = [
   KEYS.seen,
   KEYS.testBank,
   KEYS.level,
+  KEYS.srs,
+  KEYS.srsOn,
+  "dwiddle-look",
+  "dwiddle-decks",
+  "dwiddle-study-log",
 ];
+// Values that are one choice (a theme, a quiz length), where the copy changed
+// most recently is the one to keep.
+const LATEST = new Set([KEYS.topic, KEYS.quizLen, KEYS.level, KEYS.srsOn, "dwiddle-look", "dwiddle-decks"]);
 
 // Roughly how much of a row Supabase will take happily. The question bank is
 // the only thing that can approach it.
@@ -95,14 +103,19 @@ const MAX_PAYLOAD = 600 * 1024;
 export function localSnapshot() {
   const out = {};
   SYNCED.forEach((k) => { out[k] = load(k, null); });
+  const times = changedAt();
+  out._times = Object.fromEntries(SYNCED.filter((k) => times[k]).map((k) => [k, times[k]]));
   return out;
 }
 
 export function applySnapshot(data) {
   if (!data) return;
   SYNCED.forEach((k) => {
-    if (data[k] !== undefined && data[k] !== null) save(k, data[k]);
+    // Written without a new time: this is the account's copy arriving, not a
+    // change made here.
+    if (data[k] !== undefined && data[k] !== null) save(k, data[k], { at: 0 });
   });
+  if (data._times) setChangedAt(data._times);
   // Material deleted, here or on another device, is removed here too.
   if (data[KEYS.made] === null && data[KEYS.madeCleared]) save(KEYS.made, null);
 }
@@ -156,12 +169,23 @@ function mergeBank(a, b) {
 
 export function merge(localData, remoteData) {
   const out = {};
+  const ta = localData?._times || {}, tb = remoteData?._times || {};
+  out._times = { ...tb };
+  Object.entries(ta).forEach(([k, t]) => { if (!out._times[k] || t > out._times[k]) out._times[k] = t; });
 
   SYNCED.forEach((k) => {
     const a = localData?.[k];
     const b = remoteData?.[k];
 
-    if (k === KEYS.stats) out[k] = mergeStats(a, b);
+    if (LATEST.has(k)) out[k] = (ta[k] || 0) > (tb[k] || 0) ? a ?? b ?? null : b ?? a ?? null;
+    else if (k === "dwiddle-study-log") {
+      // Minutes studied each day: the larger count for each day.
+      const o = { ...(b || {}) };
+      Object.entries(a || {}).forEach(([d, v]) => { o[d] = Math.max(Number(v) || 0, Number(o[d]) || 0); });
+      out[k] = Object.keys(o).length ? o : null;
+    }
+    else if (k === KEYS.srs) out[k] = (ta[k] || 0) > (tb[k] || 0) ? { ...(b || {}), ...(a || {}) } : { ...(a || {}), ...(b || {}) };
+    else if (k === KEYS.stats) out[k] = mergeStats(a, b);
     else if (k === KEYS.made) {
       // A deletion newer than either copy wins, so deleting on one device
       // is not undone by the copy another device still has.
@@ -366,4 +390,33 @@ export async function publicReviews(n = 3) {
   const { data, error } = await supabase.rpc("public_reviews", { n });
   if (!error) return data || [];
   return approvedReviews(n);
+}
+
+
+// One round of syncing: the account's copy and this device's merged, the
+// result kept on both, and the app told so the screen shows it. Run on sign
+// in, after changes here, when the app comes back into view and once a
+// minute, so a topic made on a phone appears on the laptop without a reload.
+let syncing = null;
+export function syncNow(userId) {
+  if (!supabase || !userId) return Promise.resolve(false);
+  if (syncing) return syncing;
+  syncing = (async () => {
+    try {
+      const remote = await pullProgress(userId);
+      const before = JSON.stringify(localSnapshot());
+      const merged = merge(localSnapshot(), remote || {});
+      applySnapshot(merged);
+      const changedHere = JSON.stringify(localSnapshot()) !== before;
+      if (JSON.stringify(remote || {}) !== JSON.stringify(merged)) await pushProgress(userId, merged);
+      if (changedHere) window.dispatchEvent(new Event("dwiddle:synced"));
+      return true;
+    } catch (err) {
+      console.warn("[sync]", err?.message || err);
+      return false;
+    } finally {
+      syncing = null;
+    }
+  })();
+  return syncing;
 }

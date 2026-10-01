@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Icon, Portal } from "./ui.jsx";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { playCue } from "./voice.js";
+import { save } from "./store.js";
 
 const KEY = "dwiddle-study-timer";
 const LOG = "dwiddle-study-log";
@@ -24,7 +25,7 @@ function set(next) { timer = next; write(KEY, next); listeners.forEach((f) => f(
 
 const today = () => new Date().toISOString().slice(0, 10);
 export const minutesToday = () => read(LOG, {})[today()] || 0;
-function logMinutes(m) { const log = read(LOG, {}); log[today()] = (log[today()] || 0) + m; write(LOG, log); }
+function logMinutes(m) { const log = read(LOG, {}); log[today()] = (log[today()] || 0) + m; save(LOG, log); }
 
 const spent = (t, now = Date.now()) => (t.paused || now) - t.start - (t.away || 0);
 const total = (t) => (t.seconds ?? t.minutes * 60) * 1000;

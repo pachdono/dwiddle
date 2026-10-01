@@ -11,12 +11,24 @@ export function load(key, fallback) {
   }
 }
 
-export function save(key, value) {
+// When each value last changed on this device, so syncing can tell which of
+// two copies is newer instead of one device overwriting the other.
+const TIMES = "dwiddle-times";
+export function changedAt() { return load(TIMES, {}); }
+export function save(key, value, { at = Date.now() } = {}) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    if (key !== TIMES && at) {
+      const t = load(TIMES, {});
+      t[key] = at;
+      localStorage.setItem(TIMES, JSON.stringify(t));
+    }
   } catch {
     // Nothing to do. The value still applies for this visit.
   }
+}
+export function setChangedAt(times) {
+  try { localStorage.setItem(TIMES, JSON.stringify({ ...load(TIMES, {}), ...times })); } catch { /* private mode */ }
 }
 
 // Session storage clears when the tab closes, which is what we want for things

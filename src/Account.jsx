@@ -6,7 +6,7 @@
 import { LevelPicker } from "./LevelPicker.jsx";
 import { myLevel, setMyLevel } from "./level.js";
 import { useEffect, useState } from "react";
-import { supabase, configured, enabledProviders, pullProgress, pushProgress, localSnapshot, applySnapshot, merge, getProfile, saveProfile } from "./supabase.js";
+import { supabase, configured, enabledProviders, syncNow, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 import { ProfileCard, setMyProfile } from "./Profile.jsx";
 
@@ -105,11 +105,7 @@ export function useAuth(onSignedOut) {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const remote = await pullProgress(user.id);
-      if (cancelled) return;
-      const merged = merge(localSnapshot(), remote || {});
-      applySnapshot(merged);
-      await pushProgress(user.id, merged);
+      await syncNow(user.id);
       if (!cancelled) setSyncedAt(new Date());
     })();
     return () => { cancelled = true; };
