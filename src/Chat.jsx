@@ -227,7 +227,7 @@ function Bold({ text }) {
     part.startsWith("**") && part.endsWith("**") ? <b key={i}>{part.slice(2, -2)}</b> : <span key={i}>{part}</span>);
 }
 
-function Reply({ text }) {
+export function Reply({ text }) {
   const blocks = [];
   String(text).split(/\n+/).forEach((line) => {
     const item = line.match(/^\s*(?:[-*]|\d+[.)])\s+(.*)/);

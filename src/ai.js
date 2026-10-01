@@ -185,8 +185,8 @@ export const writePodcast = (notes) =>
   }));
 
 // A turn of the conversation with Dwiddle about what is on screen.
-export const chatWithDwiddle = (context, messages) =>
-  post("/api/chat", { context, messages }).then((d) => tidyMath(d.reply));
+export const chatWithDwiddle = (context, messages, { mode } = {}) =>
+  post("/api/chat", { context, messages, ...(mode ? { mode } : {}) }).then((d) => tidyMath(d.reply));
 
 // Whether a short input is a request to study something, and if it is unclear,
 // the one or two questions worth asking before writing anything.

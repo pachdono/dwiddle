@@ -1,4 +1,6 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
+import { DwiddleHero } from "./ChatRoom.jsx";
+import ChatRoom from "./ChatRoom.jsx";
 import { LevelCard } from "./LevelPicker.jsx";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
@@ -70,6 +72,7 @@ const PAGE_PATH = {
   quiz: "/practice",
   solve: "/solve",
   decks: "/decks",
+  chat: "/chat",
   sheet: "/study-sheet",
   learn: "/learn",
   videos: "/videos",
@@ -250,6 +253,7 @@ function greetingSub(now = new Date()) {
 // along the top.
 const GROUPS = [
   { id: "home", label: "Home", icon: "home", pages: ["home"] },
+  { id: "chat", label: "Chat", icon: "chat", pages: ["chat"], early: true },
   {
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics", "videos"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
@@ -268,7 +272,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 
 // Every page's own name, for the title bar when it is not part of a group.
 const ALL_NAV = [
-  { id: "home", label: "Home" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
+  { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Solve" }, { id: "decks", label: "My decks" },
   { id: "notebook", label: "Notebooks" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
@@ -644,6 +648,7 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     notebook: NotebookLoader,
+    chat: ChatRoom,
     feedback: FeedbackPage,
     install: Install,
     "install-all": InstallAll,
@@ -920,7 +925,7 @@ export default function App() {
       </nav>
 
       <UpdateBar />
-      <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook"].includes(page)} />
+      <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
       <XpToast />
 
@@ -1941,6 +1946,16 @@ function AddMaterial({ go, setMade, auth, early }) {
 
         <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
             <div className="notes glass">
+          {early && (
+            <div className="am-hero">
+              <DwiddleHero size={84}
+                mood={["reading", "asking", "brief", "working"].includes(state) ? "thinking" : state === "error" ? "oops" : state === "done" ? "dance" : "idle"}
+                say={state === "reading" ? "Reading your file..." : state === "asking" ? "Working out what you want..." : state === "brief" ? "Writing your notes..."
+                  : state === "working" ? "Making your questions..." : state === "done" ? "All done! Let's study!"
+                  : notes.trim() ? (notes.trim().split(/\s+/).length < 12 ? `Ooh, ${notes.trim().slice(0, 40)}! Press the button and I'll get going.` : "Nice notes! I'll turn them into lessons and questions.")
+                  : "Paste your notes, or just tell me what you want to learn!"} />
+            </div>
+          )}
           <div className="notes-head">
             <div className="row">
               <span className="notes-icon"><Icon name="text" size={14} /></span>

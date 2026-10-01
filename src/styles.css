@@ -8528,3 +8528,74 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .vd-caption.karaoke span { transition: color 0.15s ease; }
 .vd-caption.karaoke span.said { color: #fff; }
 .vd-caption.karaoke span.said:has(+ span:not(.said)) { color: #FFD84D; }
+
+/* Chat with Dwiddle (ChatRoom.jsx) */
+.cr { display: flex; flex-direction: column; height: calc(100dvh - 64px); max-width: 860px; margin: 0 auto; padding: 0 20px; }
+.cr-top { position: relative; display: flex; justify-content: center; padding: 18px 0 8px; }
+.cr-tools { position: absolute; right: 0; top: 14px; display: flex; gap: 6px; }
+.cr-tool { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.cr-tool.on { border-color: var(--accent); color: var(--accent); }
+.cr-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 12px 2px 20px; scrollbar-width: thin; }
+.cr-start { text-align: center; margin: 10px auto; max-width: 520px; }
+.cr-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.cr-chips button, .cr-acts button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.cr-chips button:hover, .cr-acts button:hover { border-color: var(--accent); color: var(--accent); }
+.cr-msg { max-width: 82%; padding: 12px 16px; border-radius: 20px; line-height: 1.55; animation: cr-in 0.3s ease both; }
+.cr-msg p { margin: 0 0 8px; } .cr-msg p:last-child { margin-bottom: 0; }
+.cr-msg ul { margin: 4px 0 8px; padding-left: 20px; }
+.cr-msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 6px; }
+.cr-msg.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 6px; box-shadow: var(--shadow); }
+.cr-msg.note { color: var(--warn); }
+.cr-msg.typing { display: flex; gap: 5px; padding: 16px 18px; }
+.cr-msg.typing i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); animation: dt-bubble 1.2s ease-in-out infinite; }
+.cr-msg.typing i:nth-child(2) { animation-delay: 0.2s; } .cr-msg.typing i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes cr-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.cr-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cr-acts button { padding: 6px 11px; font-size: 12.5px; }
+.cr-material { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.cr-video { display: flex; align-items: center; gap: 14px; width: 100%; padding: 4px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cr-video div { display: flex; flex-direction: column; gap: 2px; }
+.cr-video-play { flex: none; width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(135deg, #3B5BFD, #8B5CF6); color: #fff; box-shadow: 0 6px 18px rgba(59, 91, 253, 0.35); }
+.cr-video:hover .cr-video-play { transform: scale(1.06); }
+.cr-video-spin { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: vp-spin 0.9s linear infinite; }
+.cr-video-fail { color: var(--warn); margin: 0; }
+.cr-input { display: flex; align-items: flex-end; gap: 8px; padding: 10px 10px 10px 12px; margin: 0 0 18px; border-radius: 26px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+.cr-input textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; font-size: 15px; line-height: 1.45; padding: 8px 4px; max-height: 160px; }
+.cr-mic, .cr-send { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; }
+.cr-mic { background: var(--sunken); color: var(--ink-2); }
+.cr-mic.on { background: var(--warn); color: #fff; animation: dt-bubble 1s ease-in-out infinite; }
+.cr-send { background: var(--accent); color: #fff; }
+.cr-send:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 760px) { .cr { height: calc(100dvh - 130px); padding: 0 12px; } .cr-msg { max-width: 92%; } .cr-tools { position: static; } .cr-top { flex-direction: column; align-items: center; gap: 6px; } }
+
+/* Dwiddle at the top of a chat: moves as it listens, thinks, talks, hops and dances */
+.dh { position: relative; display: flex; flex-direction: column; align-items: center; }
+.dh-duck { transform-origin: 50% 100%; }
+.dh-jump .dh-duck { animation: dh-jump 0.6s cubic-bezier(.3, 1.6, .5, 1) 2; }
+@keyframes dh-jump { 40% { transform: translateY(-26px) scale(1.04, 0.96); } 70% { transform: translateY(0) scale(1.06, 0.92); } }
+.dh-dance .dh-duck { animation: dh-dance 1.3s ease-in-out 2; }
+@keyframes dh-dance { 0%, 100% { transform: none; } 15% { transform: translateX(-10px) rotate(-12deg); } 30% { transform: translateY(-16px) rotate(0); } 45% { transform: translateX(10px) rotate(12deg); } 60% { transform: translateY(-16px) rotate(0) scaleX(-1); } 75% { transform: translateX(-6px) rotate(-8deg) scaleX(-1); } 90% { transform: rotate(0) scaleX(1); } }
+.dh-hop .dh-duck { animation: dh-jump 0.6s cubic-bezier(.3, 1.6, .5, 1) 1; }
+.dh-look .dh-duck { animation: dh-look 1.2s ease-in-out 1; }
+@keyframes dh-look { 30% { transform: scaleX(-1); } 70% { transform: scaleX(-1); } }
+.dh-wiggle .dh-duck { animation: dh-wiggle 0.9s ease-in-out 1; }
+@keyframes dh-wiggle { 20% { transform: rotate(-8deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(4deg); } }
+.dh-thinking .dh-duck { animation: dh-sway 2s ease-in-out infinite; }
+@keyframes dh-sway { 50% { transform: rotate(-4deg); } }
+.dh-say { margin-top: 2px; max-width: 360px; padding: 8px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 14px; font-weight: 600; color: var(--ink); text-align: center; position: relative; animation: cr-in 0.3s ease both; }
+.dh-say::before { content: ""; position: absolute; top: -7px; left: 50%; width: 12px; height: 12px; background: inherit; border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: translateX(-50%) rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .dh-duck { animation: none !important; } }
+.cr-input textarea { min-height: 0; height: 40px; border: 0; border-radius: 0; box-shadow: none; padding: 9px 4px; }
+.cr-input textarea:focus { box-shadow: none; outline: 0; }
+.cr-input:focus-within { border-color: var(--accent); }
+
+/* Solve, asked like a chat */
+.sv-chat { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; border-radius: 24px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+.sv-chat .cr-input { width: 100%; margin: 0; }
+.sv-chat .cr-input textarea { height: 44px; }
+.sv-chat-foot { text-align: center; }
+.sv-asked-chat { display: flex; justify-content: flex-end; }
+.sv-follow { display: flex; flex-direction: column; gap: 10px; }
+.sv-follow-head { display: flex; justify-content: center; }
+.sv-follow .cr-input { margin: 4px 0 0; }
+.am-hero { display: flex; justify-content: center; padding: 6px 0 10px; }

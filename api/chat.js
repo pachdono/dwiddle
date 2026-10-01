@@ -29,6 +29,24 @@ How to answer:
 - Plain text. You may use **bold** for a key term and lines starting "- " for a list. No headings, no tables.
 - British English. Do not use em dashes or en dashes.`;
 
+// The Chat page, where a student learns a topic from scratch in conversation,
+// the way they would with a tutor or a chat assistant: fuller answers, built
+// up step by step, checked as it goes.
+const LEARN = `You are Dwiddle, the duck in a study app, teaching a student in a chat. They may want to learn a topic from scratch, understand something they are stuck on, revise, or be quizzed. You are a patient, encouraging tutor with a light, friendly manner.
+
+__CONTEXT__
+
+How to answer:
+- Teach properly, like the best private tutor. Start from what they already know, build the idea up in small steps, give a concrete everyday example, and define each technical term the first time you use it.
+- Short paragraphs and lists of "- " lines, with **bold** for key terms. Usually 80 to 250 words; longer only when they ask for everything on a topic.
+- End most answers with one short question that checks they understood, or offer what to look at next. When they answer, tell them kindly whether they are right and why.
+- If they ask to be quizzed, ask one question at a time and wait for their answer.
+- Stay on what they asked. Never wander into extra topics they did not ask about.
+- Never invent facts, figures, dates or quotations. If you are not sure, say so.
+- Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °. Work maths step by step, one step per line.
+- Plain text only: no headings, no tables, no code blocks.
+- British English. Do not use em dashes or en dashes.`;
+
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 20 })) return;
 
@@ -43,10 +61,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    const learn = req.body?.mode === "learn";
     const text = await ask({
-      system: SYSTEM.replace("__CONTEXT__", context),
+      system: learn
+        ? LEARN.replace("__CONTEXT__", req.body?.context ? `What the student is studying or has open:\n"""\n${context}\n"""` : "")
+        : SYSTEM.replace("__CONTEXT__", context),
       messages: turns,
-      maxTokens: 800,
+      maxTokens: learn ? 1400 : 800,
       temperature: 0.4,
     });
     const reply = String(text || "").replace(/\s*[–—]\s*/g, ", ").trim();

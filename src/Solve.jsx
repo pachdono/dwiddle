@@ -11,8 +11,10 @@
 // diagram on the next, part (c) over the page. So several files can go in at
 // once, in order, and are read as one question.
 
+import { DwiddleHero } from "./ChatRoom.jsx";
+import { Reply } from "./Chat.jsx";
 import { useEffect, useState } from "react";
-import { solveProblem, writeVideo, drawQuestion } from "./ai.js";
+import { solveProblem, writeVideo, drawQuestion, chatWithDwiddle } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
 import { VideoPlayer, Diagram, voice } from "./Video.jsx";
@@ -257,6 +259,26 @@ export function Solve({ go, auth, early }) {
 
             <div className="or"><span>or</span></div>
 
+            {early ? (
+              <div className="sv-chat">
+                <DwiddleHero size={96}
+                  mood={busy ? "thinking" : state === "error" ? "oops" : "idle"}
+                  say={state === "reading" ? "Reading your question..." : state === "working" ? "Working it through, step by step..."
+                    : files.length ? "Got it! Add anything the photo misses, then send." : text.trim() ? "Ooh, let me see..." : "What are you stuck on? Ask me like you'd ask a friend."} />
+                <form className="cr-input sv-composer" onSubmit={(e) => { e.preventDefault(); if (ready && !busy) run(); }}>
+                  <textarea rows={1} value={text} disabled={busy}
+                    placeholder="Type or paste the question, with any numbers and what it asks for"
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      e.target.style.height = "";
+                      e.target.style.height = Math.min(220, e.target.scrollHeight) + "px";
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (ready && !busy) run(); } }} />
+                  <button type="submit" className="cr-send" disabled={!ready || busy} aria-label="Work it through"><Icon name="arrow" size={18} /></button>
+                </form>
+                <span className="small muted sv-chat-foot">Enter to send, Shift and Enter for a new line. One question at a time works best.</span>
+              </div>
+            ) : (
             <div className="glass-stage"><span className="blob b1" aria-hidden="true" /><span className="blob b2" aria-hidden="true" /><span className="blob b3" aria-hidden="true" />
             <div className="notes glass">
               <div className="notes-head">
@@ -288,6 +310,7 @@ export function Solve({ go, auth, early }) {
               </div>
             </div>
             </div>
+            )}
           </>
         )}
 
@@ -315,6 +338,9 @@ export function Solve({ go, auth, early }) {
           </div>
         )}
 
+        {state === "done" && result && early && text.trim() && (
+          <div className="sv-asked-chat"><div className="cr-msg me"><p>{text.trim()}</p></div></div>
+        )}
         {state === "done" && result && (
           <div className="sv fade">
             <div className="sv-head">
@@ -438,6 +464,7 @@ export function Solve({ go, auth, early }) {
               )}
             </div>
 
+            {early ? <FollowUp context={solutionContext(result)} onVideo={explain} hasVideo={!!video} filming={filming} /> : (
             <div className="card card-pad sv-ask">
               <div>
                 <b className="small">Lost on a step, or think something is off?</b>
@@ -445,6 +472,7 @@ export function Solve({ go, auth, early }) {
               </div>
               <AskDwiddleButton context={solutionContext(result)} className="btn" />
             </div>
+            )}
 
             {result.similar && (
               <div className="card card-pad sv-similar">
@@ -462,6 +490,58 @@ export function Solve({ go, auth, early }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Questions about the solution, answered right under it like a chat, with
+// the whole solution as what Dwiddle is looking at.
+function FollowUp({ context, onVideo, hasVideo, filming }) {
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mood, setMood] = useState("idle");
+  async function send(raw) {
+    const q = String(raw ?? text).trim();
+    if (!q || busy) return;
+    setText("");
+    const history = [...msgs, { role: "user", content: q }];
+    setMsgs(history);
+    setBusy(true);
+    setMood("thinking");
+    try {
+      const reply = await chatWithDwiddle(context, history);
+      setMsgs([...history, { role: "assistant", content: reply }]);
+      setMood("jump");
+      setTimeout(() => setMood("idle"), 1200);
+    } catch (err) {
+      setMsgs([...history, { role: "assistant", content: err.message || "I couldn't answer just now. Try again?", note: true }]);
+      setMood("oops");
+      setTimeout(() => setMood("idle"), 1500);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="card card-pad sv-follow">
+      <div className="sv-follow-head">
+        <DwiddleHero size={64} mood={mood} say={busy ? "Thinking..." : msgs.length ? "" : "Lost on a step? Ask me anything about it."} />
+      </div>
+      {msgs.map((m, i) => (
+        <div key={i} className={"cr-msg " + (m.role === "user" ? "me" : "bot") + (m.note ? " note" : "")}>
+          {m.role === "assistant" ? <Reply text={m.content} /> : <p>{m.content}</p>}
+        </div>
+      ))}
+      {busy && <div className="cr-msg bot typing"><i /><i /><i /></div>}
+      <div className="cr-acts">
+        {["Why that first step?", "Explain it more simply", "Give me a similar question"].map((c) => <button key={c} onClick={() => send(c)} disabled={busy}>{c}</button>)}
+        <button onClick={onVideo} disabled={filming}><Icon name="video" size={14} /> {hasVideo ? "Watch the video" : filming ? "Making the video..." : "Make a video"}</button>
+      </div>
+      <form className="cr-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
+        <textarea rows={1} value={text} placeholder="Ask about any step..." onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
+        <button type="submit" className="cr-send" disabled={!text.trim() || busy} aria-label="Send"><Icon name="arrow" size={18} /></button>
+      </form>
     </div>
   );
 }
