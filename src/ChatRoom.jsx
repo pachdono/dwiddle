@@ -15,6 +15,8 @@ import { chatWithDwiddle, writeVideo, generateFromNotes } from "./ai.js";
 import { sayAs, stopSpeaking } from "./tts.js";
 import { Icon } from "./ui.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
+import { readFile, IMAGE } from "./readfile.js";
+import { shrink } from "./custom.js";
 
 const KEY = "dwiddle-chatroom";
 const keep = (msgs) => {
@@ -57,7 +59,9 @@ export function DwiddleHero({ mood, say, size = 120 }) {
 export default function ChatRoom({ go, setMade, auth, made }) {
   const [msgs, setMsgs] = useState(loadKept);
   const [text, setText] = useState("");
+  const [files, setFiles] = useState([]); // [{ id, name, thumb, text, state: "reading" | "ready" | "failed", error }]
   const [busy, setBusy] = useState(false);
+  const picker = useRef(null);
   const [mood, setMood] = useState("idle");
   const [say, setSay] = useState(() => HELLO[Math.floor(Math.random() * HELLO.length)]);
   const [voiceOn, setVoiceOn] = useState(false);
@@ -78,14 +82,33 @@ export default function ChatRoom({ go, setMade, auth, made }) {
   const moodFor = (m, ms) => { setMood(m); if (ms) setTimeout(() => setMood((x) => (x === m ? "idle" : x)), ms); };
   const context = made?.title ? `The student's study material is "${made.title}", on: ${(made.topics || []).map((t) => t.name).join(", ").slice(0, 600)}` : "";
 
+  // Photos and files: read here (text pulled out of a PDF, a photo of a
+  // page read by the model) and sent along with the next message.
+  async function attach(list) {
+    for (const file of [...(list || [])].slice(0, 5)) {
+      const id = Date.now() + Math.random().toString(36).slice(2, 6);
+      const thumb = IMAGE.test(file.name) ? await shrink(file, 160, 0.7).catch(() => "") : "";
+      setFiles((f) => [...f, { id, name: file.name, thumb, state: "reading" }]);
+      setSay(thumb ? "Ooh, a picture! Let me look..." : "Reading your file...");
+      moodFor("thinking", 1500);
+      readFile(file)
+        .then((t) => setFiles((f) => f.map((x) => (x.id === id ? { ...x, state: "ready", text: String(t || "").trim().slice(0, 12000) } : x))))
+        .catch((err) => setFiles((f) => f.map((x) => (x.id === id ? { ...x, state: "failed", error: err.message || "That file could not be read." } : x))));
+    }
+  }
+  const reading = files.some((f) => f.state === "reading");
+
   async function send(raw) {
-    const q = String(raw ?? text).trim();
-    if (!q || busy) return;
+    const ready = files.filter((f) => f.state === "ready" && f.text);
+    const q = String(raw ?? text).trim() || (ready.length ? "Help me understand this." : "");
+    if (!q || busy || reading) return;
     dict.stop();
     stopSpeaking();
     setText("");
+    setFiles([]);
     if (input.current) input.current.style.height = "";
-    const mine = { id: Date.now() + "u", role: "user", content: q };
+    const sent = ready.map((f) => `\n\n[Attached ${f.thumb ? "photo" : "file"}: ${f.name}]\n${f.text}`).join("");
+    const mine = { id: Date.now() + "u", role: "user", content: (q + sent).slice(0, 20000), display: q, files: ready.map(({ name, thumb }) => ({ name, thumb })) };
     const history = [...msgs, mine];
     setMsgs(history);
     setBusy(true);
@@ -206,7 +229,10 @@ export default function ChatRoom({ go, setMade, auth, made }) {
         {msgs.map((m) => (
           <div key={m.id} className={"cr-msg " + (m.role === "user" ? "me" : "bot") + (m.note ? " note" : "")}>
             {m.video ? <VideoCard v={m.video} onWatch={() => setWatching(m.video.data)} />
-              : m.role === "assistant" ? <Reply text={m.content.slice(0, m.shown ?? m.content.length)} /> : <p>{m.content}</p>}
+              : m.role === "assistant" ? <Reply text={m.content.slice(0, m.shown ?? m.content.length)} /> : <>
+                {m.files?.length > 0 && <div className="cr-files sent">{m.files.map((f, i) => <FileChip key={i} f={f} />)}</div>}
+                <p>{m.display ?? m.content}</p>
+              </>}
             {m.role === "assistant" && !m.video && !m.note && m.shown === undefined && !busy && (
               <div className="cr-acts">
                 <button onClick={() => makeVideo(m.id, m.asked || "this", m.content)}><Icon name="video" size={14} /> Make a video</button>
@@ -228,7 +254,17 @@ export default function ChatRoom({ go, setMade, auth, made }) {
         {dict.error && <div className="cr-msg bot note"><p>{dict.error}</p></div>}
       </div>
 
-      <form className="cr-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
+      {files.length > 0 && (
+        <div className="cr-files">
+          {files.map((f) => <FileChip key={f.id} f={f} onRemove={() => setFiles((all) => all.filter((x) => x.id !== f.id))} />)}
+        </div>
+      )}
+      <form className="cr-input" onSubmit={(e) => { e.preventDefault(); send(); }}
+        onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); attach(e.dataTransfer.files); }}>
+        <input ref={picker} type="file" multiple hidden accept=".pdf,.docx,.pptx,.txt,.md,image/*" onChange={(e) => { attach(e.target.files); e.target.value = ""; }} />
+        <button type="button" className="cr-mic" onClick={() => picker.current?.click()} aria-label="Add a photo or file" title="Add a photo or file">
+          <Icon name="plus" size={18} />
+        </button>
         <button type="button" className={"cr-mic" + (dict.on ? " on" : "")} aria-label={dict.on ? "Stop listening" : "Speak"}
           onClick={() => (dict.on ? dict.stop() : dict.start({ reason: "So you can talk to Dwiddle." }))}>
           <Icon name="mic" size={18} />
@@ -240,12 +276,23 @@ export default function ChatRoom({ go, setMade, auth, made }) {
             e.target.style.height = Math.min(160, e.target.scrollHeight) + "px";
             if (mood === "idle" && e.target.value) setSay("Ooh, what are you typing?");
           }}
+          onPaste={(e) => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); attach(fs); } }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-        <button type="submit" className="cr-send" disabled={!text.trim() || busy} aria-label="Send"><Icon name="arrow" size={18} /></button>
+        <button type="submit" className="cr-send" disabled={(!text.trim() && !files.some((f) => f.state === "ready")) || busy || reading} aria-label="Send"><Icon name="arrow" size={18} /></button>
       </form>
 
       {watching && Player && <Player video={watching} onClose={() => setWatching(null)} />}
     </div>
+  );
+}
+
+function FileChip({ f, onRemove }) {
+  return (
+    <span className={"cr-file " + (f.state || "ready")} title={f.error || f.name}>
+      {f.thumb ? <img src={f.thumb} alt="" /> : <Icon name="file" size={16} />}
+      <span>{f.state === "reading" ? "Reading..." : f.state === "failed" ? f.error : f.name}</span>
+      {onRemove && <button type="button" onClick={onRemove} aria-label={`Remove ${f.name}`}>×</button>}
+    </span>
   );
 }
 

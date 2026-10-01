@@ -1,6 +1,7 @@
 // The page a new visitor lands on. It exists to answer one question quickly:
 // what does this thing do, and is it for me.
 
+import LandingScene from "./LandingScene.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { activeAnnouncement, publicReviews, latestUpdates } from "./supabase.js";
@@ -635,6 +636,7 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall, signedIn
 
   return (
     <div className="landing">
+      <LandingScene />
       <header className="glassbar">
         <button className="glass-brand" onClick={toTop} aria-label="Back to the top">
           <DuckMark size={22} />

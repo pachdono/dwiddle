@@ -1,5 +1,4 @@
-// Stickers for notebook pages: the Dwiddle characters, cute doodles and
-// little labels for marking up notes. A sticker goes on the page as a
+// Stickers for notebook pages: the Dwiddle characters and doodles. A sticker goes on the page as a
 // picture, so it moves, resizes and rotates like one.
 
 import { useRef, useState } from "react";
@@ -11,7 +10,6 @@ const cut = (inner, view = "0 0 100 100") => `<svg xmlns="http://www.w3.org/2000
 <defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feMorphology in="SourceAlpha" operator="dilate" radius="3.2" result="d"/><feFlood flood-color="#fff"/><feComposite in2="d" operator="in" result="w"/><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#5a3c46" flood-opacity="0.28"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
 <g filter="url(#s)">${inner}</g></svg>`;
 
-const label = (text, bg, ink = "#3a2f3a") => cut(`<rect x="6" y="30" width="88" height="40" rx="20" fill="${bg}"/><text x="50" y="57" text-anchor="middle" font-family="Caveat, 'Patrick Hand', cursive" font-weight="700" font-size="26" fill="${ink}">${text}</text>`);
 
 export const DOODLES = [
   ["Star", cut('<path d="M50 8l11 26 28 2-21 18 7 28-25-15-25 15 7-28-21-18 28-2z" fill="#FFD36B"/>')],
@@ -28,16 +26,6 @@ export const DOODLES = [
   ["Lightbulb", cut('<path d="M50 12a26 26 0 0 0-15 47c3 3 5 7 5 12h20c0-5 2-9 5-12a26 26 0 0 0-15-47z" fill="#FFE8A3"/><rect x="40" y="73" width="20" height="12" rx="4" fill="#C9CED6"/>')],
 ];
 
-export const LABELS = [
-  ["Important", label("important!", "#FBDDE3")],
-  ["Exam", label("on the exam", "#FFE8A3")],
-  ["Remember", label("remember", "#CFE3C8")],
-  ["Key word", label("key word", "#E6DEF8")],
-  ["Learn it", label("learn this!", "#C7E3F5")],
-  ["A+", cut('<circle cx="50" cy="50" r="38" fill="#FFD36B"/><circle cx="50" cy="50" r="30" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="4 5"/><text x="50" y="62" text-anchor="middle" font-family="Fredoka, system-ui, sans-serif" font-weight="800" font-size="32" fill="#8a5a00">A+</text>')],
-  ["Done", label("done ✓", "#B8E3A1")],
-  ["Ask", label("ask teacher", "#FFD2B8")],
-];
 
 const asData = (svg) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 
@@ -55,7 +43,7 @@ export function StickerPicker({ onPick, onClose }) {
     <div className="nb-stk" role="dialog" aria-label="Stickers" onPointerDown={(e) => e.stopPropagation()}>
       <div className="nb-stk-head">
         <div className="nb-stk-tabs" role="tablist">
-          {[["ducks", "Ducks"], ["cute", "Cute"], ["labels", "Labels"]].map(([id, n]) => (
+          {[["ducks", "Ducks"], ["cute", "Doodles"]].map(([id, n]) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>{n}</button>
           ))}
         </div>
@@ -67,9 +55,6 @@ export function StickerPicker({ onPick, onClose }) {
         ))}
         {tab === "cute" && DOODLES.map(([n, svg]) => (
           <button key={n} title={n} onClick={() => onPick(asData(svg), 110)}><img src={asData(svg)} alt={n} width="52" height="52" /></button>
-        ))}
-        {tab === "labels" && LABELS.map(([n, svg]) => (
-          <button key={n} title={n} className="wide" onClick={() => onPick(asData(svg), 150)}><img src={asData(svg)} alt={n} width="84" height="52" /></button>
         ))}
       </div>
       <p className="nb-stk-tip">Tap one to put it on your page. Drag it where you want it.</p>
