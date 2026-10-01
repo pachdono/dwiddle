@@ -66,9 +66,24 @@ const OPS = [
   [/(\d) ?degrees?\b(?! ?(?:c\b|f\b|celsius|fahrenheit|centigrade))/gi, "$1°"],
 ];
 
+// LaTeX a model slipped in, as it would be printed.
+const TEX = { times: "×", cdot: "·", div: "÷", approx: "≈", pm: "±", leq: "≤", le: "≤", geq: "≥", ge: "≥", neq: "≠", ne: "≠",
+  infty: "∞", pi: "π", mu: "µ", alpha: "α", beta: "β", gamma: "γ", delta: "δ", Delta: "Δ", theta: "θ", lambda: "λ", sigma: "σ",
+  omega: "ω", Omega: "Ω", rho: "ρ", degree: "°", circ: "°", rightarrow: "→", to: "→", leftarrow: "←", propto: "∝", sum: "Σ" };
+function untex(s) {
+  return s
+    .replace(/\\(?:text|mathrm|mathbf|operatorname)\{([^{}]*)\}/g, "$1")
+    .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`))
+    .replace(/\\sqrt\{([^{}]*)\}/g, "√($1)")
+    .replace(/\\(left|right)([()[\]|])/g, "$2")
+    .replace(/\\([A-Za-z]+)/g, (m, w) => TEX[w] ?? m)
+    .replace(/\$([^$]{1,80})\$/g, "$1")
+    .replace(/µ (?=[mgsLlM]\b|m[³²]?)/g, "µ");
+}
+
 export function tidyMath(input) {
   if (typeof input !== "string" || !input) return input;
-  let s = input;
+  let s = untex(input);
 
   // x^2, x^{n+1}, x^(2) and 10^-4
   s = s.replace(/\^\{([^{}]{1,12})\}|\^\(([^()]{1,12})\)|\^(-?[0-9a-zA-Z]{1,4})/g,

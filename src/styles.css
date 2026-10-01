@@ -8766,3 +8766,33 @@ body:has(.theme-backdrop) main .page {
 .vd-voice-toggle.on { color: var(--ink); }
 .vd-voice-toggle.on i { background: var(--accent); }
 .vd-voice-toggle.on i::after { transform: translateX(12px); }
+
+/* Videos, made to look like a proper study video */
+.vd-stage {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1.5px) 0 0 / 22px 22px,
+    linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--sunken) 70%, var(--surface)));
+}
+.vd-scene { animation: vd-scene-in 0.5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes vd-scene-in { from { opacity: 0; transform: translateY(1.2cqw) scale(0.985); } to { opacity: 1; transform: none; } }
+.vd-headrow { display: flex; align-items: center; gap: 1.4cqw; margin: 0 0 1.8cqw; }
+.vd-step { flex: none; display: inline-flex; align-items: baseline; justify-content: center; white-space: nowrap; line-height: 4.4cqw; min-width: 4.4cqw; height: 4.4cqw; padding: 0 1cqw; border-radius: 1.4cqw; background: var(--accent); color: var(--accent-ink, #fff); font-weight: 800; font-size: clamp(13px, 2cqw, 20px); box-shadow: 0 0.4cqw 1.2cqw color-mix(in srgb, var(--accent) 35%, transparent); }
+.vd-step i { font-style: normal; opacity: 0.7; font-size: 0.75em; margin-left: 1px; }
+.vd-headrow .vd-heading { margin: 0; }
+.vd-heading span { background: linear-gradient(180deg, transparent 58%, color-mix(in srgb, var(--accent) 22%, transparent) 58%, color-mix(in srgb, var(--accent) 22%, transparent) 92%, transparent 92%); padding: 0 0.3em; border-radius: 4px; }
+.vd-board { gap: 1.2cqw; }
+.vd-b.text { background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-left: 0.5cqw solid var(--c, var(--accent)); border-radius: 1.2cqw; padding: 1cqw 1.6cqw; box-shadow: var(--shadow); font-weight: 600; }
+.vd-b.text::before { content: none; }
+.vd-b.label { display: inline-block; padding: 0.4cqw 1.2cqw; border-radius: 999px; background: color-mix(in srgb, var(--c, var(--accent)) 14%, transparent); }
+.vd-b.math { font-size: clamp(16px, 3.1cqw, 32px); }
+.vd-b.answer { padding: 1cqw 2cqw; border-radius: 1.4cqw; background: color-mix(in srgb, var(--vd-green, #2e9e5b) 14%, transparent); border: 2px solid var(--vd-green, #2e9e5b); }
+.vd-b.fresh { animation: vd-b-in 0.55s cubic-bezier(.2, 1.2, .4, 1) both; }
+@keyframes vd-b-in { from { opacity: 0; transform: translateX(-1.4cqw); } to { opacity: 1; transform: none; } }
+.vd-b sub, .vd-b sup { font-size: 0.6em; line-height: 0; }
+.vd-body > svg, .vd-body > .vd-picture { animation: vd-drift 18s ease-in-out infinite alternate; transform-origin: center; }
+@keyframes vd-drift { to { transform: scale(1.045); } }
+.vd-host { position: absolute; left: 1.6cqw; bottom: 1.2cqw; width: 7cqw; min-width: 46px; z-index: 3; filter: drop-shadow(0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.18)); transition: transform .3s ease; }
+.vd-host svg { width: 100%; height: auto; }
+.vd-host.on { transform: translateY(-0.3cqw); }
+.vd-caption.karaoke { left: calc(50% + 3cqw); width: min(78%, 700px); }
+@media (prefers-reduced-motion: reduce) { .vd-body > svg, .vd-body > .vd-picture, .vd-scene { animation: none; } }

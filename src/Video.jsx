@@ -16,6 +16,7 @@ import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck } from "./Duck.jsx";
 import { PropStage, propsFor, PROPS } from "./VideoProps.jsx";
+import { DuckTalk } from "./Chat.jsx";
 
 /* ---------- saved videos ---------- */
 
@@ -501,8 +502,9 @@ export function VideoPlayer({ video, onClose }) {
                   <p className="vd-hint">About {minutesOf(video)} min · {silent ? "captions, no narration" : "with sound"}</p>
                 </div>
               ) : (
-                <Scene key={beat.si} scene={scene} line={beat.li} />
+                <Scene key={beat.si} scene={scene} line={beat.li} index={beat.si} total={video.scenes.length} />
               )}
+              {started && <div className={"vd-host" + (playing ? " on" : "")} aria-hidden="true"><DuckTalk mood={playing ? "talking" : finished ? "happy" : "idle"} size={64} /></div>}
               {started && captions && <Caption text={beat.text} share={lineShare} />}
               {track && <audio ref={audio} src={track.url} preload="auto" onEnded={() => { setPlaying(false); setFinished(true); }} />}
               {playing && mode === "waiting" && (
@@ -623,21 +625,28 @@ function Caption({ text, share }) {
   );
 }
 
-function Scene({ scene, line }) {
+function Scene({ scene, line, index = 0, total = 1 }) {
   const board = scene.board.filter((b) => b.at <= line);
   const drawn = scene.diagram && !scene.diagram.picture;
   // Moving drawings: the ones the scene names, or, where it names none and
   // has no drawn diagram, the things it talks about.
   const props = useMemo(() => {
     const named = (scene.props || []).filter((p) => PROPS[p.kind]);
-    return named.length ? named : drawn ? [] : propsFor(scene);
+    // A scene of working out has its working to look at; guessing a drawing
+    // from its words there only finds the wrong one (a heart for "heart
+    // muscle cell").
+    const working = scene.board.some((b) => ["math", "divide", "move", "answer"].includes(b.kind));
+    return named.length ? named : drawn || working ? [] : propsFor(scene);
   }, [scene, drawn]);
   const moving = props.length > 0 && !(drawn && !scene.props?.length);
   const pic = usePicture(moving ? null : scene.diagram?.picture, scene.diagram?.photo);
   const figure = drawn || !!pic || moving;
   return (
     <div className={"vd-scene" + (figure ? " with-diagram" : "")}>
-      <h3 className="vd-heading">{scene.heading}</h3>
+      <div className="vd-headrow">
+        <span className="vd-step">{index + 1}<i>/{total}</i></span>
+        <h3 className="vd-heading"><span>{scene.heading}</span></h3>
+      </div>
       <div className="vd-body">
         {drawn && !moving && <Diagram d={scene.diagram} line={line} />}
         {moving && <PropStage props={props} links={scene.links || []} line={line} />}
@@ -743,19 +752,26 @@ function flipped(term) {
 }
 
 // Text with one part ringed by hand, the ring drawing itself in.
+// Subscripts and powers that have no character of their own (V_{cell},
+// e^{-kt}) drawn small and low or high, as they are printed.
+function Rich({ text }) {
+  const parts = String(text).split(/([_^]\{[^{}]{1,24}\})/g);
+  return parts.map((p, i) => (p.startsWith("_{") ? <sub key={i}>{p.slice(2, -1)}</sub> : p.startsWith("^{") ? <sup key={i}>{p.slice(2, -1)}</sup> : p));
+}
+
 function Marked({ text, mark }) {
-  if (!mark || !text.includes(mark)) return text;
+  if (!mark || !text.includes(mark)) return <Rich text={text} />;
   const i = text.indexOf(mark);
   return (
     <>
-      {text.slice(0, i)}
+      <Rich text={text.slice(0, i)} />
       <span className="vd-ring">
-        {mark}
+        <Rich text={mark} />
         <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
           <path pathLength="1" d="M8 22 C6 8 40 3 62 5 C88 7 97 14 95 23 C93 34 60 37 36 36 C14 35 3 29 9 17 C12 11 22 8 30 7" />
         </svg>
       </span>
-      {text.slice(i + mark.length)}
+      <Rich text={text.slice(i + mark.length)} />
     </>
   );
 }
