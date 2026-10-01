@@ -3131,6 +3131,35 @@ function Editor({ id, go, onClose, early = false, access }) {
     return () => io.disconnect();
   }, [book?.pages.length, zoom]);
 
+  // Auto check: every few minutes, the page being written on is checked, but
+  // only once it has changed since the last check and the writing has paused,
+  // so it never checks the same page twice or mid sentence.
+  const AUTO_STEPS = [0, 2, 4, 8];
+  const [autoMins, setAutoMinsRaw] = useState(() => { try { return Number(localStorage.getItem("dwiddle-nb-autocheck")) || 0; } catch { return 0; } });
+  const setAutoMins = (m) => { setAutoMinsRaw(m); try { localStorage.setItem("dwiddle-nb-autocheck", String(m)); } catch { /* private mode */ } };
+  const [autoChecking, setAutoChecking] = useState(false);
+  const autoState = useRef({ sig: "", changedAt: 0, checked: {}, lastRun: 0 });
+  const runCheck = useRef(null);
+  useEffect(() => {
+    if (!autoMins || !early) return;
+    autoState.current.lastRun = Date.now();
+    const t = setInterval(() => {
+      const st = autoState.current, page = book?.pages[current];
+      if (!page || document.visibilityState !== "visible") return;
+      const last = page.items[page.items.length - 1];
+      const sig = `${page.id}:${page.items.length}:${last?.id || ""}:${last?.points?.length || last?.text?.length || 0}`;
+      if (sig !== st.sig) { st.sig = sig; st.changedAt = Date.now(); return; }
+      const paused = Date.now() - st.changedAt > 12000;
+      const due = Date.now() - st.lastRun >= autoMins * 60000;
+      const ink = page.items.some((i) => i.type === "stroke" || (i.type === "text" && i.text?.trim()));
+      if (!paused || !due || !ink || st.checked[page.id] === sig || busy || autoChecking) return;
+      st.checked[page.id] = sig;
+      st.lastRun = Date.now();
+      runCheck.current?.({ quiet: true });
+    }, 5000);
+    return () => clearInterval(t);
+  }, [autoMins, early, book, current, busy, autoChecking]);
+
   if (book === null) return <div className="page"><Loading label="Opening the notebook" /></div>;
   if (!book) return <div className="page"><p>That notebook could not be found.</p><button className="btn" onClick={onClose}>Back</button></div>;
 
@@ -3809,24 +3838,29 @@ function Editor({ id, go, onClose, early = false, access }) {
   // Check my work (testers): Dwiddle marks the page. Each mistake is ringed in
   // red where it is, and opens to say why it is wrong and what is right. The
   // marks are kept with the page until dismissed.
-  async function checkWork() {
+  // quiet: an automatic check. No loading screen and no pop ups, just the
+  // red rings on the page and a short note, so writing is never interrupted.
+  async function checkWork({ quiet = false } = {}) {
     const page = book.pages[current];
-    if (!page.items.length && !page.bg) { alert("There is nothing on this page to check yet."); return; }
-    setBusy("Checking your work");
+    if (!page.items.length && !page.bg) { if (!quiet) alert("There is nothing on this page to check yet."); return; }
+    if (quiet) setAutoChecking(true); else setBusy("Checking your work");
     try {
       const typed = page.items.filter((i) => i.type === "text" && i.text.trim()).map((i) => i.text.trim()).join("\n");
       const r = await checkPage(await pageImage(current), typed);
       const errors = r.errors.map((e) => ({ ...e, id: uid() }));
       updatePage(page.id, (p) => ({ ...p, checks: { at: Date.now(), summary: r.summary, errors } }), { record: false });
-      setCheckOpen(errors.find((e) => e.box)?.id || null);
-      setCheckNote(errors.length ? "" : r.summary || "No mistakes found. Nice work!");
-      if (!errors.length) setTimeout(() => setCheckNote(""), 4000);
+      if (!quiet) setCheckOpen(errors.find((e) => e.box)?.id || null);
+      setCheckNote(errors.length ? (quiet ? `Dwiddle spotted ${errors.length === 1 ? "something" : errors.length + " things"} to look at. Tap the red rings.` : "")
+        : quiet ? "Dwiddle checked this page: all good so far!" : r.summary || "No mistakes found. Nice work!");
+      if (!errors.length || quiet) setTimeout(() => setCheckNote(""), quiet ? 5000 : 4000);
     } catch (err) {
-      alert(err.message || "Dwiddle could not check this page just now.");
+      if (!quiet) alert(err.message || "Dwiddle could not check this page just now.");
     } finally {
-      setBusy("");
+      if (quiet) setAutoChecking(false); else setBusy("");
     }
   }
+
+  runCheck.current = checkWork;
   function dismissCheck(pageId, id) {
     updatePage(pageId, (p) => {
       const left = (p.checks?.errors || []).filter((e) => id && e.id !== id);
@@ -3923,7 +3957,12 @@ function Editor({ id, go, onClose, early = false, access }) {
           <FullscreenButton />
         </div>
         <div className="nb-group nb-asks">
-          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={checkWork} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
+          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={() => checkWork()} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
+          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " busy" : "")}
+            onClick={() => setAutoMins(AUTO_STEPS[(AUTO_STEPS.indexOf(autoMins) + 1) % AUTO_STEPS.length])}
+            title={autoMins ? `Checking this page by itself every ${autoMins} minutes while you write. Tap to change.` : "Turn on auto check: Dwiddle checks your page by itself every few minutes"}>
+            <Icon name="timer" size={14} /> <span className="nb-lbl">{autoChecking ? "Checking" : autoMins ? `Auto ${autoMins}m` : "Auto"}</span>
+          </button>}
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
             {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}
@@ -4159,7 +4198,12 @@ function Editor({ id, go, onClose, early = false, access }) {
           <FullscreenButton />
         </div>
         <div className="nb-group">
-          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={checkWork} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
+          {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={() => checkWork()} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
+          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " busy" : "")}
+            onClick={() => setAutoMins(AUTO_STEPS[(AUTO_STEPS.indexOf(autoMins) + 1) % AUTO_STEPS.length])}
+            title={autoMins ? `Checking this page by itself every ${autoMins} minutes while you write. Tap to change.` : "Turn on auto check: Dwiddle checks your page by itself every few minutes"}>
+            <Icon name="timer" size={14} /> <span className="nb-lbl">{autoChecking ? "Checking" : autoMins ? `Auto ${autoMins}m` : "Auto"}</span>
+          </button>}
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("ask")} disabled={!!busy}><DuckMark size={16} /> <span className="nb-lbl">Ask</span></button>
           <button className="btn small ghost nb-ask" onClick={() => dwiddle("questions")} disabled={!!busy} title="Turn this page into practice questions">
             {busy ? <Loading label={busy} /> : <><Icon name="quiz" size={14} /> <span className="nb-lbl">Questions</span></>}

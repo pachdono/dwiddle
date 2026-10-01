@@ -8727,3 +8727,5 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .ls-ring-out { animation: ls-ringout 2.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes ls-ringout { from { transform: scale(0.6); opacity: .8; } to { transform: scale(1.5); opacity: 0; } }
 .ls-rainbow { opacity: .35; }
+.nb-autobtn.on { color: var(--accent); border-color: var(--accent); }
+.nb-autobtn.busy svg { animation: vp-spin 1.2s linear infinite; }
