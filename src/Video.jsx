@@ -91,6 +91,7 @@ export function makeVideo(made, fresh) {
       // The narration is recorded before the video counts as ready, so it
       // plays the moment it is opened instead of making the student wait.
       await voice(whole, (done, total) => { job = { ...job, state: "voicing", n: done, of: total }; tellJob(); });
+      if (whole.silent) saveOne(materialKey(made), whole);
       job = { ...job, state: "ready" };
     } catch (err) {
       job = { ...job, state: "failed", error: `${err.message || "A chapter could not be made."} ${done.length ? `${done.length} of ${withNotes.length} chapters are made and kept; carry on to make the rest.` : ""}` };
@@ -99,9 +100,26 @@ export function makeVideo(made, fresh) {
   })();
 }
 
+// Whether new videos are narrated. Without narration a video plays silently
+// with its captions, and is ready as soon as it is written.
+const VOICE_KEY = "dwiddle-video-voice";
+export const narrated = () => { try { return localStorage.getItem(VOICE_KEY) !== "off"; } catch { return true; } };
+export function NarrationToggle() {
+  const [on, setOn] = useState(narrated);
+  const flip = () => { setOn(!on); try { localStorage.setItem(VOICE_KEY, on ? "off" : "on"); } catch { /* private mode */ } };
+  return (
+    <button type="button" role="switch" aria-checked={on} className={"vd-voice-toggle" + (on ? " on" : "")} onClick={flip}
+      title={on ? "Videos are narrated. Tap for silent videos with captions." : "Videos are silent with captions. Tap to narrate them."}>
+      <i aria-hidden="true" /> {on ? "With narration" : "No narration"}
+    </button>
+  );
+}
+
 // Records a video's narration, telling how many lines are done. If the voice
 // cannot be made the video is still ready: the device's own voice reads it.
 export function voice(video, onProgress) {
+  // Silent videos skip it altogether.
+  if (!narrated()) { video.silent = true; return Promise.resolve(false); }
   const job = prepareNarration(video);
   return new Promise((resolve) => {
     const stop = onNarration(video, (n) => {
@@ -176,7 +194,7 @@ function VideosPage({ made, go }) {
   // The narration is made in the background as soon as there is a video,
   // so it is ready, or nearly, by the time Watch is pressed.
   const [narr, setNarr] = useState(null);
-  useEffect(() => (video ? onNarration(video, setNarr) : undefined), [video]);
+  useEffect(() => (video && !video.silent ? onNarration(video, setNarr) : undefined), [video]);
   const withNotes = topicsWithNotes(made);
   const make = (fresh) => makeVideo(made, fresh);
 
@@ -218,6 +236,7 @@ function VideosPage({ made, go }) {
             </p>
           </div>
           <div className="row">
+            <NarrationToggle />
             {video && <button className="btn cta" onClick={() => setOpen(video)} disabled={!!making}>Watch</button>}
             {!video && parts.length > 0 && <button className="btn cta" onClick={() => make(false)} disabled={!!making}>Carry on</button>}
             {!video && !parts.length && <button className="btn cta" onClick={() => make(true)} disabled={!!making || !withNotes.length}>Make the video</button>}
@@ -329,10 +348,11 @@ export function VideoPlayer({ video, onClose }) {
   // narration.js). Until it is ready, playing waits for it; only if the
   // narrator cannot load at all does the device's own voice read, line by
   // line, instead.
-  const [narr, setNarr] = useState({ state: "making", done: 0, total: beats.length });
+  const silent = !!video.silent;
+  const [narr, setNarr] = useState({ state: silent ? "silent" : "making", done: 0, total: beats.length });
   const [track, setTrack] = useState(null); // { url, starts, duration }
   const audio = useRef(null);
-  useEffect(() => onNarration(video, setNarr), [video]);
+  useEffect(() => (silent ? undefined : onNarration(video, setNarr)), [video, silent]);
   useEffect(() => {
     if (narr.state !== "ready" || track) return;
     let live = true;
@@ -340,7 +360,7 @@ export function VideoPlayer({ video, onClose }) {
     return () => { live = false; };
   }, [narr.state, track, video]);
   useEffect(() => () => { if (track) URL.revokeObjectURL(track.url); }, [track]);
-  const mode = track ? "track" : narr.state === "failed" ? "device" : "waiting";
+  const mode = silent ? "silent" : track ? "track" : narr.state === "failed" ? "device" : "waiting";
 
   // Where each line starts, in seconds: from the recording when there is one.
   const at = useMemo(() => {
@@ -400,7 +420,7 @@ export function VideoPlayer({ video, onClose }) {
   // Without it: the device's voice, a line at a time.
   const token = useRef(0);
   useEffect(() => {
-    if (mode !== "device" || !playing) return;
+    if ((mode !== "device" && mode !== "silent") || !playing) return;
     const mine = ++token.current;
     let timer = 0, guard = 0, done = false;
     const next = () => {
@@ -413,9 +433,14 @@ export function VideoPlayer({ video, onClose }) {
         setPos(pos + 1);
       }, 450 / rate);
     };
-    sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
-    // Some browsers never say when speech ends. Never wait forever on one.
-    guard = setTimeout(next, (8000 + wordsOf(beats[pos].text) * 700) / rate);
+    if (mode === "silent") {
+      // No voice: each line stays up for as long as it takes to read.
+      guard = setTimeout(next, (lineSeconds(beats[pos].text) * 1000) / rate);
+    } else {
+      sayAs("narrator", beats[pos].text, { rate, onEnd: next, device: true });
+      // Some browsers never say when speech ends. Never wait forever on one.
+      guard = setTimeout(next, (8000 + wordsOf(beats[pos].text) * 700) / rate);
+    }
     return () => { clearTimeout(timer); clearTimeout(guard); if (token.current === mine) { token.current += 1; stopSpeaking(); } };
   }, [mode, playing, pos, rate, beats]);
   useEffect(() => () => { stopSpeaking(); audio.current?.pause(); }, []);
@@ -470,7 +495,7 @@ export function VideoPlayer({ video, onClose }) {
                   <h2>{video.title}</h2>
                   {video.subtitle && <p className="vd-sub">{video.subtitle}</p>}
                   <span className="vd-bigplay" aria-hidden="true"><PlayIcon size={30} /></span>
-                  <p className="vd-hint">About {minutesOf(video)} min · with sound</p>
+                  <p className="vd-hint">About {minutesOf(video)} min · {silent ? "captions, no narration" : "with sound"}</p>
                 </div>
               ) : (
                 <Scene key={beat.si} scene={scene} line={beat.li} />

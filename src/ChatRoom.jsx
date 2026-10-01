@@ -76,7 +76,8 @@ export default function ChatRoom({ go, setMade, auth, made }) {
   useEffect(() => { keep(msgs); }, [msgs]);
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [msgs.length, busy]);
   useEffect(() => { if (dict.on) { setMood("listening"); setSay("I'm listening..."); } }, [dict.on]);
-  useEffect(() => { import("./Video.jsx").then((m) => setPlayer(() => m.VideoPlayer)); }, []);
+  const [Narration, setNarration] = useState(null);
+  useEffect(() => { import("./Video.jsx").then((m) => { setPlayer(() => m.VideoPlayer); setNarration(() => m.NarrationToggle); }); }, []);
 
   const update = (id, change) => setMsgs((all) => all.map((m) => (m.id === id ? { ...m, ...(typeof change === "function" ? change(m) : change) } : m)));
   const moodFor = (m, ms) => { setMood(m); if (ms) setTimeout(() => setMood((x) => (x === m ? "idle" : x)), ms); };
@@ -215,6 +216,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
             title={voiceOn ? "Stop reading answers aloud" : "Read answers aloud"}>
             <Icon name="mic" size={15} /> {voiceOn ? "Voice on" : "Voice off"}
           </button>
+          {Narration && <Narration />}
           {msgs.length > 0 && <button className="cr-tool" onClick={clear}><Icon name="plus" size={15} /> New chat</button>}
         </div>
       </div>

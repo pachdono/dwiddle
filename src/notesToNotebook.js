@@ -53,12 +53,15 @@ function wobbler(seed) {
   return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 1000) / 1000 - 0.5; };
 }
 
-export async function notesToNotebook(made, { fontId = "patrick", template = "grid", pictures = true, rich = false, onProgress } = {}) {
+export async function notesToNotebook(made, { fontId = "patrick", template = "grid", pictures = true, rich = false, spacing = "normal", onProgress } = {}) {
   const f = fontById(fontId);
   // Lines sit on the paper: every square on squared or dotted paper, every
   // line on ruled paper.
   const LH = template === "lined" ? 32 : template === "wide" ? 44 : 24;
-  const px = LH / 1.35;
+  // Spacing: compact fits more on a page, huge leaves a line free under every
+  // line written and a gap between points, room to add your own notes.
+  const SP = spacing === "compact" ? 0 : spacing === "huge" ? 2 : 1;
+  const px = spacing === "compact" ? LH / 1.5 : LH / 1.35;
   await readyFont(f, px);
   const ctx = document.createElement("canvas").getContext("2d");
   // A little over the measured width, so a line never wraps again on the page.
@@ -166,7 +169,7 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
     if (!plain) return null;
     const w = COL - indent - 2 * PAD - 4;
     const lines = wrap(plain, w, size);
-    const lh = LH * Math.max(1, Math.ceil((size * 1.35) / LH - 0.05));
+    const lh = LH * Math.max(1, Math.ceil((size * 1.35) / LH - 0.05)) * (spacing === "huge" ? 2 : 1);
     if (keep && lines.length * lh <= bottom - top) room(lines.length * lh);
     let i = 0, first = null;
     while (i < lines.length) {
@@ -210,7 +213,7 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
     const blocks = rich ? made.notes[topic.name] : made.notes[topic.name].filter((b) => !b.table && !b.flow && !b.pic);
 
     // The topic's heading: numbered, in capitals, underlined twice.
-    if (y > top) y += LH * 0.5;
+    if (y > top) y += LH * 0.5 * Math.max(0.5, SP);
     room(LH * 4);
     const hsize = px;
     const head = `${ti + 1}. ${topic.name.toUpperCase()}`;
@@ -231,9 +234,10 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
       if (pic) picture(pic);
     }
 
-    for (const b of blocks) {
+    for (const [bi, b] of blocks.entries()) {
+      if (bi && spacing === "huge") y = snap(y + LH);
       if (b.h) {
-        y += LH * 0.25;
+        y += LH * 0.25 * SP;
         room(LH * 2);
         const sub = flatMarks(b.h).toUpperCase();
         write(sub, { color: accent, size: px * 0.95, keep: true });

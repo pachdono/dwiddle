@@ -6447,7 +6447,8 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .nb-print { display: none; }
 
 @media print {
-  body * { visibility: hidden !important; }
+  /* Only while a notebook is open: anywhere else this would blank the page. */
+  body:has(.nb-print) * { visibility: hidden !important; }
   .nb-print, .nb-print * { visibility: visible !important; }
   .nb-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
   .nb-print svg { display: block; width: 100%; height: auto; page-break-after: always; break-after: page; }
@@ -7986,9 +7987,6 @@ body:has(.theme-backdrop) main .card .stat { background: var(--surface); backdro
    headings sit, so words written straight on the page stay easy to read. */
 .tb-scrim { position: absolute; inset: 0;
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 62%, transparent) 0%, color-mix(in srgb, var(--bg) 45%, transparent) 50%, color-mix(in srgb, var(--bg) 22%, transparent) 100%); }
-/* Words straight on the picture get a faint halo in the page colour. */
-body:has(.theme-backdrop) main { text-shadow: 0 0 2px var(--bg), 0 0 12px var(--bg), 0 0 24px var(--bg); }
-body:has(.theme-backdrop) main :is(.card, .stat, .drop, .notes, .dk-deck, .dk-new, .dk-goal, .dk-write, .dk-preview, .dk-card, .st-card, .st-banner, .pz-card, .sv2-step, .sv2-final, .l4, .cr, .nb-book, .nb-cover, .nb-cover-label, .nb-menu, [class^="nb-"], [class*=" nb-"], button, input, textarea, select, [role="dialog"]) { text-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-backdrop *, .theme-backdrop *::before, .theme-backdrop *::after { animation: none !important; }
@@ -8011,7 +8009,7 @@ body:has(.theme-backdrop) .home-scene { display: none; }
 body:has(.theme-backdrop) .pz-full .pz-bar { background: color-mix(in srgb, var(--surface) 84%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 body:has(.theme-backdrop) .pz-full .pz-inner > * > .card,
 body:has(.theme-backdrop) .pz-full .pc-panel { background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
-body:has(.theme-backdrop) .pz-full .pz-sub { text-shadow: 0 0 2px var(--bg), 0 0 12px var(--bg); }
+body:has(.theme-backdrop) .pz-full .pz-sub { padding: 6px 14px; border-radius: 999px; width: fit-content; margin-inline: auto; background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
 .pc-side { display: none; }
 @media (min-width: 1200px) {
@@ -8729,3 +8727,41 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .ls-rainbow { opacity: .35; }
 .nb-autobtn.on { color: var(--accent); border-color: var(--accent); }
 .nb-autobtn.busy svg { animation: vp-spin 1.2s linear infinite; }
+
+/* Over a theme's scene, each page sits on a sheet of frosted glass, so every
+   word, tile and button reads clearly while the scene still shows round it.
+   No glow on the text: that put dark smudges round light words. */
+body:has(.theme-backdrop) main .page {
+  margin-top: 18px; margin-bottom: 24px; border-radius: 28px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  backdrop-filter: blur(18px) saturate(130%); -webkit-backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+@media (max-width: 760px) { body:has(.theme-backdrop) main .page { margin: 8px; border-radius: 22px; } }
+/* The chat scrolls without a bar showing */
+.cr-list { scrollbar-width: none; }
+.cr-list::-webkit-scrollbar { display: none; }
+.tonb-spacing { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+
+/* Printing over a theme: no scene and no frosted sheet, just the page. */
+@media print {
+  .theme-backdrop, .tb-scrim, .dc-fab, .vd-chip { display: none !important; }
+  body:has(.theme-backdrop) main .page { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; margin: 0 !important; }
+}
+@media print {
+  /* Any theme, light or dark, prints black on white. */
+  :root, :root[data-theme], :root[data-look] {
+    --bg: #fff !important; --surface: #fff !important; --panel: #fff !important; --sunken: #fff !important; --hover: #fff !important;
+    --ink: #000 !important; --ink-2: #222 !important; --ink-3: #555 !important; --line: #ccc !important; --line-soft: #ddd !important; --shadow: none !important;
+  }
+  html, body, main, .app { background: #fff !important; color: #000 !important; }
+  .nt-tools, .nt-actions, .nt-filters, .ask-btn, .l4-btn, .like4, .banner, .notice { display: none !important; }
+}
+/* Narration on or off, for new videos */
+.vd-voice-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.vd-voice-toggle i { position: relative; width: 28px; height: 16px; border-radius: 999px; background: var(--line); transition: background .15s ease; }
+.vd-voice-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform .15s ease; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.vd-voice-toggle.on { color: var(--ink); }
+.vd-voice-toggle.on i { background: var(--accent); }
+.vd-voice-toggle.on i::after { transform: translateX(12px); }

@@ -11,7 +11,6 @@ import Decks from "./Decks.jsx";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
-import { say, allVoices, onVoices, isNatural, savedVoiceName, saveVoiceName, voiceTip } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
@@ -2697,31 +2696,15 @@ function SetRow({ label, hint, children }) {
   );
 }
 
-// The voice that reads lessons, listening tests, podcasts and chat aloud.
+// Sounds the app makes.
 function VoiceCard() {
-  const [list, setList] = useState([]);
-  const [name, setName] = useState(savedVoiceName());
   const [talks, setTalks] = useState(soundsOn);
-  useEffect(() => onVoices(() => setList(allVoices())), []);
-  if (!("speechSynthesis" in window)) return null;
-  const current = list.find((v) => v.name === name) || list[0];
-  const pick = (n) => { setName(n); saveVoiceName(n); };
-  const natural = list.filter(isNatural);
   return (
     <div className="card">
-      <div className="card-head"><h3>Voice</h3></div>
+      <div className="card-head"><h3>Sound</h3></div>
       <SetRow label="Sound effects" hint="A short sound when you finish a quiz or level up.">
         <Switch on={talks} onClick={() => { setSoundsOn(!talks); setTalks(!talks); if (!talks) setTimeout(() => playCue("done-great"), 50); }} />
       </SetRow>
-      <SetRow label="Reading voice" hint="Used for lessons, listening tests, the podcast and Dwiddle's replies. Natural voices are listed first.">
-        <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
-          <select value={current?.name || ""} onChange={(e) => pick(e.target.value)} style={{ maxWidth: 240 }}>
-            {list.map((v) => <option key={v.name} value={v.name}>{v.name.replace(/^Microsoft /, "").replace(/ - English.*$/, "")}{isNatural(v) ? " ✦" : ""}</option>)}
-          </select>
-          <button className="btn ghost small" onClick={() => say("Hi, I'm Dwiddle. This is how I'll read your notes to you.", { voice: current || null })}>Preview</button>
-        </div>
-      </SetRow>
-      {natural.length < 2 && <p className="small muted" style={{ margin: "0 20px 16px" }}>{voiceTip()}</p>}
     </div>
   );
 }

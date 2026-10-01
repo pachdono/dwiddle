@@ -362,6 +362,8 @@ function ToNotebook({ made, go, onClose, early }) {
   const [font, setFont] = useState(() => { const d = early ? "patrick" : "arial"; try { return localStorage.getItem("dwiddle-nb-font") || d; } catch { return d; } });
   const [paper, setPaper] = useState(early ? "grid" : "lined");
   const [pictures, setPictures] = useState(true);
+  const [spacing, setSpacing] = useState(() => { try { return localStorage.getItem("dwiddle-nb-spacing") || "normal"; } catch { return "normal"; } });
+  const pickSpacing = (v) => { setSpacing(v); try { localStorage.setItem("dwiddle-nb-spacing", v); } catch { /* private mode */ } };
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
   const [err, setErr] = useState("");
@@ -372,7 +374,7 @@ function ToNotebook({ made, go, onClose, early }) {
     try {
       // The hand drawn, two column pages are for testers for now.
       const { notesToNotebook } = early ? await import("./notesToNotebook.js") : await import("./notesToNotebookClassic.js");
-      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, rich: early, onProgress: (t, p) => { setBusy(t); setProg(p); } });
+      const id = await notesToNotebook(made, { fontId: font, template: paper, pictures, rich: early, spacing, onProgress: (t, p) => { setBusy(t); setProg(p); } });
       try { sessionStorage.setItem("dwiddle-open-notebook", id); localStorage.setItem("dwiddle-nb-font", font); } catch { /* fine */ }
       go?.("notebook");
     } catch (e) {
@@ -401,6 +403,17 @@ function ToNotebook({ made, go, onClose, early }) {
               <option value="grid">Squared</option><option value="lined">Lined</option><option value="dots">Dotted</option><option value="blank">Plain</option>
             </select>
           </label>
+          {early && (
+            <div className="tonb-spacing">
+              <span className="qv-label">Spacing</span>
+              <div className="seg tight" role="radiogroup" aria-label="Spacing">
+                {[["compact", "Compact"], ["normal", "Normal"], ["huge", "Lots of room"]].map(([v, n]) => (
+                  <button key={v} role="radio" aria-checked={spacing === v} className={spacing === v ? "on" : ""} onClick={() => pickSpacing(v)}>{n}</button>
+                ))}
+              </div>
+              <span className="small muted">{spacing === "compact" ? "Smaller writing, more on each page." : spacing === "huge" ? "A free line under every line, room for your own notes." : "Written on every line, a little space between points."}</span>
+            </div>
+          )}
           <label className="tonb-check"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /> Add a picture to topics where a good one exists</label>
         </div>
         {err && <p className="small" style={{ color: "var(--warn)" }}>{err}</p>}

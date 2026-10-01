@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { solveProblem, writeVideo, drawQuestion, chatWithDwiddle } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
-import { VideoPlayer, Diagram, voice } from "./Video.jsx";
+import { VideoPlayer, Diagram, voice, NarrationToggle } from "./Video.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
@@ -373,6 +373,7 @@ export function Solve({ go, auth, early }) {
                     : video ? "Tap Watch whenever you are ready." : "A narrated walk through at a whiteboard, one step at a time, with the transcript beside it.")}
                 </p>
               </div>
+              {!video && !filming && <NarrationToggle />}
               <button className={"btn cta" + (video && !watching ? " sv-ready" : "")} onClick={explain} disabled={filming}>
                 {filming ? <Loading label="Making it" /> : video ? "Watch" : videoError ? "Try again" : "Make the video"}
               </button>

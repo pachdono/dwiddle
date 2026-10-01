@@ -50,6 +50,18 @@ export const SKETCHES = {
   cooling: { title: "Cooling curve", x: "Time", y: "Temperature", series: [{ pts: [[0, 9], [1.5, 6.2], [3, 4.4], [5, 3], [7, 2.3], [10, 2]], label: "", mark: -1 }] },
   decay: { title: "Radioactive decay", x: "Time", y: "Activity", series: [{ pts: [[0, 9], [2, 4.5], [4, 2.25], [6, 1.1], [8, 0.56], [10, 0.28]], label: "halves each half-life", mark: 1 }] },
   hooke: { title: "Stretching a spring", x: "Extension", y: "Force", series: [{ pts: [[0, 0], [5, 6], [6.5, 7.2], [8, 7.9], [9.5, 8.2]], label: "limit of proportionality", mark: 1 }] },
+  supplyOnly: { title: "Supply curve", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }] },
+  demandOnly: { title: "Demand curve", x: "Quantity", y: "Price", series: [{ pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }] },
+  supplyShift: { title: "Supply rises", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [8, 8.5]], straight: true, label: "S1", end: true }, { pts: [[2.6, 1.5], [9.6, 8.5]], straight: true, label: "S2", end: true, dash: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }], shift: [[5.2, 6.4], [6.6, 6.4]], dots: [[4.6, 4.9, "E1"], [5.4, 4.1, "E2"]] },
+  demandShift: { title: "Demand rises", x: "Quantity", y: "Price", series: [{ pts: [[1, 8.5], [8, 1.5]], straight: true, label: "D1", end: true, color: 1 }, { pts: [[2.6, 8.5], [9.6, 1.5]], straight: true, label: "D2", end: true, color: 1, dash: true }, { pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }], shift: [[3.4, 6.1], [4.8, 6.1]], dots: [[4.5, 5, "E1"], [5.3, 5.8, "E2"]] },
+  ppf: { title: "Production possibility frontier", x: "Good B", y: "Good A", series: [{ pts: [[0, 8.6], [2.5, 8.1], [4.5, 7], [6.2, 5.2], [7.4, 3], [8.2, 0]], label: "PPF", mark: 3 }], dots: [[3, 4, "inside: unused resources"], [4.5, 7, "on: efficient"], [7, 7, "outside: not possible yet"]] },
+  ppfShift: { title: "PPF shifts out (economic growth)", x: "Good B", y: "Good A", series: [{ pts: [[0, 7], [2, 6.6], [3.6, 5.6], [5, 4.1], [6, 2.4], [6.6, 0]], label: "PPF1", mark: 3 }, { pts: [[0, 8.8], [2.5, 8.3], [4.6, 7.1], [6.4, 5.2], [7.6, 3], [8.4, 0]], label: "PPF2", mark: 4, dash: true }], shift: [[4.6, 4.4], [5.8, 5.6]] },
+  adas: { title: "Aggregate demand and supply", x: "Real output (Y)", y: "Price level", series: [{ pts: [[1, 8.5], [9, 1.5]], straight: true, label: "AD", end: true, color: 1 }, { pts: [[1, 1.5], [5, 3.5], [7, 5.5], [8, 8.5]], label: "SRAS", end: true }, { pts: [[7.6, 0.5], [7.6, 9.5]], straight: true, label: "LRAS", end: true, color: 2 }], dots: [[6.3, 4.6, "equilibrium"]] },
+  ceiling: { title: "Maximum price (price ceiling)", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }, { pts: [[0.5, 3.5], [9.5, 3.5]], straight: true, label: "max price", end: true, color: 3, dash: true }], dots: [[3.3, 3.5, "Qs"], [6.7, 3.5, "Qd, shortage between"]] },
+  floor: { title: "Minimum price (price floor)", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true, color: 1 }, { pts: [[0.5, 6.5], [9.5, 6.5]], straight: true, label: "min price", end: true, color: 3, dash: true }], dots: [[3.3, 6.5, "Qd"], [6.7, 6.5, "Qs, surplus between"]] },
+  costs: { title: "Cost curves", x: "Output", y: "Cost", series: [{ pts: [[0.8, 6], [2.5, 3.2], [4, 2.6], [5.5, 3.6], [7, 6], [8.5, 9.4]], label: "MC", mark: 5 }, { pts: [[0.8, 8.8], [2.5, 5.6], [4.5, 4], [6, 3.8], [7.5, 4.6], [9.5, 6.4]], label: "AC", mark: 5, color: 1 }], dots: [[6, 3.8, "MC cuts AC at its lowest"]] },
+  elastic: { title: "Elastic and inelastic demand", x: "Quantity", y: "Price", series: [{ pts: [[1, 6], [9.5, 4]], straight: true, label: "elastic", end: true }, { pts: [[4.5, 9.5], [5.5, 0.5]], straight: true, label: "inelastic", end: true, color: 1 }] },
+  lorenz: { title: "Lorenz curve", x: "Share of population", y: "Share of income", series: [{ pts: [[0, 0], [10, 10]], straight: true, label: "equality", end: true, color: 2, dash: true }, { pts: [[0, 0], [3, 1], [5, 2.3], [7, 4.2], [8.5, 6.2], [10, 10]], label: "Lorenz", mark: 3 }] },
   supply: { title: "Supply and demand", x: "Quantity", y: "Price", series: [{ pts: [[1, 1.5], [9, 8.5]], straight: true, label: "S", end: true }, { pts: [[1, 8.5], [9, 1.5]], straight: true, label: "D", end: true }], meet: [5, 5], meetLabel: "equilibrium" },
 };
 
@@ -64,7 +76,7 @@ export const PRESETS = [
   { group: "Maths", name: "y = eˣ", spec: { kind: "fn", fns: ["e^x"], x: [-3, 3] } },
   { group: "Maths", name: "y = √x", spec: { kind: "fn", fns: ["sqrt(x)"], x: [0, 10] } },
   { group: "Maths", name: "y = |x|", spec: { kind: "fn", fns: ["abs(x)"], x: [-5, 5] } },
-  ...Object.entries(SKETCHES).map(([id, s]) => ({ group: ["supply"].includes(id) ? "Economics" : ["distance", "velocity", "cooling", "decay", "hooke"].includes(id) ? "Physics" : ["reaction"].includes(id) ? "Chemistry" : "Biology", name: s.title, spec: { kind: "sketch", id } })),
+  ...Object.entries(SKETCHES).map(([id, s]) => ({ group: ["supply", "supplyOnly", "demandOnly", "supplyShift", "demandShift", "ppf", "ppfShift", "adas", "ceiling", "floor", "costs", "elastic", "lorenz"].includes(id) ? "Economics" : ["distance", "velocity", "cooling", "decay", "hooke"].includes(id) ? "Physics" : ["reaction"].includes(id) ? "Chemistry" : "Biology", name: s.title, spec: { kind: "sketch", id } })),
   { group: "Charts", name: "Bar chart", spec: { kind: "bar", labels: ["A", "B", "C", "D"], values: [4, 7, 3, 6] } },
 ];
 
@@ -72,6 +84,13 @@ export const PRESETS = [
 const FITS = [
   ["enzyme", /enzyme[^.]{0,80}(temperature|denatur)|(temperature|denatur)[^.]{0,80}enzyme/i],
   ["light", /light intensity[^.]{0,120}(photosynth|rate)|rate of photosynthesis/i],
+  ["ppf", /production possibilit|\bppf\b|\bppc\b/i],
+  ["adas", /aggregate demand|aggregate supply|\bsras\b|\blras\b/i],
+  ["ceiling", /maximum price|price ceiling/i],
+  ["floor", /minimum price|price floor|minimum wage/i],
+  ["lorenz", /lorenz curve|gini/i],
+  ["costs", /marginal cost|average cost/i],
+  ["elastic", /price elasticity|elastic demand|inelastic/i],
   ["supply", /supply and demand|demand curve|supply curve/i],
   ["population", /population growth|carrying capacity/i],
   ["decay", /half[- ]life|radioactive decay/i],
@@ -92,6 +111,7 @@ export function GraphView({ spec, w, h, colors = GRAPH_COLORS }) {
   const X0 = pad.l, Y0 = pad.t, W = inner.w, H = inner.h;
   return (
     <g fontFamily={HAND}>
+      <defs><marker id="gh-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill={INK} /></marker></defs>
       <rect x="0" y="0" width={w} height={h} rx="10" fill="#ffffff" opacity="0.6" />
       {spec.grid !== false && spec.kind === "fn" && xticks.map((t, i) => <line key={"gx" + i} x1={t.px} x2={t.px} y1={Y0} y2={Y0 + H} stroke="#e6e9f0" strokeWidth="1" />)}
       {spec.grid !== false && spec.kind === "fn" && yticks.map((t, i) => <line key={"gy" + i} x1={X0} x2={X0 + W} y1={t.py} y2={t.py} stroke="#e6e9f0" strokeWidth="1" />)}
@@ -108,7 +128,7 @@ export function GraphView({ spec, w, h, colors = GRAPH_COLORS }) {
           <text x={b.x + b.w / 2} y={b.top - 6} textAnchor="middle" fontSize="16" fill={colors[i % colors.length]}>{b.value}</text>
         </g>
       )) : plots.map((p, i) => p.runs.map((run, k) => (
-        <path key={i + ":" + k} d={p.straight ? `M${run.map((q) => q.join(" ")).join("L")}` : smooth(run)} stroke={colors[i % colors.length]} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path key={i + ":" + k} d={p.straight ? `M${run.map((q) => q.join(" ")).join("L")}` : smooth(run)} stroke={colors[(p.color ?? i) % colors.length]} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={p.dash ? "9 7" : undefined} />
       )))}
       {extras}
       {title && <text x={w / 2} y={22} textAnchor="middle" fontSize="21" fontWeight="700" fill={INK}>{title}</text>}
@@ -143,15 +163,21 @@ function layout(spec, w, h) {
     const extras = [];
     sketch.series.forEach((s, i) => {
       const at = s.end ? s.pts[s.pts.length - 1] : s.pts[s.mark] || null;
-      if (s.label && at) extras.push(<text key={"l" + i} x={px(at[0]) + (s.end ? 8 : 6)} y={py(at[1]) - 10} fontSize="18" fill={GRAPH_COLORS[i % GRAPH_COLORS.length]}>{s.label}</text>);
+      if (s.label && at) extras.push(<text key={"l" + i} x={px(at[0]) + (s.end ? 8 : 6)} y={py(at[1]) - 10} fontSize="18" fill={GRAPH_COLORS[(s.color ?? i) % GRAPH_COLORS.length]}>{s.label}</text>);
     });
+    (sketch.dots || []).forEach(([x, y, label], i) => extras.push(
+      <g key={"d" + i}><circle cx={px(x)} cy={py(y)} r="5" fill={INK} />{label && <text x={px(x) + 9} y={py(y) - 8} fontSize="16" fill={INK}>{label}</text>}</g>));
+    if (sketch.shift) {
+      const [[a, b], [c, d]] = sketch.shift;
+      extras.push(<path key="shift" d={`M${px(a)} ${py(b)}L${px(c)} ${py(d)}`} stroke={INK} strokeWidth="2.4" markerEnd="url(#gh-arrow)" fill="none" />);
+    }
     if (sketch.meet) {
       const [mx, my] = sketch.meet;
       extras.push(<g key="meet"><path d={`M${px(mx)} ${py(my)}L${px(mx)} ${py(0)}M${px(mx)} ${py(my)}L${px(0)} ${py(my)}`} stroke={INK} strokeWidth="1.6" strokeDasharray="5 5" /><circle cx={px(mx)} cy={py(my)} r="5" fill={INK} /><text x={px(mx) + 10} y={py(my) + 22} fontSize="18" fill={INK}>{sketch.meetLabel}</text></g>);
     }
     return {
       pad, inner, title, xl, yl, extras, origin: { x: X0, y: Y0 + inner.h }, xticks: [], yticks: [],
-      plots: sketch.series.map((s) => ({ straight: s.straight, runs: [s.pts.map(([x, y]) => [px(x), py(y)])] })),
+      plots: sketch.series.map((s) => ({ straight: s.straight, dash: s.dash, color: s.color, runs: [s.pts.map(([x, y]) => [px(x), py(y)])] })),
     };
   }
   // y = f(x)
