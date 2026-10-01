@@ -29,7 +29,7 @@ export function LikeImFour({ context, className = "" }) {
 
   return (
     <div className={"l4 " + className}>
-      <button className={"l4-btn" + (state === "busy" ? " busy" : "")} onClick={ask} disabled={state === "busy"}>
+      <button className={"l4-btn" + (state === "busy" ? " l4-busy" : "")} onClick={ask} disabled={state === "busy"}>
         <span className="l4-blocks" aria-hidden="true"><i>A</i><i>B</i><i>C</i></span>
         {state === "busy" ? "Making it simple…" : state === "done" ? (open ? "Hide the simple version" : "Explain like I'm 4") : "Explain like I'm 4"}
       </button>

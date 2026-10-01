@@ -4488,9 +4488,9 @@ kbd {
   transform: scaleX(1);
   transition: transform var(--hold) linear;
 }
-.un-hold.busy .un-fill { transform: scaleX(1); transition: none; }
+.un-hold.un-busy .un-fill { transform: scaleX(1); transition: none; }
 .un-label { position: relative; transition: color 0.2s ease; }
-.un-hold.held .un-label, .un-hold.busy .un-label { color: #fff; }
+.un-hold.held .un-label, .un-hold.un-busy .un-label { color: #fff; }
 .un-hold:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
 
 /* ---------- the free generation popup ---------- */
@@ -7786,8 +7786,8 @@ a.btn { text-decoration: none; }
 .sf-pics-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s ease; }
 .sf-pics-item:hover img { transform: scale(1.04); }
 .sf-pics-item span { position: absolute; right: 6px; bottom: 6px; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.65); color: #fff; font: 600 11px var(--font); opacity: 0; transition: opacity 0.15s ease; }
-.sf-pics-item:hover span, .sf-pics-item:focus-visible span, .sf-pics-item.busy span { opacity: 1; }
-.sf-pics-item.busy img { opacity: 0.5; }
+.sf-pics-item:hover span, .sf-pics-item:focus-visible span, .sf-pics-item.adding span { opacity: 1; }
+.sf-pics-item.adding img { opacity: 0.5; }
 .sf-pics-ghost { animation: sf-ghost 1.2s ease-in-out infinite alternate; }
 @keyframes sf-ghost { from { opacity: 0.45; } to { opacity: 1; } }
 @media (hover: none) { .sf-pics-item span { opacity: 0.9; } }
@@ -8120,8 +8120,8 @@ body:has(.pz-body.pc-on) .xp-toasts { top: 84px; bottom: auto; }
 .l4-blocks { display: inline-flex; gap: 2px; }
 .l4-blocks i { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 4px; font-style: normal; font-size: 10px; font-weight: 900; color: #fff; }
 .l4-blocks i:nth-child(1) { background: #FF7B7B; } .l4-blocks i:nth-child(2) { background: #5EB8FF; } .l4-blocks i:nth-child(3) { background: #5ED79A; }
-.l4-btn.busy .l4-blocks i { animation: l4-hop 0.7s ease-in-out infinite; }
-.l4-btn.busy .l4-blocks i:nth-child(2) { animation-delay: 0.12s; } .l4-btn.busy .l4-blocks i:nth-child(3) { animation-delay: 0.24s; }
+.l4-btn.l4-busy .l4-blocks i { animation: l4-hop 0.7s ease-in-out infinite; }
+.l4-btn.l4-busy .l4-blocks i:nth-child(2) { animation-delay: 0.12s; } .l4-btn.l4-busy .l4-blocks i:nth-child(3) { animation-delay: 0.24s; }
 @keyframes l4-hop { 50% { transform: translateY(-4px); } }
 .l4-card { position: relative; display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; padding: 14px 36px 14px 12px; border-radius: 18px;
   background: color-mix(in srgb, #FFD95A 12%, var(--surface)); border: 1.5px dashed color-mix(in srgb, #F2B51C 50%, var(--line)); animation: l4-in 0.3s cubic-bezier(.3,1.4,.5,1); }
@@ -8727,7 +8727,7 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 @keyframes ls-ringout { from { transform: scale(0.6); opacity: .8; } to { transform: scale(1.5); opacity: 0; } }
 .ls-rainbow { opacity: .35; }
 .nb-autobtn.on { color: var(--accent); border-color: var(--accent); }
-.nb-autobtn.busy svg { animation: vp-spin 1.2s linear infinite; }
+.nb-autobtn.checking svg { animation: vp-spin 1.2s linear infinite; }
 
 /* Over a theme's scene, each page sits on a sheet of frosted glass, so every
    word, tile and button reads clearly while the scene still shows round it.

@@ -170,7 +170,7 @@ function HoldButton({ onDone, disabled }) {
 
   return (
     <button
-      className={"un-hold" + (held ? " held" : "") + (disabled ? " busy" : "")}
+      className={"un-hold" + (held ? " held" : "") + (disabled ? " un-busy" : "")}
       style={{ "--hold": `${HOLD_MS}ms` }}
       disabled={disabled}
       onPointerDown={(e) => { e.currentTarget.setPointerCapture?.(e.pointerId); start(); }}

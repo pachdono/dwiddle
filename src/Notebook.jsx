@@ -2473,7 +2473,7 @@ function WebPic({ p, busy, onAdd }) {
   const [gone, setGone] = useState(false);
   if (gone) return null;
   return (
-    <button type="button" className={"sf-pics-item" + (busy ? " busy" : "")} draggable title={p.title ? p.title + ". Tap to add." : "Tap to add"}
+    <button type="button" className={"sf-pics-item" + (busy ? " adding" : "")} draggable title={p.title ? p.title + ". Tap to add." : "Tap to add"}
       onClick={onAdd}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "copy";
@@ -4001,7 +4001,7 @@ function Editor({ id, go, onClose, early = false, access }) {
         </div>
         <div className="nb-group nb-asks">
           {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={() => checkWork()} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
-          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " busy" : "")}
+          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " checking" : "")}
             onClick={() => setAutoMins(AUTO_STEPS[(AUTO_STEPS.indexOf(autoMins) + 1) % AUTO_STEPS.length])}
             title={autoMins ? `Checking this page by itself every ${autoMins} minutes while you write. Tap to change.` : "Turn on auto check: Dwiddle checks your page by itself every few minutes"}>
             <Icon name="timer" size={14} /> <span className="nb-lbl">{autoChecking ? "Checking" : autoMins ? `Auto ${autoMins}m` : "Auto"}</span>
@@ -4242,7 +4242,7 @@ function Editor({ id, go, onClose, early = false, access }) {
         </div>
         <div className="nb-group">
           {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={() => checkWork()} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
-          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " busy" : "")}
+          {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " checking" : "")}
             onClick={() => setAutoMins(AUTO_STEPS[(AUTO_STEPS.indexOf(autoMins) + 1) % AUTO_STEPS.length])}
             title={autoMins ? `Checking this page by itself every ${autoMins} minutes while you write. Tap to change.` : "Turn on auto check: Dwiddle checks your page by itself every few minutes"}>
             <Icon name="timer" size={14} /> <span className="nb-lbl">{autoChecking ? "Checking" : autoMins ? `Auto ${autoMins}m` : "Auto"}</span>
