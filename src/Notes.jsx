@@ -401,6 +401,7 @@ function ToNotebook({ made, go, onClose, early }) {
           <label className="field"><span>Paper</span>
             <select value={paper} onChange={(e) => setPaper(e.target.value)}>
               <option value="grid">Squared</option><option value="lined">Lined</option><option value="dots">Dotted</option><option value="blank">Plain</option>
+              {early && <><option value="pastel">Pastel lined</option><option value="journal">Journal</option></>}
             </select>
           </label>
           {early && (

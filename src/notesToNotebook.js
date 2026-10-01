@@ -57,7 +57,7 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
   const f = fontById(fontId);
   // Lines sit on the paper: every square on squared or dotted paper, every
   // line on ruled paper.
-  const LH = template === "lined" ? 32 : template === "wide" ? 44 : 24;
+  const LH = template === "lined" || template === "pastel" ? 32 : template === "wide" ? 44 : template === "journal" ? 28 : 24;
   // Spacing: compact fits more on a page, huge leaves a line free under every
   // line written and a gap between points, room to add your own notes.
   const SP = spacing === "compact" ? 0 : spacing === "huge" ? 2 : 1;

@@ -3739,9 +3739,22 @@ function Editor({ id, go, onClose, early = false, access }) {
   // A sticker, put in the middle of the page that is showing.
   function addSticker(src, size = 130) {
     const page = book.pages[current] || book.pages[0];
-    // Somewhere free-ish on the page, so several in a row do not pile up.
-    const n = page.items.filter((i) => i.sticker).length;
-    const x = 60 + ((n * 197) % Math.max(1, page.w - size - 120)), y = 140 + ((n * 131) % Math.max(1, Math.min(page.h, 900) - size - 160));
+    // The emptiest spot on the page, so a sticker decorates the notes rather
+    // than covering them, and several in a row do not pile up.
+    const boxes = page.items.map(boxOf);
+    let best = null;
+    for (let yy = 40; yy <= page.h - size - 30; yy += 30) {
+      for (let xx = 30; xx <= page.w - size - 30; xx += 30) {
+        let cover = 0;
+        for (const b of boxes) {
+          const ox = Math.min(xx + size, b.x + b.w) - Math.max(xx, b.x), oy = Math.min(yy + size, b.y + b.h) - Math.max(yy, b.y);
+          if (ox > 0 && oy > 0) cover += ox * oy;
+        }
+        const score = cover + yy * 0.5; // free space first, nearer the top second
+        if (!best || score < best.score) best = { x: xx, y: yy, score };
+      }
+    }
+    const { x, y } = best || { x: (page.w - size) / 2, y: 160 };
     const it = { id: uid(), type: "image", x, y, w: size, h: size, src, sticker: true };
     updatePage(page.id, (p) => ({ ...p, items: [...p.items, it] }));
     setTool("select");
