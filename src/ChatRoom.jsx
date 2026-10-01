@@ -104,6 +104,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
     const ready = files.filter((f) => f.state === "ready" && f.text);
     const q = String(raw ?? text).trim() || (ready.length ? "Help me understand this." : "");
     if (!q || busy || reading) return;
+    import("./notify.js").then((m) => m.askOnce());
     dict.stop();
     stopSpeaking();
     setText("");
@@ -120,6 +121,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
       const turns = history.filter((m) => m.content && !m.note).map(({ role, content }) => ({ role, content }));
       const reply = await chatWithDwiddle(context, turns, { mode: "learn" });
       if (!live.current) return;
+      notifyReady("Dwiddle answered", reply.replace(/\*\*/g, "").slice(0, 120), "/chat");
       const id = Date.now() + "a";
       setBusy(false);
       await reveal({ id, role: "assistant", content: reply, asked: q });

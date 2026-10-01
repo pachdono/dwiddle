@@ -116,6 +116,26 @@ function routeOf(pathname) {
   return { legal: null, page: null };
 }
 
+// Something finished while you were on another page: a pop-up to go to it.
+function ReadyToast({ go }) {
+  const [n, setN] = useState(null);
+  useEffect(() => {
+    let t = 0;
+    const on = (e) => { setN(e.detail); clearTimeout(t); t = setTimeout(() => setN(null), 7000); };
+    addEventListener("dwiddle:ready", on);
+    return () => { removeEventListener("dwiddle:ready", on); clearTimeout(t); };
+  }, []);
+  if (!n) return null;
+  return (
+    <div className="ready-toast" role="status">
+      <DuckMark size={30} />
+      <div><b>{n.title}</b>{n.body && <span>{n.body}</span>}</div>
+      {n.url && <button className="btn small cta" onClick={() => { go(n.url); setN(null); }}>Open</button>}
+      <button className="icon-btn" onClick={() => setN(null)} aria-label="Dismiss"><Icon name="close" size={14} /></button>
+    </div>
+  );
+}
+
 // A banned account: nothing of the app, just why and what to do.
 function Suspended({ reason, email, onSignOut }) {
   return (
@@ -952,6 +972,7 @@ export default function App() {
         </button>
       </nav>
 
+      <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />

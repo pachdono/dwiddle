@@ -1,7 +1,7 @@
 // Settings: when Dwiddle may send notifications.
 
-import { useState } from "react";
-import { prefs, setDaily, setHour, supported } from "./notify.js";
+import { useEffect, useState } from "react";
+import { prefs, setDaily, setHour, supported, emailNudges, setEmailNudges } from "./notify.js";
 import { save } from "./store.js";
 
 function Row({ label, hint, on, onChange, busy }) {
@@ -22,7 +22,8 @@ export function NotifyCard({ user }) {
   const [p, setP] = useState(prefs);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  if (!supported()) return null;
+  const [mail, setMail] = useState(null);
+  useEffect(() => { let live = true; emailNudges(user).then((v) => live && setMail(v)); return () => { live = false; }; }, [user]);
   const setReady = async (on) => {
     if (on && Notification.permission === "default") await Notification.requestPermission().catch(() => {});
     save("dwiddle-notify", { ...prefs(), ready: on });
@@ -36,8 +37,8 @@ export function NotifyCard({ user }) {
   return (
     <div className="card">
       <div className="card-head"><h3>Notifications</h3></div>
-      <Row label="When something is ready" hint="Your study material, a video, a notebook or a practice paper, if you have switched to another tab or app." on={p.ready} onChange={setReady} />
-      <Row label="Daily study reminder" hint="One friendly nudge a day from Dwiddle, only on days you have not studied yet." on={p.daily} onChange={daily} busy={busy} />
+      {supported() && <><Row label="When something is ready" hint="A notification when your study material, a video, a notebook, a paper or a long answer is ready, if you are in another tab or app." on={p.ready} onChange={setReady} />
+      <Row label="Daily study reminder" hint="One friendly nudge a day from Dwiddle, only on days you have not studied yet." on={p.daily} onChange={daily} busy={busy} /></>}
       {p.daily && (
         <div className="set-row">
           <div className="sec-main">
@@ -50,6 +51,10 @@ export function NotifyCard({ user }) {
             ))}
           </select>
         </div>
+      )}
+      {user && mail !== null && (
+        <Row label="Email me if I have not studied for a week" hint="A friendly email from Dwiddle, at most once a week. Every email has a link to stop them." on={mail}
+          onChange={async (on) => { try { await setEmailNudges(user, on); setMail(on); } catch (e) { setErr(e.message); } }} />
       )}
       {err && <p className="small" style={{ color: "var(--warn)", margin: "0 20px 14px" }}>{err}</p>}
     </div>

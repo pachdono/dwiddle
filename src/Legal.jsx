@@ -121,6 +121,16 @@ const PRIVACY = [
             staff are sent by email and a copy of each reply is kept with the submission it
             answers. Any email you send to us is held in our mailbox.
           </dd>
+          <dt>Reminders and notifications</dt>
+          <dd>
+            If you turn on the daily study reminder, your browser gives us a push subscription
+            address and keys for that device, which we store with your account, your time zone
+            and the hour you chose, and use only to send that reminder. Where you have an
+            account and have not studied for seven days, we may send you one email about it, at
+            most once a week; each such email contains a link to stop them, and they can also be
+            turned off in Settings. Notifications that something you made is ready are shown by
+            your own device and involve no data leaving it.
+          </dd>
           <dt>Preferences</dt>
           <dd>
             Settings you choose, including theme, colours and customisation, daily goal, question

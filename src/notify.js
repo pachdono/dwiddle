@@ -39,7 +39,15 @@ async function show(title, body, url = "/") {
 
 // Something finished: only worth a notification when Dwiddle is not on screen.
 export function ready(title, body, url) {
-  if (!prefs().ready || document.visibilityState === "visible") return;
+  if (!prefs().ready) return;
+  // Looking at Dwiddle: a pop-up inside it, unless it is the page already
+  // open. Anywhere else (another tab, another app, the window behind
+  // something), a notification from the system, the way ChatGPT does it.
+  if (document.visibilityState === "visible" && document.hasFocus()) {
+    if (url && location.pathname === url) return;
+    window.dispatchEvent(new CustomEvent("dwiddle:ready", { detail: { title, body, url } }));
+    return;
+  }
   show(title, body, url);
 }
 
@@ -109,4 +117,18 @@ export function startDesktopReminder() {
   tick();
   const t = setInterval(tick, 10 * 60 * 1000);
   return () => clearInterval(t);
+}
+
+/* ---------- the week-away email ---------- */
+
+export async function emailNudges(user) {
+  if (!supabase || !user) return null;
+  const { data, error } = await supabase.from("nudges").select("opted_out").eq("user_id", user.id).maybeSingle();
+  if (error) return null;
+  return !data?.opted_out;
+}
+export async function setEmailNudges(user, on) {
+  if (!supabase || !user) return;
+  const { error } = await supabase.from("nudges").upsert({ user_id: user.id, opted_out: !on });
+  if (error) throw new Error(/nudges/.test(error.message) ? "Run supabase/push-v3.sql first." : error.message);
 }
