@@ -43,12 +43,20 @@ First decide THE single core idea here. For a question, it is the one idea neede
 Return ONE JSON object and nothing else:
 { "cards": [ { "pic": "one emoji", "text": "one tiny sentence" } ], "word": "the grown up term", "means": "what it means, in under 12 plain words" }
 
+Example, for notes on photosynthesis:
+{ "cards": [
+  { "pic": "🌱", "text": "Plants are hungry, just like you." },
+  { "pic": "☀️", "text": "They catch sunshine with their green leaves." },
+  { "pic": "🍪", "text": "They turn it into their own snack." },
+  { "pic": "💨", "text": "They breathe out fresh air for us." }
+], "word": "Photosynthesis", "means": "How plants make food from light, water and air." }
+
 Rules:
 - 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
 - Use ONE comparison from a small child's world (toys, sweets, a lunchbox, the playground, pets, sharing, bedtime) and keep the same one across all the cards, so it tells a tiny story.
 - The cards build: what it is, how it works, why it matters.
 - "pic" is one emoji that shows that card's picture. Never use a sparkle or star emoji.
-- No jargon in the cards. The proper term only appears in "word".
+- No jargon in the cards, and the cards never mention the grown up word; that only appears in "word".
 - British English. No dashes.`;
 
 // The Chat page, where a student learns a topic from scratch in conversation,
@@ -85,13 +93,24 @@ export default async function handler(req, res) {
 
   try {
     if (req.body?.mode === "four") {
-      const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: "Make the cards.", maxTokens: 600, temperature: 0.4, json: true });
-      let d = null;
-      try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { /* checked below */ }
-      const clean = (t, n) => String(t || "").replace(/\s*[–—]\s*/g, ", ").replace(/[✨⭐🌟💫✦✧]/gu, "").trim().slice(0, n);
-      const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: clean(c?.pic, 8) || "🦆", text: clean(c?.text, 140) })).filter((c) => c.text).slice(0, 4);
-      if (cards.length < 2) return userError(res, 502, "Dwiddle could not make that simple just now. Try again.");
-      return res.status(200).json({ cards, word: clean(d.word, 60), means: clean(d.means, 120) });
+      const clean = (t) => String(t || "").replace(/\s*[–—]\s*/g, ", ").replace(/[✨⭐🌟💫✦✧]/gu, "").trim();
+      const words = (t) => t.split(/\s+/).filter(Boolean).length;
+      const emoji = (t) => (String(t || "").match(/\p{Extended_Pictographic}(\uFE0F)?/u) || [""])[0];
+      // Cards that came back long, or with words where the picture goes, are
+      // asked for again once; the model's first go is often a paragraph.
+      let best = null;
+      for (let attempt = 0; attempt < 2 && !best?.good; attempt++) {
+        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 12 words, and an emoji for pic." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
+        let d = null;
+        try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { continue; }
+        const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: emoji(c?.pic) || "🦆", text: clean(c?.text) }))
+          .filter((c) => c.text && !/grown.?up/i.test(c.text)).slice(0, 4);
+        if (cards.length < 2) continue;
+        const good = cards.every((c) => words(c.text) <= 16) && cards.some((c) => c.pic !== "🦆");
+        if (!best || good) best = { good, cards, word: clean(d.word).slice(0, 60), means: clean(d.means).slice(0, 120) };
+      }
+      if (!best) return userError(res, 502, "Dwiddle could not make that simple just now. Try again.");
+      return res.status(200).json({ cards: best.cards, word: best.word, means: best.means });
     }
     const learn = req.body?.mode === "learn";
     const text = await ask({
