@@ -51,13 +51,14 @@ Example, for notes on photosynthesis:
   { "pic": "💨", "text": "They breathe out fresh air for us." }
 ], "word": "Photosynthesis", "means": "How plants make food from light, water and air." }
 
-Another, for a question about why managers might not maximise profit:
+Another, for a question about friction:
 { "cards": [
-  { "pic": "🧁", "text": "Mum owns the cake shop." },
-  { "pic": "🧑‍🍳", "text": "Sam bakes and sells the cakes for her." },
-  { "pic": "🎮", "text": "Sam might go slow so he can play games." },
-  { "pic": "😕", "text": "So Mum gets less money than she could." }
-], "word": "Principal-agent problem", "means": "The person running a firm wants different things from its owner." }
+  { "pic": "🛝", "text": "You whoosh down the slide in shiny trousers." },
+  { "pic": "👖", "text": "In bumpy jeans you go slow." },
+  { "pic": "✋", "text": "Rubbing things grab each other and hold you back." }
+], "word": "Friction", "means": "A force that slows things when they rub together." }
+
+Never copy these examples; make cards about what the student is looking at.
 
 Rules:
 - 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
