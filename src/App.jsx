@@ -28,7 +28,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, moreQuestions, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
@@ -606,6 +606,19 @@ export default function App() {
   // syncing) works on the whole store.
   const study = focus ? viewOf(made, focus) : made;
   const bank = (study?.questions || []).map(phraseQuestion);
+
+  // Topics left with no questions (their batch failed while the material was
+  // being made) get them written from their saved notes, once per visit.
+  const bare = (study?.topics || []).filter((t) => !(study?.questions || []).some((q) => q.topic === t.name) && (study?.notes?.[t.name] || []).length).map((t) => t.name);
+  const bareKey = bare.join("|");
+  useEffect(() => {
+    if (!bare.length) return;
+    const key = "dwiddle-backfill:" + bareKey;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch { /* fine */ }
+    questionsFor(study, bare).then((qs) => {
+      if (qs.length) setMade({ title: study.title, topics: [], questions: qs }, { material: "none" });
+    });
+  }, [bareKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // The other kinds: those written with lessons, and those built from the
   // vocabulary questions every set already has.
   const drills = study ? [...(study.drills || []), ...derivedDrills(study.questions || [])] : [];
@@ -1555,9 +1568,14 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
   const live = allTopics.filter((t) => !hidden.includes(t.id));
 
   // Grouped by the material they came from, so several courses can coexist.
+  // A topic belongs to the library item that lists it by name; anything no
+  // item lists (material from before items existed) still shows, on its own.
   const groups = materials
-    .map((m) => ({ material: m, topics: live.filter((t) => t.material === m.id) }))
+    .map((m) => ({ material: m, topics: live.filter((t) => (m.topics || []).includes(t.name)) }))
     .filter((g) => g.topics.length > 0);
+  const placed = new Set(groups.flatMap((g) => g.topics.map((t) => t.id)));
+  const loose = live.filter((t) => !placed.has(t.id));
+  if (loose.length) groups.push({ material: { id: "loose", title: loose[0].source || "Your material" }, topics: loose });
 
   return (
     <div className="page wide fade">

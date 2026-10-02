@@ -236,11 +236,17 @@ export async function generateFromNotes(notes, { style = "" } = {}) {
       style,
       batch: n,
       topics: batch.map((t) => ({ name: t.name, large: t.large })),
-    }).catch(() => ({ questions: [] })));
+    }).catch(() => null));
   const noteTasks = notesTasks(notes, topics);
 
   const results = await pool([...questionTasks, ...noteTasks], AT_ONCE);
   const parts = results.slice(0, questionTasks.length);
+  // Batches that failed are tried once more, one at a time, once the rush is
+  // over, so a busy moment does not leave a topic with no questions.
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i]) parts[i] = await questionTasks[i]();
+    if (!parts[i]) parts[i] = { questions: [] };
+  }
   const sections = results.slice(questionTasks.length);
 
   const questions = parts.flatMap((p) => p.questions || []);
@@ -266,6 +272,18 @@ function notesText(made, names) {
     const lines = blocks.map((b) => b.h || b.p || b.eg || b.watch || (b.term ? `${b.term}: ${b.def}` : "") || (b.list ? b.list.map((x) => `- ${x}`).join("\n") : "")).filter(Boolean);
     return `${name}\n${lines.map(plainText).join("\n")}`;
   }).join("\n\n");
+}
+
+// Questions for topics that have none (their batch failed when the material
+// was made), written from the notes already saved for them.
+export async function questionsFor(made, names) {
+  const notes = notesText(made, names).slice(0, 20000);
+  if (notes.length < 80) return [];
+  const stamp = Date.now() % 1e6;
+  const results = await pool(chunk(names, Q_BATCH).map((batch, n) => () =>
+    post("/api/generate", { notes, mode: "questions", batch: `f${stamp}${n}`, topics: batch.map((name) => ({ name })) })
+      .then((d) => d.questions || []).catch(() => [])), 3);
+  return results.flat().map(tidyQuestion);
 }
 
 export async function moreQuestions(made, names, count) {
