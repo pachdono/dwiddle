@@ -8832,7 +8832,14 @@ body.has-backdrop main .page {
 .study-pick:hover { background: var(--hover, rgba(0, 0, 0, 0.04)); }
 
 /* The first look round the app (Tour.jsx) */
-.tour { position: fixed; inset: 0; z-index: 400; }
+.tour { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
+.tour-block { position: absolute; pointer-events: auto; }
+.tour-dim, .tour-card { pointer-events: auto; }
+.tour-hole { animation: tour-pulse 1.6s ease-in-out infinite; }
+@keyframes tour-pulse { 50% { box-shadow: 0 0 0 9999px rgba(12, 14, 20, 0.6), 0 0 0 7px rgba(255, 216, 77, 0.55); } }
+.tour-tap { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; background: #FFF4C2; color: #5a4300; font-size: 13px; font-weight: 800; }
+.tour-tap i { width: 9px; height: 9px; border-radius: 50%; background: #F2B51C; animation: tour-dot 1s ease-in-out infinite; }
+@keyframes tour-dot { 50% { transform: scale(1.6); opacity: 0.5; } }
 .tour-dim { position: absolute; inset: 0; background: rgba(12, 14, 20, 0.6); }
 .tour-hole { position: absolute; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(12, 14, 20, 0.6), 0 0 0 3px #FFD84D;
   transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease; pointer-events: none; }
@@ -8849,8 +8856,3 @@ body.has-backdrop main .page {
 .tour-card p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2, var(--ink)); }
 .tour-actions { display: flex; align-items: center; gap: 8px; }
 .tour-actions .linkish { font-size: 13px; color: var(--ink-3); background: none; border: 0; cursor: pointer; padding: 0; }
-.tour-themes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 0 0 12px; }
-.tour-themes button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; border: 0; background: none; cursor: pointer; color: var(--ink-3); font: inherit; font-size: 10.5px; }
-.tour-themes i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid; display: block; }
-.tour-themes button.on i { outline: 3px solid var(--accent); outline-offset: 2px; }
-.tour-themes button.on span { color: var(--ink); font-weight: 700; }

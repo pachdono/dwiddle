@@ -1036,7 +1036,7 @@ export default function App() {
       </nav>
 
       <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
-      {touring && <Tour onClose={() => setTouring(false)} go={go} look={look} setLook={setLook} />}
+      {touring && <Tour onClose={() => setTouring(false)} />}
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
@@ -2903,14 +2903,14 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         <div className="card card-pad spread">
           <div>
             <b>Quick tour</b>
-            <p className="small muted" style={{ margin: "2px 0 0" }}>A look round the app in five steps: where to add material, study, your library, chat and themes.</p>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>A look round the app: where to add material, study, your library, chat and themes.</p>
           </div>
           <button className="btn ghost" onClick={() => { resetTour(); go("home"); setTimeout(() => dispatchEvent(new Event("dwiddle:tour")), 300); }}>Show the tour</button>
         </div>
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
-          <div className="th-grid" role="radiogroup" aria-label="Theme">
+          <div className="th-grid" data-tour="themes" role="radiogroup" aria-label="Theme">
             {THEMES.map((t) => {
               const m = t[resolved] || t.light;
               const [top, bottom] = m?.grad || t.preview[resolved];
