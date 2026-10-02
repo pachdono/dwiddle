@@ -52,7 +52,6 @@ import UpdateBar, { useUpdate } from "./UpdateBar.jsx";
 import { isDesktop, onMac, appVersion, uninstaller } from "./desktop.js";
 import { UninstallDialog } from "./Uninstall.jsx";
 import { FreeGate } from "./FreeGate.jsx";
-import { Solve } from "./Solve.jsx";
 import { isInstalled } from "./install.js";
 import { loadCustom, saveCustom, loadBg, WIDGETS } from "./custom.js";
 import { Player } from "./Listening.jsx";
@@ -276,13 +275,12 @@ function greetingSub(now = new Date()) {
 // along the top.
 const GROUPS = [
   { id: "home", label: "Home", icon: "home", pages: ["home"] },
-  { id: "chat", label: "Chat", icon: "chat", pages: ["chat"], early: true },
+  { id: "chat", label: "Chat", icon: "chat", pages: ["chat", "solve"], early: true },
   {
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics", "videos"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
   },
   { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
-  { id: "solve", label: "Solve", icon: "bulb", pages: ["solve"] },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
@@ -296,7 +294,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 // Every page's own name, for the title bar when it is not part of a group.
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
-  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Solve" }, { id: "decks", label: "My decks" },
+  { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
   { id: "notebook", label: "Notebooks" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
@@ -485,7 +483,18 @@ export default function App() {
   // material: "new" when this is a new library item, "same" when it is more
   // of the one being made (a long source in parts), "none" for extra
   // questions on topics already there.
+  //
+  // Whatever was just made becomes what Study shows, on its own: a new item
+  // gets its id here so Study can focus on it straight away.
   function setMade(data, { replace = false, material = "new" } = {}) {
+    let id = null;
+    if (data && material === "new") {
+      id = data.materialId || "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      data = { ...data, materialId: id };
+    } else if (data && material === "same") {
+      id = withMaterials(made)?.materials?.at(-1)?.id || null;
+    }
+    if (id) setFocus(id);
     setMadeRaw((prev0) => {
       const prev = withMaterials(prev0);
       let next = data && { ...data, materials: noteMaterial(replace ? null : prev, data, material) };
@@ -638,6 +647,8 @@ export default function App() {
   }, []);
 
   const go = (p, mode) => {
+    // Solve is part of Chat now: the same tutor, in one place.
+    if (p === "solve") p = "chat";
     if (p !== "home") setEditing(false);
     if (mode) setPMode(mode);
     if (p === page) setSeq((n) => n + 1);
@@ -699,7 +710,7 @@ export default function App() {
     home: Dashboard,
     topics: Topics,
     quiz: Practice,
-    solve: Solve,
+    solve: ChatRoom,
     decks: early ? Decks : Dashboard,
     sheet: StudySheet,
     learn: Learn,
@@ -719,6 +730,11 @@ export default function App() {
 
   const title = ALL_NAV.find((n) => n.id === page).label;
   const group = groupOf(page);
+  // With more than one item in the library, Study shows one at a time, and
+  // asks which until one is picked. Nothing is ever merged together.
+  const items = made?.materials || [];
+  const mustPick = group?.id === "study" && items.length > 1 && !items.some((m) => m.id === focus);
+  const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   if (group) lastInGroup.current[group.id] = page;
 
   if (legal === "download") {
@@ -821,7 +837,7 @@ export default function App() {
           </button>
           {GROUPS.filter((g) => !g.early || early).map((g) => (
             <button key={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
-              onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
+              onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               <Icon name={g.icon} />
               {g.label}
             </button>
@@ -913,19 +929,18 @@ export default function App() {
           ) : (
             <span className="topbar-title">{title}</span>
           )}
-          <span className="crumb small">{study ? study.title : ""}</span>
+          <span className="crumb small">{study && !mustPick ? study.title : ""}</span>
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
         {group?.id === "study" && focus && (made?.materials?.length || 0) > 1 && (
           <div className="focus-bar">
             <Icon name="spark" size={14} />
             <span>Studying <b>{study?.title}</b></span>
-            <button className="btn small ghost" onClick={() => go("library")}>Switch</button>
-            <button className="btn small ghost" onClick={() => setFocus(null)}>Show everything</button>
+            <button className="btn small ghost" onClick={() => setFocus(null)}>Switch</button>
           </div>
         )}
         <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
-        <Page
+        {mustPick ? <StudyPicker materials={made.materials} made={made} pick={setFocus} go={go} /> : <Page
           key={`${page}:${seq}`}
           go={go}
           early={early}
@@ -971,7 +986,7 @@ export default function App() {
           look={look}
           setLook={setLook}
           resolved={resolved}
-        />
+        />}
         </Boundary>
       </main>
 
@@ -984,10 +999,10 @@ export default function App() {
           { id: "study", label: "Study", icon: "cards", on: groupOf(page)?.id === "study",
             to: lastInGroup.current.study || "sheet" },
           { id: "add", label: "New", icon: "plus", on: page === "upload", to: "upload", add: true },
-          { id: "solve", label: "Solve", icon: "bulb", on: page === "solve", to: "solve" },
+          { id: "chat", label: "Chat", icon: "chat", on: page === "chat" || page === "solve", to: "chat" },
         ].map((t) => (
           <button key={t.id} className={"tab" + (t.on ? " on" : "") + (t.add ? " tab-add" : "")}
-            onClick={() => go(t.to)} aria-current={t.on ? "page" : undefined}>
+            onClick={() => (t.id === "study" ? openStudy(t.to) : go(t.to))} aria-current={t.on ? "page" : undefined}>
             <span className="tab-icon"><Icon name={t.icon} size={t.add ? 22 : 21} /></span>
             <span className="tab-label">{t.label}</span>
           </button>
@@ -1195,7 +1210,7 @@ const SHORTCUTS = [
   { id: "learn", icon: "cards", name: "Learn", sub: "Short lessons, one topic at a time", needs: true },
   { id: "quiz", icon: "quiz", name: "Practice", sub: "Questions with an explanation for each", needs: true },
   { id: "sheet", icon: "sheet", name: "Notes", sub: "Everything in your material, organised", needs: true },
-  { id: "solve", icon: "bulb", name: "Solve", sub: "A question you are stuck on, worked through" },
+  { id: "chat", icon: "chat", name: "Chat", sub: "Ask anything, or a question you are stuck on, worked through" },
   { id: "tests", icon: "target", name: "Test prep", sub: "Timed SAT, ACT, IELTS and more" },
   { id: "courses", icon: "cap", name: "Courses", sub: "IGCSE, IB and A Level syllabuses" },
 ];
@@ -1852,6 +1867,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
     setState("working");
     setProgress(null);
     setWaiting(null);
+    let unfinishedLeft = false;
     try {
       let data;
       if (inParts) {
@@ -1865,6 +1881,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
         });
         data = run.material;
         setUnfinished(run.rest ? { rest: run.rest, done: (carryOn?.done || 0) + run.done, error: run.error } : null);
+        unfinishedLeft = !!run.rest;
       } else {
         data = await generateFromNotes(text);
         rememberSource(data, { notes: text });
@@ -1875,9 +1892,11 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       // A new item in the library; earlier ones are kept. More parts of the
       // same long source join the item they belong to.
       setMade(data, { material: carryOn ? "same" : "new" });
-      if (!carryOn) setFocus(null);
       setState("done");
       notifyReady("Your study material is ready", `${data?.title || "Your notes"}: notes, lessons and questions are waiting.`, "/study-sheet");
+      // Straight to Study, showing just this. A long source that stopped part
+      // way stays here, where carrying on is offered.
+      if (!(inParts && unfinishedLeft)) go("sheet");
     } catch (err) {
       setState("error");
       setError(err.message);
@@ -2198,6 +2217,40 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
 
 /* ---------- library ---------- */
 
+// More than one item in the library: Study asks which one, and shows only
+// that one until another is picked.
+function StudyPicker({ materials, made, pick }) {
+  const count = (m) => {
+    const names = new Set(m.topics);
+    return { topics: m.topics.length, questions: (made?.questions || []).filter((q) => names.has(q.topic)).length };
+  };
+  const when = (t) => (t ? new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "");
+  return (
+    <div className="page fade">
+      <PageHead title="What are you studying?" sub="Pick one. Notes, Learn, Practice, Topics and Videos then show only that." />
+      <div className="card">
+        <div className="list">
+          {[...materials].reverse().map((m) => {
+            const c = count(m);
+            return (
+              <button key={m.id} className="list-item lib-item study-pick" onClick={() => pick(m.id)}>
+                <span className="muted"><Icon name="spark" /></span>
+                <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                  <div className="list-title">{m.title}</div>
+                  <div className="small muted">
+                    {c.topics} topic{c.topics === 1 ? "" : "s"} · {c.questions} question{c.questions === 1 ? "" : "s"}{when(m.at) ? ` · added ${when(m.at)}` : ""}
+                  </div>
+                </div>
+                <span className="btn small cta">Study</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {
   const [confirm, setConfirm] = useState(null); // the item about to be deleted
   const made = fullMade;
@@ -2229,7 +2282,6 @@ function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, s
             <div className="card-head">
               <h3>{materials.length} item{materials.length === 1 ? "" : "s"}</h3>
               <div className="row">
-                {focus && materials.length > 1 && <button className="btn quiet" onClick={() => { setFocus(null); go("sheet"); }}>Study everything</button>}
                 <button className="btn quiet" onClick={() => go("upload")}>Add material</button>
               </div>
             </div>
@@ -4928,6 +4980,7 @@ function Courses({ go, setMade, auth }) {
       rememberSource(data, { notes, syllabus });
       setMade(data);
       setDone({ topic, count: data.questions.length });
+      go("sheet");
     } catch (err) {
       setError(err.message);
     } finally {

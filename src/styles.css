@@ -8810,3 +8810,7 @@ body:has(.theme-backdrop) main .page {
 /* Powers and subscripts with no symbol of their own, set as printed */
 .mt-sup, .mt-sub { font-size: 0.72em; line-height: 0; position: relative; }
 .mt-sup { vertical-align: 0.45em; } .mt-sub { vertical-align: -0.25em; }
+
+/* Study: picking which library item to study */
+.study-pick { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.study-pick:hover { background: var(--hover, rgba(0, 0, 0, 0.04)); }
