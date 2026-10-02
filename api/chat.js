@@ -31,49 +31,42 @@ How to answer:
 
 // "Explain like I'm 4": a handful of tiny cards about the one idea that
 // matters, rather than a paragraph retelling everything on screen.
-const FOUR = `You explain one idea to a four year old, as 3 or 4 tiny picture cards, the way a children's picture book would.
+const FOUR = `You make a hard idea dead simple for a student, as 3 or 4 short picture cards. The student is 11 to 16. The button says "Explain like I'm 4", but that is a joke: never talk down to them, never sound babyish or cheesy.
 
 What the student is looking at:
 """
 __CONTEXT__
 """
 
-First decide THE single core idea here. For a question, it is the one idea needed to answer that question. For a set of notes, it is the main idea of the topic. Ignore everything else on screen: no side facts, no extra examples, nothing that is not in what they are looking at.
+First decide THE single core idea here. For a question, it is the one idea needed to answer that question. For a set of notes, it is the main idea of the topic. Ignore everything else on screen: no side facts, nothing that is not in what they are looking at.
 
 Return ONE JSON object and nothing else:
-{ "cards": [ { "pic": "one emoji", "text": "one tiny sentence" } ], "word": "the grown up term", "means": "what it means, in under 12 plain words" }
+{ "cards": [ { "pic": "one emoji", "text": "one short sentence" } ], "word": "the proper term", "means": "what it means, in under 14 plain words" }
 
-Example, for notes on photosynthesis:
+Example, for a question on why firms might not maximise profit:
 { "cards": [
-  { "pic": "🌱", "text": "Plants are hungry, just like you." },
-  { "pic": "☀️", "text": "They catch sunshine with their green leaves." },
-  { "pic": "🍪", "text": "They turn it into their own snack." },
-  { "pic": "💨", "text": "They breathe out fresh air for us." }
-], "word": "Photosynthesis", "means": "How plants make food from light, water and air." }
+  { "pic": "🎁", "text": "A toy company gives every kid a free toy on their birthday." },
+  { "pic": "📉", "text": "That costs a lot, so this year's profit is lower." },
+  { "pic": "📣", "text": "But everyone talks about how nice they are." },
+  { "pic": "🛒", "text": "More families buy from them, so they grow." }
+], "word": "Non-profit-maximising objectives", "means": "Firms giving up some profit now for goals like reputation or growth." }
 
-Another, for a question about friction:
+Example, for notes on osmosis:
 { "cards": [
-  { "pic": "🛝", "text": "You whoosh down the slide in shiny trousers." },
-  { "pic": "👖", "text": "In bumpy jeans you go slow." },
-  { "pic": "✋", "text": "Rubbing things grab each other and hold you back." }
-], "word": "Friction", "means": "A force that slows things when they rub together." }
+  { "pic": "🥒", "text": "Leave cucumber slices in salty water and they go floppy." },
+  { "pic": "💧", "text": "Water leaves the cucumber cells to dilute the salty water." },
+  { "pic": "🧱", "text": "The cell membrane lets water through but not the salt." }
+], "word": "Osmosis", "means": "Water moving through a membrane from dilute to concentrated." }
 
-And for notes on profit maximisation:
-{ "cards": [
-  { "pic": "🍋", "text": "You sell lemonade at your stall." },
-  { "pic": "🪙", "text": "Coins in, minus what lemons cost, is what you keep." },
-  { "pic": "🙌", "text": "You pick the price that lets you keep the most." }
-], "word": "Profit maximisation", "means": "A firm choosing what earns it the biggest profit." }
-
-Make cards about the idea the student is looking at, in this style. Reuse an example only if it is exactly the same idea.
+Make cards about the idea the student is looking at, in this style. Never copy the examples unless it is exactly the same idea.
 
 Rules:
-- 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
-- The comparison must work exactly like the real idea, so a child who understands the cards understands the idea. Never just say what something is called, and no robots or characters explaining the theory.
-- Use ONE comparison from a small child's world (toys, sweets, a lunchbox, the playground, pets, sharing, bedtime) and keep the same one across all the cards, so it tells a tiny story.
-- The cards build: what it is, how it works, why it matters.
-- "pic" is one emoji that shows that card's picture, a different emoji on every card. Never use a sparkle or star emoji.
-- No jargon in the cards, and the cards never mention the grown up word; that only appears in "word".
+- 3 or 4 cards. Each "text" is ONE sentence of at most 14 words, in plain everyday words.
+- Use a real, concrete example a teenager actually knows: games, phones, YouTubers, football, shops, food, school, sports, social media. Never parents, mummy, teddies, bedtime, fairy tales, robots or made-up characters explaining the theory.
+- The example must work exactly like the real idea, so understanding the cards means understanding the idea.
+- The cards build: what happens, why it happens, what it leads to.
+- "pic" is one emoji for that card, a different emoji on every card. Never a sparkle or star emoji.
+- No jargon in the cards, and the cards never use the proper term; that only appears in "word".
 - British English. No dashes.`;
 
 // The Chat page, where a student learns a topic from scratch in conversation,
@@ -117,14 +110,14 @@ export default async function handler(req, res) {
       // asked for again once; the model's first go is often a paragraph.
       let best = null;
       for (let attempt = 0; attempt < 3 && !best?.good; attempt++) {
-        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 12 words, a different emoji on each, and never the grown up word in a card." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
+        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 14 words, a different emoji on each, a real teenage example, and never the proper term in a card." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
         let d = null;
         try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { continue; }
         const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: emoji(c?.pic) || "🦆", text: clean(c?.text) }))
           .filter((c) => c.text && !/grown.?up/i.test(c.text)).slice(0, 4);
         if (cards.length < 2) continue;
         const term = clean(d.word).toLowerCase();
-        const good = cards.every((c) => words(c.text) <= 14 && !(term && c.text.toLowerCase().includes(term)))
+        const good = cards.every((c) => words(c.text) <= 16 && !/\b(mummy|mommy|mum|teddy|bedtime|robot)\b/i.test(c.text) && !(term && c.text.toLowerCase().includes(term)))
           && new Set(cards.map((c) => c.pic)).size === cards.length;
         if (!best || good) best = { good, cards, word: clean(d.word).slice(0, 60), means: clean(d.means).slice(0, 120) };
       }

@@ -31,7 +31,7 @@ export function LikeImFour({ context, className = "" }) {
   }
 
   const cards = data?.cards || [];
-  const last = cards.length; // after the pictures, one card with the grown-up word
+  const last = cards.length; // after the pictures, one card with the proper word
   const card = cards[at];
   const step = (d) => setAt((i) => Math.max(0, Math.min(last, i + d)));
 
@@ -54,7 +54,7 @@ export function LikeImFour({ context, className = "" }) {
           ) : (
             <div className="l4-slide l4-word" key="word">
               <DuckTalk mood="talking" size={44} />
-              <span className="small muted">The grown-up word</span>
+              <span className="small muted">The proper word</span>
               <b>{data.word}</b>
               {data.means && <p>{data.means}</p>}
             </div>
