@@ -186,6 +186,10 @@ export const writePodcast = (notes) =>
   }));
 
 // A turn of the conversation with Dwiddle about what is on screen.
+// "Explain like I'm 4" as a few tiny picture cards: { cards: [{ pic, text }], word, means }.
+export const explainLikeFour = (context) =>
+  post("/api/chat", { mode: "four", context, messages: [{ role: "user", content: "Explain this like I'm four." }] });
+
 export const chatWithDwiddle = (context, messages, { mode } = {}) =>
   post("/api/chat", { context, messages, ...(mode ? { mode } : {}) }).then((d) => tidyMath(d.reply));
 

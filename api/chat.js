@@ -29,6 +29,28 @@ How to answer:
 - Plain text. You may use **bold** for a key term and lines starting "- " for a list. No headings, no tables.
 - British English. Do not use em dashes or en dashes.`;
 
+// "Explain like I'm 4": a handful of tiny cards about the one idea that
+// matters, rather than a paragraph retelling everything on screen.
+const FOUR = `You explain one idea to a four year old, as 3 or 4 tiny picture cards, the way a children's picture book would.
+
+What the student is looking at:
+"""
+__CONTEXT__
+"""
+
+First decide THE single core idea here. For a question, it is the one idea needed to answer that question. For a set of notes, it is the main idea of the topic. Ignore everything else on screen: no side facts, no extra examples, nothing that is not in what they are looking at.
+
+Return ONE JSON object and nothing else:
+{ "cards": [ { "pic": "one emoji", "text": "one tiny sentence" } ], "word": "the grown up term", "means": "what it means, in under 12 plain words" }
+
+Rules:
+- 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
+- Use ONE comparison from a small child's world (toys, sweets, a lunchbox, the playground, pets, sharing, bedtime) and keep the same one across all the cards, so it tells a tiny story.
+- The cards build: what it is, how it works, why it matters.
+- "pic" is one emoji that shows that card's picture. Never use a sparkle or star emoji.
+- No jargon in the cards. The proper term only appears in "word".
+- British English. No dashes.`;
+
 // The Chat page, where a student learns a topic from scratch in conversation,
 // the way they would with a tutor or a chat assistant: fuller answers, built
 // up step by step, checked as it goes.
@@ -62,6 +84,15 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (req.body?.mode === "four") {
+      const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: "Make the cards.", maxTokens: 600, temperature: 0.4, json: true });
+      let d = null;
+      try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { /* checked below */ }
+      const clean = (t, n) => String(t || "").replace(/\s*[–—]\s*/g, ", ").replace(/[✨⭐🌟💫✦✧]/gu, "").trim().slice(0, n);
+      const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: clean(c?.pic, 8) || "🦆", text: clean(c?.text, 140) })).filter((c) => c.text).slice(0, 4);
+      if (cards.length < 2) return userError(res, 502, "Dwiddle could not make that simple just now. Try again.");
+      return res.status(200).json({ cards, word: clean(d.word, 60), means: clean(d.means, 120) });
+    }
     const learn = req.body?.mode === "learn";
     const text = await ask({
       system: learn
