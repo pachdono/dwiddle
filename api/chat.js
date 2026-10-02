@@ -58,7 +58,14 @@ Another, for a question about friction:
   { "pic": "✋", "text": "Rubbing things grab each other and hold you back." }
 ], "word": "Friction", "means": "A force that slows things when they rub together." }
 
-Never copy these examples; make cards about what the student is looking at.
+And for notes on profit maximisation:
+{ "cards": [
+  { "pic": "🍋", "text": "You sell lemonade at your stall." },
+  { "pic": "🪙", "text": "Coins in, minus what lemons cost, is what you keep." },
+  { "pic": "🙌", "text": "You pick the price that lets you keep the most." }
+], "word": "Profit maximisation", "means": "A firm choosing what earns it the biggest profit." }
+
+Make cards about the idea the student is looking at, in this style. Reuse an example only if it is exactly the same idea.
 
 Rules:
 - 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
