@@ -51,11 +51,20 @@ Example, for notes on photosynthesis:
   { "pic": "💨", "text": "They breathe out fresh air for us." }
 ], "word": "Photosynthesis", "means": "How plants make food from light, water and air." }
 
+Another, for a question about why managers might not maximise profit:
+{ "cards": [
+  { "pic": "🧁", "text": "Mum owns the cake shop." },
+  { "pic": "🧑‍🍳", "text": "Sam bakes and sells the cakes for her." },
+  { "pic": "🎮", "text": "Sam might go slow so he can play games." },
+  { "pic": "😕", "text": "So Mum gets less money than she could." }
+], "word": "Principal-agent problem", "means": "The person running a firm wants different things from its owner." }
+
 Rules:
 - 3 or 4 cards. Each "text" is ONE sentence of at most 12 words, in words a four year old knows.
+- The comparison must work exactly like the real idea, so a child who understands the cards understands the idea. Never just say what something is called, and no robots or characters explaining the theory.
 - Use ONE comparison from a small child's world (toys, sweets, a lunchbox, the playground, pets, sharing, bedtime) and keep the same one across all the cards, so it tells a tiny story.
 - The cards build: what it is, how it works, why it matters.
-- "pic" is one emoji that shows that card's picture. Never use a sparkle or star emoji.
+- "pic" is one emoji that shows that card's picture, a different emoji on every card. Never use a sparkle or star emoji.
 - No jargon in the cards, and the cards never mention the grown up word; that only appears in "word".
 - British English. No dashes.`;
 
@@ -99,14 +108,16 @@ export default async function handler(req, res) {
       // Cards that came back long, or with words where the picture goes, are
       // asked for again once; the model's first go is often a paragraph.
       let best = null;
-      for (let attempt = 0; attempt < 2 && !best?.good; attempt++) {
-        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 12 words, and an emoji for pic." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
+      for (let attempt = 0; attempt < 3 && !best?.good; attempt++) {
+        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 12 words, a different emoji on each, and never the grown up word in a card." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
         let d = null;
         try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { continue; }
         const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: emoji(c?.pic) || "🦆", text: clean(c?.text) }))
           .filter((c) => c.text && !/grown.?up/i.test(c.text)).slice(0, 4);
         if (cards.length < 2) continue;
-        const good = cards.every((c) => words(c.text) <= 16) && cards.some((c) => c.pic !== "🦆");
+        const term = clean(d.word).toLowerCase();
+        const good = cards.every((c) => words(c.text) <= 14 && !(term && c.text.toLowerCase().includes(term)))
+          && new Set(cards.map((c) => c.pic)).size === cards.length;
         if (!best || good) best = { good, cards, word: clean(d.word).slice(0, 60), means: clean(d.means).slice(0, 120) };
       }
       if (!best) return userError(res, 502, "Dwiddle could not make that simple just now. Try again.");
