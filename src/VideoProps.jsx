@@ -172,7 +172,7 @@ function Brain() {
       <path d="M34 84c-14-2-20-14-16-26-8-12 2-28 16-28 4-12 22-16 30-6 10-8 28-2 30 10 14 2 18 18 10 28 4 14-8 24-22 22-6 10-22 12-30 2-6 2-14 2-18-2z"
         fill="#F8C5D0" stroke="#C0566A" strokeWidth="3" strokeLinejoin="round" />
       <path d="M44 40c6 4 6 12 0 16M62 34c-4 8 2 14 10 14M70 64c-8 0-12 8-8 14M42 66c6 0 10 6 8 12" stroke="#C0566A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      {[[26, 22], [96, 26], [100, 86]].map(([x, y], i) => <path key={i} className="vp-spark" style={{ animationDelay: `${i * 0.4}s` }} d={`M${x} ${y}l4-8 4 8-8-4 8 0z`} fill="#FFC93C" />)}
+      {[[26, 22], [96, 26], [100, 86]].map(([x, y], i) => <circle key={i} className="vp-spark" style={{ animationDelay: `${i * 0.4}s` }} cx={x + 4} cy={y - 3} r="3.5" fill="#FFC93C" />)}
     </g>
   );
 }
@@ -432,7 +432,7 @@ function Handshake() {
         <path d="M54 60c8 0 14 2 22 6M52 68c8 0 14 2 20 6M54 76c6 0 10 1 14 4" stroke={INK} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         <path d="M46 54c4-8 12-10 18-8" stroke={INK} strokeWidth="3" fill={SKIN[2]} strokeLinecap="round" />
       </g>
-      <path className="vp-spark" d="M60 14l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#FFD84D" />
+      <circle className="vp-spark" cx="60" cy="24" r="5" fill="#FFD84D" />
       <circle className="vp-spark" style={{ animationDelay: "0.5s" }} cx="92" cy="30" r="4" fill="#FFD84D" />
     </g>
   );

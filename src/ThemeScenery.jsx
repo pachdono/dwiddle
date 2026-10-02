@@ -26,7 +26,7 @@ const Maple = ({ x, y, r = 1, rot = 0, fill = "#D9602B" }) => (
 );
 
 const Star = ({ x, y, r = 1, cls = "" }) => (
-  <path className={cls} transform={`translate(${x} ${y}) scale(${r})`} fill="#FDE68A" d="M0 -5 L1.3 -1.3 L5 0 L1.3 1.3 L0 5 L-1.3 1.3 L-5 0 L-1.3 -1.3Z" />
+  <circle className={cls} cx={x} cy={y} r={2.2 * r} fill="#FDE68A" />
 );
 
 const SCENES = {

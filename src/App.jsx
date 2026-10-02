@@ -932,13 +932,6 @@ export default function App() {
           <span className="crumb small">{study && !mustPick ? study.title : ""}</span>
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
-        {group?.id === "study" && focus && (made?.materials?.length || 0) > 1 && (
-          <div className="focus-bar">
-            <Icon name="spark" size={14} />
-            <span>Studying <b>{study?.title}</b></span>
-            <button className="btn small ghost" onClick={() => setFocus(null)}>Switch</button>
-          </div>
-        )}
         <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
         {mustPick ? <StudyPicker materials={made.materials} made={made} pick={setFocus} go={go} /> : <Page
           key={`${page}:${seq}`}
@@ -2234,8 +2227,7 @@ function StudyPicker({ materials, made, pick }) {
             const c = count(m);
             return (
               <button key={m.id} className="list-item lib-item study-pick" onClick={() => pick(m.id)}>
-                <span className="muted"><Icon name="spark" /></span>
-                <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                                <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                   <div className="list-title">{m.title}</div>
                   <div className="small muted">
                     {c.topics} topic{c.topics === 1 ? "" : "s"} · {c.questions} question{c.questions === 1 ? "" : "s"}{when(m.at) ? ` · added ${when(m.at)}` : ""}
@@ -2290,8 +2282,7 @@ function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, s
                 const c = countsOf(m);
                 return (
                   <div key={m.id} className={"list-item lib-item" + (focus === m.id ? " on" : "")} onClick={() => learn(m)}>
-                    <span className="muted"><Icon name="spark" /></span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="list-title">{m.title}</div>
                       <div className="small muted">
                         {c.topics} topic{c.topics === 1 ? "" : "s"} · {c.questions} question{c.questions === 1 ? "" : "s"}{when(m.at) ? ` · added ${when(m.at)}` : ""}
@@ -4873,7 +4864,7 @@ function AiMark({ task, rubric, answer, onScores }) {
           </div>
         </div>
         <button className="btn cta" onClick={run} disabled={answer.trim().length < 80}>
-          <Icon name="spark" size={14} /> Mark my answer
+          Mark my answer
         </button>
       </div>
     );
@@ -5053,7 +5044,7 @@ function Courses({ go, setMade, auth }) {
                   <span className="list-title">{t}</span>
                 </div>
                 <button className="btn ghost" disabled={busy !== null} onClick={() => build(t)}>
-                  {busy === t ? <Loading label="Writing" /> : <><Icon name="spark" size={14} /> Questions</>}
+                  {busy === t ? <Loading label="Writing" /> : "Questions"}
                 </button>
               </div>
             ))}

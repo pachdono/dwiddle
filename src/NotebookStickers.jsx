@@ -15,7 +15,6 @@ export const DOODLES = [
   ["Star", cut('<path d="M50 8l11 26 28 2-21 18 7 28-25-15-25 15 7-28-21-18 28-2z" fill="#FFD36B"/>')],
   ["Heart", cut('<path d="M50 86C20 64 8 46 12 30c4-15 25-20 38-4 13-16 34-11 38 4 4 16-8 34-38 56z" fill="#F6A5B6"/>')],
   ["Flower", cut(`${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="50" cy="28" rx="16" ry="22" fill="#D7CCF2" transform="rotate(${a} 50 50)"/>`).join("")}<circle cx="50" cy="50" r="13" fill="#FFD36B"/>`)],
-  ["Sparkles", cut('<path d="M40 12c3 18 10 25 28 28-18 3-25 10-28 28-3-18-10-25-28-28 18-3 25-10 28-28z" fill="#A9D3F0"/><path d="M74 56c2 9 5 12 14 14-9 2-12 5-14 14-2-9-5-12-14-14 9-2 12-5 14-14z" fill="#FFD36B"/>')],
   ["Cloud", cut('<path d="M28 72a16 16 0 0 1 2-32 22 22 0 0 1 42-6 16 16 0 0 1 8 38z" fill="#EAF4FC"/><circle cx="40" cy="56" r="3" fill="#3a2f3a"/><circle cx="60" cy="56" r="3" fill="#3a2f3a"/><path d="M45 63q5 4 10 0" stroke="#3a2f3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>')],
   ["Rainbow", cut('<path d="M12 74a38 38 0 0 1 76 0" stroke="#F6A5B6" stroke-width="9" fill="none"/><path d="M22 74a28 28 0 0 1 56 0" stroke="#FFD36B" stroke-width="9" fill="none"/><path d="M32 74a18 18 0 0 1 36 0" stroke="#9AD9B5" stroke-width="9" fill="none"/>')],
   ["Leaf", cut('<path d="M18 82C18 40 46 14 86 14c0 42-26 68-68 68z" fill="#B8D9A8"/><path d="M18 82C40 58 58 40 78 22" stroke="#6E9E62" stroke-width="4" fill="none" stroke-linecap="round"/>')],

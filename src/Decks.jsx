@@ -200,7 +200,7 @@ function DeckEditor({ deck, count, onSave, onCancel, onDelete }) {
         <button className={"btn ghost small" + (dictation.on ? " rec-on" : "")} onClick={listen} disabled={!!busy && !dictation.on}>
           <Icon name="mic" size={14} /> {dictation.on ? "Stop listening" : "Say them"}
         </button>
-        {loose.length > 0 && <button className="btn ghost small" onClick={fillMeanings} disabled={!!busy}><Icon name="spark" size={14} /> Write the meanings for {loose.length} word{loose.length === 1 ? "" : "s"}</button>}
+        {loose.length > 0 && <button className="btn ghost small" onClick={fillMeanings} disabled={!!busy}>Write the meanings for {loose.length} word{loose.length === 1 ? "" : "s"}</button>}
         {busy && <Loading label={busy} />}
       </div>
       {dictation.on && <p className="small dk-hint">Say a word, then "means" and what it means. Say "next" for the next card.</p>}

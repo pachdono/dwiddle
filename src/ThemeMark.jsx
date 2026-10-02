@@ -62,8 +62,7 @@ function Sprig({ x, lean = 1 }) {
 
 function Sparkle({ x, y, r = 1, fill = "#FFFFFF" }) {
   return (
-    <path transform={`translate(${x} ${y}) scale(${r})`} fill={fill}
-      d="M0 -4.5 C0.6 -1.2 1.2 -0.6 4.5 0 C1.2 0.6 0.6 1.2 0 4.5 C-0.6 1.2 -1.2 0.6 -4.5 0 C-1.2 -0.6 -0.6 -1.2 0 -4.5Z" />
+    <circle cx={x} cy={y} r={2 * r} fill={fill} />
   );
 }
 

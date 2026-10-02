@@ -62,10 +62,6 @@ export function DuckTalk({ mood = "idle", size = 64, who = "dwiddle" }) {
         <g className="dt-ears" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" fill="none">
           <path d="M14 46 q-6 8 0 16" /><path d="M6 40 q-10 14 0 28" />
         </g>
-        <g className="dt-spark" fill="#F6C443">
-          <path d="M104 30 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" />
-          <path d="M16 20 l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5z" />
-        </g>
       </g>
     </svg>
   );

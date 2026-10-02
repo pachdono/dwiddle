@@ -253,7 +253,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
         {lastBot && !busy && (
           <div className="cr-material">
             <button className="btn ghost small" onClick={toMaterial} disabled={!!making && making.endsWith("...")}>
-              <Icon name="spark" size={14} /> Turn this chat into study material
+              Turn this chat into study material
             </button>
             {making && <span className="small muted">{making}</span>}
           </div>
