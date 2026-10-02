@@ -48,7 +48,18 @@ export function Tour({ onClose }) {
   // The page changes under the tour as you tap through, so where the place
   // is gets checked a few times a second.
   useLayoutEffect(() => {
-    const place = () => setRect((old) => { const r = findTarget(step.where); return same(old, r) ? old : r; });
+    // A place further down the page (the themes in Settings) is scrolled to.
+    let scrolled = false;
+    const reach = () => {
+      if (scrolled) return;
+      const el = document.querySelector(`[data-tour="${step.where[0]}"]`);
+      const r = el?.getBoundingClientRect();
+      if (r && r.width && r.left >= 0 && r.right <= innerWidth && (r.top > innerHeight - 80 || r.bottom < 0)) {
+        scrolled = true;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+    const place = () => reach() || setRect((old) => { const r = findTarget(step.where); return same(old, r) ? old : r; });
     place();
     const t = setInterval(place, 250);
     return () => clearInterval(t);
