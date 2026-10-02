@@ -5,6 +5,7 @@ import { NotifyCard } from "./NotifyCard.jsx";
 import { ready as notifyReady, askOnce as askNotify, startDesktopReminder } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
 import ChatRoom from "./ChatRoom.jsx";
+import { Tour, tourDone, resetTour } from "./Tour.jsx";
 import { LevelCard } from "./LevelPicker.jsx";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
@@ -321,6 +322,13 @@ export default function App() {
   const [customBg, setCustomBg] = useState(() => loadBg());
 
   const [editing, setEditing] = useState(false);
+  // The first look round the app, once, a moment after arriving in it.
+  const [touring, setTouring] = useState(false);
+  useEffect(() => {
+    const start = () => setTouring(true);
+    addEventListener("dwiddle:tour", start);
+    return () => removeEventListener("dwiddle:tour", start);
+  }, []);
   // The front page has its own address, /homepage, which always shows it,
   // signed in or not.
   const [atLanding, setAtLandingRaw] = useState(() => ROUTABLE && window.location.pathname === "/homepage");
@@ -748,6 +756,12 @@ export default function App() {
   const items = made?.materials || [];
   const mustPick = group?.id === "study" && items.length > 1 && !items.some((m) => m.id === focus);
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
+  const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
+  useEffect(() => {
+    if (!inApp || tourDone() || page === "notebook") return;
+    const t = setTimeout(() => setTouring(true), 900);
+    return () => clearTimeout(t);
+  }, [inApp]); // eslint-disable-line react-hooks/exhaustive-deps
   if (group) lastInGroup.current[group.id] = page;
 
   if (legal === "download") {
@@ -844,12 +858,12 @@ export default function App() {
         <nav className="nav">
           {/* Making something is the first thing on the list and styled as one of
               it, rather than a heavy button that belongs to no other element. */}
-          <button className={"nav-item nav-add" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
+          <button data-tour="new" className={"nav-item nav-add" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
             <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
             New material
           </button>
           {GROUPS.filter((g) => !g.early || early).map((g) => (
-            <button key={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
+            <button key={g.id} data-tour={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               <Icon name={g.icon} />
               {g.label}
@@ -900,6 +914,7 @@ export default function App() {
             </button>
           )}
           <button
+            data-tour="settings"
             className={"icon-btn" + (page === "settings" ? " on" : "")}
             onClick={() => go("settings")}
             title="Settings"
@@ -1007,13 +1022,13 @@ export default function App() {
           { id: "add", label: "New", icon: "plus", on: page === "upload", to: "upload", add: true },
           { id: "chat", label: "Chat", icon: "chat", on: page === "chat" || page === "solve", to: "chat" },
         ].map((t) => (
-          <button key={t.id} className={"tab" + (t.on ? " on" : "") + (t.add ? " tab-add" : "")}
+          <button key={t.id} data-tour={t.add ? "new" : t.id} className={"tab" + (t.on ? " on" : "") + (t.add ? " tab-add" : "")}
             onClick={() => (t.id === "study" ? openStudy(t.to) : go(t.to))} aria-current={t.on ? "page" : undefined}>
             <span className="tab-icon"><Icon name={t.icon} size={t.add ? 22 : 21} /></span>
             <span className="tab-label">{t.label}</span>
           </button>
         ))}
-        <button className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all", "notebook"].includes(page) ? " on" : "")}
+        <button data-tour="more" className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all", "notebook"].includes(page) ? " on" : "")}
           onClick={() => setMenuOpen(true)}>
           <span className="tab-icon"><Icon name="menu" size={21} /></span>
           <span className="tab-label">More</span>
@@ -1021,6 +1036,7 @@ export default function App() {
       </nav>
 
       <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
+      {touring && <Tour onClose={() => setTouring(false)} go={go} look={look} setLook={setLook} />}
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
@@ -2884,6 +2900,13 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         <LevelCard />
 
         <NotifyCard user={auth?.user} />
+        <div className="card card-pad spread">
+          <div>
+            <b>Quick tour</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>A look round the app in five steps: where to add material, study, your library, chat and themes.</p>
+          </div>
+          <button className="btn ghost" onClick={() => { resetTour(); go("home"); setTimeout(() => dispatchEvent(new Event("dwiddle:tour")), 300); }}>Show the tour</button>
+        </div>
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>

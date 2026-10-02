@@ -7900,8 +7900,7 @@ a.btn { text-decoration: none; }
 .theme-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .tb-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
 .tb-scene * { transform-box: fill-box; }
-.tb-grain { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: multiply; }
-:root[data-theme="dark"] .tb-grain { mix-blend-mode: screen; }
+.tb-grain { position: absolute; inset: 0; background-repeat: repeat; background-size: 160px 160px; }
 
 .tb-stars { position: absolute; inset: 0; }
 .tb-stars i { position: absolute; border-radius: 50%; animation: tb-twinkle ease-in-out infinite alternate; }
@@ -7976,14 +7975,14 @@ a.btn { text-decoration: none; }
 
 /* The panels over a scene are frosted glass, so the picture shows through
    but the words on them stay easy to read. */
-body:has(.theme-backdrop) .topbar { background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
-body:has(.theme-backdrop) .sidebar { background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); }
-body:has(.theme-backdrop) main .card,
-body:has(.theme-backdrop) main .stat,
-body:has(.theme-backdrop) main .drop,
-body:has(.theme-backdrop) main .notes.glass { background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
-body:has(.theme-backdrop) main .card .card,
-body:has(.theme-backdrop) main .card .stat { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+body.has-backdrop .topbar { background: color-mix(in srgb, var(--bg) 95%, transparent); }
+body.has-backdrop .sidebar { background: color-mix(in srgb, var(--panel) 96%, transparent); }
+body.has-backdrop main .card,
+body.has-backdrop main .stat,
+body.has-backdrop main .drop,
+body.has-backdrop main .notes.glass { background: color-mix(in srgb, var(--surface) 97%, transparent); }
+body.has-backdrop main .card .card,
+body.has-backdrop main .card .stat { background: var(--surface); }
 /* A soft wash of the page colour over the picture, strongest up top where
    headings sit, so words written straight on the page stay easy to read. */
 .tb-scrim { position: absolute; inset: 0;
@@ -8000,17 +7999,17 @@ html, body, .main { overscroll-behavior-y: none; }
    opens up at the top or bottom when the browser's bars slide away. */
 .theme-backdrop { bottom: auto; height: 100lvh; min-height: 100%; }
 /* The painted scene replaces the little corner scenery: one place, not two. */
-body:has(.theme-backdrop) .side-scene { display: none; }
-body:has(.theme-backdrop) .home-scene { display: none; }
+body.has-backdrop .side-scene { display: none; }
+body.has-backdrop .home-scene { display: none; }
 /* Behind the notebook, the page already has its own paper: nothing shows. */
-.nb ~ .theme-backdrop, body:has(.nb) .theme-backdrop { display: none; }
+.nb ~ .theme-backdrop, body.nb-open .theme-backdrop { display: none; }
 
 /* ---------- practice company: panels either side, and a cheer now and then ---------- */
 .pz-full > .theme-backdrop { z-index: -1; }
-body:has(.theme-backdrop) .pz-full .pz-bar { background: color-mix(in srgb, var(--surface) 84%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-body:has(.theme-backdrop) .pz-full .pz-inner > * > .card,
-body:has(.theme-backdrop) .pz-full .pc-panel { background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
-body:has(.theme-backdrop) .pz-full .pz-sub { padding: 6px 14px; border-radius: 999px; width: fit-content; margin-inline: auto; background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+body.has-backdrop .pz-full .pz-bar { background: color-mix(in srgb, var(--surface) 95%, transparent); }
+body.has-backdrop .pz-full .pz-inner > * > .card,
+body.has-backdrop .pz-full .pc-panel { background: color-mix(in srgb, var(--surface) 97%, transparent); }
+body.has-backdrop .pz-full .pz-sub { padding: 6px 14px; border-radius: 999px; width: fit-content; margin-inline: auto; background: color-mix(in srgb, var(--surface) 80%, transparent); }
 
 .pc-side { display: none; }
 @media (min-width: 1200px) {
@@ -8748,14 +8747,15 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 /* Over a theme's scene, each page sits on a sheet of frosted glass, so every
    word, tile and button reads clearly while the scene still shows round it.
    No glow on the text: that put dark smudges round light words. */
-body:has(.theme-backdrop) main .page {
+body.has-backdrop main .page {
   margin-top: 18px; margin-bottom: 24px; border-radius: 28px;
-  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  /* Nearly solid rather than blurred: a live blur over a moving scene was
+     redrawn every frame and made the whole app lag. */
+  background: color-mix(in srgb, var(--bg) 93%, transparent);
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  backdrop-filter: blur(18px) saturate(130%); -webkit-backdrop-filter: blur(18px) saturate(130%);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
 }
-@media (max-width: 760px) { body:has(.theme-backdrop) main .page { margin: 8px; border-radius: 22px; } }
+@media (max-width: 760px) { body.has-backdrop main .page { margin: 8px; border-radius: 22px; } }
 /* The chat scrolls without a bar showing */
 .cr-list { scrollbar-width: none; }
 .cr-list::-webkit-scrollbar { display: none; }
@@ -8764,7 +8764,7 @@ body:has(.theme-backdrop) main .page {
 /* Printing over a theme: no scene and no frosted sheet, just the page. */
 @media print {
   .theme-backdrop, .tb-scrim, .dc-fab, .vd-chip { display: none !important; }
-  body:has(.theme-backdrop) main .page { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; margin: 0 !important; }
+  body.has-backdrop main .page { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; margin: 0 !important; }
 }
 @media print {
   /* Any theme, light or dark, prints black on white. */
@@ -8830,3 +8830,27 @@ body:has(.theme-backdrop) main .page {
 /* Study: picking which library item to study */
 .study-pick { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 .study-pick:hover { background: var(--hover, rgba(0, 0, 0, 0.04)); }
+
+/* The first look round the app (Tour.jsx) */
+.tour { position: fixed; inset: 0; z-index: 400; }
+.tour-dim { position: absolute; inset: 0; background: rgba(12, 14, 20, 0.6); }
+.tour-hole { position: absolute; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(12, 14, 20, 0.6), 0 0 0 3px #FFD84D;
+  transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease; pointer-events: none; }
+.tour-arrow { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.tour-arrow path { fill: none; stroke: #FFD84D; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 300; stroke-dashoffset: 300; animation: tour-draw 0.5s ease 0.15s forwards; }
+@keyframes tour-draw { to { stroke-dashoffset: 0; } }
+.tour-card { position: absolute; padding: 16px 16px 12px; border-radius: 18px; background: var(--surface, #fff); color: var(--ink);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); animation: tour-in 0.3s cubic-bezier(.2, 1.2, .4, 1) both; }
+@keyframes tour-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+.tour-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.tour-head b { font-size: 17px; }
+.tour-num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #FFD84D; color: #1b1d26; font-weight: 900; font-size: 15px; flex: none; }
+.tour-of { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.tour-card p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2, var(--ink)); }
+.tour-actions { display: flex; align-items: center; gap: 8px; }
+.tour-actions .linkish { font-size: 13px; color: var(--ink-3); background: none; border: 0; cursor: pointer; padding: 0; }
+.tour-themes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 0 0 12px; }
+.tour-themes button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; border: 0; background: none; cursor: pointer; color: var(--ink-3); font: inherit; font-size: 10.5px; }
+.tour-themes i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid; display: block; }
+.tour-themes button.on i { outline: 3px solid var(--accent); outline-offset: 2px; }
+.tour-themes button.on span { color: var(--ink); font-weight: 700; }

@@ -2885,6 +2885,8 @@ function Editor({ id, go, onClose, early = false, access }) {
   // With the iPad keyboard up, the notebook fits the space above it, so the
   // text being typed is never hidden behind the keys.
   const nbRef = useRef(null);
+  // The theme's scene is hidden behind the notebook (see styles.css).
+  useEffect(() => { document.body.classList.add("nb-open"); return () => document.body.classList.remove("nb-open"); }, []);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;

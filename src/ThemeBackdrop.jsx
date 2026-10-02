@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 // A painted scene behind the whole app, one for each theme, so a theme is a
 // place rather than a gradient: a cherry tree and Mount Fuji for Sakura, a
 // lighthouse over the sea for Ocean, a moonlit lake and a cabin in the pines
@@ -18,13 +19,30 @@ const W = 1440, H = 900;
 /* ---------- pieces ---------- */
 
 // Fine paper grain over the whole page, the difference between printed and flat.
+// Paper grain: a small tile of noise made once and repeated, rather than a
+// noise filter over the whole screen, which the browser redrew constantly.
+let grainTile = null;
+function grain() {
+  if (grainTile !== null) return grainTile;
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 160;
+    const g = c.getContext("2d");
+    const img = g.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 60;
+    }
+    g.putImageData(img, 0, 0);
+    grainTile = c.toDataURL("image/png");
+  } catch { grainTile = ""; }
+  return grainTile;
+}
 function Grain({ opacity = 0.05 }) {
-  return (
-    <svg className="tb-grain" aria-hidden="true" style={{ opacity }}>
-      <filter id="tb-grain-f"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
-      <rect width="100%" height="100%" filter="url(#tb-grain-f)" />
-    </svg>
-  );
+  const tile = grain();
+  if (!tile) return null;
+  return <div className="tb-grain" aria-hidden="true" style={{ opacity: opacity * 2.2, backgroundImage: `url(${tile})` }} />;
 }
 
 // Stars that twinkle, each at its own pace.
@@ -578,6 +596,13 @@ export function hasBackdrop(theme) { return !!SCENES[theme]; }
 
 export function ThemeBackdrop({ theme, resolved }) {
   const draw = SCENES[theme];
+  // A class on the body says a scene is showing, so the stylesheet need not
+  // search the whole page for it (body:has(), slow in Safari) on every change.
+  useEffect(() => {
+    if (!draw) return;
+    document.body.classList.add("has-backdrop");
+    return () => document.body.classList.remove("has-backdrop");
+  }, [draw]);
   if (!draw) return null;
   const dark = resolved === "dark";
   return (
