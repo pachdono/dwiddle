@@ -16,7 +16,24 @@ import { buildFigures, sceneDiagram } from "./_figure.js";
 export const config = { maxDuration: 60 };
 
 // The moving drawings the app can draw (src/VideoProps.jsx), kept in step.
-const PROP_KINDS = ["sun", "plant", "tree", "water", "cloud", "co2", "o2", "glucose", "cell", "atom", "molecule", "heart", "lungs", "brain", "earth", "magnet", "battery", "bulb", "flask", "thermometer", "dna", "coin", "gear", "clock", "book", "fire", "wave", "bacteria"];
+const PROP_KINDS = ["sun", "plant", "tree", "water", "cloud", "co2", "o2", "glucose", "cell", "atom", "molecule", "heart", "lungs", "brain", "earth", "magnet", "battery", "bulb", "flask", "thermometer", "dna", "coin", "gear", "clock", "book", "fire", "wave", "bacteria",
+  "person", "people", "children", "worker", "handshake", "shop", "factory", "house", "school", "food", "chartUp", "chartDown", "target", "star", "scales", "truck", "phone", "bank", "moneybag", "megaphone", "shield", "calendar"];
+
+// Science drawings only where the scene is really about that science. The
+// model reached for them as loose stand ins (a cell for a worker, a flask for
+// costs), which only confuses; a scene that does not use the word gets none.
+const SCIENCE = {
+  cell: /\bcells?\b|nucleus|mitochondri|membrane|cytoplasm|organelle|tissue/,
+  atom: /\batoms?\b|electron|proton|neutron|isotope/,
+  molecule: /molecul|compound|chemical bond|\bbonds?\b/,
+  dna: /\bdna\b|gene|chromosome|inherit|mutation/,
+  bacteria: /bacteri|virus|microbe|germ|pathogen|infection/,
+  flask: /chemical|reaction|acid|alkali|experiment|\blab|enzyme|solution of/,
+  co2: /carbon dioxide|co₂|co2/, o2: /oxygen|o₂|\bo2\b/, glucose: /glucose|sugar|starch|carbohydrate/,
+  heart: /heart|blood|circulat|pulse/, lungs: /lung|breath|inhal|exhal|alveol/, brain: /brain|nerve|neuron/,
+  magnet: /magnet/, battery: /battery|circuit|current|voltage|electric/,
+  thermometer: /temperature|heat|thermal|degrees|hot|cold/, wave: /\bwaves?\b|sound|frequency|vibrat|signal/,
+};
 
 const SHAPE = `Return ONE JSON object and nothing else. No prose, no code fences.
 
@@ -77,7 +94,8 @@ Animations, so each step is seen happening rather than only stated. Use them whe
 - In figures, "flow": true on an arrow or segment makes dashes run along it, for anything that moves or flows: water, current, blood, energy, heat, a force acting. A "mover" shape (through: points, color) sends dots travelling along that path over and over, like particles diffusing, electrons in a wire or blood round a loop. "pulse": true on any shape makes it gently pulse while it is being talked about.
 
 Moving drawings, for anything real a scene talks about:
-- "props": 1 to 4 animated drawings the app draws itself, chosen ONLY from: ${PROP_KINDS.join(", ")}. Each has a short "label" (1 to 3 words) and "at", the line it appears on. Pick the ones the line is actually about: talking about photosynthesis, a sun, a plant, co2, water, o2 and glucose; about blood, a heart; about circuits, a battery and a bulb.
+- "props": 1 to 4 animated drawings the app draws itself, chosen ONLY from: ${PROP_KINDS.join(", ")}. Each has a short "label" (1 to 3 words) and "at", the line it appears on. Pick the ones the line is actually about: talking about photosynthesis, a sun, a plant, co2, water, o2 and glucose; about blood, a heart; about circuits, a battery and a bulb; about free school meals, children and food; about customer loyalty, a handshake; about a firm, a shop or factory; about wages, a worker and a moneybag; about profit rising, chartUp; about an aim, a target.
+- A drawing must look like the thing itself to a student. Never use a science drawing (cell, atom, molecule, dna, bacteria, flask, co2, o2, glucose) unless the scene is about that science: a worker is a worker or person, never a cell; costs are a coin or moneybag, never a flask; a school is a school, not a book.
 - "links": arrows between props, by their index in "props", with a short "label" for what goes from one to the other ("light energy", "oxygen out", "blood pumped") and "at", the line it is drawn on. Use them to show processes: inputs flowing in, products flowing out, one thing causing another.
 - Give every scene that is not pure maths its props, and links wherever something moves or changes.
 - A drawing shows what the scene is about, never a word that only describes it: "heart muscle cell" is a cell, "solar panel" is a battery or bulb, not a sun. If no drawing truly fits, leave "props" out. A scene with props needs no picture; keep "figure" for a real diagram the props cannot show, like a labelled cross section or a graph.
@@ -85,7 +103,9 @@ Moving drawings, for anything real a scene talks about:
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
 - Every scene has something to look at, and it matches what that scene is saying. In maths it is the question's diagram or a graph of what is being worked on. Anything else gets a simple drawn diagram of the structure or process the scene explains, or a picture of the real thing the scene names: talking about plants, a plant; about the heart, a heart; about a volcano, a volcano. Only a scene of pure algebra with nothing to picture sets "figure" to null.
 - The board supports the picture, it does not replace it. Outside maths: at most 3 board items a scene, each a key term or a point under 8 words. Never paste sentences from the lines onto the board.
-- Only what the source says, or standard facts at its level. Never invent a figure.
+- Only what the source says. Every fact, term, example, formula and symbol in the video must come from the source; explain it in simpler words, but add nothing the source does not have: no extra theory, no formulas or notation the source does not write (no π for profit, no max(), no Greek letters it does not use), no examples or numbers of your own.
+- Keep it simple, for the student's level: short everyday words, one idea per line, a familiar example from the source where there is one. If a term is used, say what it means in plain words the first time. Never make it sound harder than the source.
+- Outside maths, the board has words, not equations, unless the source itself writes that equation.
 - British English. No em dashes or en dashes in the lines.`;
 
 const FIGURES = `Figures, which the app draws to scale and checks before showing:
@@ -174,7 +194,9 @@ function cleanScenes(data, figures) {
       })
       .slice(0, 8);
     const fig = typeof sc.figure === "string" ? figures[sc.figure] : null;
-    const props = (Array.isArray(sc.props) ? sc.props : []).filter((p) => p && PROP_KINDS.includes(p.kind)).slice(0, 4)
+    const said = [sc.heading, ...lines].join(" ").toLowerCase();
+    const props = (Array.isArray(sc.props) ? sc.props : [])
+      .filter((p) => p && PROP_KINDS.includes(p.kind) && (!SCIENCE[p.kind] || SCIENCE[p.kind].test(said))).slice(0, 4)
       .map((p) => ({ kind: p.kind, label: short(p.label, 24), at: at(p.at, last) }));
     const links = (Array.isArray(sc.links) ? sc.links : [])
       .filter((l) => l && Number.isInteger(l.from) && Number.isInteger(l.to) && l.from !== l.to && props[l.from] && props[l.to]).slice(0, 5)
@@ -183,6 +205,19 @@ function cleanScenes(data, figures) {
   }).filter(Boolean).slice(0, 8);
   if (scenes.length < 2) return null;
   return { title: short(data.title, 100) || "Explained", subtitle: short(data.subtitle, 120), scenes };
+}
+
+// From notes, the board never shows notation the notes do not use: a Greek
+// letter or a function like max() that was never in them is the model
+// dressing the topic up, and only makes it look harder. Such working is taken
+// off the board; the words that are said stay.
+const GREEK = /[α-ωΑ-Ω]/g;
+const FUNCS = /\b(max|min|lim|log|ln|sin|cos|tan|exp)\s*\(/gi;
+function keepToNotes(video, notes) {
+  const theirs = new Set([...(notes.match(GREEK) || []), ...(notes.match(FUNCS) || []).map((f) => f.toLowerCase().replace(/\s/g, ""))]);
+  const foreign = (t) => (t.match(GREEK) || []).some((g) => !theirs.has(g))
+    || (t.match(FUNCS) || []).some((f) => !theirs.has(f.toLowerCase().replace(/\s/g, "")));
+  for (const sc of video.scenes) sc.board = sc.board.filter((b) => !foreign(b.text) && !foreign(b.result || ""));
 }
 
 // Builds the figures, sends any that fail their checks back once to be
@@ -310,6 +345,7 @@ export default async function handler(req, res) {
     }
     const figures = await checkedFigures(list);
     const video = cleanScenes(data, figures);
+    if (video && body.notes) keepToNotes(video, String(body.notes));
     if (!video) return userError(res, 502, "The video did not come back complete. Try again.");
     res.status(200).json(video);
   } catch (err) {

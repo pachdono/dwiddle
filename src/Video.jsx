@@ -124,14 +124,19 @@ export function NarrationToggle() {
 export function voice(video, onProgress) {
   // Silent videos skip it altogether.
   if (!narrated()) { video.silent = true; return Promise.resolve(false); }
-  const job = prepareNarration(video);
-  return new Promise((resolve) => {
-    const stop = onNarration(video, (n) => {
-      onProgress?.(n.done, n.total);
-      if (n.state !== "making") { setTimeout(stop, 0); resolve(n.state === "ready"); }
+  const once = () => {
+    const job = prepareNarration(video);
+    return new Promise((resolve) => {
+      const stop = onNarration(video, (n) => {
+        onProgress?.(n.done, n.total);
+        if (n.state !== "making") { setTimeout(stop, 0); resolve(n.state === "ready"); }
+      });
+      job.promise?.then(resolve, () => resolve(false));
     });
-    job.promise?.then(resolve, () => resolve(false));
-  });
+  };
+  // A voice download that drops part way is tried again before giving up,
+  // so the video is not handed over with its narration still to make.
+  return once().then((ok) => ok || once());
 }
 
 export function useVideoJob() {
@@ -201,6 +206,8 @@ function VideosPage({ made, go }) {
   useEffect(() => (video && !video.silent ? onNarration(video, setNarr) : undefined), [video]);
   const withNotes = topicsWithNotes(made);
   const make = (fresh) => makeVideo(made, fresh);
+  // Watching waits for the narration, so it never starts and then stalls.
+  const voicing = !!video && !video.silent && (mine?.state === "voicing" || narr?.state === "making");
 
   if (!topics.length) {
     return (
@@ -241,7 +248,7 @@ function VideosPage({ made, go }) {
           </div>
           <div className="row">
             <NarrationToggle />
-            {video && <button className="btn cta" onClick={() => setOpen(video)} disabled={!!making}>Watch</button>}
+            {video && <button className="btn cta" onClick={() => setOpen(video)} disabled={!!making || voicing}>{voicing ? "Recording narration" : "Watch"}</button>}
             {!video && parts.length > 0 && <button className="btn cta" onClick={() => make(false)} disabled={!!making}>Carry on</button>}
             {!video && !parts.length && <button className="btn cta" onClick={() => make(true)} disabled={!!making || !withNotes.length}>Make the video</button>}
             {(video || parts.length > 0) && <button className="btn ghost" onClick={() => make(true)} disabled={!!making}>Make a new one</button>}
@@ -251,14 +258,14 @@ function VideosPage({ made, go }) {
         {video && narr?.state === "making" && (
           <div className="vd-narr" aria-live="polite">
             <div className="vd-voice-bar"><i style={{ width: `${Math.round((narr.done / (narr.total || 1)) * 100)}%` }} /></div>
-            <span className="small muted">Preparing the narration in the background: {narr.done} of {narr.total} lines. Carry on with anything else meanwhile; it keeps going while Dwiddle is open.</span>
+            <span className="small muted">Recording the narration: {narr.done} of {narr.total} lines. Watch opens as soon as it is done, so the video plays straight through. It keeps going while Dwiddle is open.</span>
           </div>
         )}
         {video?.chapters?.length > 0 && (
           <ol className="vd-chapters">
             {video.chapters.map((c, i) => (
               <li key={i}>
-                <button onClick={() => setOpen({ ...video, startScene: c.scene })}>
+                <button onClick={() => setOpen({ ...video, startScene: c.scene })} disabled={voicing}>
                   <span className="vd-stamp">{stamp(times[i])}</span>{c.title}
                 </button>
               </li>

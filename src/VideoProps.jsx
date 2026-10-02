@@ -362,6 +362,291 @@ function Bacteria() {
   );
 }
 
+/* Everyday things, for subjects like business, economics, history and
+   geography, so a scene about people or firms gets a picture of them rather
+   than a science drawing that only sounds similar. */
+
+const SKIN = ["#F6D0B1", "#E0A87C", "#B97A50", "#8A5636"];
+// A simple, friendly person standing at x, scaled by k, in a top colour.
+const figure = (x, y, k, top, skin = SKIN[0], hair = "#4A3426", extra = null) => (
+  <g transform={`translate(${x} ${y}) scale(${k})`}>
+    <path d="M-20 64v-24c0-14 9-22 20-22s20 8 20 22v24z" fill={top} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+    <circle cx="0" cy="0" r="15" fill={skin} stroke={INK} strokeWidth="3" />
+    <path d="M-15 -2c0-12 7-17 15-17s15 5 15 17c-6-6-12-8-15-8s-9 2-15 8z" fill={hair} />
+    <circle cx="-5" cy="2" r="1.8" fill={INK} /><circle cx="5" cy="2" r="1.8" fill={INK} />
+    <path d="M-5 8q5 4 10 0" stroke={INK} strokeWidth="2" fill="none" strokeLinecap="round" />
+    {extra}
+  </g>
+);
+
+function Person() {
+  return <g className="vp-bob">{figure(60, 44, 1.15, "#5B9DF5")}</g>;
+}
+
+function People() {
+  return (
+    <g>
+      <g className="vp-bob" style={{ animationDelay: "0.4s" }}>{figure(30, 52, 0.85, "#F2A93B", SKIN[2], "#2B1D14")}</g>
+      <g className="vp-bob" style={{ animationDelay: "0.8s" }}>{figure(90, 52, 0.85, "#5DBB63", SKIN[1], "#7A4B2A")}</g>
+      <g className="vp-bob">{figure(60, 40, 1, "#5B9DF5")}</g>
+    </g>
+  );
+}
+
+function Children() {
+  return (
+    <g>
+      <g className="vp-bob">{figure(30, 56, 0.9, "#F47C8A", SKIN[1], "#5A3A22", <path d="M-16 -8q-6 6-4 14M16 -8q6 6 4 14" stroke="#5A3A22" strokeWidth="4" fill="none" strokeLinecap="round" />)}</g>
+      <g className="vp-bob" style={{ animationDelay: "0.6s" }}>{figure(90, 56, 0.9, "#FFC93C", SKIN[3], "#1E140E")}</g>
+      <g className="vp-bob" style={{ animationDelay: "0.3s" }}>{figure(60, 66, 0.8, "#5DBB63", SKIN[0], "#C98A3A")}</g>
+    </g>
+  );
+}
+
+function Worker() {
+  const hat = <g><path d="M-17 -8a17 15 0 0 1 34 0z" fill="#FFC93C" stroke={INK} strokeWidth="3" /><rect x="-21" y="-9" width="42" height="5" rx="2.5" fill="#FFC93C" stroke={INK} strokeWidth="2.5" /></g>;
+  return (
+    <g>
+      <g className="vp-bob">{figure(52, 44, 1.1, "#F2A93B", SKIN[1], "#4A3426", hat)}</g>
+      <g className="vp-wiggle" style={{ transformOrigin: "center" }}>
+        <rect x="86" y="70" width="8" height="34" rx="3" fill="#8B5A33" stroke={INK} strokeWidth="2.5" />
+        <rect x="76" y="62" width="28" height="12" rx="3" fill="#A0A7B4" stroke={INK} strokeWidth="2.5" />
+      </g>
+    </g>
+  );
+}
+
+function Handshake() {
+  const arm = (d, c) => (
+    <g>
+      <path d={d} stroke={INK} strokeWidth="27" strokeLinecap="round" fill="none" />
+      <path d={d} stroke={c} strokeWidth="21" strokeLinecap="round" fill="none" />
+    </g>
+  );
+  return (
+    <g>
+      {arm("M6 92L40 70", "#5B9DF5")}
+      {arm("M114 92L80 70", "#F2A93B")}
+      <g className="vp-wiggle">
+        <path d="M36 66c6-12 16-16 26-16 12 0 20 4 24 12 4 10-2 20-14 22H50c-10 0-16-8-14-18z" fill={SKIN[0]} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+        <path d="M54 60c8 0 14 2 22 6M52 68c8 0 14 2 20 6M54 76c6 0 10 1 14 4" stroke={INK} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M46 54c4-8 12-10 18-8" stroke={INK} strokeWidth="3" fill={SKIN[2]} strokeLinecap="round" />
+      </g>
+      <path className="vp-spark" d="M60 14l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#FFD84D" />
+      <circle className="vp-spark" style={{ animationDelay: "0.5s" }} cx="92" cy="30" r="4" fill="#FFD84D" />
+    </g>
+  );
+}
+
+function Shop() {
+  return (
+    <g>
+      <rect x="16" y="50" width="88" height="58" rx="4" fill="#FFF7EC" stroke={INK} strokeWidth="3" />
+      <path d="M10 50l8-22h84l8 22z" fill="#F47C8A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      {[0, 1, 2, 3].map((i) => <path key={i} d={`M${18 + i * 22} 50q11 12 22 0`} fill={i % 2 ? "#FFF7EC" : "#F47C8A"} stroke={INK} strokeWidth="2.5" />)}
+      <rect x="26" y="72" width="30" height="24" rx="3" fill="#BFE3F5" stroke={INK} strokeWidth="2.5" />
+      <rect x="66" y="68" width="26" height="40" rx="3" fill="#C97B4A" stroke={INK} strokeWidth="2.5" />
+      <g className="vp-wiggle" style={{ transformOrigin: "top center" }}>
+        <path d="M66 34l12 0" stroke={INK} strokeWidth="2" />
+        <rect x="64" y="34" width="34" height="14" rx="3" fill="#FFD84D" stroke={INK} strokeWidth="2" />
+        <text x="81" y="45" textAnchor="middle" fontSize="10" fontWeight="800" fill={INK}>OPEN</text>
+      </g>
+    </g>
+  );
+}
+
+function Factory() {
+  return (
+    <g>
+      {[0, 1].map((i) => (
+        <circle key={i} className="vp-bubble" style={{ animationDelay: `${i * 0.9}s` }} cx={30 + i * 22} cy="22" r="8" fill="#C9CED6" />
+      ))}
+      <rect x="22" y="28" width="12" height="40" fill="#A0A7B4" stroke={INK} strokeWidth="3" />
+      <rect x="44" y="36" width="12" height="32" fill="#A0A7B4" stroke={INK} strokeWidth="3" />
+      <path d="M12 108V64l26 14V64l26 14V64l26 14V54h18v54z" fill="#E89B2C" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      {[24, 50, 76].map((x) => <rect key={x} x={x} y="88" width="14" height="10" rx="2" fill="#FFE27A" stroke={INK} strokeWidth="2" />)}
+    </g>
+  );
+}
+
+function House() {
+  return (
+    <g className="vp-bob">
+      <path d="M18 60L60 24l42 36" fill="#F47C8A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <rect x="28" y="58" width="64" height="50" fill="#FFF7EC" stroke={INK} strokeWidth="3" />
+      <rect x="52" y="80" width="18" height="28" rx="2" fill="#C97B4A" stroke={INK} strokeWidth="2.5" />
+      <rect x="34" y="68" width="14" height="14" rx="2" fill="#BFE3F5" stroke={INK} strokeWidth="2.5" />
+      <rect x="74" y="68" width="14" height="14" rx="2" fill="#BFE3F5" stroke={INK} strokeWidth="2.5" />
+      <rect x="76" y="30" width="10" height="18" fill="#A0A7B4" stroke={INK} strokeWidth="2.5" />
+    </g>
+  );
+}
+
+function School() {
+  return (
+    <g>
+      <rect x="14" y="54" width="92" height="54" fill="#FFF0D6" stroke={INK} strokeWidth="3" />
+      <path d="M8 56L60 28l52 28z" fill="#E5484D" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <circle cx="60" cy="44" r="7" fill="#fff" stroke={INK} strokeWidth="2.5" />
+      <rect x="50" y="80" width="20" height="28" fill="#C97B4A" stroke={INK} strokeWidth="2.5" />
+      {[22, 82].map((x) => <rect key={x} x={x} y="66" width="16" height="16" rx="2" fill="#BFE3F5" stroke={INK} strokeWidth="2.5" />)}
+      <g className="vp-wiggle" style={{ transformOrigin: "bottom left" }}>
+        <path d="M60 28V8" stroke={INK} strokeWidth="2.5" />
+        <path d="M60 8h18l-4 5 4 5H60z" fill="#5DBB63" stroke={INK} strokeWidth="2" />
+      </g>
+    </g>
+  );
+}
+
+function Food() {
+  return (
+    <g>
+      <ellipse cx="60" cy="86" rx="46" ry="16" fill="#fff" stroke={INK} strokeWidth="3" />
+      <ellipse cx="60" cy="82" rx="34" ry="10" fill="#F4F1EA" />
+      <g className="vp-bob">
+        <path d="M38 78c0-16 10-26 22-26s22 10 22 26z" fill="#F2A93B" stroke={INK} strokeWidth="3" />
+        <path d="M44 66h32" stroke="#C97B4A" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="76" cy="58" r="10" fill="#E5484D" stroke={INK} strokeWidth="2.5" />
+        <path d="M76 48q2-6 7-6" stroke="#2F7D3A" strokeWidth="2.5" fill="none" />
+      </g>
+      {[0, 1, 2].map((i) => <path key={i} className="vp-bubble" style={{ animationDelay: `${i * 0.5}s` }} d={`M${48 + i * 12} 44q-4-6 0-12`} stroke="#C9CED6" strokeWidth="3" fill="none" strokeLinecap="round" />)}
+    </g>
+  );
+}
+
+function Chart({ down }) {
+  const bars = down ? [70, 54, 40, 26] : [26, 40, 54, 70];
+  return (
+    <g>
+      <path d="M14 108h94M14 108V16" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+      {bars.map((h, i) => (
+        <rect key={i} className="vp-rise" style={{ animationDelay: `${i * 0.2}s` }} x={22 + i * 22} y={106 - h} width="16" height={h} rx="3"
+          fill={down ? "#F47C8A" : "#5DBB63"} stroke={INK} strokeWidth="2.5" />
+      ))}
+      <path className="vp-grow" pathLength="100" d={down ? "M24 30L48 46l22-6 30 30" : "M24 86l24-16 22 6 30-50"} stroke={down ? "#E5484D" : "#2F80ED"} strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+const ChartUp = () => <Chart />;
+const ChartDown = () => <Chart down />;
+
+function Target() {
+  return (
+    <g>
+      {[44, 32, 20, 9].map((r, i) => <circle key={r} cx="56" cy="62" r={r} fill={i % 2 ? "#fff" : "#E5484D"} stroke={INK} strokeWidth="2.5" />)}
+      <g className="vp-wiggle">
+        <path d="M58 60L104 18" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+        <path d="M98 14l10 0-2 12z" fill="#5B9DF5" stroke={INK} strokeWidth="2" />
+      </g>
+    </g>
+  );
+}
+
+function Star() {
+  return (
+    <g>
+      <g className="vp-beat"><path d="M60 14l13 28 30 3-23 20 7 30-27-16-27 16 7-30-23-20 30-3z" fill="#FFD84D" stroke="#C9921A" strokeWidth="3.5" strokeLinejoin="round" /></g>
+      {[[18, 24], [100, 92], [104, 30]].map(([x, y], i) => <circle key={i} className="vp-spark" style={{ animationDelay: `${i * 0.4}s` }} cx={x} cy={y} r="4" fill="#FFD84D" />)}
+    </g>
+  );
+}
+
+function Scales() {
+  return (
+    <g>
+      <path d="M60 22v80M38 108h44" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+      <circle cx="60" cy="20" r="5" fill="#FFC93C" stroke={INK} strokeWidth="2.5" />
+      <g className="vp-wiggle" style={{ transformOrigin: "center" }}>
+        <path d="M18 30h84" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+        <path d="M18 30l-12 30h24zM102 30l-12 30h24z" fill="none" stroke={INK} strokeWidth="2" />
+        <path d="M4 60a14 6 0 0 0 28 0zM88 60a14 6 0 0 0 28 0z" fill="#FFC93C" stroke={INK} strokeWidth="2.5" />
+      </g>
+    </g>
+  );
+}
+
+function Truck() {
+  return (
+    <g>
+      <g className="vp-bob">
+        <rect x="8" y="40" width="64" height="46" rx="4" fill="#5B9DF5" stroke={INK} strokeWidth="3" />
+        <path d="M72 54h22l16 18v14H72z" fill="#FFC93C" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+        <path d="M78 58h14l10 12H78z" fill="#BFE3F5" stroke={INK} strokeWidth="2" />
+      </g>
+      {[28, 88].map((x) => <g key={x}><circle cx={x} cy="90" r="11" fill={INK} /><circle className="vp-spin" cx={x} cy="90" r="4" fill="#C9CED6" /></g>)}
+      <path className="vp-field" d="M0 106h120" stroke="#A0A7B4" strokeWidth="3" strokeDasharray="12 10" />
+    </g>
+  );
+}
+
+function Phone() {
+  return (
+    <g>
+      <rect x="36" y="10" width="48" height="96" rx="9" fill={INK} />
+      <rect x="40" y="18" width="40" height="76" rx="4" fill="#EAF4FC" />
+      <g className="vp-bob">
+        <rect x="44" y="26" width="28" height="10" rx="5" fill="#5B9DF5" />
+        <rect x="48" y="42" width="28" height="10" rx="5" fill="#5DBB63" />
+        <path className="vp-beat" d="M60 78c-8-6-12-10-11-14 1-4 7-5 11 0 4-5 10-4 11 0 1 4-3 8-11 14z" fill="#F47C8A" />
+      </g>
+    </g>
+  );
+}
+
+function Bank() {
+  return (
+    <g>
+      <path d="M10 44L60 16l50 28z" fill="#C9CED6" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <rect x="14" y="44" width="92" height="8" fill="#E7EAEE" stroke={INK} strokeWidth="2.5" />
+      {[22, 44, 66, 88].map((x) => <rect key={x} x={x} y="54" width="10" height="40" fill="#F4F1EA" stroke={INK} strokeWidth="2.5" />)}
+      <rect x="10" y="94" width="100" height="12" fill="#E7EAEE" stroke={INK} strokeWidth="2.5" />
+      <g className="vp-flip"><circle cx="60" cy="32" r="8" fill="#FFD84D" stroke="#C9921A" strokeWidth="2" /></g>
+    </g>
+  );
+}
+
+function Moneybag() {
+  return (
+    <g className="vp-wobble">
+      <path d="M44 30c-26 16-34 40-28 58 4 14 18 20 44 20s40-6 44-20c6-18-2-42-28-58z" fill="#D9B26B" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <path d="M44 30l-6-14c8 4 14 4 22 0 8 4 14 4 22 0l-6 14z" fill="#C9A05A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <path d="M42 30h36" stroke="#8B5A33" strokeWidth="4" strokeLinecap="round" />
+      <text x="60" y="84" textAnchor="middle" fontSize="34" fontWeight="900" fill="#7A5A1A">£</text>
+    </g>
+  );
+}
+
+function Megaphone() {
+  return (
+    <g>
+      <path d="M22 52h14l46-26v68L36 68H22z" fill="#F47C8A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      <path d="M30 68l6 24h10l-4-24" fill="#E5E7EB" stroke={INK} strokeWidth="2.5" strokeLinejoin="round" />
+      {[0, 1, 2].map((i) => <path key={i} className="vp-spark" style={{ animationDelay: `${i * 0.3}s` }} d={`M${92 + i * 8} ${40 - i * 4}q8 20 0 40`} stroke="#F2A93B" strokeWidth="4" fill="none" strokeLinecap="round" />)}
+    </g>
+  );
+}
+
+function Shield() {
+  return (
+    <g className="vp-beat">
+      <path d="M60 12l40 14v30c0 26-18 44-40 52-22-8-40-26-40-52V26z" fill="#5B9DF5" stroke={INK} strokeWidth="3.5" strokeLinejoin="round" />
+      <path d="M42 60l12 12 24-26" stroke="#fff" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+function Calendar() {
+  return (
+    <g>
+      <rect x="14" y="22" width="92" height="84" rx="8" fill="#fff" stroke={INK} strokeWidth="3" />
+      <path d="M14 30a8 8 0 0 1 8-8h76a8 8 0 0 1 8 8v12H14z" fill="#E5484D" stroke={INK} strokeWidth="3" />
+      {[34, 86].map((x) => <rect key={x} x={x - 3} y="12" width="6" height="18" rx="3" fill={INK} />)}
+      {Array.from({ length: 9 }, (_, i) => <rect key={i} x={26 + (i % 3) * 26} y={52 + Math.floor(i / 3) * 16} width="16" height="10" rx="2" fill="#E7EAEE" />)}
+      <circle className="vp-spark" cx="60" cy="73" r="10" fill="none" stroke="#2E9E5B" strokeWidth="3.5" />
+    </g>
+  );
+}
+
 export const PROPS = {
   sun: { draw: Sun, words: /\bsun|sunlight|light energy|solar|daylight/ },
   plant: { draw: Plant, words: /plant|photosynth|leaf|leaves|chlorophyll|chloroplast|flower|crop|seed|root|stomata|xylem|phloem/ },
@@ -391,6 +676,28 @@ export const PROPS = {
   fire: { draw: Fire, words: /fire|burn|combustion|flame/ },
   wave: { draw: Wave, words: /\bwaves?\b|sound|frequency|vibrat|signal/ },
   bacteria: { draw: Bacteria, words: /bacteri|virus|microbe|germ|disease|infection|pathogen/ },
+  person: { draw: Person, words: /\bperson\b|someone|individual|owner|entrepreneur|manager|consumer|customer|citizen|leader|king|queen/ },
+  people: { draw: People, words: /\bpeople\b|population|society|community|team|staff|employees|workforce|stakeholder|crowd|public/ },
+  children: { draw: Children, words: /child|children|kids|pupils|students|families|family/ },
+  worker: { draw: Worker, words: /worker|labour|labor|employee|\bjobs?\b|wage|salary|employ/ },
+  handshake: { draw: Handshake, words: /loyal|trust|partner|deal|agree|relationship|reputation|cooperat|negotiat|merger|trade agreement/ },
+  shop: { draw: Shop, words: /\bshops?\b|store|retail|business|firm|company|sell|seller|restaurant|cafe|brand/ },
+  factory: { draw: Factory, words: /factory|production|produce|manufactur|industr|output|pollut/ },
+  house: { draw: House, words: /house|home|household|housing|rent|living/ },
+  school: { draw: School, words: /school|education|teacher|lesson|classroom|university/ },
+  food: { draw: Food, words: /food|lunch|meal|\beat|diet|nutrition|hunger|farm/ },
+  chartUp: { draw: ChartUp, words: /\bgrow|growth|increase|\brise|rising|sales|boost|\bgains?\b/ },
+  chartDown: { draw: ChartDown, words: /\bfall|falling|decrease|decline|loss|drop|recession|\bcuts?\b/ },
+  target: { draw: Target, words: /\baims?\b|goal|objective|target|purpose|mission/ },
+  star: { draw: Star, words: /quality|best|success|reputation|famous|rating|review/ },
+  scales: { draw: Scales, words: /balance|fair|law|justice|equal|weigh|compare|trade-off|court/ },
+  truck: { draw: Truck, words: /transport|deliver|supply chain|shipping|distribut|export|import|travel/ },
+  phone: { draw: Phone, words: /phone|social media|online|internet|app\b|digital|technology|advert/ },
+  bank: { draw: Bank, words: /\bbank|loan|interest rate|finance|invest|government/ },
+  moneybag: { draw: Moneybag, words: /revenue|income|savings|budget|capital|funds|wealth/ },
+  megaphone: { draw: Megaphone, words: /marketing|advertis|promot|campaign|announce|protest|speech/ },
+  shield: { draw: Shield, words: /protect|safety|security|insurance|defen|survival|risk/ },
+  calendar: { draw: Calendar, words: /year|month|week|date|deadline|schedule|long-term|short-term/ },
 };
 export const PROP_KINDS = Object.keys(PROPS);
 
