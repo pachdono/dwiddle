@@ -542,6 +542,14 @@ async function part(req, res, mode, notes) {
           })
           .filter(Boolean),
       }))
+      // A picture or graph stays only if it is about what that topic's own
+      // notes say: its words appear in the topic name or the text beside it.
+      .map((sec) => {
+        const stem = (t) => String(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3).map((w) => w.slice(0, 5));
+        const text = new Set(stem([sec.topic, ...sec.blocks.flatMap((b) => (b.list ? b.list : [b.h, b.p, b.term, b.def, b.eg, b.watch])).filter(Boolean)].join(" ")));
+        const about = (label) => stem(label).some((w) => text.has(w));
+        return { ...sec, blocks: sec.blocks.filter((b) => (b.pic ? about(b.pic) : b.sketch ? about(`${b.sketch.title || ""} ${b.sketch.x || ""} ${b.sketch.y || ""}`) : true)) };
+      })
       .filter((sec) => sec.blocks.length);
     if (!sections.length) return userError(res, 502, "The notes did not come back complete. Try again.");
     return res.status(200).json({ sections });
