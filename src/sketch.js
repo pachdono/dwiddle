@@ -18,14 +18,16 @@ export function cleanSketch(s) {
     return { pts, label: short(l.label, 28), smooth: l.smooth === true, dashed: l.dashed === true };
   }).filter(Boolean);
   if (!lines.length) return null;
-  return { title: short(s.title, 40), x: short(s.x, 28), y: short(s.y, 28), lines };
+  const dots = (Array.isArray(s.dots) ? s.dots : []).slice(0, 6)
+    .map((d) => (Array.isArray(d?.at) && Number.isFinite(Number(d.at[0])) && Number.isFinite(Number(d.at[1])) ? { at: [Number(d.at[0]), Number(d.at[1])], label: short(d.label, 12) } : null)).filter(Boolean);
+  return { title: short(s.title, 40), x: short(s.x, 28), y: short(s.y, 28), lines, dots };
 }
 
 // Where everything goes, in a 300 by 220 box. Axes start at zero when the
 // data does, so a straight line from the origin looks like one.
 export function layoutSketch(s) {
   const L = 46, R = 284, T = 22, B = 176;
-  const all = s.lines.flatMap((l) => l.pts);
+  const all = [...s.lines.flatMap((l) => l.pts), ...(s.dots || []).map((d) => d.at)];
   const lo = (i) => Math.min(0, ...all.map((p) => p[i]));
   const hi = (i) => Math.max(...all.map((p) => p[i]));
   const x0 = lo(0), y0 = lo(1);

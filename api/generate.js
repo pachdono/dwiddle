@@ -170,7 +170,7 @@ const RICH_RULES = `Tables, diagrams and pictures, only where they genuinely hel
 - "table" when the source compares two or more things on the same points (for example mitosis and meiosis, or types of market structure). Every row the same length as "head". Short cells, marks allowed. Never a table of one row or one column.
 - "flow" for a process, sequence, cycle or chain of cause and effect with 3 to 7 steps: each step a short phrase, in order, with "cycle" true when the last step leads back to the first. Use it instead of a numbered list for these.
 - "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
-- "sketch" for a graph the notes talk about (distance-time, velocity-time, supply and demand, a growth curve, a titration curve): a hand drawn graph with "x" and "y" axis labels including units, and 1 to 3 "lines", each a few "pts" as [x, y] numbers that really show what the notes say (a straight line for constant speed, flat for stopped, a curve with "smooth": true for changing speed), with a short "label" such as "stopped" or "steady speed". Use it instead of "pic" for any graph or chart. At most one per topic, placed where it is discussed. Never put a graph, chart, axis or formula in "pic".
+- "sketch" whenever the topic has a standard graph, even if the source never draws it: if the topic is the production possibility curve there must be a PPC, supply and demand gets the S and D curves crossing, distance-time and velocity-time get theirs, and the same for AD/AS, costs and revenue, Lorenz curve, growth and titration curves. It is a hand drawn graph with "x" and "y" axis labels including units, and 1 to 3 "lines", each a few "pts" as [x, y] numbers that really show what the notes say (a straight line for constant speed, flat for stopped, a curve with "smooth": true for changing speed), with a short "label" such as "stopped" or "steady speed". Optional "dots": [{ "at": [x, y], "label": "E" }] mark points such as an equilibrium. Examples: a PPC is one smooth concave line, pts [[0,10],[3,9],[6,7],[8,4],[9,0]] with x "Good B", y "Good A" and dots on and inside it; supply and demand is a rising line labelled "S" and a falling line labelled "D" crossing at a dot "E", with x "Quantity" and y "Price". Use it instead of "pic" for any graph or chart. At most one per topic, placed where it is discussed. Never put a graph, chart, axis or formula in "pic".
 - These add to the notes; the facts in them still come only from the source.
 `;
 // Compact, note form writing with hard words marked, for staff and testers;
@@ -542,14 +542,6 @@ async function part(req, res, mode, notes) {
           })
           .filter(Boolean),
       }))
-      // A picture or graph stays only if it is about what that topic's own
-      // notes say: its words appear in the topic name or the text beside it.
-      .map((sec) => {
-        const stem = (t) => String(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3).map((w) => w.slice(0, 5));
-        const text = new Set(stem([sec.topic, ...sec.blocks.flatMap((b) => (b.list ? b.list : [b.h, b.p, b.term, b.def, b.eg, b.watch])).filter(Boolean)].join(" ")));
-        const about = (label) => stem(label).some((w) => text.has(w));
-        return { ...sec, blocks: sec.blocks.filter((b) => (b.pic ? about(b.pic) : b.sketch ? about(`${b.sketch.title || ""} ${b.sketch.x || ""} ${b.sketch.y || ""}`) : true)) };
-      })
       .filter((sec) => sec.blocks.length);
     if (!sections.length) return userError(res, 502, "The notes did not come back complete. Try again.");
     return res.status(200).json({ sections });

@@ -26,6 +26,12 @@ export function Sketch({ spec }) {
             </g>
           );
         })}
+        {(s.dots || []).map((d, i) => (
+          <g key={"d" + i}>
+            <circle cx={px(d.at[0])} cy={py(d.at[1])} r="4.5" fill="currentColor" />
+            {d.label && <text x={px(d.at[0]) + 8} y={py(d.at[1]) - 7} fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{d.label}</text>}
+          </g>
+        ))}
         {s.x && <text x={(L + R) / 2 + 20} y={B + 24} textAnchor="middle" fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{s.x}</text>}
         {s.y && <text transform={`translate(14 ${(T + B) / 2}) rotate(-90)`} textAnchor="middle" fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{s.y}</text>}
       </svg>
