@@ -11,7 +11,10 @@ import { scheme, mix } from "./custom.js";
 export const LOOK_KEY = "dwiddle-look";
 
 const SERIF = 'Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif';
-const ROUNDED = '"SF Pro Rounded", ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif';
+// No web font is named here: the notebook loads its fonts (Nunito among them)
+// for itself, and a name shared with this list made the whole app switch to
+// whichever notebook font had been opened.
+const ROUNDED = '"SF Pro Rounded", ui-rounded, "Segoe UI", system-ui, sans-serif';
 
 // grad: the page, top to bottom. card: what panels sit on. The rest seed the
 // shades in between.

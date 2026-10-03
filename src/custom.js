@@ -74,7 +74,7 @@ export const PALETTES = [
 
 export const FONTS = [
   { id: "system", name: "Default", stack: null },
-  { id: "rounded", name: "Rounded", stack: '"SF Pro Rounded", ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif' },
+  { id: "rounded", name: "Rounded", stack: '"SF Pro Rounded", ui-rounded, "Segoe UI", system-ui, sans-serif' },
   { id: "serif", name: "Serif", stack: 'Georgia, "Iowan Old Style", "Times New Roman", serif' },
   { id: "mono", name: "Mono", stack: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace' },
 ];

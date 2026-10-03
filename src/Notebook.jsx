@@ -483,9 +483,12 @@ function FontPop({ current, custom, onPick, onImport, onClose }) {
 // Wikipedia search snippets arrive as HTML. Shown as plain text, never as
 // markup, so nothing in a snippet can run on the page.
 
-// Imported fonts are named "custom:Their Name".
+// Imported fonts are named "custom:Their Name". They are loaded under a
+// notebook only family name, so a file called Inter or Arial cannot replace the
+// font the rest of the app is written in.
+const NB_FACE = "Notebook ";
 const fontOf = (id) => (String(id).startsWith("custom:")
-  ? { id, name: id.slice(7), css: `"${id.slice(7)}", Inter, sans-serif`, scale: 1 }
+  ? { id, name: id.slice(7), css: `"${NB_FACE}${id.slice(7)}", Inter, sans-serif`, scale: 1 }
   : FONTS.find((f) => f.id === id) || FONTS[0]);
 
 // Handwriting drawn letter by letter, each sitting a little differently,
@@ -2664,7 +2667,7 @@ function Editor({ id, go, onClose, early = false, access }) {
   const fontInput = useRef(null);
   useEffect(() => {
     listFonts().then(async (fonts) => {
-      for (const f of fonts) { try { document.fonts.add(await new FontFace(f.name, f.data).load()); } catch { /* a broken font file */ } }
+      for (const f of fonts) { try { document.fonts.add(await new FontFace(NB_FACE + f.name, f.data).load()); } catch { /* a broken font file */ } }
       setCustomFonts(fonts.map((f) => f.name));
     }).catch(() => {});
   }, []);
@@ -2672,7 +2675,7 @@ function Editor({ id, go, onClose, early = false, access }) {
     const name = file.name.replace(/\.(ttf|otf|woff2?)$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 40) || "My font";
     try {
       const data = await file.arrayBuffer();
-      document.fonts.add(await new FontFace(name, data).load());
+      document.fonts.add(await new FontFace(NB_FACE + name, data).load());
       await putFont({ name, data });
       setCustomFonts((c) => [...new Set([...c, name])]);
       setFont("custom:" + name);
