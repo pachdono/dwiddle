@@ -689,7 +689,8 @@ export default function App() {
   // What Dwiddle's chat is allowed to do for the student. Each handler is a
   // plain app action; agent.js checks every request before calling one.
   const agentNow = useRef({});
-  agentNow.current = { page, theme, look, made };
+  // What is on screen is what Dwiddle sees and edits: the focused item.
+  agentNow.current = { page, theme, look, made: focus ? viewOf(made, focus) : made };
   useEffect(() => {
     setAgentHandlers({
       state: () => agentNow.current,
@@ -715,8 +716,8 @@ export default function App() {
           const sc = name.filter((w) => want.has(w)).length * 3 + [...want].filter((w) => body.has(w)).length * 0.2;
           if (sc > score) { best = t.name; score = sc; }
         }
-        // Nothing matched: the first topic that has notes, rather than nowhere.
-        return best || topics.find((t) => cur.notes?.[t.name]?.length)?.name || topics[0]?.name || null;
+        // Nothing matched: the last topic on screen that has notes, rather than nowhere.
+        return best || [...topics].reverse().find((t) => cur.notes?.[t.name]?.length)?.name || topics.at(-1)?.name || null;
       },
       // Returns the topic's name when the change was made.
       editNotes: ({ op, topic, at, block }) => {
