@@ -112,14 +112,7 @@ Layouts, for a scene with no object to draw (use one INSTEAD of props or a figur
 - { "type": "formula", "expr": "F = m × a", "parts": [{ "sym": "F", "means": "force in newtons", "at": 0 }] }: a formula and what each letter means.
 "at" is the line on which each part appears.
 
-What to show, by subject. Every scene needs a visual that carries meaning, never a decoration:
-- Maths: a figure (the diagram or a graph) and the working on the board, step by step. No props.
-- Science: a drawn diagram, or props that really are the thing (particle states, "diffusion", "droplet", "cube", "molecule", "beaker", "spring", "lightning", "car", "magnet", "battery", "bulb", "heart"...) with links for what flows; "formula" for equations; "steps" or "cycle" for processes.
-- Economics and business: props for the people and things ("shop", "factory", "worker", "coin", "tag", "cart", "bank", "chartUp") with links for flows; a graph figure for supply and demand, PPC, costs and the like; "compare" for two options or sides; "steps" for a process.
-- English language and literature: "quote" with the exact line from the source and its techniques marked; "steps" for how to build an answer or paragraph; "compare" for two characters, texts or viewpoints. Props only now and then ("quill", "speech", "quotes").
-- History: "timeline" for events in order; "compare" for causes and consequences or two sides; props where a thing is named ("castle", "scroll", "crown", "ship").
-- Geography: props ("mountain", "volcano", "pin", "earth", "cloud", "water") for the places and features; "cycle" for the water cycle and the like; "steps" for how something forms.
-- Any other subject: whichever of steps, cycle, timeline, compare, quote or formula fits what the scene says. Vary the visual from scene to scene.
+The subject is worked out for you from what the student entered, and its own rules for what to show are given at the end of this message. Follow them: every scene needs a visual that carries meaning, never a decoration, and the visual should change from scene to scene.
 
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
 - Every scene has something to look at, and it matches what that scene is saying. In maths it is the question's diagram or a graph of what is being worked on. Anything else gets a simple drawn diagram of the structure or process the scene explains, or a picture of the real thing the scene names: talking about plants, a plant; about the heart, a heart; about a volcano, a volcano. Only a scene of pure algebra with nothing to picture sets "figure" to null.
@@ -154,6 +147,50 @@ Most of all:
 - A question with no diagram but a clear setup (a triangle with given sides, a graph of a function, a circle and a tangent, a ladder against a wall) is drawn the way a textbook would draw it.
 - Unknowns keep their letters as labels (x, r, θ). To place them truly to scale use the worked answer you are given in "values", but never write the answer on the figure.
 - Label with "callout" or a segment's "label" using the question's own text, like "12 cm", "35°", "x".`;
+
+// The subject is worked out from what the student entered, with no setting to
+// choose, and decides what the video shows: the rules the model is given, the
+// drawings it may use, and what a scene with no visual falls back to.
+const set = (...k) => new Set(k);
+export const SUBJECTS = [
+  { id: "maths", label: "Maths", allow: set(),
+    test: /\b(equation|algebra|geometry|trigonometr\w*|calculus|simplif\w*|factori[sz]\w*|expand\w*|solve|gradient|quadratic|polynomial|probability|statistic\w*|median|vector|matrix|theorem|perimeter|area|volume|fraction|ratio|indices|surds?|sequence|angle|hypotenuse|integrat\w*|differentiat\w*|simultaneous|inequalit\w*)\b|[x-z][²³^]|\d\s*[+×÷=]\s*\d/gi,
+    guide: "Maths. Use a figure (the question's diagram, or a graph of what is being worked on) with the working on the board, one step per line, each with its \"via\". No props. A rule or formula that is being stated uses the \"formula\" layout; a method with named stages uses \"steps\"." },
+  { id: "biology", label: "Biology", deny: set("shop", "handshake", "moneybag", "bank", "megaphone", "tag", "cart", "chartUp", "chartDown", "scales", "castle", "crown", "scroll", "ship", "quill", "speech", "quotes", "document", "laptop"),
+    test: /\b(cells?|organ\w*|enzymes?|photosynth\w*|respiration|dna|genes?|genetic\w*|evolution|ecosystems?|bacteri\w*|osmosis|diffusion|blood|digest\w*|hormones?|nervous|mitosis|meiosis|chromosom\w*|organism|species|habitat|nutrient\w*|membrane|nucleus|tissue|antibod\w*)\b/gi,
+    guide: "Biology. Show the real thing: a drawn diagram or the matching drawings (\"cell\", \"plant\", \"heart\", \"lungs\", \"brain\", \"dna\", \"bacteria\", \"eye\", \"bone\", \"diffusion\", \"droplet\", \"molecule\", \"beaker\") with links for what moves in and out (water, oxygen, glucose, ions). Particles or diffusion: the \"diffusion\" drawing. A process in stages: \"steps\" or \"cycle\". Two things contrasted (mitosis and meiosis, plant and animal cell): \"compare\"." },
+  { id: "chemistry", label: "Chemistry", deny: set("shop", "handshake", "moneybag", "bank", "megaphone", "tag", "cart", "chartUp", "chartDown", "scales", "castle", "crown", "scroll", "ship", "quill", "speech", "quotes", "document", "laptop"),
+    test: /\b(atoms?|molecul\w*|reactions?|acids?|alkali\w*|bonds?|bonding|electrons?|periodic table|compounds?|moles?|ionic|covalent|oxidation|reduction|electrolysis|isotopes?|polymers?|titration|distillation|catalyst\w*|exothermic|endothermic|reactivity|solution)\b/gi,
+    guide: "Chemistry. Particle ideas use the \"solid\", \"liquid\", \"gas\", \"atom\", \"molecule\", \"beaker\", \"flask\", \"diffusion\" drawings (side by side to compare states). A reaction is \"steps\" with the word equation, or a \"formula\" layout for an equation and what each part is. Trends, tests and methods are \"steps\"; two substances or types of bonding contrasted are \"compare\"." },
+  { id: "physics", label: "Physics", deny: set("shop", "handshake", "moneybag", "bank", "megaphone", "tag", "cart", "chartUp", "chartDown", "scales", "castle", "crown", "scroll", "ship", "quill", "speech", "quotes", "document"),
+    test: /\b(forces?|energy|velocity|speed|acceleration|current|voltage|circuits?|waves?|momentum|pressure|radiation|magnet\w*|gravity|resistance|frequency|wavelength|newton|joules?|watts?|density|friction|work done|power|nuclear|half.life)\b/gi,
+    guide: "Physics. A law or equation is the \"formula\" layout with what every letter means. Forces, motion and circuits use drawings that are the thing (\"car\", \"spring\", \"magnet\", \"battery\", \"bulb\", \"lightning\", \"wave\", \"thermometer\") with links for what flows or acts; a graph (distance-time, velocity-time) is a figure. Methods and processes are \"steps\"." },
+  { id: "business", label: "Economics and business", allow: set("person", "people", "worker", "shop", "factory", "coin", "moneybag", "tag", "cart", "bank", "chartUp", "chartDown", "scales", "truck", "phone", "laptop", "handshake", "megaphone", "house", "school", "food", "target", "star", "shield", "calendar", "clock", "document", "gear", "earth", "lock", "magnifier", "children"),
+    test: /\b(demand|supply|prices?|inflation|gdp|elasticity|elastic|markets?|monopol\w*|opportunity cost|fiscal|monetary|unemployment|econom\w*|tax\w*|subsid\w*|externalit\w*|ppc|ppf|trade|business|firms?|stakeholders?|marketing|profit\w*|revenue|cash flow|swot|entrepreneur\w*|human resources?|operations|break.even|objectives|motivation|leadership|competitive|competition|consumers?|producers?|wages?|costs?)\b/gi,
+    guide: "Economics and business. Show the people and things involved with the matching drawings (\"shop\", \"factory\", \"worker\", \"person\", \"coin\", \"tag\", \"cart\", \"bank\", \"chartUp\", \"chartDown\", \"megaphone\", \"handshake\") and links for what flows between them (goods, money, wages, advertising). Supply and demand, PPC, costs, revenue, AD/AS and the like are a graph figure. Two options, two market structures, advantages and disadvantages: \"compare\". A method, a decision process or cause and effect chain: \"steps\". Never a science drawing." },
+  { id: "english", label: "English", allow: set("quill", "speech", "quotes", "book", "scroll", "pin", "people", "person", "children", "star", "target", "handshake", "megaphone", "heart", "brain", "eye", "crown", "castle", "ship", "fire", "sun", "cloud", "tree"),
+    test: /\b(poems?|poet\w*|novels?|plays?|shakespeare|metaphors?|simile|imagery|themes?|characters?|narrator|tone|language analysis|literary|essay|paragraph|punctuation|grammar|persuasi\w*|rhetoric\w*|alliteration|stanza|quotations?|author|writer|sentence|verb|noun|adjective|adverb|conjunction|inference|connotation|structure|dialogue|protagonist|soliloquy|sonnet)\b/gi,
+    guide: "English. Almost every scene is a layout. Taking a line of writing apart is \"quote\": the exact words from the source, with the technique or idea named on each marked part (metaphor, repetition, tone, effect). Building an answer, a paragraph or an essay is \"steps\" (for example point, evidence, explain). Two characters, texts, viewpoints or writers' methods are \"compare\". A grammar rule with an example uses \"quote\" or \"steps\". Use a drawing only now and then, for something named in the text, and never a science drawing." },
+  { id: "history", label: "History", allow: set("castle", "scroll", "crown", "ship", "pin", "people", "person", "worker", "coin", "moneybag", "handshake", "shield", "fire", "earth", "book", "bank", "factory", "truck", "calendar", "clock", "target", "megaphone", "school", "house", "children", "star", "scales", "compass", "document"),
+    test: /\b(wars?|revolution\w*|empires?|treat(y|ies)|dynast\w*|medieval|century|centuries|king|queen|parliament|coloni\w*|nazi\w*|cold war|industrial revolution|civil rights|battles?|reign|monarch\w*|peasants?|feudal\w*|renaissance|reformation|armistice|suffrage|conquest|invasion|crusades?|tudors?|stuarts?|victorian)\b|\b1[0-9]{3}\b/gi,
+    guide: "History. Events in order are a \"timeline\" with each date or period. Causes, consequences, two sides or two sources are \"compare\". How something happened in stages (how a law passed, how an empire grew) is \"steps\"; a repeating pattern is \"cycle\". Use the matching drawing (\"castle\", \"crown\", \"scroll\", \"ship\", \"pin\" for a place, \"people\") where a scene is about that thing. Never a science drawing." },
+  { id: "geography", label: "Geography", allow: set("mountain", "volcano", "pin", "earth", "cloud", "water", "droplet", "sun", "tree", "plant", "house", "people", "factory", "truck", "ship", "compass", "fire", "wave", "thermometer", "calendar", "clock", "food", "person", "worker", "chartUp", "chartDown", "coin", "school", "bank", "children"),
+    test: /\b(rivers?|erosion|glaciers?|plates?|earthquakes?|volcan\w*|climate|population|migration|urban\w*|rainforests?|coast\w*|weather|biomes?|settlements?|tectonic|maps?|deposition|flood\w*|sustainab\w*|deforestation|globali[sz]ation|development|rural|continents?|latitude|longitude|ecosystems?)\b/gi,
+    guide: "Geography. Places and features use the matching drawings (\"mountain\", \"volcano\", \"pin\", \"earth\", \"cloud\", \"water\", \"droplet\", \"sun\", \"tree\", \"house\", \"factory\") with links for what moves (water, people, goods). A repeating system (the water cycle, the rock cycle) is \"cycle\"; how a landform or hazard happens in stages is \"steps\"; two places, causes against effects, or advantages and disadvantages are \"compare\"; changes over time are \"timeline\". Never a business drawing." },
+];
+
+// The subject whose words appear most, if any appear enough to be sure.
+export function detectSubject(...texts) {
+  const text = texts.join(" ").slice(0, 8000);
+  let best = null, top = 2;
+  for (const sub of SUBJECTS) {
+    const n = (text.match(sub.test) || []).length;
+    if (n > top) { best = sub; top = n; }
+  }
+  return best;
+}
+const subjectBlock = (sub) => (sub ? `\n\nThe subject, worked out from what the student entered: ${sub.label}. Rules for what this video shows:\n- ${sub.guide}\n- Use ONLY what the source says for every layout, label and example.` : "\n\nThe subject is not clear, so choose for each scene whichever fits what it says best: a figure, drawings with links, or a layout (steps, cycle, timeline, compare, quote, formula). Vary it from scene to scene.");
+const allowedProp = (sub, kind) => !sub || (sub.allow ? sub.allow.has(kind) : !(sub.deny && sub.deny.has(kind)));
 
 const FROM_SOLUTION = `You turn a worked solution into a short narrated explainer video that walks a student through it step by step, like a tutor at a whiteboard.
 
@@ -218,7 +255,7 @@ function cleanLayout(l, last) {
 
 // Never trust the shape. Anything the player could not draw is dropped here,
 // so a bad part costs that part rather than the whole video.
-function cleanScenes(data, figures) {
+export function cleanScenes(data, figures, subject = null) {
   const scenes = (Array.isArray(data?.scenes) ? data.scenes : []).map((sc) => {
     const lines = (Array.isArray(sc?.lines) ? sc.lines : []).map((l) => short(l, 400)).filter(Boolean).slice(0, 5);
     if (!lines.length) return null;
@@ -246,12 +283,20 @@ function cleanScenes(data, figures) {
     const fig = typeof sc.figure === "string" ? figures[sc.figure] : null;
     const said = [sc.heading, ...lines].join(" ").toLowerCase();
     const props = (Array.isArray(sc.props) ? sc.props : [])
-      .filter((p) => p && PROP_KINDS.includes(p.kind) && (!SCIENCE[p.kind] || SCIENCE[p.kind].test(said))).slice(0, 4)
+      .filter((p) => p && PROP_KINDS.includes(p.kind) && allowedProp(subject, p.kind) && (!SCIENCE[p.kind] || SCIENCE[p.kind].test(said))).slice(0, 4)
       .map((p) => ({ kind: p.kind, label: short(p.label, 24), at: at(p.at, last) }));
     const links = (Array.isArray(sc.links) ? sc.links : [])
       .filter((l) => l && Number.isInteger(l.from) && Number.isInteger(l.to) && l.from !== l.to && props[l.from] && props[l.to]).slice(0, 5)
       .map((l) => ({ from: l.from, to: l.to, label: short(l.label, 22), at: Math.max(at(l.at, last), props[l.from].at, props[l.to].at) }));
-    const layout = cleanLayout(sc.layout, last);
+    let layout = cleanLayout(sc.layout, last);
+    // A scene left with nothing to look at (no drawing, picture or layout) is
+    // given its board as steps, so it is never a wall of words, except in maths
+    // where the working is the visual.
+    const bare = !layout && !props.length && !sceneDiagram(fig, sc.show, last);
+    if (bare && subject?.id !== "maths") {
+      const pts = board.filter((b) => ["text", "label", "answer"].includes(b.kind));
+      if (pts.length >= 2) layout = { type: "steps", items: pts.slice(0, 6).map((b) => ({ head: "", text: b.text, at: b.at })) };
+    }
     return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last), ...(props.length ? { props, links } : {}), ...(layout ? { layout } : {}) };
   }).filter(Boolean).slice(0, 8);
   if (scenes.length < 2) return null;
@@ -336,7 +381,7 @@ function keepQuestionFigure(original, drawn) {
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 6 })) return;
   const body = req.body || {};
-  let system, user;
+  let system, user, subject = null;
 
   if (body.mode === "figure") {
     try {
@@ -364,7 +409,8 @@ export default async function handler(req, res) {
       s.idea ? `The idea it tests: ${short(s.idea, 600)}` : "",
     ].filter(Boolean).join("\n\n");
     if (text.length < 60) return userError(res, 400, "There is no worked solution to explain yet.");
-    system = FROM_SOLUTION;
+    subject = detectSubject(s.asked || body.problem || "", s.idea || "") || SUBJECTS[0];
+    system = FROM_SOLUTION + subjectBlock(subject);
     user = text.slice(0, MAX_INPUT - 4000);
     if (given) {
       user += `\n\nThe question's own diagram, already drawn to scale, is this figure. Include it in "figures" exactly as it is, with id "main", and use "main" in EVERY scene. Never move, resize or relabel its shapes. To show a step, add new shapes to it (construction lines, a marked angle, a highlighted length, new points) with new ids, and reveal them with "show". Pictures or other figures are not needed for this question.\n${JSON.stringify(given).slice(0, 4000)}`;
@@ -373,7 +419,8 @@ export default async function handler(req, res) {
     const topic = short(body.topic, 160);
     const notes = String(body.notes || "").trim();
     if (!topic || notes.length < 80) return userError(res, 400, "This topic has no notes to make a video from yet.");
-    system = FROM_NOTES;
+    subject = detectSubject(topic, notes);
+    system = FROM_NOTES + subjectBlock(subject);
     user = `The topic: ${topic}\n\nThe student's notes on it:\n\n${notes.slice(0, MAX_INPUT)}`;
   }
 
@@ -399,7 +446,7 @@ export default async function handler(req, res) {
       }
     }
     const figures = await checkedFigures(list);
-    const video = cleanScenes(data, figures);
+    const video = cleanScenes(data, figures, subject);
     if (video && body.notes) keepToNotes(video, String(body.notes));
     if (!video) return userError(res, 502, "The video did not come back complete. Try again.");
     res.status(200).json(video);
