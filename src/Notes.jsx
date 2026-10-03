@@ -15,6 +15,7 @@ import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen, Portal }
 import { writeNotes } from "./ai.js";
 import { sourcesFor } from "./lessons.js";
 import { usePageContext } from "./Chat.jsx";
+import { Sketch } from "./Sketch.jsx";
 import { MindMap } from "./MindMap.jsx";
 import { flatMarks, parseMarks, blockPlain, blockTexts } from "./marks.js";
 import { Podcast } from "./Podcast.jsx";
@@ -264,7 +265,7 @@ function Topic({ blocks, on, open, early }) {
   const glossary = useMemo(() => glossaryOf(blocks), [blocks]);
   const value = useMemo(() => ({ glossary, open, early }), [glossary, open, early]);
   // Tables, diagrams and pictures are for staff and testers for now.
-  const shown = early ? blocks : blocks.filter((b) => !b.table && !b.flow && !b.pic);
+  const shown = early ? blocks : blocks.filter((b) => !b.table && !b.flow && !b.pic && !b.sketch);
   return <Words.Provider value={value}>{shown.map((b, n) => <Block key={n} b={b} on={on} />)}</Words.Provider>;
 }
 
@@ -323,6 +324,7 @@ function Block({ b, on }) {
     );
   }
   if (b.pic) return <Picture query={b.pic} />;
+  if (b.sketch) return <Sketch spec={b.sketch} />;
   if (b.watch) {
     return (
       <div className="nt-aside watch">

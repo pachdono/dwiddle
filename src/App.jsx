@@ -32,6 +32,7 @@ import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supa
 import { setEarlyAccess, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
+import { setAgentHandlers } from "./agent.js";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
 import { XP, levelOf, announceXp } from "./xp.js";
@@ -684,6 +685,34 @@ export default function App() {
       window.history.pushState(null, "", path);
     }
   };
+
+  // What Dwiddle's chat is allowed to do for the student. Each handler is a
+  // plain app action; agent.js checks every request before calling one.
+  const agentNow = useRef({});
+  agentNow.current = { page, theme, look, made };
+  useEffect(() => {
+    setAgentHandlers({
+      state: () => agentNow.current,
+      go: (p) => go(p),
+      setTheme,
+      setLook,
+      prefill: (text) => { try { sessionStorage.setItem("dwiddle-handoff-notes", text); } catch {} go("upload"); },
+      // Returns the topic's name when the change was made.
+      editNotes: ({ op, topic, at, block }) => {
+        const cur = agentNow.current.made;
+        const name = (cur?.topics || []).map((t) => t.name).find((n) => n.toLowerCase() === topic.toLowerCase());
+        if (!name) return null;
+        const blocks = [...(cur.notes?.[name] || [])];
+        if (op === "insert") blocks.splice(Math.min(at, blocks.length), 0, block);
+        else if (at >= blocks.length) return null;
+        else if (op === "replace") blocks[at] = block;
+        else blocks.splice(at, 1);
+        saveNotes({ [name]: blocks });
+        agentNow.current = { ...agentNow.current, made: { ...cur, notes: { ...cur.notes, [name]: blocks } } };
+        return name;
+      },
+    });
+  });
 
   // The browser back and forward buttons, and the swipe gesture that maps to
   // them, all arrive here. State is rebuilt from the URL rather than tracked

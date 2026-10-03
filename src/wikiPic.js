@@ -5,7 +5,17 @@
 const STOP = new Set(["the", "and", "of", "in", "a", "an", "to", "for", "on", "with", "its", "their", "how", "what", "why", "introduction", "basics", "overview", "part", "chapter", "unit", "topic", "diagram"]);
 const words = (s) => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w));
 
-const CACHE = "dwiddle-pics";
+// Things a photo from an encyclopaedia cannot show: a graph of this topic,
+// a chart, a calculation. Wikipedia has articles that share the words but
+// not the meaning ("distance-time graph" finds "Unit distance graph").
+const NOT_A_PICTURE = /\b(graphs?|charts?|axis|axes|gradient|plot|plotting|equation|formula|calculation|sketch|curve)\b/i;
+// The title says what was asked and nothing more specific: every word of one
+// is in the other. "Unit distance graph" is a different thing from "distance
+// time graph", and "Animal cell" is not "Cell".
+const same = (a, b) => a.every((w) => b.some((g) => g.startsWith(w.slice(0, 5)) || w.startsWith(g.slice(0, 5))));
+const sameThing = (title, want) => { const t = words(title.replace(/\(.*?\)/g, " ")); return t.length > 0 && same(t, want) && same(want, t); };
+
+const CACHE = "dwiddle-pics-v2";
 const cached = () => { try { return JSON.parse(localStorage.getItem(CACHE) || "{}"); } catch { return {}; } };
 function remember(query, pic) {
   try {
@@ -21,14 +31,14 @@ function remember(query, pic) {
 export async function findPicture(query) {
   const key = String(query || "").trim();
   const want = words(key);
-  if (!want.length) return null;
+  if (!want.length || NOT_A_PICTURE.test(key)) return null;
   const known = cached()[key.toLowerCase()];
   if (known !== undefined) return known;
   let pic = null;
   try {
     const q = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(key)}&srlimit=3&format=json&origin=*`).then((r) => r.json());
     for (const hit of q?.query?.search || []) {
-      if (!words(hit.title).some((w) => want.includes(w))) continue;
+      if (!sameThing(hit.title, want)) continue;
       const s = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(hit.title.replace(/ /g, "_"))}`).then((r) => r.json());
       if (s?.type === "disambiguation" || !s?.thumbnail?.source) continue;
       const big = s.originalimage?.width > 900;

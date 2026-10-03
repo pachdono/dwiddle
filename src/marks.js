@@ -39,7 +39,8 @@ export function blockPlain(b) {
     return rows.map((r) => r.map(flatMarks).join(" | ")).join("\n");
   }
   if (b.flow) return (b.flow.title ? flatMarks(b.flow.title) + ": " : "") + (b.flow.steps || []).map(flatMarks).join(" → ") + (b.flow.cycle ? " → (repeats)" : "");
-  if (b.pic) return "";
+  if (b.pic) return `(picture of ${b.pic})`;
+  if (b.sketch) return `(hand drawn graph: ${b.sketch.title || ""} ${b.sketch.y || ""} against ${b.sketch.x || ""})`;
   const v = b.h ?? b.p ?? b.eg ?? b.watch;
   return typeof v === "string" ? flatMarks(v) : "";
 }

@@ -3,6 +3,7 @@
 
 import { tidyQuestion, tidyMath } from "./mathText.js";
 import { levelForAI } from "./level.js";
+import { cleanSketch } from "./sketch.js";
 
 const TRANSIENT = new Set([429, 502, 503, 504]);
 
@@ -118,6 +119,7 @@ const chunk = (list, size) => {
 // Notes blocks carry maths and inline marks. The maths is tidied; the marks
 // are left exactly as they are.
 function tidyBlock(b) {
+  if (b.sketch) return { sketch: cleanSketch(b.sketch) || {} };
   if (b.term) return { term: tidyMath(b.term), def: tidyMath(b.def) };
   if (b.list) return { list: b.list.map(tidyMath) };
   if (b.table) return { table: { head: b.table.head.map(tidyMath), rows: b.table.rows.map((r) => r.map(tidyMath)) } };
@@ -192,6 +194,11 @@ export const explainLikeFour = (context) =>
 
 export const chatWithDwiddle = (context, messages, { mode } = {}) =>
   post("/api/chat", { context, messages, ...(mode ? { mode } : {}) }).then((d) => tidyMath(d.reply));
+
+// Dwiddle as a helper: { reply, actions } where the actions are proposals the
+// app checks (agent.js) before running any of them.
+export const askAgent = (context, state, messages) =>
+  post("/api/chat", { context, state, messages, mode: "agent" }).then((d) => ({ reply: tidyMath(d.reply), actions: Array.isArray(d.actions) ? d.actions : [] }));
 
 // Whether a short input is a request to study something, and if it is unclear,
 // the one or two questions worth asking before writing anything.

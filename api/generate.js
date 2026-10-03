@@ -164,11 +164,13 @@ ${STYLE}`;
 const RICH_SHAPE = `,
         { "table": { "head": ["", "column", "column"], "rows": [["row label", "cell", "cell"]] } },
         { "flow": { "title": "what the steps are", "steps": ["first", "then", "then"], "cycle": false } },
-        { "pic": "the exact title of a Wikipedia article whose picture shows this" }`;
+        { "pic": "the exact title of a Wikipedia article whose picture shows this" },
+        { "sketch": { "title": "Distance and time", "x": "Time (s)", "y": "Distance (m)", "lines": [{ "pts": [[0, 0], [2, 4], [4, 4], [6, 10]], "label": "stopped", "smooth": false }] } }`;
 const RICH_RULES = `Tables, diagrams and pictures, only where they genuinely help:
 - "table" when the source compares two or more things on the same points (for example mitosis and meiosis, or types of market structure). Every row the same length as "head". Short cells, marks allowed. Never a table of one row or one column.
 - "flow" for a process, sequence, cycle or chain of cause and effect with 3 to 7 steps: each step a short phrase, in order, with "cycle" true when the last step leads back to the first. Use it instead of a numbered list for these.
 - "pic" when a labelled diagram or photo would make the idea clearer and a Wikipedia article for exactly that thing exists, such as "Animal cell", "Nephron", "Carbon cycle" or "Supply and demand". At most one per topic, placed where it is discussed, and never for an abstract idea, a person's opinion or anything the article would not show.
+- "sketch" for a graph the notes talk about (distance-time, velocity-time, supply and demand, a growth curve, a titration curve): a hand drawn graph with "x" and "y" axis labels including units, and 1 to 3 "lines", each a few "pts" as [x, y] numbers that really show what the notes say (a straight line for constant speed, flat for stopped, a curve with "smooth": true for changing speed), with a short "label" such as "stopped" or "steady speed". Use it instead of "pic" for any graph or chart. At most one per topic, placed where it is discussed. Never put a graph, chart, axis or formula in "pic".
 - These add to the notes; the facts in them still come only from the source.
 `;
 // Compact, note form writing with hard words marked, for staff and testers;
@@ -518,7 +520,7 @@ async function part(req, res, mode, notes) {
       temperature: 0.2,
     });
     const data = safeParse(text, "sections");
-    const KINDS = ["h", "p", "list", "term", "eg", "watch", ...(req.body?.rich === true ? ["table", "flow", "pic"] : [])];
+    const KINDS = ["h", "p", "list", "term", "eg", "watch", ...(req.body?.rich === true ? ["table", "flow", "pic", "sketch"] : [])];
     const sections = (Array.isArray(data?.sections) ? data.sections : [])
       .filter((sec) => sec && names.includes(String(sec.topic)) && Array.isArray(sec.blocks))
       .map((sec) => ({
@@ -533,7 +535,8 @@ async function part(req, res, mode, notes) {
               const steps = (Array.isArray(b.flow.steps) ? b.flow.steps : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 8);
               return steps.length >= 2 ? { flow: { title: String(b.flow.title || "").slice(0, 120), steps, cycle: b.flow.cycle === true } } : null;
             }
-            if (typeof b.pic === "string") { const q = b.pic.trim().slice(0, 80); return q ? { pic: q } : null; }
+            if (typeof b.pic === "string") { const q = b.pic.trim().slice(0, 80); return q && !/\b(graphs?|charts?|axis|axes|gradient|plot|formula|equation)\b/i.test(q) ? { pic: q } : null; }
+            if (b.sketch && typeof b.sketch === "object") return Array.isArray(b.sketch.lines) && b.sketch.lines.length ? { sketch: b.sketch } : null;
             const kind = KINDS.find((k) => typeof b[k] === "string" && b[k].trim());
             return kind ? { [kind]: String(b[kind]) } : null;
           })

@@ -18,7 +18,10 @@ import { sayAs, stopSpeaking } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckParts, PuddleParts } from "./Duck.jsx";
 import { Icon, Portal } from "./ui.jsx";
-import { chatWithDwiddle } from "./ai.js";
+import { askAgent } from "./ai.js";
+import { appState, runActions } from "./agent.js";
+import { Sketch } from "./Sketch.jsx";
+import { findPicture } from "./wikiPic.js";
 
 /* ---------- reaching the panel from anywhere ---------- */
 
@@ -240,7 +243,7 @@ export function Reply({ text }) {
 
 /* ---------- the panel ---------- */
 
-const STARTERS = ["Explain it more simply", "Give me another example", "I think this is wrong", "Quiz me on this"];
+const STARTERS = ["Explain it more simply", "Give me another example", "I think this is wrong", "Quiz me on this", "Draw me a diagram"];
 
 export function DwiddleChat({ hidden = false }) {
   const [open, setOpen] = useState(false);
@@ -299,9 +302,10 @@ export function DwiddleChat({ hidden = false }) {
     setBusy(true);
     setMood("thinking");
     try {
-      const reply = await chatWithDwiddle(ctx || pageContext, history.map(({ role, content }) => ({ role, content })));
+      const { reply, actions } = await askAgent(ctx || pageContext, appState(), history.map(({ role, content }) => ({ role, content })));
+      const did = actions.length ? await runActions(actions) : [];
       setBusy(false);
-      reveal([...history, { role: "assistant", content: reply, shown: 0 }]);
+      reveal([...history, { role: "assistant", content: reply, shown: 0, did }]);
     } catch (err) {
       setBusy(false);
       setMood("oops");
@@ -362,7 +366,7 @@ export function DwiddleChat({ hidden = false }) {
           <div className="dc-list" ref={list}>
             {msgs.length === 0 && (
               <div className="dc-hello">
-                <p>Hi! I can see what you're working on. Ask me anything about it, or pick one of these:</p>
+                <p>Hi! I can see what you're working on. Ask me anything, or tell me what to do: fix a note, draw a graph, change your theme, start new material.</p>
                 <div className="dc-chips">
                   {STARTERS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
                 </div>
@@ -371,6 +375,7 @@ export function DwiddleChat({ hidden = false }) {
             {msgs.map((m, i) => (
               <div key={i} className={"dc-msg " + (m.role === "user" ? "dc-me" : "dc-bot")}>
                 {m.role === "assistant" ? <Reply text={m.content.slice(0, m.shown ?? m.content.length)} /> : <p>{m.content}</p>}
+                {m.did?.length > 0 && (m.shown ?? m.content.length) >= m.content.length && <Did did={m.did} />}
               </div>
             ))}
             {busy && <div className="dc-msg dc-bot typing"><i /><i /><i /></div>}
@@ -403,6 +408,35 @@ export function DwiddleChat({ hidden = false }) {
         </div>
       )}
     </Portal>
+  );
+}
+
+// What Dwiddle did, as small chips, with any drawing it made.
+function Did({ did }) {
+  return (
+    <>
+      {did.map((d, i) => d.art && (
+        <div key={i} className={"dc-art" + (d.art.svg ? " svg" : "")}>
+          {d.art.sketch && <Sketch spec={d.art.sketch} />}
+          {d.art.svg && <><div dangerouslySetInnerHTML={{ __html: d.art.svg }} />{d.art.caption && <p className="small muted">{d.art.caption}</p>}</>}
+          {d.art.query && <ChatPicture query={d.art.query} />}
+        </div>
+      ))}
+      <div className="dc-did">{did.map((d, i) => <span key={i} className={d.ok ? "" : "no"}>{d.ok ? "Done: " : "Could not: "}{d.text}</span>)}</div>
+    </>
+  );
+}
+
+function ChatPicture({ query }) {
+  const [pic, setPic] = useState(undefined);
+  useEffect(() => { let live = true; findPicture(query).then((p) => { if (live) setPic(p); }).catch(() => { if (live) setPic(null); }); return () => { live = false; }; }, [query]);
+  if (pic === undefined) return <p className="small muted">Looking for a picture...</p>;
+  if (!pic) return <p className="small muted">I could not find a picture that really matches.</p>;
+  return (
+    <figure className="nt-pic">
+      <img src={pic.src} alt={pic.title} referrerPolicy="no-referrer" />
+      <figcaption>{pic.title} · <a href={pic.page} target="_blank" rel="noreferrer">Wikipedia</a></figcaption>
+    </figure>
   );
 }
 
