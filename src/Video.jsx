@@ -17,6 +17,7 @@ import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck, DuckParts, DuckNarrator } from "./Duck.jsx";
 import { PropStage, propsFor, PROPS, STATES, fitProp, mover } from "./VideoProps.jsx";
 import { DuckTalk } from "./Chat.jsx";
+import { Layout } from "./VideoLayouts.jsx";
 
 /* ---------- saved videos ---------- */
 
@@ -795,36 +796,47 @@ function Scene({ scene, line, index = 0, total = 1 }) {
   const drawn = diagram && !diagram.picture;
   // Moving drawings: the ones the scene names, or, where it names none and
   // has no drawn diagram, the things it talks about.
-  const props = useMemo(() => {
-    const named = (scene.props || []).filter((p) => PROPS[p.kind]).map(fitProp);
+  const { props, links } = useMemo(() => {
+    // Each drawing is checked against its name (fitProp); arrows keep joining
+    // the same two things when one is swapped or left out.
+    const map = [], named = [];
+    (scene.props || []).forEach((p, i) => { const f = PROPS[p?.kind] ? fitProp(p) : null; if (f) { map[i] = named.length; named.push(f); } });
+    const arrows = (offset, max) => (scene.links || [])
+      .filter((l) => map[l.from] != null && map[l.to] != null)
+      .map((l) => ({ ...l, from: map[l.from] + offset, to: map[l.to] + offset }))
+      .filter((l) => l.from < max && l.to < max);
     // Particles of a solid, liquid or gas always get the particle drawings:
     // a drawn figure of them was a circle with a few dots, the same for all three.
     const states = propsFor(scene).filter((p) => STATES.includes(p.kind));
-    if (states.length && !named.some((p) => STATES.includes(p.kind))) return [...states, ...named].slice(0, 4);
+    if (states.length && !named.some((p) => STATES.includes(p.kind))) return { props: [...states, ...named].slice(0, 4), links: arrows(states.length, 4) };
     // A scene of working out has its working to look at; guessing a drawing
     // from its words there only finds the wrong one (a heart for "heart
     // muscle cell").
     const working = scene.board.some((b) => ["math", "divide", "move", "answer"].includes(b.kind));
-    return named.length ? named : drawn || working ? [] : propsFor(scene);
+    return named.length ? { props: named, links: arrows(0, 4) } : { props: drawn || working || scene.layout ? [] : propsFor(scene), links: [] };
   }, [scene, drawn]);
   const moving = props.length > 0 && (!(drawn && !scene.props?.length) || props.some((p) => STATES.includes(p.kind)));
   const pic = usePicture(moving ? null : scene.diagram?.picture, scene.diagram?.photo);
   const figure = drawn || !!pic || moving;
+  // No object to draw: the scene's own layout (steps, a comparison, a timeline,
+  // writing taken apart, a cycle or a formula), where it has one.
+  const layout = !figure && scene.layout && scene.layout.type ? scene.layout : null;
   return (
-    <div className={"vd-scene" + (figure ? " with-diagram" : "")}>
+    <div className={"vd-scene" + (figure ? " with-diagram" : "") + (layout ? " with-layout" : "")}>
       <div className="vd-headrow">
         <span className="vd-step">{index + 1}<i>/{total}</i></span>
         <h3 className="vd-heading"><span>{scene.heading}</span></h3>
       </div>
       <div className="vd-body">
         {drawn && !moving && <Diagram d={diagram} line={line} />}
-        {moving && <PropStage props={props} links={scene.links || []} line={line} />}
+        {moving && <PropStage props={props} links={links} line={line} />}
         {pic && (
           <figure className="vd-picture">
             <img src={pic.src} alt={pic.title} referrerPolicy="no-referrer" />
             <figcaption>{pic.title} · Wikimedia</figcaption>
           </figure>
         )}
+        {layout && <Layout layout={layout} line={line} />}
         <div className="vd-board">
           {board.map((b, i) => <BoardItem key={i} b={b} fresh={b.at === line} />)}
         </div>

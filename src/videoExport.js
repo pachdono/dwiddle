@@ -189,7 +189,7 @@ export async function exportVideo(video, { onProgress, signal } = {}) {
       const n = shot.frames.length;
       const first = Math.ceil(seg.from * FPS - 1e-9), last = Math.ceil(seg.to * FPS - 1e-9);
       for (let f = Math.max(first, frame); f < last; f++) {
-        const at = f / FPS, u = at - seg.from;
+        const at = f / FPS, u = Math.max(0, at - seg.from); // never fractionally before the line starts
         // What this line looks like at this moment: the loop of moving
         // frames blended into each other, or the duck's mouth opening and
         // closing, or the one still.

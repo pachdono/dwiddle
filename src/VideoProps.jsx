@@ -746,6 +746,199 @@ function Diffusion() {
   );
 }
 
+/* More things to draw, for every subject: places and history, writing and
+   speaking, forces and machines, shopping and business, and a few for maths. */
+const stroke = { stroke: INK, strokeWidth: 3.5, strokeLinejoin: "round", strokeLinecap: "round" };
+function Mountain() {
+  return (
+    <g {...stroke}>
+      <path d="M8 98 L46 30 L66 62 L82 38 L112 98 Z" fill="#8EA3B8" />
+      <path d="M46 30 L36 48 L46 44 L54 50 Z" fill="#fff" />
+      <path d="M82 38 L74 52 L82 49 L90 54 Z" fill="#fff" />
+    </g>
+  );
+}
+function Volcano() {
+  return (
+    <g {...stroke}>
+      <circle className="vp-drift" cx="52" cy="22" r="9" fill="#C9CED6" /><circle className="vp-drift" cx="68" cy="14" r="7" fill="#D6DAE0" />
+      <path d="M10 100 L44 38 H76 L110 100 Z" fill="#9A6B4A" />
+      <path d="M44 38 L52 48 L60 40 L68 49 L76 38 Z" fill="#E5484D" />
+    </g>
+  );
+}
+function Pin() {
+  return (
+    <g {...stroke}>
+      <ellipse cx="60" cy="104" rx="26" ry="7" fill="rgba(0,0,0,0.12)" stroke="none" />
+      <path d="M60 98 C60 98 28 66 28 44 a32 32 0 0 1 64 0 C92 66 60 98 60 98 Z" fill="#E5484D" />
+      <circle cx="60" cy="44" r="12" fill="#fff" />
+    </g>
+  );
+}
+function Castle() {
+  return (
+    <g {...stroke}>
+      <path d="M16 100 V44 h14 v-8 h8 v8 h8 v-8 h8 v8 h12 v-8 h8 v8 h8 v-8 h8 v8 h12 V100 Z" fill="#C9B79C" />
+      <path d="M50 100 V72 a10 10 0 0 1 20 0 V100 Z" fill="#6B4A2F" />
+      <path d="M16 44 V28 M104 44 V28" /><path d="M16 28 l8 -8 l8 8 Z M96 28 l8 -8 l8 8 Z" fill="#E5484D" />
+    </g>
+  );
+}
+function Scroll() {
+  return (
+    <g {...stroke}>
+      <path d="M26 24 H92 V92 H26 Z" fill="#F3E3B8" />
+      <ellipse cx="26" cy="24" rx="9" ry="9" fill="#E5D1A0" /><ellipse cx="92" cy="92" rx="9" ry="9" fill="#E5D1A0" />
+      <path d="M40 42 H80 M40 56 H80 M40 70 H66" />
+    </g>
+  );
+}
+function Crown() {
+  return (
+    <g {...stroke}>
+      <path d="M18 88 L12 40 L40 62 L60 28 L80 62 L108 40 L102 88 Z" fill="#F5C842" />
+      <path d="M18 88 H102 V98 H18 Z" fill="#E0A82E" />
+      <circle cx="12" cy="38" r="5" fill="#E5484D" /><circle cx="60" cy="26" r="5" fill="#2F80ED" /><circle cx="108" cy="38" r="5" fill="#2E9E5B" />
+    </g>
+  );
+}
+function Ship() {
+  return (
+    <g {...stroke}>
+      <path d="M60 14 V76" /><path d="M60 18 L100 70 H60 Z" fill="#fff" /><path d="M56 26 L26 70 H56 Z" fill="#F3E3B8" />
+      <path d="M14 78 H106 L92 100 H28 Z" fill="#9A6B4A" />
+      <path className="vp-ripple" d="M8 106 q8 -6 16 0 t16 0 t16 0 t16 0 t16 0" fill="none" stroke="#5B9DF5" />
+    </g>
+  );
+}
+function Quill() {
+  return (
+    <g {...stroke}>
+      <path d="M100 16 C60 20 34 46 26 90 C52 84 84 64 100 16 Z" fill="#F4F0E6" />
+      <path d="M26 90 L18 108" /><path d="M96 24 C70 40 50 62 34 84" fill="none" strokeWidth="2.5" />
+    </g>
+  );
+}
+function Speech() {
+  return (
+    <g {...stroke}>
+      <path d="M16 20 H104 a8 8 0 0 1 8 8 V70 a8 8 0 0 1 -8 8 H62 L38 100 V78 H16 a8 8 0 0 1 -8 -8 V28 a8 8 0 0 1 8 -8 Z" fill="#EAF2FE" />
+      <circle cx="38" cy="49" r="4.5" fill={INK} /><circle cx="60" cy="49" r="4.5" fill={INK} /><circle cx="82" cy="49" r="4.5" fill={INK} />
+    </g>
+  );
+}
+function Quotes() {
+  return (
+    <g fill="#2F80ED" stroke={INK} strokeWidth="3" strokeLinejoin="round">
+      <path d="M18 78 C18 54 28 40 46 36 L48 46 C38 50 34 58 36 64 H46 V90 H18 Z" />
+      <path d="M66 78 C66 54 76 40 94 36 L96 46 C86 50 82 58 84 64 H94 V90 H66 Z" />
+    </g>
+  );
+}
+function Lightning() {
+  return <path d="M70 8 L26 66 H54 L44 112 L94 48 H64 Z" fill="#F5C842" stroke={INK} strokeWidth="3.5" strokeLinejoin="round" className="vp-glow" />;
+}
+function Spring() {
+  return (
+    <g {...stroke} fill="none">
+      <path d="M16 60 H34 L40 34 L52 86 L64 34 L76 86 L88 34 L94 60 H108" />
+      <rect x="6" y="40" width="8" height="40" fill="#8EA3B8" /><rect x="106" y="44" width="10" height="32" fill="#8EA3B8" />
+    </g>
+  );
+}
+function Car() {
+  return (
+    <g {...stroke}>
+      <path d="M10 76 V62 L28 58 L42 38 H78 L94 58 L110 62 V76 Z" fill="#E5484D" />
+      <path d="M46 44 H62 V58 H36 Z M66 44 H76 L88 58 H66 Z" fill="#DCEBFA" />
+      <circle cx="34" cy="78" r="11" fill="#2B2F3A" /><circle cx="88" cy="78" r="11" fill="#2B2F3A" />
+    </g>
+  );
+}
+function Tag() {
+  return (
+    <g {...stroke}>
+      <path d="M12 56 L56 12 H100 V56 L56 100 Z" fill="#F5C842" transform="rotate(0)" />
+      <circle cx="82" cy="30" r="6" fill="#fff" />
+      <text x="50" y="68" textAnchor="middle" fontSize="30" fontWeight="800" fill={INK} stroke="none" fontFamily="system-ui, sans-serif" transform="rotate(-45 50 62)">£</text>
+    </g>
+  );
+}
+function Cart() {
+  return (
+    <g {...stroke}>
+      <path d="M10 18 H26 L38 70 H94 L104 34 H32" fill="#EAF2FE" />
+      <circle cx="46" cy="90" r="7" fill="#2B2F3A" /><circle cx="86" cy="90" r="7" fill="#2B2F3A" />
+    </g>
+  );
+}
+function Document() {
+  return (
+    <g {...stroke}>
+      <path d="M26 10 H72 L94 32 V108 H26 Z" fill="#fff" /><path d="M72 10 V32 H94" fill="#E4E8EE" />
+      <path d="M38 52 H82 M38 66 H82 M38 80 H82 M38 94 H64" />
+    </g>
+  );
+}
+function Laptop() {
+  return (
+    <g {...stroke}>
+      <rect x="24" y="20" width="72" height="52" rx="5" fill="#2B2F3A" /><rect x="30" y="26" width="60" height="40" rx="2" fill="#BFE3F5" />
+      <path d="M10 80 H110 L102 94 H18 Z" fill="#C9CED6" />
+    </g>
+  );
+}
+function Eye() {
+  return (
+    <g {...stroke}>
+      <path d="M8 60 C28 28 92 28 112 60 C92 92 28 92 8 60 Z" fill="#fff" />
+      <circle cx="60" cy="60" r="19" fill="#5B9DF5" /><circle cx="60" cy="60" r="8" fill={INK} /><circle cx="54" cy="53" r="4" fill="#fff" stroke="none" />
+    </g>
+  );
+}
+function Bone() {
+  return (
+    <g {...stroke} fill="#F4F0E6">
+      <path d="M30 40 a12 12 0 1 1 10 -14 L84 70 a12 12 0 1 1 14 10 a12 12 0 1 1 -10 14 L44 50 a12 12 0 1 1 -14 -10 Z" />
+    </g>
+  );
+}
+function Magnifier() {
+  return (
+    <g {...stroke}>
+      <circle cx="50" cy="50" r="30" fill="#EAF2FE" /><path d="M72 72 L104 104" strokeWidth="9" />
+      <path d="M34 42 a18 18 0 0 1 14 -10" fill="none" stroke="#fff" strokeWidth="5" />
+    </g>
+  );
+}
+function Lock() {
+  return (
+    <g {...stroke}>
+      <path d="M38 52 V38 a22 22 0 0 1 44 0 V52" fill="none" strokeWidth="7" />
+      <rect x="24" y="52" width="72" height="52" rx="8" fill="#F5C842" /><circle cx="60" cy="74" r="7" fill={INK} /><path d="M60 78 V90" />
+    </g>
+  );
+}
+function Triangle() {
+  return (
+    <g {...stroke}>
+      <path d="M16 100 V22 L104 100 Z" fill="#EAF2FE" />
+      <path d="M16 84 H32 V100" fill="none" strokeWidth="3" />
+      <path d="M86 82 a22 22 0 0 0 -4 -14" fill="none" stroke="#E5484D" />
+    </g>
+  );
+}
+function Compass() {
+  return (
+    <g {...stroke}>
+      <circle cx="60" cy="60" r="44" fill="#fff" />
+      <path d="M60 22 L70 60 L60 98 L50 60 Z" fill="#E5484D" /><path d="M60 98 L50 60 L70 60 Z" fill="#8EA3B8" />
+      <circle cx="60" cy="60" r="5" fill={INK} />
+    </g>
+  );
+}
+
 export const PROPS = {
   sun: { draw: Sun, words: /\bsun|sunlight|light energy|solar|daylight/ },
   plant: { draw: Plant, words: /plant|photosynth|leaf|leaves|chlorophyll|chloroplast|flower|crop|seed|root|stomata|xylem|phloem/ },
@@ -780,6 +973,29 @@ export const PROPS = {
   cube: { draw: Cube, words: /salt crystal|sugar cube|sugar crystal|\bcubes?\b|crystal lattice/ },
   beaker: { draw: Beaker, words: /beaker/ },
   diffusion: { draw: Diffusion, words: /diffus|concentration gradient|\bdye\b|perfume|high to low concentration/, says: "high to low concentration" },
+  mountain: { draw: Mountain, words: /mountain|peak|range|altitude|tectonic|fold|alps|himalaya/ },
+  volcano: { draw: Volcano, words: /volcan|eruption|lava|magma|crater/ },
+  pin: { draw: Pin, words: /location|\bmap\b|\bplace\b|site|region|settlement|capital city|where/ },
+  castle: { draw: Castle, words: /castle|medieval|fort|feudal|norman|siege|kingdom|empire/ },
+  scroll: { draw: Scroll, words: /scroll|ancient|manuscript|charter|source|record|decree|treaty|parchment/ },
+  crown: { draw: Crown, words: /\bking|queen|monarch|crown|royal|dynasty|reign|throne|emperor/ },
+  ship: { draw: Ship, words: /\bships?\b|voyage|navy|naval|boat|sail|colonial|armada|explor/ },
+  quill: { draw: Quill, words: /quill|\bwrit(er|ing|e)\b|author|poet|poem|essay|narrat|pen\b|draft/ },
+  speech: { draw: Speech, words: /speech|dialogue|speak|narrator|voice|conversation|argument|persuas|rhetoric|say\b|said/ },
+  quotes: { draw: Quotes, words: /quotation|quote|evidence|cite|extract|\bphrase/ },
+  lightning: { draw: Lightning, words: /lightning|static|thunder|energy transfer|\bpower\b|storm/ },
+  spring: { draw: Spring, words: /spring|elastic|hooke|extension|compress|stretch/ },
+  car: { draw: Car, words: /\bcars?\b|vehicle|motion|journey|velocity|accelerat|braking|collision/ },
+  tag: { draw: Tag, words: /price tag|\bprice|discount|\bsale\b|cheap|expensive|\bcost per|tariff/ },
+  cart: { draw: Cart, words: /basket|shopping|\bbuy|purchase|consumer spending|trolley/ },
+  document: { draw: Document, words: /document|contract|report|\blaw\b|policy|legal|invoice|statement|form\b|accounts/ },
+  laptop: { draw: Laptop, words: /laptop|computer|software|website|e-commerce|\bcode\b|program/ },
+  eye: { draw: Eye, words: /\beyes?\b|vision|sight|retina|observe|visual/ },
+  bone: { draw: Bone, words: /\bbones?\b|skeleton|joint|skeletal|fracture/ },
+  magnifier: { draw: Magnifier, words: /analys|investigat|inspect|closer look|zoom|examin|research|detail/ },
+  lock: { draw: Lock, words: /\block|secure|password|encrypt|private|confiden/ },
+  triangle: { draw: Triangle, words: /triangle|pythag|trigonometr|hypotenuse|\bsine|cosine|tangent ratio|right.angle/ },
+  compass: { draw: Compass, words: /compass|direction|navigat|bearing|north|orient/ },
   solid: { draw: Solid, words: /\bsolids?\b/, says: "packed, vibrating" },
   liquid: { draw: Liquid, words: /\bliquids?\b/, says: "touching, sliding" },
   gas: { draw: Gas, words: /\bgas(es)?\b|\bvapou?r\b/, says: "far apart, fast" },
@@ -852,18 +1068,29 @@ function edge(box, cx, cy, ux, uy, gap) {
 
 // A drawing has to look like what it is called. The model sometimes reached
 // for the nearest one it had (a pot plant for "oil droplet" or "salt shaker",
-// a person for "protein"); where the name is plainly something else, the
-// drawing that does fit is used, and where nothing fits it is left out.
-const LOOSE = new Set(["plant", "tree", "person", "people", "children", "worker", "house", "shop", "factory", "school", "book", "star", "food", "cloud"]);
+// a person for "protein"). Where the name is plainly something we can draw,
+// that drawing is used; where the name does not fit the drawing at all and
+// nothing else does, the drawing is dropped (null) rather than left lying.
+const STRICT = new Set(["plant", "tree", "person", "people", "children", "worker", "house", "school", "food", "heart", "lungs", "brain", "bacteria", "dna", "fire", "cloud", "sun", "shop", "factory", "book", "star", "cell"]);
+const NAMES = [
+  [/\boil\b|\bfat\b|lipid/, "oildroplet"], [/\bwater\b|droplet|\bdrops?\b|\brain/, "droplet"], [/\bsalt|sugar|cube|crystal/, "cube"],
+  [/protein|amino|fatty|glycerol|enzyme|molecule|\bions?\b|mineral|starch|compound/, "molecule"],
+  [/mountain|peak/, "mountain"], [/volcan|lava|magma/, "volcano"], [/\bmap\b|location|\bpin\b/, "pin"], [/castle|fort\b/, "castle"],
+  [/scroll|charter|treaty|manuscript/, "scroll"], [/\bcrown|\bking|\bqueen|monarch/, "crown"], [/\bship|\bboat|\bnavy/, "ship"],
+  [/quill|\bpoet|\bauthor|writer/, "quill"], [/speech|dialogue|narrator|conversation/, "speech"], [/quotation|\bquote/, "quotes"],
+  [/lightning|\bbolt/, "lightning"], [/\bspring/, "spring"], [/\bcar\b|vehicle/, "car"], [/price tag|\bprice|discount/, "tag"],
+  [/basket|shopping|trolley/, "cart"], [/document|contract|report|invoice/, "document"], [/laptop|computer/, "laptop"], [/\beye\b|\bsight/, "eye"],
+  [/\bbone|skeleton/, "bone"], [/magnif|analys|investigat/, "magnifier"], [/\block\b|padlock|secure/, "lock"], [/triangle|hypotenuse|pythag/, "triangle"],
+  [/compass|bearing/, "compass"],
+];
+// Returns the drawing to use for p, or null to leave it out.
 export function fitProp(p) {
-  if (!p || !LOOSE.has(p.kind)) return p;
-  const label = String(p.label || "").toLowerCase();
+  if (!p || !PROPS[p.kind]) return p;
+  const label = String(p.label || "").toLowerCase().trim();
   if (!label || PROPS[p.kind].words.test(label)) return p;
-  if (/\boil|\bfat|lipid/.test(label)) return { ...p, kind: "oildroplet" };
-  if (/\bwater|drop|rain/.test(label)) return { ...p, kind: "droplet" };
-  if (/\bsalt|sugar|cube|crystal/.test(label)) return { ...p, kind: "cube" };
-  if (/protein|amino|fatty|glycerol|enzyme|molecule|\bions?\b|mineral|starch/.test(label)) return { ...p, kind: "molecule" };
-  return p;
+  const named = NAMES.find(([re, kind]) => re.test(label) && PROPS[kind]);
+  if (named && named[1] !== p.kind) return { ...p, kind: named[1] };
+  return STRICT.has(p.kind) ? null : p;
 }
 
 // Each arrow's curve and the spot for its label. Arrows that meet at the same

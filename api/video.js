@@ -17,7 +17,8 @@ export const config = { maxDuration: 60 };
 
 // The moving drawings the app can draw (src/VideoProps.jsx), kept in step.
 const PROP_KINDS = ["sun", "plant", "tree", "water", "cloud", "co2", "o2", "glucose", "cell", "atom", "molecule", "heart", "lungs", "brain", "earth", "magnet", "battery", "bulb", "flask", "thermometer", "dna", "coin", "gear", "clock", "book", "fire", "wave", "bacteria",
-  "person", "people", "children", "worker", "handshake", "shop", "factory", "house", "school", "food", "chartUp", "chartDown", "target", "star", "scales", "truck", "phone", "bank", "moneybag", "megaphone", "shield", "calendar", "solid", "liquid", "gas", "droplet", "oildroplet", "cube", "beaker", "diffusion"];
+  "person", "people", "children", "worker", "handshake", "shop", "factory", "house", "school", "food", "chartUp", "chartDown", "target", "star", "scales", "truck", "phone", "bank", "moneybag", "megaphone", "shield", "calendar", "solid", "liquid", "gas", "droplet", "oildroplet", "cube", "beaker", "diffusion",
+  "mountain", "volcano", "pin", "castle", "scroll", "crown", "ship", "quill", "speech", "quotes", "lightning", "spring", "car", "tag", "cart", "document", "laptop", "eye", "bone", "magnifier", "lock", "triangle", "compass"];
 
 // Science drawings only where the scene is really about that science. The
 // model reached for them as loose stand ins (a cell for a worker, a flask for
@@ -102,6 +103,24 @@ Moving drawings, for anything real a scene talks about:
 - Give every scene that is not pure maths its props, and links wherever something moves or changes.
 - A drawing shows what the scene is about, never a word that only describes it: "heart muscle cell" is a cell, "solar panel" is a battery or bulb, not a sun. If no drawing truly fits, leave "props" out. A scene with props needs no picture; keep "figure" for a real diagram the props cannot show, like a labelled cross section or a graph.
 
+Layouts, for a scene with no object to draw (use one INSTEAD of props or a figure; the board is then not shown, so put the content in the layout):
+- { "type": "steps", "items": [{ "head": "short title", "text": "what happens, under 14 words", "at": 0 }] }: the stages of a process or method, 2 to 6, in order.
+- { "type": "cycle", "items": [{ "text": "stage", "at": 0 }] }: something that goes round and back to the start (3 to 6 stages).
+- { "type": "timeline", "items": [{ "head": "1066", "text": "what happened", "at": 0 }] }: events in order, each with its date or period (2 to 6).
+- { "type": "compare", "left": { "title": "Option A", "points": [{ "text": "short point", "at": 0 }] }, "right": { "title": "Option B", "points": [{ "text": "short point", "at": 1 }] } }: two things set side by side (1 to 4 points each).
+- { "type": "quote", "text": "an exact line of writing from the source", "marks": [{ "part": "exact words inside the line", "label": "metaphor", "at": 0 }] }: a line of text taken apart, naming a technique or idea for each marked part (1 to 4).
+- { "type": "formula", "expr": "F = m × a", "parts": [{ "sym": "F", "means": "force in newtons", "at": 0 }] }: a formula and what each letter means.
+"at" is the line on which each part appears.
+
+What to show, by subject. Every scene needs a visual that carries meaning, never a decoration:
+- Maths: a figure (the diagram or a graph) and the working on the board, step by step. No props.
+- Science: a drawn diagram, or props that really are the thing (particle states, "diffusion", "droplet", "cube", "molecule", "beaker", "spring", "lightning", "car", "magnet", "battery", "bulb", "heart"...) with links for what flows; "formula" for equations; "steps" or "cycle" for processes.
+- Economics and business: props for the people and things ("shop", "factory", "worker", "coin", "tag", "cart", "bank", "chartUp") with links for flows; a graph figure for supply and demand, PPC, costs and the like; "compare" for two options or sides; "steps" for a process.
+- English language and literature: "quote" with the exact line from the source and its techniques marked; "steps" for how to build an answer or paragraph; "compare" for two characters, texts or viewpoints. Props only now and then ("quill", "speech", "quotes").
+- History: "timeline" for events in order; "compare" for causes and consequences or two sides; props where a thing is named ("castle", "scroll", "crown", "ship").
+- Geography: props ("mountain", "volcano", "pin", "earth", "cloud", "water") for the places and features; "cycle" for the water cycle and the like; "steps" for how something forms.
+- Any other subject: whichever of steps, cycle, timeline, compare, quote or formula fits what the scene says. Vary the visual from scene to scene.
+
 - Colours: "ink", "blue", "green", "purple", "orange", "red". Use one colour for each object and keep it: the same circle, length or quantity is the same colour in the figure and on the board.
 - Every scene has something to look at, and it matches what that scene is saying. In maths it is the question's diagram or a graph of what is being worked on. Anything else gets a simple drawn diagram of the structure or process the scene explains, or a picture of the real thing the scene names: talking about plants, a plant; about the heart, a heart; about a volcano, a volcano. Only a scene of pure algebra with nothing to picture sets "figure" to null.
 - The board supports the picture, it does not replace it. Outside maths: at most 3 board items a scene, each a key term or a point under 8 words. Never paste sentences from the lines onto the board.
@@ -169,6 +188,34 @@ Work out the correct exact values, then return ONE JSON object and nothing else:
 
 Keep every shape id the scenes use. Fix positions and sizes with exact expressions (never rounded decimals) so every check passes; keep checks that state real facts, and only remove a check if the fact it states is wrong. Sizes stay true to life relative to each other.`;
 
+// A layout: steps, cycle, timeline, compare, quote or formula. Anything
+// incomplete is dropped (null), so a half made one is not shown.
+const LAYOUTS = ["steps", "cycle", "timeline", "compare", "quote", "formula"];
+function cleanLayout(l, last) {
+  if (!l || typeof l !== "object" || !LAYOUTS.includes(l.type)) return null;
+  if (["steps", "cycle", "timeline"].includes(l.type)) {
+    const items = (Array.isArray(l.items) ? l.items : [])
+      .map((it) => ({ head: short(it?.head, 40), text: short(it?.text ?? (typeof it === "string" ? it : ""), 100), at: at(it?.at, last) }))
+      .filter((it) => it.text || it.head).slice(0, 6);
+    return items.length >= 2 ? { type: l.type, items } : null;
+  }
+  if (l.type === "compare") {
+    const side = (s2) => ({ title: short(s2?.title, 30), points: (Array.isArray(s2?.points) ? s2.points : []).map((p) => ({ text: short(p?.text ?? (typeof p === "string" ? p : ""), 70), at: at(p?.at, last) })).filter((p) => p.text).slice(0, 4) });
+    const left = side(l.left), right = side(l.right);
+    return left.points.length && right.points.length && left.title && right.title ? { type: "compare", left, right } : null;
+  }
+  if (l.type === "quote") {
+    const text = short(l.text, 260);
+    const marks = (Array.isArray(l.marks) ? l.marks : [])
+      .map((m) => ({ part: short(m?.part, 80), label: short(m?.label, 30), at: at(m?.at, last) }))
+      .filter((m) => m.part && m.label && text.includes(m.part)).slice(0, 4);
+    return text && marks.length ? { type: "quote", text, marks } : null;
+  }
+  const expr = short(l.expr, 60);
+  const parts = (Array.isArray(l.parts) ? l.parts : []).map((p) => ({ sym: short(p?.sym, 12), means: short(p?.means, 50), at: at(p?.at, last) })).filter((p) => p.sym && p.means).slice(0, 5);
+  return expr && parts.length ? { type: "formula", expr, parts } : null;
+}
+
 // Never trust the shape. Anything the player could not draw is dropped here,
 // so a bad part costs that part rather than the whole video.
 function cleanScenes(data, figures) {
@@ -204,7 +251,8 @@ function cleanScenes(data, figures) {
     const links = (Array.isArray(sc.links) ? sc.links : [])
       .filter((l) => l && Number.isInteger(l.from) && Number.isInteger(l.to) && l.from !== l.to && props[l.from] && props[l.to]).slice(0, 5)
       .map((l) => ({ from: l.from, to: l.to, label: short(l.label, 22), at: Math.max(at(l.at, last), props[l.from].at, props[l.to].at) }));
-    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last), ...(props.length ? { props, links } : {}) };
+    const layout = cleanLayout(sc.layout, last);
+    return { heading: short(sc.heading, 80) || "Step", lines, board, diagram: sceneDiagram(fig, sc.show, last), ...(props.length ? { props, links } : {}), ...(layout ? { layout } : {}) };
   }).filter(Boolean).slice(0, 8);
   if (scenes.length < 2) return null;
   return { title: short(data.title, 100) || "Explained", subtitle: short(data.subtitle, 120), scenes };
