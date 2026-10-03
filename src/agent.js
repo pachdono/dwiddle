@@ -8,6 +8,8 @@
 import { cleanSketch, cleanSvg } from "./sketch.js";
 import { THEMES } from "./themes.js";
 import { blockPlain } from "./marks.js";
+import { askAgent } from "./ai.js";
+import { load, save } from "./store.js";
 
 let handlers = null;
 export const setAgentHandlers = (h) => { handlers = h; };
@@ -37,6 +39,19 @@ export function cleanBlock(b) {
 
 // What the model is told about the app: where the student is, their notes with
 // each block numbered so it can be changed, and the looks that exist.
+// What Dwiddle has learned from earlier chats on this device: short lessons
+// recorded when something went wrong and was put right, or when the student
+// corrected it. They are given back to the model every time, so the same
+// mistake is not made twice.
+const MEMORY_KEY = "dwiddle-agent-memory";
+const lessons = () => { const m = load(MEMORY_KEY, []); return Array.isArray(m) ? m : []; };
+export function learn(note) {
+  const text = str(note, 220);
+  if (!text) return;
+  const all = lessons().filter((l) => l.note !== text);
+  save(MEMORY_KEY, [{ note: text, at: Date.now() }, ...all].slice(0, 20));
+}
+
 export function appState() {
   const st = handlers?.state?.() || {};
   const out = [`Page: ${st.page || "unknown"}.`, `Colour mode: ${st.theme || "system"}. Looks: ${THEMES.map((t) => t.id).join(", ")}. Current look: ${st.look || "classic"}.`];
@@ -49,12 +64,14 @@ export function appState() {
       blocks.forEach((b, i) => { const text = blockPlain(b).replace(/\{(?:key|def|exam|word)\|([^}|]*)[^}]*\}/g, "$1").replace(/\s+/g, " ").slice(0, 160); if (text) out.push(`[${i}] ${text}`); });
     }
   } else out.push("No study material yet.");
-  return out.join("\n").slice(0, 8500);
+  const memory = lessons().slice(0, 12).map((l) => "- " + l.note);
+  const body = out.join("\n").slice(0, 7800);
+  return memory.length ? `${body}\n\nLessons learned from earlier chats with this student (follow them):\n${memory.join("\n")}` : body;
 }
 
 // Runs one action. Returns { ok, text, art? } where art is something to show
 // in the chat: { sketch } | { svg, caption } | { query } for a picture.
-async function run(a) {
+async function run(a, opts = {}) {
   const h = handlers;
   if (!h) return { ok: false, text: "Not ready yet" };
   switch (a.type) {
@@ -83,12 +100,11 @@ async function run(a) {
     case "sketch": {
       const sketch = cleanSketch(a.sketch);
       if (!sketch) return { ok: false, text: "Could not draw that graph" };
-      let text = "Drew a graph";
-      if (a.topic) {
-        const done = h.editNotes({ op: "insert", topic: String(a.topic), at: 9999, block: { sketch } });
-        text = done ? `Drew a graph and added it to ${a.topic}` : text;
-      }
-      return { ok: true, text, art: { sketch } };
+      const art = { sketch };
+      if (!a.topic && !opts.wantNotes) return { ok: true, text: "Drew a graph", art };
+      const topic = h.bestTopic(String(a.topic || ""), `${sketch.title} ${sketch.x} ${sketch.y} ${opts.userText || ""}`);
+      const done = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { sketch } });
+      return done ? { ok: true, notes: true, text: `Drew a graph and added it to ${done}`, art } : { ok: false, text: "Drew the graph but could not find where it goes in your notes", art };
     }
     case "draw": {
       const svg = cleanSvg(a.svg);
@@ -97,7 +113,11 @@ async function run(a) {
     }
     case "picture": {
       const query = str(a.query, 80);
-      return query ? { ok: true, text: "Found a picture", art: { query } } : { ok: false, text: "No picture" };
+      if (!query) return { ok: false, text: "No picture" };
+      if (!opts.wantNotes) return { ok: true, text: "Found a picture", art: { query } };
+      const topic = h.bestTopic(String(a.topic || ""), `${query} ${opts.userText || ""}`);
+      const done = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { pic: query } });
+      return done ? { ok: true, notes: true, text: `Added a picture to ${done}`, art: { query } } : { ok: false, text: "Found a picture but could not find where it goes in your notes", art: { query } };
     }
     case "notes": {
       const op = a.op;
@@ -106,18 +126,62 @@ async function run(a) {
       if (op !== "remove" && !block) return { ok: false, text: "That note block was not valid" };
       const at = Number.isInteger(a.at) ? a.at : parseInt(a.at, 10);
       if (!Number.isInteger(at) || at < 0) return { ok: false, text: "No place given" };
-      const done = h.editNotes({ op, topic: String(a.topic || ""), at, block });
-      return done ? { ok: true, text: `${op === "remove" ? "Removed a block from" : op === "replace" ? "Rewrote a block in" : "Added to"} ${done}` } : { ok: false, text: "Could not find that topic" };
+      const done = h.editNotes({ op, topic: h.bestTopic(String(a.topic || ""), "") || String(a.topic || ""), at, block });
+      return done ? { ok: true, notes: true, text: `${op === "remove" ? "Removed a block from" : op === "replace" ? "Rewrote a block in" : "Added to"} ${done}` } : { ok: false, text: "Could not find that topic" };
     }
     default:
       return { ok: false, text: "Not something I can do yet" };
   }
 }
 
-export async function runActions(actions) {
+export async function runActions(actions, opts = {}) {
   const results = [];
   for (const a of (Array.isArray(actions) ? actions : []).slice(0, 4)) {
-    try { results.push(await run(a)); } catch { results.push({ ok: false, text: "That did not work" }); }
+    try { results.push(await run(a, opts)); } catch { results.push({ ok: false, text: "That did not work" }); }
   }
   return results;
 }
+
+// One turn of the conversation: ask, do, and check that what was said matches
+// what happened. The model writes its reply before anything runs, so a reply
+// like "I added it to your notes" is only believed if the notes really changed.
+// When it did not, the model is told what happened and tries again, up to
+// twice; if it still cannot, the student gets an honest, kind answer.
+export async function agentTurn(context, history) {
+  const lastUser = [...history].reverse().find((m) => m.role === "user")?.content || "";
+  const wantNotes = /\bnotes?\b/i.test(lastUser) && /\b(add|put|place|insert|save|include|show|in|on|to)\b/i.test(lastUser);
+  const frustrated = /\b(didn'?t|did not|not (in|on|there)|wrong|again|still|doesn'?t|isn'?t)\b/i.test(lastUser);
+  const kept = [];      // everything that worked, across tries
+  let failed = [];      // what is still failing after the latest try
+  let msgs = history;
+  let reply = "";
+  let fixedFrom = "";
+  for (let round = 0; round < 3; round++) {
+    const got = await askAgent(context, appState(), msgs);
+    reply = got.reply;
+    const did = await runActions(got.actions, { wantNotes, userText: lastUser });
+    kept.push(...did.filter((d) => d.ok || d.art));
+    failed = did.filter((d) => !d.ok);
+    const notesDone = kept.some((d) => d.notes);
+    const claimed = /\bnotes?\b/i.test(reply) && /\b(added|put|inserted|updated|removed|fixed|changed|placed)\b/i.test(reply);
+    const problems = [
+      ...failed.map((d) => d.text),
+      ...(wantNotes && !notesDone ? ["The student asked for it to be in their notes and nothing in the notes changed."] : []),
+      ...(claimed && !notesDone ? ["Your reply says the notes changed but they did not."] : []),
+    ];
+    if (!problems.length) {
+      if (fixedFrom) learn(`When asked to put something in the notes, use "notes" or a sketch with "topic" set to a topic name exactly as listed (for example "${fixedFrom}").`);
+      if (frustrated) learn("Check that the app really did something before saying it did. If it did not, say sorry kindly and try a simpler way.");
+      return { reply, did: dedupe(kept) };
+    }
+    const names = (appState().match(/^## .*/gm) || []).join(", ").replace(/## /g, "");
+    msgs = [...msgs, { role: "assistant", content: reply }, { role: "user", content: `[App report, not written by the student] That did not work: ${problems.join(" ")} The topics in their notes are: ${names || "none yet"}. Try once more with the right action, using a topic name exactly as listed. If you truly cannot, say sorry the way a kind teacher would, say plainly what did not happen, and suggest a simpler way to do it. Never say it is done unless an action did it.` }];
+    fixedFrom = names.split(", ")[0] || "";
+  }
+  learn("A change to the notes failed even after retrying; ask the student which topic they mean instead of guessing.");
+  const sorry = failed.length || /\bnotes?\b/i.test(lastUser)
+    ? "Sorry, I couldn't get that into your notes just now. Let's try a simpler way: tell me which topic it belongs in, for example the topic's exact name, and I'll put it straight there. The graph is above if you want to look at it in the meantime."
+    : "Sorry, that didn't work. Let's try a simpler way: tell me in one short sentence what you'd like and I'll do just that.";
+  return { reply: sorry, did: dedupe(kept) };
+}
+const dedupe = (list) => list.filter((d, i) => list.findIndex((x) => x.text === d.text) === i);

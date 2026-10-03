@@ -18,8 +18,7 @@ import { sayAs, stopSpeaking } from "./tts.js";
 import { useEffect, useRef, useState } from "react";
 import { DuckParts, PuddleParts } from "./Duck.jsx";
 import { Icon, Portal } from "./ui.jsx";
-import { askAgent } from "./ai.js";
-import { appState, runActions } from "./agent.js";
+import { agentTurn } from "./agent.js";
 import { Sketch } from "./Sketch.jsx";
 import { findPicture } from "./wikiPic.js";
 
@@ -302,15 +301,18 @@ export function DwiddleChat({ hidden = false }) {
     setBusy(true);
     setMood("thinking");
     try {
-      const { reply, actions } = await askAgent(ctx || pageContext, appState(), history.map(({ role, content }) => ({ role, content })));
-      const did = actions.length ? await runActions(actions) : [];
+      const { reply, did } = await agentTurn(ctx || pageContext, history.map(({ role, content }) => ({ role, content })));
       setBusy(false);
       reveal([...history, { role: "assistant", content: reply, shown: 0, did }]);
     } catch (err) {
+      // Never a bare error: say sorry the way a teacher would and offer a way on.
       setBusy(false);
       setMood("oops");
-      setError(err.message || "Dwiddle could not answer just now.");
       setTimeout(() => setMood("idle"), 1600);
+      const offline = /fetch|network|offline/i.test(String(err?.message));
+      reveal([...history, { role: "assistant", shown: 0, content: offline
+        ? "Sorry, I can't reach my brain right now. Check your connection and ask me again in a moment."
+        : "Sorry, I got in a muddle there. Let's try a simpler way: tell me in one short sentence what you'd like, and I'll do just that." }]);
     }
   }
 

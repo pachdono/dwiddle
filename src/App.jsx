@@ -697,11 +697,31 @@ export default function App() {
       setTheme,
       setLook,
       prefill: (text) => { try { sessionStorage.setItem("dwiddle-handoff-notes", text); } catch {} go("upload"); },
+      // The topic a request is about: the name the model gave if it matches,
+      // otherwise the topic whose name and notes share the most words with
+      // what was asked. Null when nothing fits.
+      bestTopic: (given, about) => {
+        const cur = agentNow.current.made;
+        const topics = cur?.topics || [];
+        const lower = String(given || "").toLowerCase().trim();
+        const exact = topics.find((t) => t.name.toLowerCase() === lower)
+          || (lower && topics.find((t) => t.name.toLowerCase().includes(lower) || lower.includes(t.name.toLowerCase())));
+        if (exact) return exact.name;
+        const stem = (x) => String(x).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2).map((w) => w.slice(0, 5));
+        const want = new Set(stem(`${given} ${about}`));
+        let best = null, score = 0;
+        for (const t of topics) {
+          const name = stem(t.name), body = new Set(stem((cur.notes?.[t.name] || []).map((b) => JSON.stringify(b)).join(" ")));
+          const sc = name.filter((w) => want.has(w)).length * 3 + [...want].filter((w) => body.has(w)).length * 0.2;
+          if (sc > score) { best = t.name; score = sc; }
+        }
+        // Nothing matched: the first topic that has notes, rather than nowhere.
+        return best || topics.find((t) => cur.notes?.[t.name]?.length)?.name || topics[0]?.name || null;
+      },
       // Returns the topic's name when the change was made.
       editNotes: ({ op, topic, at, block }) => {
         const cur = agentNow.current.made;
-        const names = (cur?.topics || []).map((t) => t.name), want = topic.toLowerCase().trim();
-        const name = names.find((n) => n.toLowerCase() === want) || names.find((n) => want && (n.toLowerCase().includes(want) || want.includes(n.toLowerCase())));
+        const name = (cur?.topics || []).map((t) => t.name).find((n) => n.toLowerCase() === String(topic).toLowerCase());
         if (!name) return null;
         const blocks = [...(cur.notes?.[name] || [])];
         if (op === "insert") blocks.splice(Math.min(at, blocks.length), 0, block);
