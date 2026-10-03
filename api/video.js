@@ -84,7 +84,7 @@ Shape:
 const RULES = `How the video works:
 - Each scene is shown while its "lines" are read aloud, one after another. "at" is the index of the line during which a board item or figure shape appears, so things arrive as they are talked about. Start each scene's first items at 0.
 - The "lines" are the transcript. Spoken, plain, warm, like a good teacher at a whiteboard. Say symbols the way they are read aloud: "x squared", "two minus r", "eight ninths". 1 to 4 lines per scene, each under 30 words.
-- 4 to 7 scenes. The first sets out what is asked and the plan. The last states the answer or the key takeaway.
+- 4 to 8 scenes. The first sets out what is asked and the plan. The last states the answer or the key takeaway.
 - "board" holds 1 to 7 items per scene: working written with real symbols (x², √, π, ×, ÷, ≤, ≥, −, fractions as 8/9), each line a single step. "label" is a short coloured caption above the working it introduces. "answer" is for the final result only. Never a caret.
 Animations, so each step is seen happening rather than only stated. Use them wherever they make a step easier to follow:
 - "via" on a board item: a curved arrow is drawn from the line above to this one, labelled with what was done to get here, like "÷ 3 both sides", "square both sides", "substitute x = 2", "expand the brackets". Give nearly every step of working its "via".
@@ -151,7 +151,8 @@ ${SHAPE}
 ${RULES}
 
 ${FIGURES}
-- Teach the topic in a sensible order: what it is, how it works, an example, then what to remember. Cover the main points of the notes on this topic and nothing from other topics.
+- Teach it like the best study videos, in this order: (1) a hook, the first scene opening on one question or surprise taken from the notes that makes the student want the answer; (2) what it is, in plain words; (3) how it works, one idea per scene, each with something to look at; (4) an example from the notes; (5) a watch-out, the common mistake the notes mention; (6) a recap of the 3 things to remember, as short board points; (7) a quick self test, one question from the notes asked in the last line, with the answer said straight after. Use 5 to 8 scenes, skipping any step the notes give nothing for. Cover the main points of the notes on this topic and nothing from other topics.
+- Keep the pace lively: lines of 8 to 20 words, a new thing on the board or the picture with nearly every line, the key term said and shown together. Vary what is shown from scene to scene.
 - For a topic with no maths, the board holds short points, key terms and steps rather than equations, and a diagram only when a sketch really helps.`;
 
 const COLORS = ["ink", "blue", "green", "purple", "orange", "red"];

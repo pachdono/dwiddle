@@ -14,7 +14,7 @@ import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
-import { Duck } from "./Duck.jsx";
+import { Duck, DuckParts } from "./Duck.jsx";
 import { PropStage, propsFor, PROPS, STATES } from "./VideoProps.jsx";
 import { DuckTalk } from "./Chat.jsx";
 
@@ -108,6 +108,59 @@ export function makeVideo(made, fresh) {
 // with its captions, and is ready as soon as it is written.
 const VOICE_KEY = "dwiddle-video-voice";
 export const narrated = () => { try { return localStorage.getItem(VOICE_KEY) !== "off"; } catch { return true; } };
+// How long a video takes to make. Writing is about half a minute a chapter;
+// the narration is spoken by a voice running on the device, line by line, and
+// takes several times longer, plus about a minute to load the voice the first
+// time. Shown before a narrated video starts, so nobody is surprised.
+export function videoEstimate(chapters = 1) {
+  const n = Math.max(1, chapters);
+  return { silent: Math.max(1, Math.ceil(n * 0.5)), voiced: Math.ceil(n * 2 + 1) };
+}
+const minutes = (m) => (m <= 1 ? "about a minute" : `about ${m} minutes`);
+
+let askMounted = false;
+// Resolves true to go ahead (narrated or not, as chosen) and false to cancel.
+// Silent videos need no warning.
+export function askNarration({ chapters = 1 } = {}) {
+  if (!narrated() || !askMounted) return Promise.resolve(true);
+  return new Promise((resolve) => window.dispatchEvent(new CustomEvent("dwiddle:narrate-ask", { detail: { chapters, resolve } })));
+}
+export function NarrationAsk() {
+  const [ask, setAsk] = useState(null);
+  useEffect(() => {
+    askMounted = true;
+    const on = (e) => setAsk(e.detail);
+    window.addEventListener("dwiddle:narrate-ask", on);
+    return () => { askMounted = false; window.removeEventListener("dwiddle:narrate-ask", on); };
+  }, []);
+  if (!ask) return null;
+  const est = videoEstimate(ask.chapters);
+  const done = (go, silent) => {
+    if (silent) { try { localStorage.setItem(VOICE_KEY, "off"); } catch { /* private mode */ } }
+    ask.resolve(go);
+    setAsk(null);
+  };
+  return (
+    <Portal>
+      <div className="gate-scrim perm-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) done(false); }}>
+        <div className="gate perm" role="dialog" aria-modal="true" aria-labelledby="narr-title">
+          <div className="perm-art"><DuckTalk mood="idle" size={88} /></div>
+          <h2 id="narr-title">Narration takes much longer</h2>
+          <p className="gate-sub">
+            With narration this video takes <b>{minutes(est.voiced)}</b> to make, because the voice is recorded line by line on your device. Without it, it takes <b>{minutes(est.silent)}</b> and plays silently with captions.
+          </p>
+          <p className="small muted" style={{ margin: "0 0 4px" }}>You can leave Dwiddle open and do something else; a note says when it is ready.</p>
+          <div className="gate-actions">
+            <button className="btn cta gate-go" onClick={() => done(true, false)}>Make it with narration · {minutes(est.voiced)}</button>
+            <button className="btn" onClick={() => done(true, true)}>No narration · {minutes(est.silent)}</button>
+            <button className="btn ghost" onClick={() => done(false)}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
 export function NarrationToggle() {
   const [on, setOn] = useState(narrated);
   const flip = () => { setOn(!on); try { localStorage.setItem(VOICE_KEY, on ? "off" : "on"); } catch { /* private mode */ } };
@@ -205,7 +258,10 @@ function VideosPage({ made, go }) {
   const [narr, setNarr] = useState(null);
   useEffect(() => (video && !video.silent ? onNarration(video, setNarr) : undefined), [video]);
   const withNotes = topicsWithNotes(made);
-  const make = (fresh) => makeVideo(made, fresh);
+  const make = async (fresh) => {
+    const todo = fresh ? withNotes.length : Math.max(1, withNotes.length - parts.length);
+    if (await askNarration({ chapters: todo })) makeVideo(made, fresh);
+  };
   // Watching waits for the narration, so it never starts and then stalls.
   const voicing = !!video && !video.silent && (mine?.state === "voicing" || narr?.state === "making");
 
@@ -339,9 +395,59 @@ function chapterTimes(video) {
 }
 export const minutesOf = (video) => Math.max(1, Math.round(video.scenes.reduce((n, sc) => n + sceneSeconds(sc), 0) / 60));
 
+/* ---------- saving a video as a file ---------- */
+
+// Saves a video as an MP4 with the Dwiddle watermark, showing progress.
+// Returns [save, overlay]: call save(), render the overlay.
+export function useSaveVideo(video) {
+  const [st, setSt] = useState(null); // { phase, done, total } | { error }
+  const abort = useRef(null);
+  const save = async () => {
+    if (st && !st.error) return;
+    const ctl = new AbortController();
+    abort.current = ctl;
+    setSt({ phase: "frames", done: 0, total: 1 });
+    try {
+      const { exportVideo, downloadBlob } = await import("./videoExport.js");
+      const blob = await exportVideo(video, { signal: ctl.signal, onProgress: setSt });
+      const name = String(video.title || "dwiddle-video").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "dwiddle-video";
+      downloadBlob(blob, `${name}.mp4`);
+      setSt(null);
+    } catch (err) {
+      setSt(err?.name === "AbortError" ? null : { error: err?.message || "The video could not be saved." });
+    }
+  };
+  const overlay = st && (
+    <Portal>
+      <div className="vd-save" role="dialog" aria-modal="true" aria-label="Saving the video">
+        <div className="vd-save-card">
+          {st.error ? (
+            <>
+              <b>The video could not be saved</b>
+              <p className="small muted" style={{ margin: 0 }}>{st.error}</p>
+              <button className="btn cta" onClick={() => setSt(null)}>Close</button>
+            </>
+          ) : (
+            <>
+              <b>{st.phase === "encoding" ? "Finishing your video" : "Saving your video"}</b>
+              <p className="small muted" style={{ margin: 0 }}>
+                {st.phase === "encoding" ? "Putting the picture and sound together." : `Drawing the lesson, line ${Math.min(st.done + 1, st.total)} of ${st.total}. This runs on your device and is quicker than the video itself.`}
+              </p>
+              <div className="vd-voice-bar"><i style={{ width: `${Math.round((st.done / (st.total || 1)) * 100)}%` }} /></div>
+              <button className="btn ghost" onClick={() => abort.current?.abort()}>Cancel</button>
+            </>
+          )}
+        </div>
+      </div>
+    </Portal>
+  );
+  return [save, overlay];
+}
+
 /* ---------- the player ---------- */
 
 export function VideoPlayer({ video, onClose }) {
+  const [save, saveOverlay] = useSaveVideo(video);
   const beats = useMemo(() => video.scenes.flatMap((sc, si) => sc.lines.map((text, li) => ({ si, li, text }))), [video]);
   const chapters = video.chapters || [];
   const chapterOf = (si) => { let c = -1; chapters.forEach((ch, i) => { if (ch.scene <= si) c = i; }); return c; };
@@ -495,8 +601,12 @@ export function VideoPlayer({ video, onClose }) {
             <b>{video.title}</b>
             <span>{chapterNow >= 0 && started ? `Chapter ${chapterNow + 1}: ${chapters[chapterNow].title}` : video.subtitle}</span>
           </div>
+          <button className="btn ghost vd-dl" onClick={() => { pause(); save(); }} disabled={mode === "waiting"} title="Save as an MP4 file with the Dwiddle watermark">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 3v10M6 9.5l4 4 4-4M4 16.5h12" /></svg> Download
+          </button>
           <button className="icon-btn" onClick={() => { pause(); onClose(); }} aria-label="Close video"><Icon name="close" size={18} /></button>
         </div>
+        {saveOverlay}
 
         <div className="vd-main">
           <div className="vd-left">
@@ -511,6 +621,7 @@ export function VideoPlayer({ video, onClose }) {
               ) : (
                 <Scene key={beat.si} scene={scene} line={beat.li} index={beat.si} total={video.scenes.length} />
               )}
+              {started && <Watermark />}
               {started && <div className={"vd-host" + (playing ? " on" : "")} aria-hidden="true"><DuckTalk mood={playing ? "talking" : finished ? "happy" : "idle"} size={64} /></div>}
               {started && captions && <Caption text={beat.text} share={lineShare} />}
               {track && <audio ref={audio} src={track.url} preload="auto" onEnded={() => { setPlaying(false); setFinished(true); }} />}
@@ -593,6 +704,51 @@ export function VideoPlayer({ video, onClose }) {
 
 function PlayIcon({ size }) {
   return <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor"><path d="M6 4l10 6-10 6z" /></svg>;
+}
+
+/* ---------- the watermark, and the frames saved videos are made of ---------- */
+
+// Top right of every video, on screen and in a saved file.
+export function Watermark() {
+  return (
+    <div className="vd-watermark" aria-hidden="true">
+      <svg width="22" height="22" viewBox="20 3 88 88"><DuckParts /></svg>
+      <b>Dwiddle</b>
+    </div>
+  );
+}
+
+// One frame of a saved video, drawn off screen and photographed by
+// videoExport.js. card: "intro" | "outro" for the title and closing cards.
+export function ExportFrame({ video, si = 0, li = 0, text = "", card = "" }) {
+  return (
+    <div className="vd vd-export">
+      <div className="vd-stage vd-stage-export">
+        {card === "intro" && (
+          <div className="vd-poster">
+            <DuckTalk mood="idle" size={120} />
+            <h2>{video.title}</h2>
+            {video.subtitle && <p className="vd-sub">{video.subtitle}</p>}
+          </div>
+        )}
+        {card === "outro" && (
+          <div className="vd-poster">
+            <DuckTalk mood="happy" size={120} />
+            <h2>Made with Dwiddle</h2>
+            <p className="vd-sub">Notes, lessons, practice and videos from your own material</p>
+          </div>
+        )}
+        {!card && (
+          <>
+            <Scene scene={video.scenes[si]} line={li} index={si} total={video.scenes.length} />
+            <div className="vd-host on"><DuckTalk mood="talking" size={64} /></div>
+            <Caption text={text} share={1} />
+          </>
+        )}
+        <Watermark />
+      </div>
+    </div>
+  );
 }
 
 /* ---------- a scene ---------- */

@@ -8880,3 +8880,25 @@ body.has-backdrop main .page {
 @keyframes nt-flash { 0%, 60% { box-shadow: 0 0 0 4px var(--accent), 0 0 24px 6px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .dc-did .dc-chip-go { font: inherit; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 0; cursor: pointer; text-align: left; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
 .dc-did .dc-chip-go:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+
+/* the Dwiddle watermark, top right of every video and saved file */
+.vd-watermark { position: absolute; top: 1.6cqw; right: 1.8cqw; z-index: 4; display: flex; align-items: center; gap: 0.7cqw; padding: 0.5cqw 1.4cqw 0.5cqw 0.8cqw; border-radius: 999px; background: rgba(255, 255, 255, 0.9); color: #111827; font-size: clamp(11px, 1.8cqw, 20px); letter-spacing: -0.01em; box-shadow: 0 0.3cqw 1cqw rgba(0, 0, 0, 0.18); pointer-events: none; }
+.vd-watermark svg { width: 1.9em; height: 1.9em; }
+.vd-headrow { padding-right: 15cqw; }
+
+/* off screen frames for saving a video */
+.vd.vd-export { position: fixed; inset: auto; left: -20000px; top: 0; width: 1280px; height: 800px; display: block; animation: none; z-index: -1; background: transparent; pointer-events: none; }
+.vd-stage-export { max-width: none; width: 1280px; height: 800px; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; cursor: default; }
+.vd-export *, .vd-export *::before, .vd-export *::after { animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; animation-fill-mode: both !important; transition: none !important; }
+.vd-stage-export .vd-poster h2 { font-size: 52px; max-width: 22ch; }
+.vd-stage-export .vd-sub { font-size: 26px; }
+
+.vd-save { position: fixed; inset: 0; z-index: 140; display: grid; place-items: center; background: rgba(8, 10, 16, 0.55); }
+.vd-save-card { width: min(420px, 92vw); padding: 24px; border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lift); display: grid; gap: 10px; text-align: center; }
+.vd-save-card b { font-size: 17px; }
+
+.vd-dl { margin-left: auto; margin-right: 8px; }
+/* in a saved frame, labels draw their backing and outline the way the screen does */
+.vd-export .vp-name rect { fill: #fff !important; }
+.vd-export .vp-label { fill: #1b1d26 !important; }
+.vd-export .dt-think, .vd-export .dt-ears { display: none; }

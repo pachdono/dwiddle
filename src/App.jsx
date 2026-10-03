@@ -24,7 +24,7 @@ import { phraseQuestion } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
-import { Videos, VideoJobChip } from "./Video.jsx";
+import { Videos, VideoJobChip, NarrationAsk } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
@@ -1110,6 +1110,7 @@ export default function App() {
       <UpdateBar />
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
+      <NarrationAsk />
       <XpToast />
 
       {editing && page === "home" && custom.on && (

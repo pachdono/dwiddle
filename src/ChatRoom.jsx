@@ -164,6 +164,8 @@ export default function ChatRoom({ go, setMade, auth, made }) {
 
   // A narrated video of an answer, made and voiced right here in the chat.
   async function makeVideo(afterId, topic, notes) {
+    const { askNarration } = await import("./Video.jsx");
+    if (!(await askNarration({ chapters: 1 }))) return;
     import("./notify.js").then((m) => m.askOnce());
     const id = Date.now() + "v";
     setMsgs((m) => {

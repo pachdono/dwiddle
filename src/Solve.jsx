@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { solveProblem, writeVideo, drawQuestion, chatWithDwiddle } from "./ai.js";
 import { readFile, MAX_FILE, IMAGE } from "./readfile.js";
 import { Icon, PageHead, Loading, Boundary } from "./ui.jsx";
-import { VideoPlayer, Diagram, voice, NarrationToggle } from "./Video.jsx";
+import { VideoPlayer, Diagram, voice, NarrationToggle, askNarration } from "./Video.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { FreeGate } from "./FreeGate.jsx";
@@ -82,6 +82,7 @@ export function Solve({ go, auth, early }) {
 
   async function explain() {
     if (video) { setWatching(true); return; }
+    if (!(await askNarration({ chapters: 1 }))) return;
     setFilming(true);
     setVideoError("");
     try {

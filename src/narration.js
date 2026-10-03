@@ -135,7 +135,7 @@ export function onNarration(video, fn) {
 
 // The whole narration as one recording: { url, starts, duration }, where
 // starts[i] is when line i begins, in seconds.
-export async function narrationAudio(video) {
+export async function narrationPcm(video) {
   const key = narrationKey(video);
   const lines = linesOf(video);
   const parts = await Promise.all(lines.map((_, i) => getLine(`${key}:${i}`)));
@@ -151,7 +151,12 @@ export async function narrationAudio(video) {
     pcm.set(new Int16Array(p.pcm), at);
     at += p.pcm.byteLength / 2 + gap;
   }
-  return { url: URL.createObjectURL(wav(pcm, sr)), starts, duration: total / sr };
+  return { pcm, sr, starts, duration: total / sr };
+}
+
+export async function narrationAudio(video) {
+  const t = await narrationPcm(video);
+  return t && { url: URL.createObjectURL(wav(t.pcm, t.sr)), starts: t.starts, duration: t.duration };
 }
 
 // 16 bit mono samples as a WAV file the browser's own audio player can play,
