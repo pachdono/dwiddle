@@ -43,14 +43,21 @@ export function viewOf(made, id) {
 }
 
 // Takes one item out. Topics another item also has are kept.
+//
+// What was taken out is remembered (removed, gone) so that syncing with another
+// copy that still has it does not bring it back: a merge only ever adds, so
+// without this a deleted item returned the next time the account synced.
+const FORGET = 90 * 24 * 3600 * 1000; // deletions are remembered for 90 days
 export function withoutMaterial(made, id) {
   const all = withMaterials(made);
   const m = all?.materials?.find((x) => x.id === id);
   if (!m) return all;
+  const now = Date.now();
   const rest = all.materials.filter((x) => x.id !== id);
   const still = new Set(rest.flatMap((x) => x.topics));
   const gone = new Set(m.topics.filter((n) => !still.has(n)));
   const drop = (obj) => Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !gone.has(k)));
+  const recent = (map) => Object.fromEntries(Object.entries(map || {}).filter(([, v]) => now - (v?.at ?? v ?? 0) < FORGET));
   return {
     ...all,
     title: rest[rest.length - 1]?.title || all.title,
@@ -61,5 +68,7 @@ export function withoutMaterial(made, id) {
     notes: drop(all.notes),
     lessons: drop(all.lessons),
     sheets: (all.sheets || []).filter((s) => s.title !== m.title),
+    removed: { ...recent(all.removed), [id]: { at: now, title: m.title } },
+    gone: { ...recent(all.gone), ...Object.fromEntries([...gone].map((n) => [n, now])) },
   };
 }

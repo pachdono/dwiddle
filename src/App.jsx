@@ -527,6 +527,9 @@ export default function App() {
             { ...(prev.notes || {}) },
           ),
           materials: noteMaterial(prev, data, material),
+          // What was deleted stays remembered, so syncing cannot bring it back.
+          ...(prev.removed ? { removed: prev.removed } : {}),
+          ...(prev.gone ? { gone: prev.gone } : {}),
         };
       }
 

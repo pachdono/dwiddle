@@ -145,9 +145,29 @@ function mergeStats(a, b) {
   };
 }
 
+// A merge only ever adds, so something deleted on one copy came back from the
+// other. Deleted library items are remembered (removed, gone; see
+// materials.js) and a merge leaves them out, whichever copy still has them.
+const stamp = (v) => (v && typeof v === "object" ? v.at : v) || 0;
+const newestOf = (x, y) => { const o = { ...(x || {}) }; for (const [k, v] of Object.entries(y || {})) if (!o[k] || stamp(v) > stamp(o[k])) o[k] = v; return o; };
+
 function mergeMade(a, b) {
   if (!a) return b;
   if (!b) return a;
+  const removed = newestOf(a.removed, b.removed), gone = newestOf(a.gone, b.gone);
+
+  // Library items from both, each once, without any that were deleted.
+  let items = [...(a.materials || [])];
+  const itemIds = new Set(items.map((m) => m.id));
+  (b.materials || []).forEach((m) => {
+    if (!itemIds.has(m.id)) items.push(m);
+    else { const i = items.findIndex((x) => x.id === m.id); items[i] = { ...items[i], topics: [...new Set([...items[i].topics, ...m.topics])] }; }
+  });
+  items = items.filter((m) => !removed[m.id]).sort((x, y) => (x.at || 0) - (y.at || 0));
+  // A topic that was deleted is only kept if an item still left has it.
+  const kept = new Set(items.flatMap((m) => m.topics));
+  const goneNow = (name) => !!gone[name] && !kept.has(name);
+
   const questions = [...a.questions];
   const ids = new Set(questions.map((q) => q.id));
   b.questions.forEach((q) => { if (!ids.has(q.id)) questions.push(q); });
@@ -156,19 +176,30 @@ function mergeMade(a, b) {
   const names = new Set(topics.map((t) => t.name));
   b.topics.forEach((t) => { if (!names.has(t.name)) topics.push(t); });
 
-  // Library items from both, each once.
-  const items = [...(a.materials || [])];
-  const itemIds = new Set(items.map((m) => m.id));
-  (b.materials || []).forEach((m) => {
-    if (!itemIds.has(m.id)) items.push(m);
-    else { const i = items.findIndex((x) => x.id === m.id); items[i] = { ...items[i], topics: [...new Set([...items[i].topics, ...m.topics])] }; }
-  });
-  items.sort((x, y) => (x.at || 0) - (y.at || 0));
+  const drills = [...(a.drills || [])];
+  const drillIds = new Set(drills.map((d) => d.id));
+  (b.drills || []).forEach((d) => { if (!drillIds.has(d.id)) drills.push(d); });
+
+  const removedTitles = new Set(Object.values(removed).map((v) => v?.title).filter(Boolean));
+  const sheets = [...(a.sheets || []), ...(b.sheets || [])].filter((sh, i, all) => all.findIndex((x) => x.title === sh.title) === i && !removedTitles.has(sh.title));
+  const without = (obj) => Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !goneNow(k)));
+
   // Where both copies have notes or a lesson for the same topic, the copy
   // saved last wins. Otherwise an edit made here (a graph Dwiddle added, a
   // fixed note) was undone a second later by the older copy in the cloud.
   const [older, newer] = (a.savedAt || 0) > (b.savedAt || 0) ? [b, a] : [a, b];
-  return { ...b, topics, questions, sheet: b.sheet || a.sheet, notes: { ...(older.notes || {}), ...(newer.notes || {}) }, lessons: { ...(older.lessons || {}), ...(newer.lessons || {}) }, ...(items.length ? { materials: items } : {}) };
+  return {
+    ...b,
+    topics: topics.filter((t) => !goneNow(t.name)),
+    questions: questions.filter((q) => !goneNow(q.topic)),
+    drills: drills.filter((d) => !goneNow(d.topic)),
+    sheet: b.sheet || a.sheet,
+    sheets,
+    notes: without({ ...(older.notes || {}), ...(newer.notes || {}) }),
+    lessons: without({ ...(older.lessons || {}), ...(newer.lessons || {}) }),
+    materials: items,
+    removed, gone,
+  };
 }
 
 function mergeBank(a, b) {
