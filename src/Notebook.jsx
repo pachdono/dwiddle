@@ -2756,9 +2756,14 @@ function Editor({ id, go, onClose, early = false, access }) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     el.width = Math.max(1, Math.round(r.width * dpr));
     el.height = Math.max(1, Math.round(r.height * dpr));
+    // The low latency "desynchronized" canvas is painted straight to the screen
+    // without being blended with the page. On Windows that shows a transparent
+    // ink canvas as solid black the moment a pen touches it, so it is not
+    // used there; everywhere else it keeps ink as quick as it can be.
+    const windows = /Windows/i.test(navigator.userAgent || "") || /^win/i.test(navigator.platform || "");
     let ctx = null;
-    try { ctx = el.getContext("2d", { desynchronized: true }); } catch { /* older browsers */ }
-    ctx ||= el.getContext("2d");
+    if (!windows) { try { ctx = el.getContext("2d", { desynchronized: true }); } catch { /* older browsers */ } }
+    ctx ||= el.getContext("2d", { alpha: true });
     const k = (r.width / (Number(el.dataset.w) || PAGE_W)) * dpr;
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.lineCap = "round";
