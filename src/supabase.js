@@ -8,8 +8,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { load, save, KEYS, changedAt, setChangedAt } from "./store.js";
 
-const rawUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
-const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+const rawUrl = (import.meta.env?.VITE_SUPABASE_URL || "").trim();
+const anon = (import.meta.env?.VITE_SUPABASE_ANON_KEY || "").trim();
 
 // The dashboard link and the API endpoint are different addresses, and pasting
 // the first is an easy mistake that fails silently: the client builds fine,
@@ -164,7 +164,11 @@ function mergeMade(a, b) {
     else { const i = items.findIndex((x) => x.id === m.id); items[i] = { ...items[i], topics: [...new Set([...items[i].topics, ...m.topics])] }; }
   });
   items.sort((x, y) => (x.at || 0) - (y.at || 0));
-  return { ...b, topics, questions, sheet: b.sheet || a.sheet, notes: { ...(a.notes || {}), ...(b.notes || {}) }, lessons: { ...(a.lessons || {}), ...(b.lessons || {}) }, ...(items.length ? { materials: items } : {}) };
+  // Where both copies have notes or a lesson for the same topic, the copy
+  // saved last wins. Otherwise an edit made here (a graph Dwiddle added, a
+  // fixed note) was undone a second later by the older copy in the cloud.
+  const [older, newer] = (a.savedAt || 0) > (b.savedAt || 0) ? [b, a] : [a, b];
+  return { ...b, topics, questions, sheet: b.sheet || a.sheet, notes: { ...(older.notes || {}), ...(newer.notes || {}) }, lessons: { ...(older.lessons || {}), ...(newer.lessons || {}) }, ...(items.length ? { materials: items } : {}) };
 }
 
 function mergeBank(a, b) {
