@@ -11,6 +11,10 @@ import { useId, useMemo } from "react";
 
 const INK = "var(--vd-ink, #1b1d26)";
 
+// A dot travelling a path over and over. Done with CSS motion paths rather
+// than SVG animation, so that saving a video can move it to any moment.
+export const mover = (d, dur, delay = 0, rotate = false) => ({ offsetPath: `path("${d}")`, animationDuration: `${dur}s`, animationDelay: `${delay}s`, offsetRotate: rotate ? "auto" : "0deg" });
+
 function Sun() {
   return (
     <g className="vp-sun">
@@ -128,9 +132,7 @@ function Atom() {
       {[0, 60, 120].map((r) => (
         <g key={r} transform={`rotate(${r} 60 60)`}>
           <ellipse cx="60" cy="60" rx="46" ry="16" fill="none" stroke="#5B9DF5" strokeWidth="2.5" />
-          <circle r="5" fill="#2F80ED">
-            <animateMotion dur={`${2 + r / 120}s`} repeatCount="indefinite" path="M106 60a46 16 0 1 1-92 0a46 16 0 1 1 92 0" />
-          </circle>
+          <circle r="5" fill="#2F80ED" className="vp-mover" style={mover("M106 60a46 16 0 1 1-92 0a46 16 0 1 1 92 0", 2 + r / 120)} />
         </g>
       ))}
       <circle cx="60" cy="60" r="11" fill="#E5484D" stroke={INK} strokeWidth="2" />
@@ -686,8 +688,59 @@ function Gas() {
       <rect x="10" y="10" width="100" height="100" rx="8" fill="#EEF4FB" stroke="#8AA4C0" strokeWidth="3" />
       {paths.map((d, i) => (
         <g key={i}>
-          <circle r="8" {...PART}><animateMotion dur={`${1.6 + i * 0.35}s`} repeatCount="indefinite" path={d} /></circle>
+          <circle r="8" {...PART} className="vp-mover" style={mover(d, 1.6 + i * 0.35)} />
         </g>
+      ))}
+    </g>
+  );
+}
+
+/* Substances and diffusion: a drop, a crystal, a beaker of particles, and the
+   way a dye spreads from where it is crowded to where it is not. */
+function Droplet({ oil }) {
+  const fill = oil ? "#F2B93B" : "#4FA3F7";
+  return (
+    <g>
+      <path d="M60 12 C60 12 24 56 24 78 a36 36 0 0 0 72 0 C96 56 60 12 60 12 Z" fill={fill} stroke={INK} strokeWidth="3.5" strokeLinejoin="round" />
+      <path d="M42 80 a18 18 0 0 0 12 16" stroke="#fff" strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.7" />
+    </g>
+  );
+}
+const OilDroplet = () => <Droplet oil />;
+
+function Cube() {
+  return (
+    <g strokeLinejoin="round" stroke={INK} strokeWidth="3.5">
+      <path d="M60 18 L100 38 L60 58 L20 38 Z" fill="#FFFFFF" />
+      <path d="M20 38 L60 58 L60 104 L20 84 Z" fill="#E4E8EE" />
+      <path d="M100 38 L60 58 L60 104 L100 84 Z" fill="#CBD2DC" />
+    </g>
+  );
+}
+
+function Beaker() {
+  const dots = [[40, 80], [58, 90], [76, 78], [88, 92], [48, 64], [70, 66], [92, 70], [60, 100], [84, 60]];
+  return (
+    <g>
+      <path d="M26 12 V98 a8 8 0 0 0 8 8 H86 a8 8 0 0 0 8 -8 V12" fill="none" stroke="#8AA4C0" strokeWidth="4" strokeLinecap="round" />
+      <path d="M28 52 H92 V98 a6 6 0 0 1 -6 6 H34 a6 6 0 0 1 -6 -6 Z" fill="#BFE3F5" opacity="0.8" />
+      {dots.map(([x, y], i) => <circle key={i} className="vp-jit" style={{ animationDelay: `${i * -0.21}s` }} cx={x} cy={y} r="5" fill="#2F80ED" stroke={INK} strokeWidth="1.6" />)}
+    </g>
+  );
+}
+
+// Dye particles bunched at the left, then spreading until the beaker is the
+// same all through, over and over: from high concentration to low.
+function Diffusion() {
+  const end = [[40, 70], [60, 64], [80, 72], [96, 66], [48, 86], [68, 90], [88, 88], [38, 94], [58, 76], [78, 60], [98, 84], [50, 58]];
+  const start = [[36, 66], [42, 74], [36, 82], [44, 90], [34, 98], [46, 62], [40, 86], [48, 80], [34, 72], [44, 96], [38, 58], [50, 70]];
+  return (
+    <g>
+      <path d="M22 12 V98 a8 8 0 0 0 8 8 H90 a8 8 0 0 0 8 -8 V12" fill="none" stroke="#8AA4C0" strokeWidth="4" strokeLinecap="round" />
+      <path d="M24 46 H96 V98 a6 6 0 0 1 -6 6 H30 a6 6 0 0 1 -6 -6 Z" fill="#DDEFFA" />
+      {end.map(([x, y], i) => (
+        <circle key={i} r="5" fill="#E5484D" stroke={INK} strokeWidth="1.6" cx={start[i][0]} cy={start[i][1]} className="vp-spread"
+          style={{ "--dx": `${x - start[i][0]}px`, "--dy": `${y - start[i][1]}px`, animationDelay: `${i * -0.05}s` }} />
       ))}
     </g>
   );
@@ -722,6 +775,11 @@ export const PROPS = {
   fire: { draw: Fire, words: /fire|burn|combustion|flame/ },
   wave: { draw: Wave, words: /\bwaves?\b|sound|frequency|vibrat|signal/ },
   bacteria: { draw: Bacteria, words: /bacteri|virus|microbe|germ|disease|infection|pathogen/ },
+  droplet: { draw: Droplet, words: /droplet|water drop|raindrop/ },
+  oildroplet: { draw: OilDroplet, words: /oil droplet|fat droplet|lipid droplet/ },
+  cube: { draw: Cube, words: /salt crystal|sugar cube|sugar crystal|\bcubes?\b|crystal lattice/ },
+  beaker: { draw: Beaker, words: /beaker/ },
+  diffusion: { draw: Diffusion, words: /diffus|concentration gradient|\bdye\b|perfume|high to low concentration/, says: "high to low concentration" },
   solid: { draw: Solid, words: /\bsolids?\b/, says: "packed, vibrating" },
   liquid: { draw: Liquid, words: /\bliquids?\b/, says: "touching, sliding" },
   gas: { draw: Gas, words: /\bgas(es)?\b|\bvapou?r\b/, says: "far apart, fast" },
@@ -792,33 +850,68 @@ function edge(box, cx, cy, ux, uy, gap) {
   return [cx + ux * t, cy + uy * t];
 }
 
-// Each arrow's curve and the spot for its label: the side it bends to and
-// the point along it are picked so the label sits on nothing else.
+// A drawing has to look like what it is called. The model sometimes reached
+// for the nearest one it had (a pot plant for "oil droplet" or "salt shaker",
+// a person for "protein"); where the name is plainly something else, the
+// drawing that does fit is used, and where nothing fits it is left out.
+const LOOSE = new Set(["plant", "tree", "person", "people", "children", "worker", "house", "shop", "factory", "school", "book", "star", "food", "cloud"]);
+export function fitProp(p) {
+  if (!p || !LOOSE.has(p.kind)) return p;
+  const label = String(p.label || "").toLowerCase();
+  if (!label || PROPS[p.kind].words.test(label)) return p;
+  if (/\boil|\bfat|lipid/.test(label)) return { ...p, kind: "oildroplet" };
+  if (/\bwater|drop|rain/.test(label)) return { ...p, kind: "droplet" };
+  if (/\bsalt|sugar|cube|crystal/.test(label)) return { ...p, kind: "cube" };
+  if (/protein|amino|fatty|glycerol|enzyme|molecule|\bions?\b|mineral|starch/.test(label)) return { ...p, kind: "molecule" };
+  return p;
+}
+
+// Each arrow's curve and the spot for its label. Arrows that meet at the same
+// drawing are spread apart so they do not run on top of each other, and each
+// label sits beside its arrow, never over any arrow, drawing or other label.
 function route(links, placed) {
   const boxes = placed.map(boxOf);
-  const taken = [];
-  return links.map((l) => {
+  const meets = new Map();
+  links.forEach((l, i) => { for (const k of [l.from, l.to]) meets.set(k, [...(meets.get(k) || []), i]); });
+  const spread = (k, i) => { const list = meets.get(k); return (list.indexOf(i) - (list.length - 1) / 2) * 34; };
+
+  // First every arrow's straight run, so labels can keep clear of all of them.
+  const runs = links.map((l, i) => {
     const from = placed[l.from], to = placed[l.to];
-    const [x1, y1] = from.xy, [x2, y2] = to.xy;
-    const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
-    const [ax, ay] = edge(boxes[l.from], x1, y1, ux, uy, 6);
-    const [bx, by] = edge(boxes[l.to], x2, y2, -ux, -uy, 10);
+    const len = Math.hypot(to.xy[0] - from.xy[0], to.xy[1] - from.xy[1]) || 1;
+    const ux = (to.xy[0] - from.xy[0]) / len, uy = (to.xy[1] - from.xy[1]) / len, nx = -uy, ny = ux;
+    const sf = spread(l.from, i), st = spread(l.to, i);
+    const [ax, ay] = edge(boxes[l.from], from.xy[0] + nx * sf, from.xy[1] + ny * sf, ux, uy, 6);
+    const [bx, by] = edge(boxes[l.to], to.xy[0] + nx * st, to.xy[1] + ny * st, -ux, -uy, 10);
+    return { ax, ay, bx, by, ux, uy, nx, ny };
+  });
+  const points = (r) => Array.from({ length: 14 }, (_, k) => [r.ax + ((r.bx - r.ax) * k) / 13, r.ay + ((r.by - r.ay) * k) / 13]);
+  const inside = (r, x, y) => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3];
+
+  const taken = [];
+  return links.map((l, i) => {
+    const r0 = runs[i];
     const w = (l.label || "").length * 8.6 + 22, h = 28;
     let best = null;
-    for (const side of [1, -1]) {
-      const cx = (ax + bx) / 2 - uy * 36 * side, cy = (ay + by) / 2 + ux * 36 * side;
-      for (const t of [0.5, 0.4, 0.6, 0.32, 0.68]) {
-        const mx = (1 - t) ** 2 * ax + 2 * (1 - t) * t * cx + t * t * bx;
-        const my = (1 - t) ** 2 * ay + 2 * (1 - t) * t * cy + t * t * by;
-        const r = [mx - w / 2, my - h / 2, mx + w / 2, my + h / 2];
-        const hit = [...boxes, ...taken].reduce((n, b) => n + overlap(r, b), 0) + (r[0] < 0 || r[2] > 520 || r[1] < 0 || r[3] > 400 ? 5000 : 0);
-        if (!best || hit < best.hit) best = { hit, d: `M${ax} ${ay}Q${cx} ${cy} ${bx} ${by}`, mx, my, r, w };
-        if (hit === 0) break;
+    if (l.label) {
+      for (const off of [h / 2 + 10, -(h / 2 + 10), h / 2 + 34, -(h / 2 + 34), h / 2 + 58, -(h / 2 + 58), 0]) {
+        for (const t of [0.5, 0.36, 0.64, 0.24, 0.76]) {
+          const mx = r0.ax + (r0.bx - r0.ax) * t + r0.nx * off, my = r0.ay + (r0.by - r0.ay) * t + r0.ny * off;
+          const rect = [mx - w / 2, my - h / 2, mx + w / 2, my + h / 2];
+          let cost = [...boxes, ...taken].reduce((n, b) => n + overlap(rect, b), 0);
+          for (const r of runs) cost += points(r).filter(([x, y]) => inside(rect, x, y)).length * 400;
+          cost += rect[0] < 4 || rect[2] > 516 || rect[1] < 4 || rect[3] > 396 ? 5000 : 0;
+          cost += Math.abs(off) * 0.4 + Math.abs(t - 0.5) * 30;
+          if (!best || cost < best.cost) best = { cost, mx, my, rect, off };
+        }
+        if (best && best.cost < 20) break;
       }
-      if (best.hit === 0) break;
+      taken.push(best.rect);
     }
-    if (l.label) taken.push(best.r);
-    return best;
+    // A gentle curve, bent away from the side the label sits on.
+    const bend = best && best.off ? -Math.sign(best.off) * 16 : 14;
+    const cx = (r0.ax + r0.bx) / 2 + r0.nx * bend, cy = (r0.ay + r0.by) / 2 + r0.ny * bend;
+    return { d: `M${r0.ax} ${r0.ay}Q${cx} ${cy} ${r0.bx} ${r0.by}`, mx: best?.mx ?? cx, my: best?.my ?? cy, w };
   });
 }
 
@@ -834,7 +927,7 @@ function Link({ id, path, label, fresh, color }) {
       </defs>
       <path d={d} className="vp-link-path" pathLength="100" markerEnd={`url(#${id})`} />
       <path d={d} className="vp-link-flow" />
-      <circle r="5" className="vp-link-dot"><animateMotion dur="2.2s" repeatCount="indefinite" path={d} /></circle>
+      <g className="vp-link-dotwrap"><circle r="5" className="vp-link-dot vp-mover" style={mover(d, 2.2)} /></g>
       {label && (
         <g className="vp-link-label">
           <rect x={mx - w / 2} y={my - 14} width={w} height="28" rx="14" />

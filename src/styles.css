@@ -8532,7 +8532,7 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .vp-link.fresh .vp-link-path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: vp-draw 0.9s ease forwards; }
 .vp-link-flow { fill: none; stroke: #fff; stroke-width: 1.6; stroke-dasharray: 4 10; opacity: 0.8; animation: vp-field 0.8s linear infinite; }
 .vp-link-dot { fill: var(--c); }
-.vp-link.fresh .vp-link-dot, .vp-link.fresh .vp-link-label { animation: vp-fade 0.4s ease 0.8s both; }
+.vp-link.fresh .vp-link-dotwrap, .vp-link.fresh .vp-link-label { animation: vp-fade 0.4s ease 0.8s both; }
 @keyframes vp-fade { from { opacity: 0; } to { opacity: 1; } }
 .vp-link-label rect { fill: var(--surface, #fff); stroke: var(--c); stroke-width: 2; }
 .vp-link-label text { font: 700 14px system-ui, sans-serif; fill: var(--c); }
@@ -8889,7 +8889,8 @@ body.has-backdrop main .page {
 /* off screen frames for saving a video */
 .vd.vd-export { position: fixed; inset: auto; left: -20000px; top: 0; width: 1280px; height: 800px; display: block; animation: none; z-index: -1; background: transparent; pointer-events: none; }
 .vd-stage-export { max-width: none; width: 1280px; height: 800px; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; cursor: default; }
-.vd-export *, .vd-export *::before, .vd-export *::after { animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; animation-fill-mode: both !important; transition: none !important; }
+.vd-export *, .vd-export *::before, .vd-export *::after { transition: none !important; }
+.vd-export.still *, .vd-export.still *::before, .vd-export.still *::after { animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; animation-fill-mode: both !important; }
 .vd-stage-export .vd-poster h2 { font-size: 52px; max-width: 22ch; }
 .vd-stage-export .vd-sub { font-size: 26px; }
 
@@ -8908,3 +8909,9 @@ body.has-backdrop main .page {
 .dn-hand { transform-box: view-box; transform-origin: 0 0; animation: dn-tick 4s linear infinite; }
 @keyframes dn-tick { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .dn-wave, .dn-hand { animation: none; } }
+
+/* dots that travel a path, and particles that spread, as CSS so a saved video can step through them */
+.vp-mover { animation-name: vp-travel; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes vp-travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+.vp-spread { animation: vp-spread 7s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes vp-spread { 0% { transform: translate(0, 0); } 55%, 85% { transform: translate(var(--dx), var(--dy)); } 100% { transform: translate(0, 0); } }

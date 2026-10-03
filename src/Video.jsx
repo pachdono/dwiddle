@@ -15,7 +15,7 @@ import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck, DuckParts, DuckNarrator } from "./Duck.jsx";
-import { PropStage, propsFor, PROPS, STATES } from "./VideoProps.jsx";
+import { PropStage, propsFor, PROPS, STATES, fitProp, mover } from "./VideoProps.jsx";
 import { DuckTalk } from "./Chat.jsx";
 
 /* ---------- saved videos ---------- */
@@ -429,7 +429,7 @@ export function useSaveVideo(video) {
             <>
               <b>{st.phase === "encoding" ? "Finishing your video" : "Saving your video"}</b>
               <p className="small muted" style={{ margin: 0 }}>
-                {st.phase === "encoding" ? "Putting the picture and sound together." : `Drawing the lesson, line ${Math.min(st.done + 1, st.total)} of ${st.total}. This runs on your device and is quicker than the video itself.`}
+                {st.phase === "encoding" ? "Putting the picture and sound together." : `Drawing the lesson, line ${Math.min(st.done + 1, st.total)} of ${st.total}. It is drawn on your device, with the animations, so a long video can take a few minutes.`}
               </p>
               <div className="vd-voice-bar"><i style={{ width: `${Math.round((st.done / (st.total || 1)) * 100)}%` }} /></div>
               <button className="btn ghost" onClick={() => abort.current?.abort()}>Cancel</button>
@@ -720,7 +720,7 @@ export function Watermark() {
 // videoExport.js. card: "intro" | "outro" for the title and closing cards.
 export function ExportFrame({ video, si = 0, li = 0, text = "", card = "" }) {
   return (
-    <div className="vd vd-export">
+    <div className={"vd vd-export" + (card ? " still" : "")}>
       <div className="vd-stage vd-stage-export">
         {card === "intro" && (
           <div className="vd-poster">
@@ -788,11 +788,15 @@ function Caption({ text, share }) {
 
 function Scene({ scene, line, index = 0, total = 1 }) {
   const board = scene.board.filter((b) => b.at <= line);
-  const drawn = scene.diagram && !scene.diagram.picture;
+  // Axes and a grid are for graphs. A cell or a process drawn with them (the
+  // model sometimes did) is shown without.
+  const talksGraph = /graph|axis|axes|coordinate|plot|function|gradient|equation|x-axis|y-axis/i.test([scene.heading, ...(scene.lines || [])].join(" "));
+  const diagram = scene.diagram && !scene.diagram.picture && !talksGraph && (scene.diagram.axes || scene.diagram.grid) ? { ...scene.diagram, axes: false, grid: false } : scene.diagram;
+  const drawn = diagram && !diagram.picture;
   // Moving drawings: the ones the scene names, or, where it names none and
   // has no drawn diagram, the things it talks about.
   const props = useMemo(() => {
-    const named = (scene.props || []).filter((p) => PROPS[p.kind]);
+    const named = (scene.props || []).filter((p) => PROPS[p.kind]).map(fitProp);
     // Particles of a solid, liquid or gas always get the particle drawings:
     // a drawn figure of them was a circle with a few dots, the same for all three.
     const states = propsFor(scene).filter((p) => STATES.includes(p.kind));
@@ -813,7 +817,7 @@ function Scene({ scene, line, index = 0, total = 1 }) {
         <h3 className="vd-heading"><span>{scene.heading}</span></h3>
       </div>
       <div className="vd-body">
-        {drawn && !moving && <Diagram d={scene.diagram} line={line} />}
+        {drawn && !moving && <Diagram d={diagram} line={line} />}
         {moving && <PropStage props={props} links={scene.links || []} line={line} />}
         {pic && (
           <figure className="vd-picture">
@@ -1073,9 +1077,7 @@ function Shape({ s, X, Y, k, fresh }) {
         <g className={`vd-mover c-${s.color}`}>
           <path d={d} className="vd-mover-path" />
           {[0, 1, 2, 3].map((n) => (
-            <circle key={n} r="5" className="vd-mover-dot">
-              <animateMotion dur="4s" repeatCount="indefinite" begin={`${-n}s`} path={d} rotate="auto" />
-            </circle>
+            <circle key={n} r="5" className="vd-mover-dot vp-mover" style={mover(d, 4, -n, true)} />
           ))}
         </g>
       );
