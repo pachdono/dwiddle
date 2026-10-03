@@ -537,3 +537,34 @@ export function DuckTV({ size = 230, className = "" }) {
     </svg>
   );
 }
+
+// Dwiddle at the microphone with a stopwatch, for the "narration takes
+// longer" notice: the narrator, and how long the voice will take.
+export function DuckNarrator({ size = 110, className = "" }) {
+  return (
+    <svg className={"dn " + className} width={size} height={size * (150 / 168)} viewBox="-8 -10 168 150" aria-hidden="true">
+      <ellipse cx="64" cy="128" rx="48" ry="5" fill="rgba(0,0,0,0.12)" />
+      <DuckParts />
+      {/* the wing on the mic side, reaching out to hold it */}
+      <ellipse cx="100" cy="92" rx="9" ry="17" fill={WING} transform="rotate(32 100 92)" />
+      {/* a studio microphone: stem, then the grille */}
+      <rect x="123" y="94" width="8" height="26" rx="4" fill="#3A3F4B" />
+      <rect x="121" y="104" width="12" height="4" rx="2" fill="#6B7280" />
+      <circle cx="127" cy="84" r="13" fill="#2B2F3A" />
+      <path d="M116 80h22M115.6 85h22.8M116.6 90h20.8" stroke="#4B5263" strokeWidth="1.6" strokeLinecap="round" />
+      <ellipse cx="122" cy="77" rx="4" ry="3" fill="#fff" opacity="0.35" />
+      {/* sound leaving it */}
+      <g className="dn-wave" fill="none" stroke="#2F80ED" strokeWidth="3" strokeLinecap="round">
+        <path d="M146 78q5 6 0 12" /><path d="M153 73q9 11 0 22" />
+      </g>
+      {/* the stopwatch: how long it takes */}
+      <g transform="translate(6 12)">
+        <rect x="-3" y="-17" width="6" height="4" rx="1.5" fill="#6B7280" />
+        <circle r="13" fill="#fff" stroke="#2B2F3A" strokeWidth="3" />
+        <path d="M0 -9V-6M9 0H6M0 9V6M-9 0H-6" stroke="#9CA3AF" strokeWidth="1.6" strokeLinecap="round" />
+        <path className="dn-hand" d="M0 0V-8" stroke="#E5484D" strokeWidth="2.4" strokeLinecap="round" />
+        <circle r="2" fill="#2B2F3A" />
+      </g>
+    </svg>
+  );
+}

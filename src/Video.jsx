@@ -14,7 +14,7 @@ import { onNarration, narrationAudio, prepareNarration } from "./narration.js";
 import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
-import { Duck, DuckParts } from "./Duck.jsx";
+import { Duck, DuckParts, DuckNarrator } from "./Duck.jsx";
 import { PropStage, propsFor, PROPS, STATES } from "./VideoProps.jsx";
 import { DuckTalk } from "./Chat.jsx";
 
@@ -116,7 +116,7 @@ export function videoEstimate(chapters = 1) {
   const n = Math.max(1, chapters);
   return { silent: Math.max(1, Math.ceil(n * 0.5)), voiced: Math.ceil(n * 2 + 1) };
 }
-const minutes = (m) => (m <= 1 ? "about a minute" : `about ${m} minutes`);
+const minutes = (m) => `${m} min`;
 
 let askMounted = false;
 // Resolves true to go ahead (narrated or not, as chosen) and false to cancel.
@@ -144,14 +144,12 @@ export function NarrationAsk() {
     <Portal>
       <div className="gate-scrim perm-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) done(false); }}>
         <div className="gate perm" role="dialog" aria-modal="true" aria-labelledby="narr-title">
-          <div className="perm-art"><DuckTalk mood="idle" size={88} /></div>
+          <div className="perm-art" style={{ paddingTop: 10 }}><DuckNarrator size={150} /></div>
           <h2 id="narr-title">Narration takes much longer</h2>
-          <p className="gate-sub">
-            With narration this video takes <b>{minutes(est.voiced)}</b> to make, because the voice is recorded line by line on your device. Without it, it takes <b>{minutes(est.silent)}</b> and plays silently with captions.
-          </p>
-          <p className="small muted" style={{ margin: "0 0 4px" }}>You can leave Dwiddle open and do something else; a note says when it is ready.</p>
+          <p className="gate-sub"><b>About {est.voiced} min</b> with narration<br /><b>About {est.silent} min</b> without (silent, with captions)</p>
+          <p className="small muted" style={{ margin: "0 0 6px" }}>Keep Dwiddle open while it is made.</p>
           <div className="gate-actions">
-            <button className="btn cta gate-go" onClick={() => done(true, false)}>Make it with narration · {minutes(est.voiced)}</button>
+            <button className="btn cta gate-go" onClick={() => done(true, false)}>With narration · {minutes(est.voiced)}</button>
             <button className="btn" onClick={() => done(true, true)}>No narration · {minutes(est.silent)}</button>
             <button className="btn ghost" onClick={() => done(false)}>Cancel</button>
           </div>

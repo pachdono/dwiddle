@@ -8902,3 +8902,9 @@ body.has-backdrop main .page {
 .vd-export .vp-name rect { fill: #fff !important; }
 .vd-export .vp-label { fill: #1b1d26 !important; }
 .vd-export .dt-think, .vd-export .dt-ears { display: none; }
+
+.dn-wave { animation: dn-pulse 1.6s ease-in-out infinite; }
+@keyframes dn-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.dn-hand { transform-box: view-box; transform-origin: 0 0; animation: dn-tick 4s linear infinite; }
+@keyframes dn-tick { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dn-wave, .dn-hand { animation: none; } }
