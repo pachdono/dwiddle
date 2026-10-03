@@ -8875,3 +8875,8 @@ body.has-backdrop main .page {
 .dc-did { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .dc-did span { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
 .dc-did span.no { background: color-mix(in srgb, #d33 14%, transparent); color: #c22; }
+
+.nt-flash { animation: nt-flash 2.6s ease; border-radius: 12px; }
+@keyframes nt-flash { 0%, 60% { box-shadow: 0 0 0 4px var(--accent), 0 0 24px 6px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.dc-did .dc-chip-go { font: inherit; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 0; cursor: pointer; text-align: left; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.dc-did .dc-chip-go:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }

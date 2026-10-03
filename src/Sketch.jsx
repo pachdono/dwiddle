@@ -12,12 +12,12 @@ const ORDER = ["blue", "red", "green", "orange"];
 const FONT = 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
 const fmt = (v) => String(Math.round(v * 100) / 100);
 
-export function Sketch({ spec }) {
+export function Sketch({ spec, ...rest }) {
   const s = cleanSketch(spec);
   if (!s) return null;
   const { L, R, T, B, px, py } = layoutSketch(s);
   return (
-    <figure className="nt-sketch">
+    <figure className="nt-sketch" {...rest}>
       <svg viewBox="0 0 360 260" role="img" aria-label={s.title || `${s.y} against ${s.x}`} fontFamily={FONT}>
         <defs>
           {Object.entries(INKS).map(([k, c]) => (

@@ -377,7 +377,7 @@ export function DwiddleChat({ hidden = false }) {
             {msgs.map((m, i) => (
               <div key={i} className={"dc-msg " + (m.role === "user" ? "dc-me" : "dc-bot")}>
                 {m.role === "assistant" ? <Reply text={m.content.slice(0, m.shown ?? m.content.length)} /> : <p>{m.content}</p>}
-                {m.did?.length > 0 && (m.shown ?? m.content.length) >= m.content.length && <Did did={m.did} />}
+                {m.did?.length > 0 && (m.shown ?? m.content.length) >= m.content.length && <Did did={m.did} onShow={close} />}
               </div>
             ))}
             {busy && <div className="dc-msg dc-bot typing"><i /><i /><i /></div>}
@@ -414,7 +414,7 @@ export function DwiddleChat({ hidden = false }) {
 }
 
 // What Dwiddle did, as small chips, with any drawing it made.
-function Did({ did }) {
+function Did({ did, onShow }) {
   return (
     <>
       {did.map((d, i) => d.art && (
@@ -424,7 +424,9 @@ function Did({ did }) {
           {d.art.query && <ChatPicture query={d.art.query} />}
         </div>
       ))}
-      <div className="dc-did">{did.map((d, i) => <span key={i} className={d.ok ? "" : "no"}>{d.ok ? "Done: " : "Could not: "}{d.text}</span>)}</div>
+      <div className="dc-did">{did.map((d, i) => d.where
+        ? <button key={i} className="dc-chip-go" onClick={() => { window.dispatchEvent(new CustomEvent("dwiddle:show", { detail: d.where })); onShow?.(); }}>Done: {d.text}. <u>View in notes</u></button>
+        : <span key={i} className={d.ok ? "" : "no"}>{d.ok ? "Done: " : "Could not: "}{d.text}</span>)}</div>
     </>
   );
 }

@@ -730,10 +730,29 @@ export default function App() {
         else if (op === "replace") blocks[at] = block;
         else blocks.splice(at, 1);
         saveNotes({ [name]: blocks });
+        const landed = op === "insert" ? Math.min(at, (cur.notes?.[name] || []).length) : at;
         agentNow.current = { ...agentNow.current, made: { ...cur, notes: { ...cur.notes, [name]: blocks } } };
-        return name;
+        return { name, at: landed };
       },
     });
+  });
+
+  // "View in notes": open Notes, find the block Dwiddle just made or changed,
+  // scroll to it and flash it. Notes may need a moment to appear first.
+  useEffect(() => {
+    const show = (e) => {
+      const { name: topic, at } = e.detail || {};
+      go("sheet");
+      let tries = 0;
+      const find = () => {
+        const el = [...document.querySelectorAll("[data-blk]")].find((x) => x.dataset.blk === `${topic}#${at}`);
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("nt-flash"); setTimeout(() => el.classList.remove("nt-flash"), 2600); }
+        else if (++tries < 20) setTimeout(find, 150);
+      };
+      setTimeout(find, 200);
+    };
+    window.addEventListener("dwiddle:show", show);
+    return () => window.removeEventListener("dwiddle:show", show);
   });
 
   // The browser back and forward buttons, and the swipe gesture that maps to

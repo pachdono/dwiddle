@@ -16,7 +16,7 @@ function app(notes = {}) {
     state: () => ({ page: "sheet", made }),
     go() {}, setTheme() {}, setLook() {}, prefill() {},
     bestTopic: (given, about) => made.topics.find((t) => t.name.toLowerCase() === String(given).toLowerCase())?.name || (/ppc|ppf|possib/i.test(`${given} ${about}`) ? made.topics[0].name : null),
-    editNotes: ({ topic, block }) => { const t = made.topics.find((x) => x.name === topic); if (!t) return null; made.notes[topic] = [...(made.notes[topic] || []), block]; return topic; },
+    editNotes: ({ topic, block }) => { const t = made.topics.find((x) => x.name === topic); if (!t) return null; made.notes[topic] = [...(made.notes[topic] || []), block]; return { name: topic, at: made.notes[topic].length - 1 }; },
   });
   return made;
 }

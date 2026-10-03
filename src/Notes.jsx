@@ -8,7 +8,7 @@
 // lost picked out in colour.
 
 import { ready as notifyReady } from "./notify.js";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { cloneElement, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { FONTS, readyFont } from "./nbFonts.js";
 import { LikeImFour } from "./LikeImFour.jsx";
 import { Icon, PageHead, Loading, Marked, HighlightFilters, BusyScreen, Portal } from "./ui.jsx";
@@ -250,7 +250,7 @@ export function Notes({ made, saveNotes, go, early = false }) {
           return (
             <section key={t.name} id={slug(t.name)} className="nt-sec">
               <h2><span>{i + 1}</span>{t.name}</h2>
-              <Topic blocks={blocks} on={on} early={early} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
+              <Topic name={t.name} blocks={blocks} on={on} early={early} open={(w, at) => setWord((cur) => cur?.at === at ? null : { ...w, at })} />
               {early && <LikeImFour className="nt-l4" context={`The student's notes on "${t.name}":\n${blocks.map(blockPlain).filter(Boolean).join("\n")}`} />}
             </section>
           );
@@ -261,15 +261,21 @@ export function Notes({ made, saveNotes, go, early = false }) {
   );
 }
 
-function Topic({ blocks, on, open, early }) {
+function Topic({ blocks, on, open, early, name }) {
   const glossary = useMemo(() => glossaryOf(blocks), [blocks]);
   const value = useMemo(() => ({ glossary, open, early }), [glossary, open, early]);
   // Tables, diagrams and pictures are for staff and testers for now.
   const shown = early ? blocks : blocks.filter((b) => !b.table && !b.flow && !b.pic && !b.sketch);
-  return <Words.Provider value={value}>{shown.map((b, n) => <Block key={n} b={b} on={on} />)}</Words.Provider>;
+  return <Words.Provider value={value}>{shown.map((b, n) => <Block key={n} b={b} on={on} id={`${name}#${blocks.indexOf(b)}`} />)}</Words.Provider>;
 }
 
-function Block({ b, on }) {
+// Every block carries its place (data-blk) so Dwiddle can take you to it.
+function Block({ b, on, id }) {
+  const el = renderBlock(b, on);
+  return el && id ? cloneElement(el, { "data-blk": id }) : el;
+}
+
+function renderBlock(b, on) {
   if (b.h) return <h3>{flatText(b.h)}</h3>;
   if (b.p) return <p><Text text={b.p} on={on} /></p>;
   if (b.list) {
@@ -338,7 +344,7 @@ function Block({ b, on }) {
 
 // A picture from Wikipedia, when one clearly matches. Nothing shows until it
 // has loaded, and nothing at all when there is no good match.
-function Picture({ query }) {
+function Picture({ query, ...rest }) {
   const [pic, setPic] = useState(null);
   useEffect(() => {
     let live = true;
@@ -347,7 +353,7 @@ function Picture({ query }) {
   }, [query]);
   if (!pic) return null;
   return (
-    <figure className="nt-pic">
+    <figure className="nt-pic" {...rest}>
       <img src={pic.src} alt={pic.title} loading="lazy" referrerPolicy="no-referrer"
         style={{ aspectRatio: pic.w && pic.h ? `${pic.w} / ${pic.h}` : undefined }} onError={() => setPic(null)} />
       <figcaption>

@@ -103,8 +103,9 @@ async function run(a, opts = {}) {
       const art = { sketch };
       if (!a.topic && !opts.wantNotes) return { ok: true, text: "Drew a graph", art };
       const topic = h.bestTopic(String(a.topic || ""), `${sketch.title} ${sketch.x} ${sketch.y} ${opts.userText || ""}`);
-      const done = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { sketch } });
-      return done ? { ok: true, notes: true, text: `Drew a graph and added it to ${done}`, art } : { ok: false, text: "Drew the graph but could not find where it goes in your notes", art };
+      const put = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { sketch } });
+      const done = put?.name;
+      return done ? { ok: true, notes: true, where: put, text: `Drew a graph and added it to ${done}`, art } : { ok: false, text: "Drew the graph but could not find where it goes in your notes", art };
     }
     case "draw": {
       const svg = cleanSvg(a.svg);
@@ -116,8 +117,9 @@ async function run(a, opts = {}) {
       if (!query) return { ok: false, text: "No picture" };
       if (!opts.wantNotes) return { ok: true, text: "Found a picture", art: { query } };
       const topic = h.bestTopic(String(a.topic || ""), `${query} ${opts.userText || ""}`);
-      const done = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { pic: query } });
-      return done ? { ok: true, notes: true, text: `Added a picture to ${done}`, art: { query } } : { ok: false, text: "Found a picture but could not find where it goes in your notes", art: { query } };
+      const put = topic && h.editNotes({ op: "insert", topic, at: 9999, block: { pic: query } });
+      const done = put?.name;
+      return done ? { ok: true, notes: true, where: put, text: `Added a picture to ${done}`, art: { query } } : { ok: false, text: "Found a picture but could not find where it goes in your notes", art: { query } };
     }
     case "notes": {
       const op = a.op;
@@ -126,8 +128,9 @@ async function run(a, opts = {}) {
       if (op !== "remove" && !block) return { ok: false, text: "That note block was not valid" };
       const at = Number.isInteger(a.at) ? a.at : parseInt(a.at, 10);
       if (!Number.isInteger(at) || at < 0) return { ok: false, text: "No place given" };
-      const done = h.editNotes({ op, topic: h.bestTopic(String(a.topic || ""), "") || String(a.topic || ""), at, block });
-      return done ? { ok: true, notes: true, text: `${op === "remove" ? "Removed a block from" : op === "replace" ? "Rewrote a block in" : "Added to"} ${done}` } : { ok: false, text: "Could not find that topic" };
+      const put = h.editNotes({ op, topic: h.bestTopic(String(a.topic || ""), "") || String(a.topic || ""), at, block });
+      const done = put?.name;
+      return done ? { ok: true, notes: true, where: op === "remove" ? null : put, text: `${op === "remove" ? "Removed a block from" : op === "replace" ? "Rewrote a block in" : "Added to"} ${done}` } : { ok: false, text: "Could not find that topic" };
     }
     default:
       return { ok: false, text: "Not something I can do yet" };
