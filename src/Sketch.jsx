@@ -54,7 +54,7 @@ export function Sketch({ spec, ...rest }) {
           return (
             <g key={i}>
               <path d={pathOf(pts, l.smooth)} fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={l.dashed ? "8 6" : undefined} />
-              {l.label && <text x={lx} y={ly} textAnchor={atEnd ? "end" : "start"} fontSize="15" fontWeight="800" fill={ink}>{l.label}</text>}
+              {l.label && <text x={lx} y={ly} textAnchor={atEnd ? "end" : "start"} fontSize="15" fontWeight="800" fill={ink} stroke="#fff" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">{l.label}</text>}
             </g>
           );
         })}
@@ -64,7 +64,7 @@ export function Sketch({ spec, ...rest }) {
           return (
             <g key={"a" + i}>
               <path d={`M${f[0]} ${f[1]} L${t[0]} ${t[1]}`} stroke={INKS[a.color]} strokeWidth="3" strokeLinecap="round" markerEnd={`url(#sk-${a.color})`} />
-              {a.label && <text x={t[0] + 9} y={t[1] + 4} fontSize="13" fontWeight="700" fill={INKS[a.color]}>{a.label}</text>}
+              {a.label && <text x={Math.min(t[0] + 9, 356 - a.label.length * 7.6)} y={t[1] + 4} fontSize="13" fontWeight="700" fill={INKS[a.color]}>{a.label}</text>}
             </g>
           );
         })}
@@ -72,7 +72,12 @@ export function Sketch({ spec, ...rest }) {
         {s.dots.map((d, i) => (
           <g key={"d" + i}>
             <circle cx={px(d.at[0])} cy={py(d.at[1])} r="5.5" fill={INK} stroke="#fff" strokeWidth="1.5" />
-            {d.label && <text x={px(d.at[0]) + 9} y={py(d.at[1]) - 8} fontSize="15" fontWeight="800" fill={INK}>{d.label}</text>}
+            {d.label && (() => {
+              // The words stay inside the picture: on the left of the dot when
+              // they would run off the right edge.
+              const x = px(d.at[0]), flip = x + 9 + d.label.length * 8.6 > 356;
+              return <text x={flip ? x - 9 : x + 9} y={py(d.at[1]) - 9} textAnchor={flip ? "end" : "start"} fontSize="15" fontWeight="800" fill={INK} stroke="#fff" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">{d.label}</text>;
+            })()}
           </g>
         ))}
 

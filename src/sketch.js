@@ -16,15 +16,15 @@ export function cleanSketch(s) {
       .map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] : null))
       .filter((p) => p && Number.isFinite(p[0]) && Number.isFinite(p[1]));
     if (pts.length < 2) return null;
-    return { pts, label: short(l.label, 28), smooth: l.smooth === true, dashed: l.dashed === true, color: COLORS.includes(l.color) ? l.color : null };
+    return { pts, label: short(l.label, 30), smooth: l.smooth === true, dashed: l.dashed === true, color: COLORS.includes(l.color) ? l.color : null };
   }).filter(Boolean);
   if (!lines.length) return null;
   const dots = (Array.isArray(s.dots) ? s.dots : []).slice(0, 6)
-    .map((d) => (Array.isArray(d?.at) && Number.isFinite(Number(d.at[0])) && Number.isFinite(Number(d.at[1])) ? { at: [Number(d.at[0]), Number(d.at[1])], label: short(d.label, 12) } : null)).filter(Boolean);
+    .map((d) => (Array.isArray(d?.at) && Number.isFinite(Number(d.at[0])) && Number.isFinite(Number(d.at[1])) ? { at: [Number(d.at[0]), Number(d.at[1])], label: short(d.label, 26) } : null)).filter(Boolean);
   const num = (v) => Number.isFinite(Number(v));
   const arrows = (Array.isArray(s.arrows) ? s.arrows : []).slice(0, 4)
     .filter((a) => Array.isArray(a?.from) && Array.isArray(a?.to) && [...a.from, ...a.to].every(num))
-    .map((a) => ({ from: a.from.map(Number), to: a.to.map(Number), label: short(a.label, 24), color: COLORS.includes(a.color) ? a.color : "black" }));
+    .map((a) => ({ from: a.from.map(Number), to: a.to.map(Number), label: short(a.label, 26), color: COLORS.includes(a.color) ? a.color : "black" }));
   return { title: short(s.title, 50), x: short(s.x, 32), y: short(s.y, 32), lines, dots, arrows, numbers: s.numbers !== false };
 }
 
