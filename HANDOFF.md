@@ -1,141 +1,142 @@
 # Dwiddle: handoff for a new Claude chat
 
-Paste or attach this file at the start of a new chat. It describes the app, how the owner likes work done, and everything built in the previous long session.
+Paste or attach this file at the start of a new chat. It covers the app, how the owner likes work done, what was built most recently, and what is still open. Last updated 3 October 2026.
 
 ## The project
 
-- **Repo:** `pachdono/dwiddle` (GitHub). Live site: https://dwiddle.vercel.app
-- **What it is:** a study app. Add notes, PDFs, photos or a topic, and it makes notes, lessons, practice questions, videos and flashcards. It also has a Notes+ style handwriting notebook, a Solve page (worked solutions) and exam prep.
+- **Repo:** `pachdono/dwiddle` on GitHub, checked out at `~/Documents/dwiddle`. Live site: https://dwiddle.vercel.app (pushing to `main` deploys it).
+- **Staff site:** `~/Documents/dwiddle-staff`, live at https://dwiddle-staff.vercel.app (feedback, transcripts, email replies via IMAP in `api/inbox.js`).
+- **Desktop app:** Electron in `/electron`. Releases go to `pachdono/dwiddle-releases`.
+- **What it is:** a study app. Add notes, PDFs, photos or a topic and it makes notes, lessons, practice questions, narrated videos and flashcards. There is also a Notes+ style handwriting notebook, Chat with Dwiddle (which now also solves questions) and exam prep.
 - **Stack:**
-  - React with Vite (rolldown), plain CSS in `src/styles.css`
+  - React 19 with Vite (rolldown), plain CSS in `src/styles.css`
   - Vercel serverless functions in `/api`
-  - Supabase for accounts, roles and sync
-  - an Electron desktop app in `/electron`
-- **AI providers** (`api/_llm.js`), each only used if its key is set: OpenRouter (free models), Groq, and NVIDIA.
-  - The server remembers how fast each provider answers and tries the fastest first, which is usually Groq. `LLM_ORDER` overrides the order.
-  - If the first provider hasn't answered after 12 seconds, the same request also goes to the next one and the first answer wins (`LLM_HEDGE_MS`).
-  - Requests with a picture only go to models that can read images.
-- **Vercel Hobby plan: 12 functions maximum, and all 12 are used:** browse, chat, feedback, generate, grade, lesson, models, read, solve, testgen, video, youtube. **Never add a new file in `/api`.** Add a `mode` to an existing endpoint instead (for example `read.js` has `mode: "check"`, and `video.js` has `mode: "figure"`).
+  - Supabase for accounts, roles, sync and push subscriptions
+  - Electron desktop app
+- **AI providers** (`api/_llm.js` `ask()`): OpenRouter (free models), Groq and NVIDIA, each used only if its key is set.
+  - The fastest provider goes first, and a second one is hedged in if the first is slow.
+  - A model that says nothing for 20 seconds (JSON) or 30 seconds (text) is dropped for the next.
+  - The client (`src/ai.js` `post()`) retries a failed request once, not more: more retries caused 4 minute hangs.
+- **Vercel Hobby plan: 12 functions maximum, all used:** browse, chat, feedback, generate, grade, lesson, models, read, solve, testgen, video, youtube.
+  - **Never add a new file in `/api`.** Add a `mode` or query parameter to an existing one (for example `chat.js` `mode: "four"`, `models.js` `?cron=remind`).
+  - Files starting with `_` are helpers, not functions.
 
 ## How the owner wants work done
 
-- **Every new feature is for testers and above only.**
-  - In `App.jsx`: `early = staff || access.tester || import.meta.env.VITE_EARLY_ALL === "1"`. It's passed down to pages as the `early` prop.
-  - Gate new UI with `{early && ...}`.
-  - Bug fixes and speed fixes go to everyone.
-- **Push to `main` so changes go live:** `git push origin HEAD:main`. Also push the working branch if one is set.
-- **The owner writes casually and wants results.** Keep replies short, show screenshots, and ship.
-- **Style:** British English, no em dashes in user-facing text, and comments that match the existing ones (plain explanatory prose).
-- **Design preferences:**
-  - hand-drawn or illustrated art, not plain gradients
-  - glows only where they make sense (moon, sun)
-  - it should look polished, not "vibe coded"
-  - Dwiddle the duck mascot is the brand, and `DuckMark` and `Duck` are in `src/Duck.jsx`
+- **Everything is public now:** `const early = true` in `src/App.jsx`. There is no tester gating any more.
+- **Commits:** author `Pacharapol Maleenont <donoplayz2410@gmail.com>`. Never add a Co-Authored-By Claude trailer or any Claude attribution; the owner does not want Claude showing on the repo. Use `git -c user.name="Pacharapol Maleenont" -c user.email="donoplayz2410@gmail.com" commit ...`.
+- **Ship it:** commit and push to `main` so it goes live, then say what changed. The owner writes casually and wants results, short replies, and screenshots or videos as proof.
+- **Writing:** British English, no em or en dashes anywhere (UI, replies, docs), comments in the existing plain prose style.
+- **Never use the four-point sparkle icon or the sparkle emoji anywhere.** The `spark` icon was deleted from `src/ui.jsx`.
+- **Design:** illustrated and polished, not plain gradients or "vibe coded". Dwiddle the duck (`src/Duck.jsx`, `src/DuckAvatars.jsx`) is the brand.
+- **Money:** no paid API keys, stays on dwiddle.vercel.app, no spending advice.
+- **Secrets stay out of the repo.** The VAPID private key and `CRON_SECRET` live only in Vercel env vars and a GitHub repo secret.
+- **SQL for the Supabase editor:** ASCII only, no apostrophes in comments or strings, and never the word "into" inside a string literal.
+- **Notebook ink changes:** test in WebKit with Pencil-like pointer input, not mouse in Chrome.
 
-## Testing tips
+## Commands
 
-- **Build:** `npx vite build`
-- **Tests:** `node --test --experimental-test-module-mocks scripts/*.test.mjs` (39 tests, all passing)
-- **Build with tester features on:** `VITE_EARLY_ALL=1 npx vite build --outDir /tmp/early-dist`, then serve it with `npx vite preview --outDir /tmp/early-dist --port 5192`.
-  - The preview server often dies; restart it with `setsid`.
-  - Never use `pkill` or `pgrep -f` with a pattern, because it kills the calling shell.
-- **Screenshots:** Playwright scripts, for example `import { chromium } from "/opt/node22/lib/node_modules/playwright/index.mjs"`.
-  - Enter the app by clicking "Continue without an account".
-  - Stand in for AI calls with `page.route("**/api/...")`.
-- **Preview page:** a private Claude Artifact of the app (no AI, no sign-in): https://claude.ai/artifact/JaSFjDAUX8Hy5dzat77DKp
-  - Build with `VITE_EARLY_ALL=1 VITE_STATIC=1 npx vite build --base ./`.
-  - Drop `ort/`, `seg/`, `*.wasm`, the kokoro worker, pdf.worker, `*.woff`, non-Latin font subsets and the `nanum-pen-script-[0-9]*` pieces.
-  - Publish `index.html` with the remaining files.
+- **Web build:** `npm run build` (output in `dist/`)
+- **Tests:** `node --test --experimental-test-module-mocks scripts/*.test.mjs`
+- **Desktop:** `npm run dist:all` builds Mac DMGs and the Windows web installer into `release/`, then `./scripts/publish-release.sh 1.1.12` uploads them.
+  - Delete old files for the same version first, with `find release -maxdepth 1 -name "*1.1.12*" -delete` (zsh globbing breaks plain `rm`).
+  - The owner prefers keeping version **1.1.12** and republishing over bumping.
+  - Same-version republishes do not auto-update existing installs.
+  - The Mac app is unsigned (no Apple Developer ID), so macOS shows "Dwiddle Not Opened". Users press Done, then System Settings > Privacy & Security > Open Anyway. Only a paid Developer ID removes it.
 
-## What was built in the last session (newest last)
+## How testing was done
 
-### Looks
-- **Painted theme backdrops** (`src/ThemeBackdrop.jsx`): each theme is a full illustrated scene with gentle motion.
-  - Sakura: cherry tree, Fuji, pagoda. Midnight: moonlit lake, cabin, pines. Ocean: lighthouse, boat.
-  - Sunset: striped sun. Autumn: trees, fence. Matcha: tea terraces, bamboo.
-  - Cottage: house, smoke. Violet: aurora, mountains. Prismarine: underwater.
-- **Readability over the scenes:**
-  - frosted-glass panels (`body:has(.theme-backdrop)` rules)
-  - a soft wash over the scene
-  - a faint outline behind text that sits straight on the scene (excluded inside cards)
-- **Scrolling:** no bounce at the top (`overscroll-behavior`).
+- **Playwright with WebKit**, installed in a scratchpad folder with `npm i playwright`. Use `serviceWorkers: "block"` or routes are bypassed.
+- **Local server:** a tiny Node static server serves `dist/` and mounts `/api/*` handlers from the repo (port 5195). Stand in for AI calls with `page.route("**/api/chat", ...)` and similar.
+- **Entering the app in tests:** open `/`, click "Continue without an account". Seed data with `localStorage`: `dwiddle-made`, `dwiddle-focus`, `dwiddle-tour-done` set to `true` to skip the tour.
+- **Rendering components to images:** bundle with `npx rolldown x.jsx --platform node --format esm --external react --external react-dom/server --external react/jsx-runtime`, run it from inside the repo so it finds `node_modules`, then screenshot the HTML.
+- **MP4 videos:** there is no ffmpeg. Capture JPEG frames with Playwright and encode with a small Swift AVFoundation script (AVAssetWriter, H.264).
+- **Live API checks:** `curl -X POST https://dwiddle.vercel.app/api/<name> -H "Origin: https://dwiddle.vercel.app" -H "Content-Type: application/json" --data ...`
 
-### Practice and study
-- **Practice full screen** (`src/PracticeCheer.jsx`):
-  - side panels with the streak, accuracy ring, XP and a reacting duck
-  - Duolingo-style confetti cheers at 3, 5, 10 in a row, and sometimes otherwise
-  - the theme scene shows behind practice
-- **"Explain like I'm 4" button** (`src/LikeImFour.jsx`) on Solve, practice explanations and Notes topics.
-- **Study flashcards:** an extra "From your notes" deck built from terms and hard words in the notes.
-- **My decks** (`src/Decks.jsx`, sidebar under Solve, route `/decks`):
-  - **Making decks:**
-    - type `word ; meaning`, one card per line, with a live preview
-    - a photo of a word list
-    - voice ("means" and "next")
-    - Dwiddle can fill in missing meanings
-  - **Study modes:**
-    - Learn, Quizlet style: Review due, Learn it all (pick the answer, then type it), or Cram for a test
-    - Flashcards
-    - Quiz
-  - **Spaced repetition:** Leitner boxes with steps of 1, 3, 7, 14, 30, 60 and 120 days, saved as `deck.srs`. Tiles show how many cards are due.
-  - **Missed cards** come back until right. A card that was missed needs two or three right in a row. If most recent answers are wrong, Learn slows down (rounds of 4 and a first-letter hint).
-  - **Colours:** deck colours follow the theme accent ("theme" colour).
-  - Decks are saved on the device only (localStorage `dwiddle-decks`), with no sync yet.
-- **Study time** (`src/StudyTimer.jsx`):
-  - a Home card with Dwiddle and an hours:minutes:seconds picker
-  - a banner across the top of every page while it runs, with pause and stop
-  - × tucks it into a small chip in the corner
-  - a "Time's up" pop-up offering a 5 minute break or another round
-  - minutes logged per day
+## Map of the recent work
 
-### Solve and videos
-- **Solve:**
-  - clearer steps: a heading, a plain sentence, a "Uses" rule tag, large maths lines with stacked fractions, and "Why this works"
-  - the answer is repeated at the end
-  - **"Your question, drawn"**: the question's own diagram, drawn to scale and checked (`api/video.js` `mode: "figure"`)
-  - photos of questions are read with their diagrams described in detail (`api/read.js`)
-- **Videos:**
-  - a solved question's video reuses that same diagram, unmoved, in every scene
-  - every scene has a visual (a drawn diagram, or a photo of the real thing via `photo: true`), and non-maths boards hold at most 3 short points
-- **Video making runs in the background:** a progress chip shows anywhere in the app. The Solve video no longer blocks the page.
-- **Loading screens show progress:** "Page 12 of 45", "File 2 of 5", "Part 3 of 12", "4 of 9 topics", or a time estimate (`BusyScreen` `count` and `eta`).
-- **Narration:** the Kokoro voice model runs as 1 to 3 copies at once (`src/tts.js` `narratorLanes`), which should make it about 2 to 3 times faster.
+### Study and library
+- **Library items** (`src/materials.js`): every generation is its own item (`made.materials`). `viewOf(made, id)` gives one item as if it were everything.
+- **Study is one item at a time:** with more than one item, Study shows a "What are you studying?" picker (`StudyPicker` in `App.jsx`). Pressing Study in the sidebar or tab bar asks again. Nothing is merged.
+- **New material opens straight in Study** on that item (`setMade` gives it an id and calls `setFocus`). Chat's "turn into material" and Courses do the same.
+- **Topics page** groups by topic name (a bug matched an old id and showed nothing).
+- **Missing questions:** failed question batches are retried once; topics left with no questions are filled from their notes when opened (`questionsFor` in `src/ai.js`).
+- **Quizzes:** lengths 5 to 50; more questions in the same style are written on demand (`moreQuestions`). Enter moves on.
+- **Maths** is shown printed (powers, subscripts), via `src/mathText.js` and `src/MathText.jsx` (`<M t>`). No regex lookbehind (old iOS Safari).
+
+### Chat (Solve was merged in)
+- `src/ChatRoom.jsx`, route `/chat`. Solve is gone from the nav; `/solve` and `go("solve")` open Chat.
+- The chat prompt (`api/chat.js` `LEARN`) works questions through step by step. Photos and files can be attached. It can make a video, quiz you, or turn the chat into study material.
+- Solve's old extras (its question-diagram video) are not in Chat.
+
+### Explain like I'm 4
+- `src/LikeImFour.jsx` with `api/chat.js` `mode: "four"`. It returns 3 or 4 swipe cards (emoji + one short sentence), then "The proper word" and its meaning.
+- It is pitched at 11 to 16 year olds with real examples (games, YouTubers, football, shops). Nothing babyish: no mummy, teddies or robots. Long or repetitive cards are asked for again (up to 3 tries).
+
+### Videos
+- **Main files:** `api/video.js` (prompt, cleaning), `src/Video.jsx` (player), `src/VideoProps.jsx` (animated drawings), `src/narration.js` and `src/tts.js` (Kokoro voice on the device).
+- **Drawings:** 50+ drawings, from science (sun, cell, heart, flask...) to everyday (person, people, children, worker, handshake, shop, factory, house, school, food, chartUp/Down, target, star, scales, truck, phone, bank, moneybag, megaphone, shield, calendar).
+  - **States of matter:** `solid`, `liquid` and `gas` show real particle packing and motion. The player uses them for any scene about states of matter, even in old videos.
+- **Accuracy rules:**
+  - Science drawings are removed server side unless the scene really is about that science (`SCIENCE` in `api/video.js`).
+  - Videos made from notes may not add Greek letters or functions like `max()` that the notes do not use (`keepToNotes`).
+  - Explanations are kept simple and to the sheet.
+- **Arrow labels** pick a spot clear of every drawing, name and other label (`route()` in `VideoProps.jsx`). Names under drawings have a backing.
+- **Narration:** a video is only "ready" once its narration is recorded. The Videos page Watch button waits ("Recording narration"), and a dropped voice download is retried once. Videos can also be made silent with captions (`NarrationToggle`).
 
 ### Notebook (`src/Notebook.jsx`)
-- **Browser:** real Google shown inside the notebook (`igu=1`), with the reader view as a fallback.
-  - The panel resizes by dragging its left edge.
-  - Pictures can be dragged in, or pasted after "Copy image".
-  - Fixed: pasting added the picture twice.
-- **Pen features:**
-  - shape recognition (draw a shape and hold; it snaps to a circle, rectangle or polygon)
-  - scribble to erase
-  - laser pointer
-  - eraser options (highlighter only, back to the pen) and an eraser size slider
-  - dashed, dotted and filled shapes
-  - eyedropper
-- **Pens:** six new ones (gel, calligraphy nib, felt tip, charcoal, chalk, watercolour) in a picture grid. Textured pens look the same while drawing as after.
-- **Speed:** thumbnails are drawn without textures and memoised; off-screen pages are skipped (`content-visibility`).
-- **Check my work, like the Derive app:**
-  - a Check button sends the page image to `api/read.js` `mode: "check"`
-  - mistakes are ringed in red with numbers
-  - each card shows the wrong part, the fix and why, with Dismiss or Next
-  - results are saved on the page (`page.checks`)
+- Real pen pictures; pastel and journal papers; Ducks and Doodles stickers (no Sparkles sticker).
+- Graphs (`src/NotebookGraph.jsx`, `src/graphMath.js`) with presets, including economics (PPF, supply and demand shifts, AD/AS, price ceiling/floor, costs, Lorenz). They go on the page as separate editable strokes and text.
+- Auto check every few minutes; Check my work; trackpad pinch zooms the notebook so the pen stays accurate.
+- Notes to notebook has compact, normal and lots-of-room spacing (`src/notesToNotebook.js`).
+- Google only in the side browser (the "All websites" proxy button was removed; `api/browse.js` still exists).
 
-### Fixes for everyone
-- Solve steps now come back as `lines`, `say` and `rule` (kept compatible with the old `work` field).
-- Pictures no longer get sent to text-only models, which used to mark those models unusable.
-- `VITE_STATIC=1` builds stop changing the page address, for preview hosting.
+### Looks and speed
+- **Front page:** the Duck Lagoon scene (`src/LandingScene.jsx`), not tied to the theme.
+- **Theme scenes** (`src/ThemeBackdrop.jsx`): pages sit on nearly solid panels over the scene.
+  - Live blur, the full-screen noise filter and `body:has(...)` selectors were removed because they caused lag.
+  - `ThemeBackdrop` puts `has-backdrop` on `<body>`, and the notebook puts `nb-open`.
+- **Tour** (`src/Tour.jsx`): a 6-step tour you click through yourself. Each step lights up one place (`data-tour` attributes) and you tap it to go there: New material, Study, Library, Chat, Settings, then themes.
+  - It shows once (`dwiddle-tour-done`) and can be replayed from Settings.
+  - On phones Library and Settings go through More.
 
-## Not yet verified on a real device (AI and network weren't reachable from the sandbox)
-- Google loading inside the notebook browser (`igu=1`).
-- Narration speed-up and memory use on an iPad.
-- Real generation speed with Groq first, and whether Groq's daily limits hold up.
-- How accurately Check my work places its red boxes. It depends on the vision model.
-- Apple Pencil feel for shape snapping and scribble to erase.
+### Notifications and reminders
+- `src/notify.js` and `src/NotifyCard.jsx`.
+- **When something finishes:** an in-app pop-up when you are on the page, or a system notification when you are not.
+- **Daily reminders** are web push at each user's own hour and timezone. An hourly GitHub Action (`.github/workflows/remind.yml`) calls `/api/models?cron=remind`; the logic is in `api/_remind.js`.
+- **Nudge emails:** people away over a week can get an email (Gmail, at most 30 a day), with an unsubscribe link.
+- **SQL:** `supabase/push.sql` was run. **Unconfirmed:** whether the owner ran `supabase/push-v2.sql` (hour column) and `supabase/push-v3.sql` (nudges). Ask before relying on them.
 
-## Ideas the owner may ask for next
-- Move stable tester features to everyone for a "big Friday update", and add a "What's new" pop-up.
-- Notes+ features still missing: audio recording synced to notes, lasso handwriting to text, a zoomed writing box.
-- Sync My decks and the study timer log to the account; share decks with friends.
-- A targeted notebook lag fix once the device and the laggy action are known.
-- A design pass, if the owner sends reference screenshots.
+## Current state
+
+- **Web:** everything above is live on `main`.
+- **Desktop 1.1.12** was last published before these changes, so it does **not** have:
+  - the tour
+  - the lag fixes
+  - the particle drawings
+  - the arrow label fix
+
+  Rebuild and republish when the owner says "build".
+
+## Marketing work (in `~/Documents/dwiddle-videos`)
+
+- `dwiddle-1.1.12-post`: what's new slides.
+- `dwiddle-before-after`: before and after slides.
+- `dwiddle-tour.mp4`: a video of the tour.
+- `dwiddle-ggfez`: "The GG Fricken EZ Method", the latest post, liked by the owner.
+  - It is a test-paper cover, then one slide per letter, each showing a real Dwiddle screen with brainrot questions and cartoons: Ronaldo pasta, La peace (calm and unbothered, not lapis), Fanum throwing a plate with an explosion, and Verity.
+  - The cartoon SVGs are in the same folder.
+- **Lessons from that post:**
+  - The owner wants meme accuracy (research the meme first).
+  - Use Dwiddle's own UI, not a Duolingo copy.
+  - Use cartoons of the meme moments, not duck cosplay.
+  - Nothing cringe.
+  - "GG fricken EZ" comes from a viral song chorus, and the next line is "hey, don't say that". Do not call the song AI K-pop in posts.
+
+## Known gaps and ideas
+
+- **Explain like I'm 4:** free models still vary in quality.
+- **Videos:** in 3-drawing scenes the arrows are short and their labels can cover most of the line.
+- **Mac app:** unsigned, so the Gatekeeper warning stays.
+- **Old commits:** some from an earlier session show "Claude" as the author. Rewriting history needs the owner's OK.
+- **Sync:** decks and the study log sync now through `src/supabase.js`. Check them if the owner reports anything missing between devices.
