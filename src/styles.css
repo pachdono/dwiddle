@@ -8865,10 +8865,10 @@ body.has-backdrop main .page {
 @keyframes vp-slip { 25% { transform: translate(3px, -1.5px); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(-3px, -1px); } }
 
 /* hand drawn graph sketches, in notes and in chat */
-.nt-sketch { margin: 14px auto 18px; max-width: 340px; text-align: center; padding: 12px 12px 10px; border-radius: 18px; border: 1px solid var(--line); background: var(--card, #fff); color: var(--ink, #222); }
+.nt-sketch { margin: 14px auto 18px; max-width: 440px; text-align: center; padding: 12px 12px 10px; border-radius: 18px; border: 1px solid var(--line); background: #fff; color: #111827; }
 .nt-sketch svg { display: block; width: 100%; height: auto; }
-.nt-sketch figcaption { margin-top: 4px; font-size: 14px; font-weight: 500; color: var(--ink-2, inherit); }
-.dc-art { margin: 8px 0 2px; max-width: 300px; }
+.nt-sketch figcaption { margin-top: 2px; font-size: 14px; font-weight: 700; color: #111827; }
+.dc-art { margin: 8px 0 2px; max-width: 340px; }
 .dc-art .nt-sketch, .dc-art.svg { margin: 0; }
 .dc-art.svg { background: #fff; border-radius: 14px; border: 1px solid var(--line); padding: 8px; color: #222; }
 .dc-art.svg svg { display: block; width: 100%; height: auto; }

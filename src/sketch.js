@@ -6,6 +6,7 @@
 // { title, x: "Time (s)", y: "Distance (m)",
 //   lines: [{ pts: [[0,0],[2,2],[4,2],[6,5]], label: "stopped", smooth: false, dashed: false }] }
 
+export const COLORS = ["blue", "red", "green", "orange", "black"];
 const short = (s, n) => String(s ?? "").replace(/[–—]/g, "-").trim().slice(0, n);
 
 export function cleanSketch(s) {
@@ -15,25 +16,29 @@ export function cleanSketch(s) {
       .map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] : null))
       .filter((p) => p && Number.isFinite(p[0]) && Number.isFinite(p[1]));
     if (pts.length < 2) return null;
-    return { pts, label: short(l.label, 28), smooth: l.smooth === true, dashed: l.dashed === true };
+    return { pts, label: short(l.label, 28), smooth: l.smooth === true, dashed: l.dashed === true, color: COLORS.includes(l.color) ? l.color : null };
   }).filter(Boolean);
   if (!lines.length) return null;
   const dots = (Array.isArray(s.dots) ? s.dots : []).slice(0, 6)
     .map((d) => (Array.isArray(d?.at) && Number.isFinite(Number(d.at[0])) && Number.isFinite(Number(d.at[1])) ? { at: [Number(d.at[0]), Number(d.at[1])], label: short(d.label, 12) } : null)).filter(Boolean);
-  return { title: short(s.title, 40), x: short(s.x, 28), y: short(s.y, 28), lines, dots };
+  const num = (v) => Number.isFinite(Number(v));
+  const arrows = (Array.isArray(s.arrows) ? s.arrows : []).slice(0, 4)
+    .filter((a) => Array.isArray(a?.from) && Array.isArray(a?.to) && [...a.from, ...a.to].every(num))
+    .map((a) => ({ from: a.from.map(Number), to: a.to.map(Number), label: short(a.label, 24), color: COLORS.includes(a.color) ? a.color : "black" }));
+  return { title: short(s.title, 50), x: short(s.x, 32), y: short(s.y, 32), lines, dots, arrows, numbers: s.numbers !== false };
 }
 
 // Where everything goes, in a 300 by 220 box. Axes start at zero when the
 // data does, so a straight line from the origin looks like one.
 export function layoutSketch(s) {
-  const L = 46, R = 284, T = 22, B = 176;
-  const all = [...s.lines.flatMap((l) => l.pts), ...(s.dots || []).map((d) => d.at)];
+  const L = 62, R = 342, T = 28, B = 214;
+  const all = [...s.lines.flatMap((l) => l.pts), ...(s.dots || []).map((d) => d.at), ...(s.arrows || []).flatMap((a) => [a.from, a.to])];
   const lo = (i) => Math.min(0, ...all.map((p) => p[i]));
   const hi = (i) => Math.max(...all.map((p) => p[i]));
   const x0 = lo(0), y0 = lo(1);
   const dx = (hi(0) - x0) || 1, dy = (hi(1) - y0) || 1;
-  const px = (v) => L + 14 + ((v - x0) / dx) * (R - L - 36);
-  const py = (v) => B - 12 - ((v - y0) / dy) * (B - T - 30);
+  const px = (v) => L + 8 + ((v - x0) / dx) * (R - L - 40);
+  const py = (v) => B - 6 - ((v - y0) / dy) * (B - T - 28);
   return { L, R, T, B, px, py };
 }
 

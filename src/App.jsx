@@ -700,7 +700,8 @@ export default function App() {
       // Returns the topic's name when the change was made.
       editNotes: ({ op, topic, at, block }) => {
         const cur = agentNow.current.made;
-        const name = (cur?.topics || []).map((t) => t.name).find((n) => n.toLowerCase() === topic.toLowerCase());
+        const names = (cur?.topics || []).map((t) => t.name), want = topic.toLowerCase().trim();
+        const name = names.find((n) => n.toLowerCase() === want) || names.find((n) => want && (n.toLowerCase().includes(want) || want.includes(n.toLowerCase())));
         if (!name) return null;
         const blocks = [...(cur.notes?.[name] || [])];
         if (op === "insert") blocks.splice(Math.min(at, blocks.length), 0, block);

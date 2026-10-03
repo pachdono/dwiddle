@@ -1,9 +1,16 @@
-// A hand drawn graph card: blue pen on whiteboard axes, with the labels the
-// topic needs. See sketch.js for what it is given.
+// A technical graph card, like a textbook or exam board figure: bold axes
+// with their labels, clear coloured curves, dashed guides down to the axes
+// with the values written on them, and arrows for shifts. It always draws
+// dark on white with strong colours, so it reads on every theme.
+// See sketch.js for what it is given.
 
 import { cleanSketch, layoutSketch, pathOf } from "./sketch.js";
 
-const HAND = '"Caveat", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
+const INK = "#111827";
+const INKS = { blue: "#1d4ed8", red: "#dc2626", green: "#15803d", orange: "#c2410c", black: INK };
+const ORDER = ["blue", "red", "green", "orange"];
+const FONT = 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
+const fmt = (v) => String(Math.round(v * 100) / 100);
 
 export function Sketch({ spec }) {
   const s = cleanSketch(spec);
@@ -11,29 +18,66 @@ export function Sketch({ spec }) {
   const { L, R, T, B, px, py } = layoutSketch(s);
   return (
     <figure className="nt-sketch">
-      <svg viewBox="0 0 300 220" role="img" aria-label={s.title || `${s.y} against ${s.x}`}>
-        <g stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
-          <path d={`M${L} ${B} L${L} ${T}`} /><path d={`M${L - 5} ${T + 8} L${L} ${T} L${L + 5} ${T + 8}`} />
-          <path d={`M${L} ${B} L${R} ${B}`} /><path d={`M${R - 8} ${B - 5} L${R} ${B} L${R - 8} ${B + 5}`} />
-        </g>
-        {s.lines.map((l, i) => {
-          const pts = l.pts.map((p) => [px(p[0]), py(p[1])]);
-          const mid = pts[Math.floor(pts.length / 2)];
+      <svg viewBox="0 0 360 260" role="img" aria-label={s.title || `${s.y} against ${s.x}`} fontFamily={FONT}>
+        <defs>
+          {Object.entries(INKS).map(([k, c]) => (
+            <marker key={k} id={"sk-" + k} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill={c} /></marker>
+          ))}
+        </defs>
+
+        {s.dots.map((d, i) => {
+          const x = px(d.at[0]), y = py(d.at[1]);
           return (
-            <g key={i}>
-              <path d={pathOf(pts, l.smooth)} fill="none" stroke="var(--accent)" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={l.dashed ? "7 6" : undefined} />
-              {l.label && <text x={Math.min(250, Math.max(60, mid[0]))} y={Math.max(16, mid[1] - 20)} textAnchor="middle" fontFamily={HAND} fontSize="17" fontStyle="italic" fill="var(--accent)">{l.label}</text>}
+            <g key={"g" + i}>
+              <path d={`M${L} ${y} H${x} V${B}`} fill="none" stroke="#6b7280" strokeWidth="1.4" strokeDasharray="4 4" />
+              {s.numbers && <text x={L - 7} y={y + 4} textAnchor="end" fontSize="13" fontWeight="700" fill={INK}>{fmt(d.at[1])}</text>}
+              {s.numbers && <text x={x} y={B + 16} textAnchor="middle" fontSize="13" fontWeight="700" fill={INK}>{fmt(d.at[0])}</text>}
             </g>
           );
         })}
-        {(s.dots || []).map((d, i) => (
+
+        <g stroke={INK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <path d={`M${L} ${B} V${T + 4}`} /><path d={`M${L - 6} ${T + 12} L${L} ${T} L${L + 6} ${T + 12}`} />
+          <path d={`M${L} ${B} H${R - 4}`} /><path d={`M${R - 12} ${B - 6} L${R} ${B} L${R - 12} ${B + 6}`} />
+        </g>
+
+        {s.lines.map((l, i) => {
+          const pts = l.pts.map((p) => [px(p[0]), py(p[1])]);
+          const ink = INKS[l.color || ORDER[i % ORDER.length]];
+          // A rising line is named at its top end; a falling one a third of
+          // the way along, just above the line, clear of the axes and dots.
+          const rising = pts[pts.length - 1][1] < pts[0][1] - 4 && pts[pts.length - 1][0] > pts[0][0];
+          const at = rising ? pts[pts.length - 1] : pts[Math.max(1, Math.floor((pts.length - 1) * 0.3))];
+          const atEnd = rising;
+          const lx = atEnd ? Math.min(R - 4, at[0] + 4) : at[0] + 10;
+          const ly = Math.max(T + 12, at[1] - 10);
+          return (
+            <g key={i}>
+              <path d={pathOf(pts, l.smooth)} fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={l.dashed ? "8 6" : undefined} />
+              {l.label && <text x={lx} y={ly} textAnchor={atEnd ? "end" : "start"} fontSize="15" fontWeight="800" fill={ink}>{l.label}</text>}
+            </g>
+          );
+        })}
+
+        {s.arrows.map((a, i) => {
+          const f = [px(a.from[0]), py(a.from[1])], t = [px(a.to[0]), py(a.to[1])];
+          return (
+            <g key={"a" + i}>
+              <path d={`M${f[0]} ${f[1]} L${t[0]} ${t[1]}`} stroke={INKS[a.color]} strokeWidth="3" strokeLinecap="round" markerEnd={`url(#sk-${a.color})`} />
+              {a.label && <text x={t[0] + 9} y={t[1] + 4} fontSize="13" fontWeight="700" fill={INKS[a.color]}>{a.label}</text>}
+            </g>
+          );
+        })}
+
+        {s.dots.map((d, i) => (
           <g key={"d" + i}>
-            <circle cx={px(d.at[0])} cy={py(d.at[1])} r="4.5" fill="currentColor" />
-            {d.label && <text x={px(d.at[0]) + 8} y={py(d.at[1]) - 7} fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{d.label}</text>}
+            <circle cx={px(d.at[0])} cy={py(d.at[1])} r="5.5" fill={INK} stroke="#fff" strokeWidth="1.5" />
+            {d.label && <text x={px(d.at[0]) + 9} y={py(d.at[1]) - 8} fontSize="15" fontWeight="800" fill={INK}>{d.label}</text>}
           </g>
         ))}
-        {s.x && <text x={(L + R) / 2 + 20} y={B + 24} textAnchor="middle" fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{s.x}</text>}
-        {s.y && <text transform={`translate(14 ${(T + B) / 2}) rotate(-90)`} textAnchor="middle" fontFamily={HAND} fontSize="16" fontStyle="italic" fill="currentColor">{s.y}</text>}
+
+        {s.x && <text x={(L + R) / 2} y={B + 40} textAnchor="middle" fontSize="15" fontWeight="800" fill={INK}>{s.x}</text>}
+        {s.y && <text transform={`translate(15 ${(T + B) / 2}) rotate(-90)`} textAnchor="middle" fontSize="15" fontWeight="800" fill={INK}>{s.y}</text>}
       </svg>
       {s.title && <figcaption>{s.title}</figcaption>}
     </figure>
