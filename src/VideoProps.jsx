@@ -647,6 +647,52 @@ function Calendar() {
   );
 }
 
+/* States of matter: the particles themselves, packed and moving the way
+   each state really does, rather than a circle with a few dots in it. */
+const PART = { fill: "#5B9DF5", stroke: INK, strokeWidth: 2 };
+
+function Solid() {
+  return (
+    <g>
+      <rect x="14" y="14" width="92" height="92" rx="8" fill="#EEF4FB" stroke="#8AA4C0" strokeWidth="3" />
+      {Array.from({ length: 16 }, (_, i) => {
+        const x = 30 + (i % 4) * 20, y = 30 + Math.floor(i / 4) * 20;
+        return <circle key={i} className="vp-jit" style={{ animationDelay: `${(i % 5) * -0.13}s` }} cx={x} cy={y} r="9" {...PART} />;
+      })}
+    </g>
+  );
+}
+
+function Liquid() {
+  // Touching, in no pattern, filling the bottom of the container, sliding.
+  const at = [[26, 98], [45, 99], [64, 98], [83, 99], [99, 96], [34, 81], [53, 82], [72, 80], [91, 80], [24, 64], [43, 65], [62, 63], [81, 64], [98, 63]];
+  return (
+    <g>
+      <path d="M14 30 V108 a6 6 0 0 0 6 6 H100 a6 6 0 0 0 6 -6 V30" fill="#EEF4FB" stroke="#8AA4C0" strokeWidth="3" />
+      <path d="M17 54 H103" stroke="#BFE3F5" strokeWidth="3" />
+      {at.map(([x, y], i) => <circle key={i} className="vp-slip" style={{ animationDelay: `${i * -0.37}s` }} cx={x} cy={y} r="9" {...PART} />)}
+    </g>
+  );
+}
+
+function Gas() {
+  // Few, far apart, flying in straight lines and bouncing off the walls.
+  const paths = [
+    "M24 30 L96 86 L40 96 L88 26 Z", "M90 40 L22 70 L70 96 L60 20 Z", "M50 24 L96 60 L26 92 L30 40 Z",
+    "M30 88 L80 22 L96 70 L22 50 Z", "M70 60 L28 26 L60 96 L94 34 Z",
+  ];
+  return (
+    <g>
+      <rect x="10" y="10" width="100" height="100" rx="8" fill="#EEF4FB" stroke="#8AA4C0" strokeWidth="3" />
+      {paths.map((d, i) => (
+        <g key={i}>
+          <circle r="8" {...PART}><animateMotion dur={`${1.6 + i * 0.35}s`} repeatCount="indefinite" path={d} /></circle>
+        </g>
+      ))}
+    </g>
+  );
+}
+
 export const PROPS = {
   sun: { draw: Sun, words: /\bsun|sunlight|light energy|solar|daylight/ },
   plant: { draw: Plant, words: /plant|photosynth|leaf|leaves|chlorophyll|chloroplast|flower|crop|seed|root|stomata|xylem|phloem/ },
@@ -676,6 +722,9 @@ export const PROPS = {
   fire: { draw: Fire, words: /fire|burn|combustion|flame/ },
   wave: { draw: Wave, words: /\bwaves?\b|sound|frequency|vibrat|signal/ },
   bacteria: { draw: Bacteria, words: /bacteri|virus|microbe|germ|disease|infection|pathogen/ },
+  solid: { draw: Solid, words: /\bsolids?\b/, says: "packed, vibrating" },
+  liquid: { draw: Liquid, words: /\bliquids?\b/, says: "touching, sliding" },
+  gas: { draw: Gas, words: /\bgas(es)?\b|\bvapou?r\b/, says: "far apart, fast" },
   person: { draw: Person, words: /\bperson\b|someone|individual|owner|entrepreneur|manager|consumer|customer|citizen|leader|king|queen/ },
   people: { draw: People, words: /\bpeople\b|population|society|community|team|staff|employees|workforce|stakeholder|crowd|public/ },
   children: { draw: Children, words: /child|children|kids|pupils|students|families|family/ },
@@ -700,6 +749,7 @@ export const PROPS = {
   calendar: { draw: Calendar, words: /year|month|week|date|deadline|schedule|long-term|short-term/ },
 };
 export const PROP_KINDS = Object.keys(PROPS);
+export const STATES = ["solid", "liquid", "gas"];
 
 // For a scene that names none: the things it talks about, in the order it
 // first mentions them, three at most.
@@ -716,23 +766,64 @@ export function propsFor(scene) {
   });
 }
 
-// Where n drawings sit on a 520 by 400 stage, and how big.
+// Where n drawings sit on a 520 by 400 stage, and how big. Each leaves room
+// under it for its name.
 const SPOTS = {
-  1: { size: 200, at: [[260, 190]] },
-  2: { size: 160, at: [[140, 190], [380, 190]] },
-  3: { size: 140, at: [[105, 120], [415, 120], [260, 285]] },
-  4: { size: 128, at: [[120, 105], [400, 105], [120, 295], [400, 295]] },
+  1: { size: 190, at: [[260, 175]] },
+  2: { size: 150, at: [[130, 170], [390, 170]] },
+  3: { size: 104, at: [[95, 90], [260, 260], [425, 90]] },
+  4: { size: 100, at: [[110, 70], [410, 70], [110, 290], [410, 290]] },
 };
+const NAME_H = 30; // the name under each drawing
 
-function Link({ id, from, to, label, fresh, color }) {
-  const [x1, y1] = from.xy, [x2, y2] = to.xy;
-  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len;
-  const r1 = from.size * 0.45, r2 = to.size * 0.48;
-  const ax = x1 + ux * r1, ay = y1 + uy * r1, bx = x2 - ux * r2, by = y2 - uy * r2;
-  const cx = (ax + bx) / 2 - uy * 34, cy = (ay + by) / 2 + ux * 34;
-  const d = `M${ax} ${ay}Q${cx} ${cy} ${bx} ${by}`;
-  const mx = (ax + 2 * cx + bx) / 4, my = (ay + 2 * cy + by) / 4;
+// The space a drawing takes, with its name, so nothing is put on top of it.
+const nameOf = (p) => p.label || PROPS[p.kind]?.says || "";
+const boxOf = (p) => {
+  const half = Math.max(p.size, nameOf(p).length * 8.4 + 20) / 2;
+  return [p.xy[0] - half, p.xy[1] - p.size / 2, p.xy[0] + half, p.xy[1] + p.size / 2 + NAME_H];
+};
+const overlap = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+
+// Where a line leaving a box's centre in direction (ux, uy) crosses its edge.
+function edge(box, cx, cy, ux, uy, gap) {
+  const tx = ux > 0 ? (box[2] - cx) / ux : ux < 0 ? (box[0] - cx) / ux : Infinity;
+  const ty = uy > 0 ? (box[3] - cy) / uy : uy < 0 ? (box[1] - cy) / uy : Infinity;
+  const t = Math.min(tx, ty) + gap;
+  return [cx + ux * t, cy + uy * t];
+}
+
+// Each arrow's curve and the spot for its label: the side it bends to and
+// the point along it are picked so the label sits on nothing else.
+function route(links, placed) {
+  const boxes = placed.map(boxOf);
+  const taken = [];
+  return links.map((l) => {
+    const from = placed[l.from], to = placed[l.to];
+    const [x1, y1] = from.xy, [x2, y2] = to.xy;
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    const [ax, ay] = edge(boxes[l.from], x1, y1, ux, uy, 6);
+    const [bx, by] = edge(boxes[l.to], x2, y2, -ux, -uy, 10);
+    const w = (l.label || "").length * 8.6 + 22, h = 28;
+    let best = null;
+    for (const side of [1, -1]) {
+      const cx = (ax + bx) / 2 - uy * 36 * side, cy = (ay + by) / 2 + ux * 36 * side;
+      for (const t of [0.5, 0.4, 0.6, 0.32, 0.68]) {
+        const mx = (1 - t) ** 2 * ax + 2 * (1 - t) * t * cx + t * t * bx;
+        const my = (1 - t) ** 2 * ay + 2 * (1 - t) * t * cy + t * t * by;
+        const r = [mx - w / 2, my - h / 2, mx + w / 2, my + h / 2];
+        const hit = [...boxes, ...taken].reduce((n, b) => n + overlap(r, b), 0) + (r[0] < 0 || r[2] > 520 || r[1] < 0 || r[3] > 400 ? 5000 : 0);
+        if (!best || hit < best.hit) best = { hit, d: `M${ax} ${ay}Q${cx} ${cy} ${bx} ${by}`, mx, my, r, w };
+        if (hit === 0) break;
+      }
+      if (best.hit === 0) break;
+    }
+    if (l.label) taken.push(best.r);
+    return best;
+  });
+}
+
+function Link({ id, path, label, fresh, color }) {
+  const { d, mx, my, w } = path;
   return (
     <g className={"vp-link" + (fresh ? " fresh" : "")} style={{ "--c": color }}>
       {/* One arrowhead per colour: Safari cannot colour a shared one to match. */}
@@ -746,7 +837,7 @@ function Link({ id, from, to, label, fresh, color }) {
       <circle r="5" className="vp-link-dot"><animateMotion dur="2.2s" repeatCount="indefinite" path={d} /></circle>
       {label && (
         <g className="vp-link-label">
-          <rect x={mx - label.length * 4.4 - 8} y={my - 13} width={label.length * 8.8 + 16} height="26" rx="13" />
+          <rect x={mx - w / 2} y={my - 14} width={w} height="28" rx="14" />
           <text x={mx} y={my + 5} textAnchor="middle">{label}</text>
         </g>
       )}
@@ -763,12 +854,11 @@ export function PropStage({ props, links = [], line }) {
     const spot = SPOTS[list.length] || SPOTS[1];
     return list.map((p, i) => ({ ...p, xy: spot.at[i], size: spot.size }));
   }, [props]);
+  const shown = links.filter((l) => placed[l.from] && placed[l.to]);
+  const paths = useMemo(() => route(shown, placed), [shown.length, placed]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!placed.length) return null;
   return (
     <svg className="vp-stage" viewBox="0 0 520 400" role="img" aria-label={placed.map((p) => p.label || p.kind).join(", ")}>
-      {links.filter((l) => l.at <= line && placed[l.from] && placed[l.to] && placed[l.from].at <= line && placed[l.to].at <= line).map((l, i) => (
-        <Link key={i} id={`${uid}-${i}`} from={placed[l.from]} to={placed[l.to]} label={l.label} fresh={l.at === line} color={LINK_COLORS[i % LINK_COLORS.length]} />
-      ))}
       {placed.filter((p) => p.at <= line).map((p, i) => {
         const Draw = PROPS[p.kind]?.draw;
         if (!Draw) return null;
@@ -778,7 +868,20 @@ export function PropStage({ props, links = [], line }) {
             <g className={"vp-prop" + (p.at === line ? " fresh" : "")}>
               <Draw />
             </g>
-            {p.label && <text className="vp-label" x="60" y="134" textAnchor="middle">{p.label}</text>}
+          </g>
+        );
+      })}
+      {shown.map((l, i) => (l.at <= line && placed[l.from].at <= line && placed[l.to].at <= line
+        ? <Link key={i} id={`${uid}-${i}`} path={paths[i]} label={l.label} fresh={l.at === line} color={LINK_COLORS[i % LINK_COLORS.length]} />
+        : null))}
+      {placed.filter((p) => p.at <= line).map((p, i) => {
+        const name = nameOf(p);
+        if (!name) return null;
+        const w = name.length * 8.4 + 20;
+        return (
+          <g key={"n" + i} className="vp-name">
+            <rect x={p.xy[0] - w / 2} y={p.xy[1] + p.size / 2 + 4} width={w} height="24" rx="12" />
+            <text className="vp-label" x={p.xy[0]} y={p.xy[1] + p.size / 2 + 21} textAnchor="middle">{name}</text>
           </g>
         );
       })}

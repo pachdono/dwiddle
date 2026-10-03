@@ -15,7 +15,7 @@ import { writeVideo } from "./ai.js";
 import { blockPlain } from "./marks.js";
 import { Icon, PageHead, Portal, Boundary } from "./ui.jsx";
 import { Duck } from "./Duck.jsx";
-import { PropStage, propsFor, PROPS } from "./VideoProps.jsx";
+import { PropStage, propsFor, PROPS, STATES } from "./VideoProps.jsx";
 import { DuckTalk } from "./Chat.jsx";
 
 /* ---------- saved videos ---------- */
@@ -639,13 +639,17 @@ function Scene({ scene, line, index = 0, total = 1 }) {
   // has no drawn diagram, the things it talks about.
   const props = useMemo(() => {
     const named = (scene.props || []).filter((p) => PROPS[p.kind]);
+    // Particles of a solid, liquid or gas always get the particle drawings:
+    // a drawn figure of them was a circle with a few dots, the same for all three.
+    const states = propsFor(scene).filter((p) => STATES.includes(p.kind));
+    if (states.length && !named.some((p) => STATES.includes(p.kind))) return [...states, ...named].slice(0, 4);
     // A scene of working out has its working to look at; guessing a drawing
     // from its words there only finds the wrong one (a heart for "heart
     // muscle cell").
     const working = scene.board.some((b) => ["math", "divide", "move", "answer"].includes(b.kind));
     return named.length ? named : drawn || working ? [] : propsFor(scene);
   }, [scene, drawn]);
-  const moving = props.length > 0 && !(drawn && !scene.props?.length);
+  const moving = props.length > 0 && (!(drawn && !scene.props?.length) || props.some((p) => STATES.includes(p.kind)));
   const pic = usePicture(moving ? null : scene.diagram?.picture, scene.diagram?.photo);
   const figure = drawn || !!pic || moving;
   return (

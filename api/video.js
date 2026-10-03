@@ -17,7 +17,7 @@ export const config = { maxDuration: 60 };
 
 // The moving drawings the app can draw (src/VideoProps.jsx), kept in step.
 const PROP_KINDS = ["sun", "plant", "tree", "water", "cloud", "co2", "o2", "glucose", "cell", "atom", "molecule", "heart", "lungs", "brain", "earth", "magnet", "battery", "bulb", "flask", "thermometer", "dna", "coin", "gear", "clock", "book", "fire", "wave", "bacteria",
-  "person", "people", "children", "worker", "handshake", "shop", "factory", "house", "school", "food", "chartUp", "chartDown", "target", "star", "scales", "truck", "phone", "bank", "moneybag", "megaphone", "shield", "calendar"];
+  "person", "people", "children", "worker", "handshake", "shop", "factory", "house", "school", "food", "chartUp", "chartDown", "target", "star", "scales", "truck", "phone", "bank", "moneybag", "megaphone", "shield", "calendar", "solid", "liquid", "gas"];
 
 // Science drawings only where the scene is really about that science. The
 // model reached for them as loose stand ins (a cell for a worker, a flask for
@@ -95,6 +95,7 @@ Animations, so each step is seen happening rather than only stated. Use them whe
 
 Moving drawings, for anything real a scene talks about:
 - "props": 1 to 4 animated drawings the app draws itself, chosen ONLY from: ${PROP_KINDS.join(", ")}. Each has a short "label" (1 to 3 words) and "at", the line it appears on. Pick the ones the line is actually about: talking about photosynthesis, a sun, a plant, co2, water, o2 and glucose; about blood, a heart; about circuits, a battery and a bulb; about free school meals, children and food; about customer loyalty, a handshake; about a firm, a shop or factory; about wages, a worker and a moneybag; about profit rising, chartUp; about an aim, a target.
+- Particles in a solid, liquid or gas: always the "solid", "liquid" and "gas" drawings, which show the particles packed and moving the right way. Never draw them yourself as a figure of a circle with dots, and never use "atom" or "molecule" for them. Comparing states, put the drawings side by side in one scene.
 - A drawing must look like the thing itself to a student. Never use a science drawing (cell, atom, molecule, dna, bacteria, flask, co2, o2, glucose) unless the scene is about that science: a worker is a worker or person, never a cell; costs are a coin or moneybag, never a flask; a school is a school, not a book.
 - "links": arrows between props, by their index in "props", with a short "label" for what goes from one to the other ("light energy", "oxygen out", "blood pumped") and "at", the line it is drawn on. Use them to show processes: inputs flowing in, products flowing out, one thing causing another.
 - Give every scene that is not pure maths its props, and links wherever something moves or changes.

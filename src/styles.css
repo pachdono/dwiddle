@@ -8469,6 +8469,7 @@ body:has(.nb-split.resizing) { cursor: col-resize; }
 .vp-prop.fresh { animation: vp-pop 0.7s cubic-bezier(.2, 1.4, .4, 1) both; }
 @keyframes vp-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .vp-label { font: 700 15px var(--font, system-ui), sans-serif; fill: var(--vd-ink, #1b1d26); }
+.vp-name rect { fill: var(--vd-bg, var(--surface, #fff)); opacity: 0.85; }
 .vp-spin { animation: vp-spin 14s linear infinite; transform-origin: center; }
 .vp-spin-back { animation: vp-spin 9s linear infinite reverse; transform-origin: center; }
 .vp-spin-slow { animation: vp-spin 30s linear infinite; transform-origin: center; }
@@ -8856,3 +8857,9 @@ body.has-backdrop main .page {
 .tour-card p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2, var(--ink)); }
 .tour-actions { display: flex; align-items: center; gap: 8px; }
 .tour-actions .linkish { font-size: 13px; color: var(--ink-3); background: none; border: 0; cursor: pointer; padding: 0; }
+
+/* States of matter (VideoProps.jsx) */
+.vp-jit { animation: vp-jit 0.32s ease-in-out infinite alternate; }
+@keyframes vp-jit { from { transform: translate(-1.2px, 0.8px); } to { transform: translate(1.2px, -0.8px); } }
+.vp-slip { animation: vp-slip 2.8s ease-in-out infinite; }
+@keyframes vp-slip { 25% { transform: translate(3px, -1.5px); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(-3px, -1px); } }
