@@ -14,6 +14,7 @@ import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
+import Duel from "./Duel.jsx";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
@@ -284,7 +285,9 @@ const GROUPS = [
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
     old: true,
   },
+  { id: "folders", label: "Library", icon: "folder", pages: ["library", "reader"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
+  { id: "duel", label: "Duel", icon: "bolt", pages: ["duel"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
@@ -299,7 +302,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
-  { id: "notebook", label: "Notebooks" },
+  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
@@ -810,12 +813,13 @@ export default function App() {
     topics: Topics,
     quiz: Practice,
     solve: ChatRoom,
-    decks: early ? (preview ? HomeBridge : Decks) : Dashboard,
+    decks: early ? (preview ? FoldersBridge : Decks) : Dashboard,
     sheet: StudySheet,
     learn: Learn,
     videos: Videos,
     upload: AddMaterial,
-    library: Library,
+    library: preview ? FoldersBridge : Library,
+    duel: preview ? Duel : Dashboard,
     reader: Library,
     settings: Settings,
     tests: TestPrep,
@@ -833,7 +837,7 @@ export default function App() {
   // asks which until one is picked. Nothing is ever merged together.
   const items = made?.materials || [];
   const mustPick = group?.id === "study" && items.length > 1 && !items.some((m) => m.id === focus);
-  const Pick = preview ? HomeBridge : StudyPicker;
+  const Pick = preview ? FoldersBridge : StudyPicker;
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
   useEffect(() => {
@@ -941,7 +945,7 @@ export default function App() {
             <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
             New material
           </button>
-          {GROUPS.filter((g) => (!g.early || early) && !(preview && g.old)).map((g) => (
+          {GROUPS.filter((g) => (!g.early || early) && !(preview && g.old) && (!g.fresh || preview)).map((g) => (
             <button key={g.id} data-tour={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               <Icon name={g.icon} />
@@ -1026,7 +1030,7 @@ export default function App() {
             <Icon name="menu" size={18} />
           </button>
           {preview && group?.id === "study" && (
-            <button className="btn quiet small hf-back" onClick={() => { setFocus(null); go("home"); }}>
+            <button className="btn quiet small hf-back" onClick={() => { setFocus(null); go("library"); }}>
               <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Folders
             </button>
           )}
@@ -1101,8 +1105,9 @@ export default function App() {
       <nav className="tabbar" aria-label="Main">
         {[
           { id: "home", label: "Home", icon: "home", on: page === "home", to: "home" },
-          { id: "study", label: "Study", icon: "cards", on: groupOf(page)?.id === "study",
-            to: lastInGroup.current.study || "sheet" },
+          preview
+            ? { id: "library", label: "Library", icon: "folder", on: ["library", "reader", "decks"].includes(page) || groupOf(page)?.id === "study", to: "library" }
+            : { id: "study", label: "Study", icon: "cards", on: groupOf(page)?.id === "study", to: lastInGroup.current.study || "sheet" },
           { id: "add", label: "New", icon: "plus", on: page === "upload", to: "upload", add: true },
           { id: "chat", label: "Chat", icon: "chat", on: page === "chat" || page === "solve", to: "chat" },
         ].map((t) => (
@@ -2363,13 +2368,14 @@ function StudyPicker({ materials, made, pick }) {
 }
 
 // Home as folders, with the numbers it needs worked out here.
-function HomeBridge(props) {
+function FoldersBridge(props) { return <HomeBridge {...props} home={false} />; }
+function HomeBridge({ home = true, ...props }) {
   const { auth, stats, bank = [], drills = [], srs = {} } = props;
   const [pick] = useState(() => Math.random());
   const me = useMyProfile(auth?.user);
   const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
   const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
-  return <HomeFolders {...props} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} level={levelOf(stats?.xp || 0).level} xp={stats?.xp || 0} prefill={(t) => { try { sessionStorage.setItem("dwiddle-handoff-notes", t); } catch {} props.go("upload"); }} />;
+  return <HomeFolders {...props} home={home} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} level={levelOf(stats?.xp || 0).level} xp={stats?.xp || 0} prefill={(t) => { try { sessionStorage.setItem("dwiddle-handoff-notes", t); } catch {} props.go("upload"); }} />;
 }
 
 function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {

@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Icon, PageHead, Portal } from "./ui.jsx";
 import Decks from "./Decks.jsx";
 import { Duck } from "./Duck.jsx";
+import { HeroDuck } from "./HeroDuck.jsx";
 
 // Home for testers and above: one calm page. Each thing you have added is a
 // folder, and the way back to where you were is the biggest thing on it.
 // Counts are worked out here from the one store, so nothing new is saved.
-export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, picking }) {
+export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, picking, home }) {
   const [view, setView] = useState("folders");
   const [find, setFind] = useState("");
   const [confirm, setConfirm] = useState(null);
@@ -46,24 +47,25 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
 
   return (
     <div className="page wide fade hf">
-      <div className="hf-chips">
+      {home && <div className="hf-chips">
         <span className="hf-chip" title="Days in a row you have studied"><span className="hf-chip-ico hf-flame"><Icon name="bolt" size={15} /></span>{streak}</span>
         <span className="hf-chip" title={`${xp.toLocaleString()} XP`}><span className="hf-chip-ico hf-lv">{level}</span>Level {level}</span>
-      </div>
+      </div>}
 
-      {picking ? (
-        <PageHead title="What are you studying?" sub="Pick a folder to open its notes, lessons and practice." />
-      ) : (
+      {home ? (
         <div className="hf-hero">
-          <Duck size={120} className="hf-duck" />
-          <div>
+          <HeroDuck size={230} className="hf-duck" />
+          <div className="hf-words">
             <div className="hf-hello">{hello}</div>
-            <h1 className="hf-ask">What shall we <em>study</em>?</h1>
+            <div className="hf-what">What shall we</div>
+            <h1 className="hf-ask">Study<em>?</em></h1>
           </div>
         </div>
+      ) : (
+        <PageHead title={picking ? "What are you studying?" : "Library"} sub={picking ? "Pick a folder to open its notes, lessons and practice." : "Everything you have added, as folders."} />
       )}
 
-      {!picking && (
+      {home && (
         <>
           <div className="hf-actions">
             <button onClick={() => go("upload")}><span className="hf-act-ico"><Icon name="upload" size={22} /></span><b>Upload file</b><span className="small muted">PDF, slides, a photo</span></button>
@@ -77,6 +79,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
         </>
       )}
 
+      {!home && (<>
       {view === "folders" && next && !picking && (
         <button className="hf-continue" onClick={carryOn}>
           <span className="hf-continue-k">Continue</span>
@@ -134,6 +137,8 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           {folders.length > 0 && shown.length === 0 && <div className="hf-empty small muted">No folder matches that.</div>}
         </div>
       )}
+
+      </>)}
 
       {confirm && (
         <Portal>
