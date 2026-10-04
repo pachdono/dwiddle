@@ -13,6 +13,7 @@ import { ThemeScenery, ThemeDrift, hasScenery } from "./ThemeScenery.jsx";
 import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
+import { HomeFolders } from "./HomeFolders.jsx";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
@@ -281,14 +282,15 @@ const GROUPS = [
   {
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics", "videos"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
+    old: true,
   },
   { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
-  { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true },
+  { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
     id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
     tabs: { tests: "Test prep", courses: "Courses" },
   },
-  { id: "library", label: "Library", icon: "library", pages: ["library", "reader"] },
+  { id: "library", label: "Library", icon: "library", pages: ["library", "reader"], old: true },
 ];
 
 const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
@@ -453,6 +455,9 @@ export default function App() {
   // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
   const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
+  // The folder based Home is being tried by staff and testers first. Study,
+  // My decks and Library fold into it; everyone else keeps the old layout.
+  const preview = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
   useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
 
@@ -801,11 +806,11 @@ export default function App() {
   }, [theme, look]);
 
   const Page = {
-    home: Dashboard,
+    home: preview ? HomeBridge : Dashboard,
     topics: Topics,
     quiz: Practice,
     solve: ChatRoom,
-    decks: early ? Decks : Dashboard,
+    decks: early ? (preview ? HomeBridge : Decks) : Dashboard,
     sheet: StudySheet,
     learn: Learn,
     videos: Videos,
@@ -828,6 +833,7 @@ export default function App() {
   // asks which until one is picked. Nothing is ever merged together.
   const items = made?.materials || [];
   const mustPick = group?.id === "study" && items.length > 1 && !items.some((m) => m.id === focus);
+  const Pick = preview ? HomeBridge : StudyPicker;
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
   useEffect(() => {
@@ -935,7 +941,7 @@ export default function App() {
             <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
             New material
           </button>
-          {GROUPS.filter((g) => !g.early || early).map((g) => (
+          {GROUPS.filter((g) => (!g.early || early) && !(preview && g.old)).map((g) => (
             <button key={g.id} data-tour={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               <Icon name={g.icon} />
@@ -1019,6 +1025,11 @@ export default function App() {
             onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={18} />
           </button>
+          {preview && group?.id === "study" && (
+            <button className="btn quiet small hf-back" onClick={() => { setFocus(null); go("home"); }}>
+              <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Folders
+            </button>
+          )}
           {group?.tabs ? (
             <nav className="tabs" aria-label={group.label}>
               {group.pages.filter((id) => group.tabs[id] && (id !== "videos" || early)).map((id) => (
@@ -1034,7 +1045,7 @@ export default function App() {
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
         <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
-        {mustPick ? <StudyPicker materials={made.materials} made={made} pick={setFocus} go={go} /> : <Page
+        {mustPick ? <Pick materials={made.materials} made={made} fullMade={made} pick={setFocus} setFocus={setFocus} go={go} picking auth={auth} stats={stats} bank={bank} drills={drills} srs={srs} focus={focus} setTopic={setTopic} deleteItem={(id) => { setMadeRaw((prev) => { const next = withoutMaterial(prev, id); save(KEYS.made, next && { ...next, savedAt: Date.now() }); return next; }); if (focus === id) setFocus(null); }} deleteMaterial={deleteMaterial} /> : <Page
           key={`${page}:${seq}`}
           go={go}
           early={early}
@@ -2349,6 +2360,16 @@ function StudyPicker({ materials, made, pick }) {
       </div>
     </div>
   );
+}
+
+// Home as folders, with the numbers it needs worked out here.
+function HomeBridge(props) {
+  const { auth, stats, bank = [], drills = [], srs = {} } = props;
+  const [pick] = useState(() => Math.random());
+  const me = useMyProfile(auth?.user);
+  const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
+  const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
+  return <HomeFolders {...props} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} />;
 }
 
 function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {

@@ -8959,3 +8959,39 @@ body.has-backdrop main .page {
 .vl-part b { display: grid; place-items: center; min-width: 3.4cqw; height: 3.4cqw; padding: 0 0.8cqw; border-radius: 999px; background: var(--lc); color: #fff; font-size: 1.1em; }
 .vd-scene.with-layout .vd-board { display: none; }
 .vl-cycle { max-width: 62cqw; margin: 0 auto; }
+
+/* ---------- Home as folders (testers and above) ---------- */
+.hf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.hf-streak { align-self: center; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.hf-continue { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; align-items: center; width: 100%; text-align: left; padding: 20px 22px; margin: 4px 0 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--accent-soft); color: inherit; font: inherit; cursor: pointer; position: relative; }
+.hf-continue:hover { border-color: var(--accent); }
+.hf-continue-k { grid-column: 1; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.hf-continue b { grid-column: 1; font-size: 20px; line-height: 1.25; }
+.hf-continue .small { grid-column: 1; opacity: .75; }
+.hf-due { grid-column: 1; justify-self: start; margin-top: 8px; }
+.hf-go { grid-column: 2; grid-row: 1 / span 3; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-ink); background: var(--accent); padding: 10px 16px; border-radius: 12px; }
+.hf-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.hf-switch { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--line-soft); border: 1px solid var(--line); }
+.hf-switch button { border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 14px; padding: 7px 16px; border-radius: 9px; color: inherit; opacity: .7; cursor: pointer; }
+.hf-switch button.on { background: var(--surface); opacity: 1; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.hf-find { flex: 1 1 200px; max-width: 320px; padding: 9px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; }
+.hf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.hf-folder { position: relative; }
+.hf-open, .hf-new { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; height: 100%; min-height: 150px; text-align: left; padding: 18px 18px 16px; border: 1px solid var(--line); border-radius: 6px 16px 16px 16px; background: var(--surface); color: inherit; font: inherit; cursor: pointer; position: relative; }
+.hf-open:hover, .hf-new:hover { border-color: var(--accent); transform: translateY(-1px); }
+.hf-folder.on .hf-open { border-color: var(--accent); }
+.hf-tab { position: absolute; top: -7px; left: 0; width: 56px; height: 8px; border-radius: 6px 6px 0 0; background: var(--accent-soft); border: 1px solid var(--line); border-bottom: 0; }
+.hf-title { font-size: 16px; line-height: 1.3; padding-right: 26px; overflow-wrap: anywhere; }
+.hf-prog { display: block; width: 100%; height: 6px; border-radius: 6px; background: var(--line-soft); overflow: hidden; margin-top: auto; }
+.hf-prog i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+.hf-del { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .15s; }
+.hf-folder:hover .hf-del, .hf-del:focus-visible { opacity: 1; }
+@media (hover: none) { .hf-del { opacity: .7; } }
+.hf-new { align-items: center; justify-content: center; text-align: center; border-style: dashed; background: transparent; }
+.hf-new-plus { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); }
+.hf-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 0; text-align: center; }
+.hf-back { display: inline-flex; align-items: center; gap: 6px; }
+.hf-back-ico { transform: rotate(180deg); }
+.hf-back-ico { display: inline-flex; transform: rotate(180deg); }
+.hf-decks > .page { padding: 0; max-width: none; }
+.hf-decks > .page > .page-head { display: none; }
