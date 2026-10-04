@@ -62,7 +62,7 @@ function Board({ user }) {
           <button className={scope === "everyone" ? "on" : ""} onClick={() => setScope("everyone")}>Global</button>
           <button className={scope === "friends" ? "on" : ""} onClick={() => setScope("friends")}>Friends</button>
         </div>
-        <span className="small muted">XP earned since Monday. Resets every week.</span>
+        <span className="small muted">{scope === "everyone" ? "All time XP." : "XP earned this month. Resets on the 1st."}</span>
       </div>
       <div className="card">
         {rows === null && <div className="card-pad small muted">Loading...</div>}
@@ -72,7 +72,7 @@ function Board({ user }) {
             <span className="sc-pos" style={i < 3 ? { background: medal[i], color: "#fff" } : null}>{i + 1}</span>
             <UserIcon avatar={r.avatar} user={null} size={34} />
             <span className="sc-who"><b>{r.me ? "You" : r.name}</b>{r.handle && <span className="small muted">@{r.handle}</span>}</span>
-            <span className="sc-xp"><b>{r.week_xp.toLocaleString()}</b><span className="small muted"> XP</span></span>
+            <span className="sc-xp"><b>{r.score.toLocaleString()}</b><span className="small muted"> XP</span></span>
           </div>
         ))}
       </div>
@@ -163,7 +163,7 @@ function Friends({ user, openChat }) {
         {friends.map((f) => (
           <div key={f.user_id} className="sc-person">
             <UserIcon avatar={f.avatar} user={null} size={36} />
-            <span className="sc-who"><b>{f.name}</b><span className="small muted">{f.week_xp.toLocaleString()} XP this week</span></span>
+            <span className="sc-who"><b>{f.name}</b><span className="small muted">{f.month_xp.toLocaleString()} XP this month</span></span>
             <button className="btn small" onClick={() => openChat(f)}>Message</button>
             <button className="icon-btn" title="Remove friend" aria-label={`Remove ${f.name}`} onClick={() => confirm(`Remove ${f.name} as a friend?`) && answerFriend(f.user_id, false).then(load)}><Icon name="close" size={14} /></button>
           </div>
@@ -250,14 +250,14 @@ export function LeaderboardPage({ auth, onSignIn }) {
   if (!auth?.user) {
     return (
       <div className="page fade sc">
-        <PageHead title="Leaderboard" sub="Who earned the most XP this week." />
+        <PageHead title="Leaderboard" sub="All time among everyone, or this month among friends." />
         <div className="card card-pad sc-note"><b>Sign in to see the board</b><button className="btn cta" onClick={onSignIn}>Sign in</button></div>
       </div>
     );
   }
   return (
     <div className="page fade sc">
-      <PageHead title="Leaderboard" sub="Who earned the most XP this week." />
+      <PageHead title="Leaderboard" sub="All time among everyone, or this month among friends." />
       <Board user={auth.user} />
     </div>
   );

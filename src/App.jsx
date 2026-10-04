@@ -1098,7 +1098,7 @@ export default function App() {
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
               <button className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
-              <button className="top-chip" title="This week's leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
+              <button className="top-chip" title="Leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}
           <FullscreenButton className="icon-btn topbar-fs" />

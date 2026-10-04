@@ -18,8 +18,12 @@ create table if not exists public.xp_board (
   total int not null default 0,
   week_start date not null default date_trunc('week', now())::date,
   week_base int not null default 0,
+  month_start date not null default date_trunc('month', now())::date,
+  month_base int not null default 0,
   updated_at timestamptz not null default now()
 );
+alter table public.xp_board add column if not exists month_start date not null default date_trunc('month', now())::date;
+alter table public.xp_board add column if not exists month_base int not null default 0;
 alter table public.xp_board enable row level security;
 drop policy if exists "own xp row" on public.xp_board;
 create policy "own xp row" on public.xp_board for select to authenticated using (user_id = auth.uid());
@@ -109,42 +113,49 @@ begin
   return clean;
 end $$;
 
--- the signed in person's total xp; the week's figure is worked out from it
+-- the signed in person's total xp; the week's and month's figures are worked out from it
 create or replace function public.report_xp(p_total int) returns void
 language plpgsql security definer set search_path = public as $$
-declare wk date := date_trunc('week', now())::date; r public.xp_board;
+declare wk date := date_trunc('week', now())::date; mo date := date_trunc('month', now())::date; r public.xp_board;
 begin
   if auth.uid() is null then return; end if;
   select * into r from public.xp_board where user_id = auth.uid();
   if not found then
-    insert into public.xp_board (user_id, total, week_start, week_base) values (auth.uid(), greatest(p_total, 0), wk, greatest(p_total, 0));
+    insert into public.xp_board (user_id, total, week_start, week_base, month_start, month_base)
+      values (auth.uid(), greatest(p_total, 0), wk, greatest(p_total, 0), mo, greatest(p_total, 0));
     return;
   end if;
   -- no one earns more than 3000 xp between two reports
   p_total := least(greatest(p_total, r.total), r.total + 3000);
-  if r.week_start < wk then
-    update public.xp_board set week_base = r.total, week_start = wk, total = p_total, updated_at = now() where user_id = auth.uid();
-  else
-    update public.xp_board set total = p_total, updated_at = now() where user_id = auth.uid();
-  end if;
+  update public.xp_board set
+    total = p_total,
+    week_base = case when r.week_start < wk then r.total else r.week_base end,
+    week_start = wk,
+    month_base = case when r.month_start < mo then r.total else r.month_base end,
+    month_start = mo,
+    updated_at = now()
+  where user_id = auth.uid();
 end $$;
 
--- the board: 'friends' (and you) or 'everyone' who has picked a username
-create or replace function public.leaderboard(scope text default 'friends')
-returns table (user_id uuid, name text, avatar text, handle text, week_xp int, total_xp int, me boolean)
+-- the board. 'everyone' is all time, for people who have picked a username.
+-- 'friends' (and you) is this month.
+drop function if exists public.leaderboard(text);
+create function public.leaderboard(scope text default 'everyone')
+returns table (user_id uuid, name text, avatar text, handle text, score int, me boolean)
 language sql security definer set search_path = public stable as $$
   select x.user_id, coalesce(p.display_name, p.handle, 'Someone'), p.avatar, p.handle,
-         case when x.week_start = date_trunc('week', now())::date then x.total - x.week_base else 0 end,
-         x.total, x.user_id = auth.uid()
+         case when scope = 'friends'
+              then (case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end)
+              else x.total end,
+         x.user_id = auth.uid()
   from public.xp_board x
   left join public.profiles p on p.user_id = x.user_id
   where auth.uid() is not null and (
-    x.user_id = auth.uid()
-    or (scope = 'friends' and exists (select 1 from public.friendships f where f.status = 'accepted'
-          and f.a = least(x.user_id, auth.uid()) and f.b = greatest(x.user_id, auth.uid())))
-    or (scope = 'everyone' and p.handle is not null)
+    (scope = 'friends' and (x.user_id = auth.uid() or exists (select 1 from public.friendships f where f.status = 'accepted'
+          and f.a = least(x.user_id, auth.uid()) and f.b = greatest(x.user_id, auth.uid()))))
+    or (scope = 'everyone' and (p.handle is not null or x.user_id = auth.uid()))
   )
-  order by 5 desc, 6 desc
+  order by 5 desc, x.total desc
   limit 50
 $$;
 
@@ -183,11 +194,12 @@ begin
   end if;
 end $$;
 
-create or replace function public.my_friends()
-returns table (user_id uuid, name text, avatar text, handle text, status text, incoming boolean, week_xp int)
+drop function if exists public.my_friends();
+create function public.my_friends()
+returns table (user_id uuid, name text, avatar text, handle text, status text, incoming boolean, month_xp int)
 language sql security definer set search_path = public stable as $$
   select o.id, coalesce(p.display_name, p.handle, 'Someone'), p.avatar, p.handle, f.status, f.requested_by <> auth.uid(),
-         coalesce(case when x.week_start = date_trunc('week', now())::date then x.total - x.week_base else 0 end, 0)
+         coalesce(case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end, 0)
   from public.friendships f
   cross join lateral (select case when f.a = auth.uid() then f.b else f.a end as id) o
   left join public.profiles p on p.user_id = o.id
