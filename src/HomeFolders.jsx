@@ -52,7 +52,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           <HeroDuck size={230} className="hf-duck" />
           <div className="hf-words">
             <div className="hf-hello">{hello}</div>
-            <h1 className="hf-ask">What are we <em>cracking</em> today?</h1>
+            <h1 className="hf-ask">What are we studying today?</h1>
           </div>
         </div>
       ) : (

@@ -9120,3 +9120,7 @@ body.has-backdrop main .page {
 .sc-check { display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .nav-big .nav-item svg.nav-pic { flex: 0 0 34px; width: 34px; height: 34px; opacity: 1; color: inherit; }
 .nav-big .nav-item { min-height: 50px; }
+.hf-ask { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.01em; line-height: 1.2; max-width: none; margin: 2px 0 0; }
+.hf-hello { font-size: 14px; }
+.hd { filter: none; }
+.hf-hero { gap: 28px; }
