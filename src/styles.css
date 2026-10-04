@@ -9130,7 +9130,7 @@ body.has-backdrop main .page {
 .hf-resume { margin-left: auto; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hf-find { flex: 0 1 220px; }
 .hf-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; }
-.hf-open { padding: 0; border: 0; background: transparent; min-height: 0; aspect-ratio: 240 / 170; border-radius: 0; box-shadow: none; display: block; }
+.hf-open { cursor: pointer; padding: 0; border: 0; background: transparent; min-height: 0; aspect-ratio: 240 / 170; border-radius: 0; box-shadow: none; display: block; }
 .hf-open:hover { transform: translateY(-3px); border: 0; }
 .hf-art { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,.12)); }
 .hf-fbody { position: absolute; left: 7%; right: 7%; bottom: 8%; top: 44%; display: flex; flex-direction: column; justify-content: center; gap: 4px; text-align: left; color: #20160a; }
@@ -9172,3 +9172,15 @@ body.has-backdrop main .page {
 .sc-compact .sc-pick { width: auto; white-space: nowrap; }
 .sc-compact .sc-msgs { max-height: 260px; }
 .sc-compact .card-pad { padding: 14px; }
+
+.hf-edit { position: absolute; top: 16px; right: 46px; opacity: 0; transition: opacity .15s; background: rgba(255,255,255,.7); color: #333; }
+.hf-folder:hover .hf-edit, .hf-edit:focus-visible { opacity: 1; }
+@media (hover: none) { .hf-edit { opacity: .8; } }
+.hf-rename { width: 100%; padding: 4px 8px; border-radius: 8px; border: 2px solid #20160a; background: rgba(255,255,255,.9); color: #20160a; font: inherit; font-weight: 800; font-size: 15px; }
+
+/* the answer side of a flashcard is a different colour, so you can tell which side you are on */
+.flip-face.back { background: linear-gradient(color-mix(in srgb, var(--accent) 20%, var(--surface)), color-mix(in srgb, var(--accent) 9%, var(--surface))); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.flip-face.back .flash-tag { color: var(--accent); }
+.dk-flip .flip-face.back { background: linear-gradient(color-mix(in srgb, var(--dk) 22%, var(--surface)), color-mix(in srgb, var(--dk) 10%, var(--surface))); border-color: color-mix(in srgb, var(--dk) 55%, var(--line)); border-top: 5px solid var(--dk); }
+.hf-timer { max-width: 900px; margin: 0 auto 30px; }
+.topic-tip { margin-bottom: 0; }

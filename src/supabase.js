@@ -161,7 +161,12 @@ function mergeMade(a, b) {
   const itemIds = new Set(items.map((m) => m.id));
   (b.materials || []).forEach((m) => {
     if (!itemIds.has(m.id)) items.push(m);
-    else { const i = items.findIndex((x) => x.id === m.id); items[i] = { ...items[i], topics: [...new Set([...items[i].topics, ...m.topics])] }; }
+    else {
+      // the copy saved last decides the name, so a rename on one device sticks
+      const i = items.findIndex((x) => x.id === m.id);
+      const title = (a.savedAt || 0) >= (b.savedAt || 0) ? items[i].title : m.title;
+      items[i] = { ...items[i], title, topics: [...new Set([...items[i].topics, ...m.topics])] };
+    }
   });
   items = items.filter((m) => !removed[m.id]).sort((x, y) => (x.at || 0) - (y.at || 0));
   // A topic that was deleted is only kept if an item still left has it.
@@ -181,7 +186,10 @@ function mergeMade(a, b) {
   (b.drills || []).forEach((d) => { if (!drillIds.has(d.id)) drills.push(d); });
 
   const removedTitles = new Set(Object.values(removed).map((v) => v?.title).filter(Boolean));
-  const sheets = [...(a.sheets || []), ...(b.sheets || [])].filter((sh, i, all) => all.findIndex((x) => x.title === sh.title) === i && !removedTitles.has(sh.title));
+  const itemTitles = new Set(items.map((m) => m.title));
+  const sheets = [...(a.sheets || []), ...(b.sheets || [])].filter((sh, i, all) => all.findIndex((x) => x.title === sh.title) === i && !removedTitles.has(sh.title)
+    // a sheet under an old name of something renamed is not kept as a second copy
+    && (!items.length || itemTitles.has(sh.title)));
   const without = (obj) => Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !goneNow(k)));
 
   // Where both copies have notes or a lesson for the same topic, the copy

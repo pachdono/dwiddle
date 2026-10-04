@@ -1,11 +1,11 @@
 import { playCue, soundsOn, setSoundsOn } from "./voice.js";
 import { M } from "./MathText.jsx";
-import { withMaterials, noteMaterial, viewOf, withoutMaterial } from "./materials.js";
+import { withMaterials, noteMaterial, viewOf, withoutMaterial, renameMaterial } from "./materials.js";
 import { NotifyCard } from "./NotifyCard.jsx";
 import { ready as notifyReady, askOnce as askNotify, startDesktopReminder } from "./notify.js";
 import { DwiddleHero } from "./ChatRoom.jsx";
 import ChatRoom from "./ChatRoom.jsx";
-import { Tour, tourDone, resetTour } from "./Tour.jsx";
+import { Tour, tourDone, resetTour, FOLDER_STEPS } from "./Tour.jsx";
 import { LevelCard } from "./LevelPicker.jsx";
 import { Podcast, notesText } from "./Podcast.jsx";
 import { PastPaperCard } from "./PastPaper.jsx";
@@ -32,7 +32,7 @@ import { Learn } from "./Learn.jsx";
 import { Videos, VideoJobChip, NarrationAsk } from "./Video.jsx";
 import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
-import { useMyProfile, UserIcon } from "./Profile.jsx";
+import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { setEarlyAccess, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
@@ -419,6 +419,11 @@ export default function App() {
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  const [tipGone, setTipGone] = useState(() => { try { return localStorage.getItem("dwiddle-topic-tip") === "1"; } catch { return true; } });
+  // true while someone is working inside a folder, including when they step
+  // into a notebook from it, so opening the notebook does not drop them out
+  const [inFolder, setInFolder] = useState(false);
+  const inFolderNow = useRef(false);
   const [lost, setLost] = useState(() => ROUTABLE && !REAL_PATHS.has(window.location.pathname));
   const [legal, setLegal] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).legal : null));
 
@@ -709,6 +714,11 @@ export default function App() {
     setPage(p);
     setLegal(null);
     setMenuOpen(false);
+    {
+      const keep = groupOf(p)?.id === "study" || (p === "notebook" && inFolderNow.current);
+      inFolderNow.current = keep;
+      setInFolder(keep);
+    }
 
     // Same page, same URL: pushing again would make the back button do nothing
     // visible, which feels more broken than not working at all.
@@ -865,7 +875,7 @@ export default function App() {
   // Inside a folder, testers get a smaller menu: the study pages first, then
   // Friends, Notebooks and Chat. It stays tucked away until the button at the
   // top left is pressed, so the page itself gets the room.
-  const studyMode = preview && group?.id === "study" && !mustPick;
+  const studyMode = preview && !mustPick && !!focus && (group?.id === "study" || (page === "notebook" && inFolder));
   useEffect(() => { if (!studyMode) setFriendsOpen(false); }, [studyMode]);
   // Friends and the Dwiddle chat share one corner: opening one replaces the other.
   useEffect(() => {
@@ -952,6 +962,7 @@ export default function App() {
       )}
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <ProfileGate user={auth.user} />
+      <HandleGate user={auth.user} />
       {/* A painted place behind every page, for testers for now; the old
           weather over the home screen for everyone else. */}
       {early && !showPhoto && <ThemeBackdrop theme={look} resolved={resolved} />}
@@ -989,7 +1000,7 @@ export default function App() {
             <div className="nav-sep" />
             {/* Chat and Friends open over the page, so you can keep studying while you use them. */}
             {GROUPS.filter((g) => ["social", "notebook", "chat"].includes(g.id)).map((g) => (
-              <button key={g.id} className="nav-item"
+              <button key={g.id} className={"nav-item" + (g.id === "notebook" && page === "notebook" ? " on" : "")}
                 onClick={() => {
                   if (g.id === "chat") { setMenuOpen(false); window.dispatchEvent(new CustomEvent("dwiddle:ask", { detail: {} })); }
                   else if (g.id === "social") { setMenuOpen(false); window.dispatchEvent(new Event("dwiddle:close-chat")); setFriendsOpen((v) => !v); }
@@ -1074,6 +1085,16 @@ export default function App() {
 
       <main className="main">
         {early && <StudyBanner />}
+        {studyMode && page !== "notebook" && !tipGone && (
+          <div className="notice topic-tip">
+            <span className="notice-dot" />
+            <span className="notice-text"><b>There is more here than notes.</b> Press the menu button at the top left for Learn, Practice, Topics and Videos.</span>
+            <button className="btn" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} setMenuOpen(true); }}>Show me</button>
+            <button className="icon-btn" aria-label="Dismiss" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} }}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
         {warnUnsaved && (
           <div className="notice">
             <span className="notice-dot" />
@@ -1093,9 +1114,9 @@ export default function App() {
             onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={18} />
           </button>
-          {preview && group?.id === "study" && (
+          {studyMode && (
             <button className="btn quiet small hf-back" onClick={() => { setFocus(null); go("library"); }}>
-              <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Folders
+              <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Library
             </button>
           )}
           {group?.tabs && !studyMode ? (
@@ -1113,7 +1134,7 @@ export default function App() {
           {preview && (
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
-              <button className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
+              <button data-tour="duel" className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
               <button className="top-chip" title="Leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}
@@ -1144,6 +1165,7 @@ export default function App() {
           focus={focus}
           setFocus={setFocus}
           deleteItem={(id) => { setMadeRaw((prev) => { const next = withoutMaterial(prev, id); save(KEYS.made, next && { ...next, savedAt: Date.now() }); return next; }); if (focus === id) setFocus(null); }}
+          renameItem={(id, title) => setMadeRaw((prev) => { const next = renameMaterial(prev, id, title); if (next !== prev) save(KEYS.made, next && { ...next, savedAt: Date.now() }); return next; })}
           saveLesson={saveLesson}
           finishLesson={finishLesson}
           saveNotes={saveNotes}
@@ -1196,7 +1218,7 @@ export default function App() {
       </nav>
 
       <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
-      {touring && <Tour onClose={() => setTouring(false)} />}
+      {touring && <Tour steps={preview ? FOLDER_STEPS : undefined} onClose={() => setTouring(false)} />}
       <UpdateBar />
       {studyMode && friendsOpen && <FriendsPopup auth={auth} onSignIn={() => setSignInOpen(true)} onClose={() => setFriendsOpen(false)} />}
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />

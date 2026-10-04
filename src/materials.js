@@ -72,3 +72,18 @@ export function withoutMaterial(made, id) {
     gone: { ...recent(all.gone), ...Object.fromEntries([...gone].map((n) => [n, now])) },
   };
 }
+
+// Gives a library item a new name. Its sheet (kept by title) and the page
+// title follow it, so nothing is lost by the rename.
+export function renameMaterial(made, id, title) {
+  const t = String(title || "").trim().slice(0, 120);
+  const all = withMaterials(made);
+  const m = all?.materials?.find((x) => x.id === id);
+  if (!m || !t || t === m.title) return all;
+  return {
+    ...all,
+    title: all.title === m.title ? t : all.title,
+    materials: all.materials.map((x) => (x.id === id ? { ...x, title: t } : x)),
+    sheets: (all.sheets || []).map((sh) => (sh.title === m.title ? { ...sh, title: t } : sh)),
+  };
+}

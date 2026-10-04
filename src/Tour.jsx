@@ -21,6 +21,18 @@ const STEPS = [
   { where: ["themes"], title: "Pick a theme", text: "Tap any of these to try it. Change it whenever you like.", last: true },
 ];
 
+// The same tour for the folder layout testers have: Library holds folders, and
+// a folder has far more than notes in it, which people were missing.
+export const FOLDER_STEPS = [
+  STEPS[0],
+  { where: ["folders", "more"], title: "Your folders", text: "Everything you add becomes a folder. Open one, then press the menu button at the top left: Notes, Learn, Practice, Topics and Videos are all in there, not just notes.", tap: "Tap Library" },
+  { where: ["chat"], title: "Chat with Dwiddle", text: "Ask anything, or send a question you are stuck on, even a photo of it. Dwiddle can quiz you or make a video too.", tap: "Tap Chat" },
+  { where: ["social"], title: "Friends", text: "Add friends by username, message them and see who is ahead. Inside a folder it opens over the page, so you can chat and study together.", tap: "Tap Friends" },
+  { where: ["duel"], title: "Duel and Leaderboard", text: "Race a friend on the same questions, and see the top 10 and your own rank, up here.", tap: "Tap Duel" },
+  STEPS[4],
+  STEPS[5],
+];
+
 function findTarget(where) {
   for (const w of where) {
     for (const el of document.querySelectorAll(`[data-tour="${w}"]`)) {
@@ -37,12 +49,12 @@ function findTarget(where) {
 }
 const same = (a, b) => a === b || (a && b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
 
-export function Tour({ onClose }) {
+export function Tour({ onClose, steps = STEPS }) {
   const [i, setI] = useState(0);
   const [rect, setRect] = useState(null);
   const [h, setH] = useState(200); // the note's own height, to keep it clear of what it points at
   const card = useRef(null);
-  const step = STEPS[i];
+  const step = steps[i];
   useLayoutEffect(() => { if (card.current) setH(card.current.offsetHeight); });
 
   // The page changes under the tour as you tap through, so where the place
@@ -66,7 +78,7 @@ export function Tour({ onClose }) {
   }, [step]);
 
   const finish = () => { save(DONE, true); onClose(); };
-  const next = () => (i + 1 < STEPS.length ? setI(i + 1) : finish());
+  const next = () => (i + 1 < steps.length ? setI(i + 1) : finish());
   const back = () => setI(Math.max(0, i - 1));
 
   // Tapping the lit up place moves the tour on, once the page has changed.
@@ -137,7 +149,7 @@ export function Tour({ onClose }) {
         <div className="tour-head">
           <span className="tour-num">{i + 1}</span>
           <b>{step.title}</b>
-          <span className="tour-of">{i + 1} of {STEPS.length}</span>
+          <span className="tour-of">{i + 1} of {steps.length}</span>
         </div>
         <p>{step.text}</p>
         <div className="tour-actions">

@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { getProfile, saveLook } from "./supabase.js";
+import { setHandle } from "./social.js";
 import { ThemeMark } from "./ThemeMark.jsx";
 import { avatarUrl } from "./Account.jsx";
 import { CHARACTERS, DuckAvatar } from "./DuckAvatars.jsx";
@@ -156,6 +157,50 @@ export function ProfileCard({ user }) {
         {state && <span className={"small " + (state === "Saved" ? "muted" : state === "Saving" ? "muted" : "warn-text")}>{state}</span>}
         <button type="button" className="btn ghost" disabled={!dirty || state === "Saving"} onClick={() => { setDraft(start); setState(""); }}>Discard</button>
         <button type="button" className="btn cta" disabled={!dirty || state === "Saving"} onClick={save}>Save changes</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- a username, asked for once ---------- */
+
+// Friends find each other by username, so everyone signed in is asked for one
+// the next time they open Dwiddle, and cannot carry on without. It stays away
+// if the database does not have usernames yet, rather than trapping anyone.
+export function HandleGate({ user }) {
+  const p = useMyProfile(user);
+  const [v, setV] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [skip, setSkip] = useState(false);
+  const need = !!user && !skip && p && p.handle === null; // undefined means the column is not there yet
+  useEffect(() => {
+    if (!need || v) return;
+    const first = String(p.first_name || p.display_name || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 14);
+    if (first.length >= 2) setV(first + Math.floor(100 + Math.random() * 900));
+  }, [need]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!need) return null;
+  async function save() {
+    setBusy(true); setErr("");
+    const r = await setHandle(v.trim().replace(/^@/, ""));
+    setBusy(false);
+    if (r.ok) { setMyProfile({ handle: r.data }); return; }
+    if (r.missing) { setSkip(true); return; } // usernames are not switched on, so do not block anyone
+    setErr(r.error || "That did not work. Try another.");
+  }
+  return (
+    <div className="gate-scrim">
+      <div className="gate" role="dialog" aria-modal="true" aria-labelledby="hg-title">
+        <h2 id="hg-title">Pick a username</h2>
+        <p className="gate-sub">Friends find you by it, and it is how you show up in duels. Use 3 to 20 letters, numbers or underscores. You can change it later under Friends.</p>
+        <form onSubmit={(e) => { e.preventDefault(); save(); }}>
+          <input className="sc-select" autoFocus value={v} maxLength={21} placeholder="e.g. maya_studies" aria-label="Username"
+            onChange={(e) => setV(e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, ""))} />
+          {err && <p className="small sc-msg" style={{ color: "var(--warn, #b25b00)" }}>{err}</p>}
+          <div className="gate-actions">
+            <button className="btn cta" type="submit" disabled={busy || v.replace(/^@/, "").length < 3}>{busy ? "Saving..." : "Continue"}</button>
+          </div>
+        </form>
       </div>
     </div>
   );

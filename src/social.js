@@ -17,7 +17,7 @@ async function rpc(name, args) {
 export const setHandle = (h) => rpc("set_handle", { h });
 export const reportXp = (p_total) => rpc("report_xp", { p_total });
 export const leaderboard = (scope) => rpc("leaderboard", { scope });
-export const findPerson = (h) => rpc("find_person", { h });
+export const findPerson = (h) => rpc("find_person", { h: String(h || "").trim().replace(/^@/, "") });
 export const addFriend = (other) => rpc("add_friend", { other });
 export const answerFriend = (other, accept) => rpc("answer_friend", { other, accept });
 export const myFriends = () => rpc("my_friends");

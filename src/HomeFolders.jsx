@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon, PageHead, Portal } from "./ui.jsx";
 import Decks from "./Decks.jsx";
 import Explore from "./Explore.jsx";
+import { StudyTimerCard } from "./StudyTimer.jsx";
 import { Duck } from "./Duck.jsx";
 import { HeroDuck } from "./HeroDuck.jsx";
 
@@ -27,10 +28,11 @@ function FolderArt({ tone: [back, front] }) {
   );
 }
 
-export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, picking, home, startView, auth, setMade, onSignIn }) {
+export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, renameItem, picking, home, startView, auth, setMade, onSignIn }) {
   const [view, setView] = useState(startView || "folders");
   const [find, setFind] = useState("");
   const [confirm, setConfirm] = useState(null);
+  const [renaming, setRenaming] = useState(null); // { id, value }
   const [idea, setIdea] = useState("");
   const made = fullMade;
   const lessons = made?.lessons || {};
@@ -90,6 +92,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
             <input value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="Or type a topic you want to learn..." aria-label="A topic to learn" />
             <button className="btn cta" type="submit">Make it</button>
           </form>
+          <div className="hf-timer"><StudyTimerCard /></div>
         </>
       )}
 
@@ -122,15 +125,29 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           </button>
           {shown.map((f, n) => (
             <div key={f.id} className={"hf-folder" + (focus === f.id ? " on" : "")}>
-              <button className="hf-open" onClick={() => open(f)}>
+              <div className="hf-open" role="button" tabIndex={0} onClick={() => (renaming?.id === f.id ? null : open(f))}
+                onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(f); } }}>
                 <FolderArt tone={tone(f.id, n)} />
                 <span className="hf-fbody">
-                  <b className="hf-title">{f.title}</b>
+                  {renaming?.id === f.id ? (
+                    <input className="hf-rename" autoFocus value={renaming.value} maxLength={120} aria-label="Folder name"
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setRenaming({ id: f.id, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") { renameItem?.(f.id, renaming.value); setRenaming(null); }
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                      onBlur={() => { renameItem?.(f.id, renaming.value); setRenaming(null); }} />
+                  ) : <b className="hf-title">{f.title}</b>}
                   <span className="hf-meta">{f.topics.length} topic{f.topics.length === 1 ? "" : "s"} · {f.questions} question{f.questions === 1 ? "" : "s"}</span>
                   <span className="hf-prog" aria-label={`${f.done} of ${f.topics.length} lessons done`}>
                     <i style={{ width: `${f.topics.length ? (f.done / f.topics.length) * 100 : 0}%` }} />
                   </span>
                 </span>
+              </div>
+              <button className="icon-btn hf-edit" title="Rename this folder" aria-label={`Rename ${f.title}`} onClick={() => setRenaming({ id: f.id, value: f.title })}>
+                <Icon name="pen" size={14} />
               </button>
               <button className="icon-btn hf-del" title="Delete this folder" aria-label={`Delete ${f.title}`} onClick={() => setConfirm(f)}>
                 <Icon name="trash" size={15} />

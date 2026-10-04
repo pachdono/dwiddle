@@ -97,7 +97,8 @@ function Friends({ user, openChat }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState(null);
   const [msg, setMsg] = useState("");
-  const load = () => myFriends().then((r) => { if (r.ok) { setList(r.data || []); setMiss(false); } else { setMiss(!!r.missing); setList([]); } });
+  const [loadErr, setLoadErr] = useState("");
+  const load = () => myFriends().then((r) => { if (r.ok) { setList(r.data || []); setMiss(false); setLoadErr(""); } else { setMiss(!!r.missing); setLoadErr(r.missing ? "" : r.error); setList([]); } });
   useEffect(() => { load(); myHandle(user.id).then(setH); }, [user.id]);
   if (miss) return <Setup what="Friends" />;
 
@@ -123,6 +124,7 @@ function Friends({ user, openChat }) {
 
   return (
     <div className="stack">
+      {loadErr && <div className="dl-err">Could not load your friends: {loadErr}</div>}
       <div className="card card-pad">
         <h3>Your username</h3>
         {handle ? <p>Friends find you as <b>@{handle}</b>. </p>

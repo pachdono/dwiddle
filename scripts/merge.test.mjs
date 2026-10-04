@@ -55,3 +55,22 @@ test("deleting the last item leaves nothing behind", async () => {
   assert.deepEqual(out.materials, []);
   assert.deepEqual(out.topics, []);
 });
+
+test("a rename sticks whichever device syncs, and the sheet follows", async () => {
+  const { renameMaterial, viewOf } = await import("../src/materials.js");
+  const before = withItems({ sheets: [{ title: "One", sheet: { s: 1 } }, { title: "Two", sheet: { s: 2 } }] });
+  const renamed = { ...renameMaterial(before, "m1", "Biology unit 1"), savedAt: 2000 };
+  assert.equal(viewOf(renamed, "m1").title, "Biology unit 1");
+  assert.deepEqual(viewOf(renamed, "m1").sheet, { s: 1 });
+  for (const [a, b] of [[renamed, before], [before, renamed]]) {
+    const out = merge({ "dwiddle-made": a, _times: { "dwiddle-made": a.savedAt } }, { "dwiddle-made": b, _times: { "dwiddle-made": b.savedAt } })["dwiddle-made"];
+    assert.equal(out.materials.find((m) => m.id === "m1").title, "Biology unit 1");
+    assert.equal(out.sheets.filter((s) => s.title === "One").length, 0);
+    assert.equal(out.sheets.filter((s) => s.title === "Biology unit 1").length, 1);
+  }
+});
+test("renaming ignores an empty name", async () => {
+  const { renameMaterial } = await import("../src/materials.js");
+  const before = withItems();
+  assert.equal(renameMaterial(before, "m1", "   ").materials[0].title, "One");
+});
