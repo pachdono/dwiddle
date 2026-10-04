@@ -466,13 +466,15 @@ export default function App() {
   const preview = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
   useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
-  // testers and above: tell the weekly board the running total, a moment after it changes
+  // everyone signed in tells the board their running total, a moment after it
+  // changes, so it is already full when the board opens to everyone. Only people
+  // who have picked a username are ever shown on it.
   const totalXp = stats?.xp || 0;
   useEffect(() => {
-    if (!preview || !auth.user) return;
+    if (!auth.user) return;
     const t = setTimeout(() => { reportXp(totalXp); }, 4000);
     return () => clearTimeout(t);
-  }, [preview, auth.user?.id, totalXp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, totalXp]); // eslint-disable-line react-hooks/exhaustive-deps
   // a share link opens the online library on that share
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("share");
