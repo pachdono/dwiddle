@@ -274,6 +274,13 @@ export function DwiddleChat({ hidden = false }) {
     return () => window.removeEventListener("dwiddle:ask", onAsk);
   });
 
+  // Something else (the Friends window) wants the corner this one is in.
+  useEffect(() => {
+    const onClose = () => { if (open) close(); };
+    window.addEventListener("dwiddle:close-chat", onClose);
+    return () => window.removeEventListener("dwiddle:close-chat", onClose);
+  });
+
   useEffect(() => { if (dict.on) setMood("listening"); }, [dict.on]);
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [msgs, busy]);
   useEffect(() => {

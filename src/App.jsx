@@ -867,6 +867,12 @@ export default function App() {
   // top left is pressed, so the page itself gets the room.
   const studyMode = preview && group?.id === "study" && !mustPick;
   useEffect(() => { if (!studyMode) setFriendsOpen(false); }, [studyMode]);
+  // Friends and the Dwiddle chat share one corner: opening one replaces the other.
+  useEffect(() => {
+    const onAsk = () => setFriendsOpen(false);
+    window.addEventListener("dwiddle:ask", onAsk);
+    return () => window.removeEventListener("dwiddle:ask", onAsk);
+  }, []);
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
   useEffect(() => {
@@ -986,7 +992,7 @@ export default function App() {
               <button key={g.id} className="nav-item"
                 onClick={() => {
                   if (g.id === "chat") { setMenuOpen(false); window.dispatchEvent(new CustomEvent("dwiddle:ask", { detail: {} })); }
-                  else if (g.id === "social") { setMenuOpen(false); setFriendsOpen((v) => !v); }
+                  else if (g.id === "social") { setMenuOpen(false); window.dispatchEvent(new Event("dwiddle:close-chat")); setFriendsOpen((v) => !v); }
                   else go(lastInGroup.current[g.id] || g.pages[0]);
                 }}>
                 <NavIcon id={g.pic} size={34} />
