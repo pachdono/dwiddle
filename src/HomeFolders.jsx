@@ -47,18 +47,12 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
 
   return (
     <div className="page wide fade hf">
-      {home && <div className="hf-chips">
-        <span className="hf-chip" title="Days in a row you have studied"><span className="hf-chip-ico hf-flame"><Icon name="bolt" size={15} /></span>{streak}</span>
-        <span className="hf-chip" title={`${xp.toLocaleString()} XP`}><span className="hf-chip-ico hf-lv">{level}</span>Level {level}</span>
-      </div>}
-
       {home ? (
         <div className="hf-hero">
           <HeroDuck size={230} className="hf-duck" />
           <div className="hf-words">
             <div className="hf-hello">{hello}</div>
-            <div className="hf-what">What shall we</div>
-            <h1 className="hf-ask">Study<em>?</em></h1>
+            <h1 className="hf-ask">What are we <em>cracking</em> today?</h1>
           </div>
         </div>
       ) : (

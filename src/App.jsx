@@ -15,6 +15,10 @@ import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
 import Duel from "./Duel.jsx";
+import Social from "./Social.jsx";
+import Explore from "./Explore.jsx";
+import { NavIcon, Flame, Coin } from "./NavIcons.jsx";
+import { reportXp } from "./social.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
@@ -278,19 +282,21 @@ function greetingSub(now = new Date()) {
 // belong together now share one entry and switch between each other with tabs
 // along the top.
 const GROUPS = [
-  { id: "home", label: "Home", icon: "home", pages: ["home"] },
-  { id: "chat", label: "Chat", icon: "chat", pages: ["chat", "solve"], early: true },
+  { id: "home", label: "Home", icon: "home", pic: "home", pages: ["home"] },
+  { id: "chat", label: "Chat", icon: "chat", pic: "chat", pages: ["chat", "solve"], early: true },
   {
     id: "study", label: "Study", icon: "cards", pages: ["sheet", "learn", "quiz", "topics", "videos"],
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
     old: true,
   },
-  { id: "folders", label: "Library", icon: "folder", pages: ["library", "reader"], fresh: true },
-  { id: "notebook", label: "Notebooks", icon: "pen", pages: ["notebook"] },
-  { id: "duel", label: "Duel", icon: "bolt", pages: ["duel"], fresh: true },
+  { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader"], fresh: true },
+  { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
+  { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
+  { id: "duel", label: "Duel", icon: "bolt", pic: "duel", pages: ["duel"], fresh: true },
+  { id: "explore", label: "Explore", icon: "library", pic: "explore", pages: ["explore"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
-    id: "exams", label: "Exams", icon: "target", pages: ["tests", "courses"],
+    id: "exams", label: "Exams", icon: "target", pic: "exams", pages: ["tests", "courses"],
     tabs: { tests: "Test prep", courses: "Courses" },
   },
   { id: "library", label: "Library", icon: "library", pages: ["library", "reader"], old: true },
@@ -302,7 +308,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
-  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" },
+  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
@@ -463,6 +469,21 @@ export default function App() {
   const preview = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
   useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
+  // testers and above: tell the weekly board the running total, a moment after it changes
+  const totalXp = stats?.xp || 0;
+  useEffect(() => {
+    if (!preview || !auth.user) return;
+    const t = setTimeout(() => { reportXp(totalXp); }, 4000);
+    return () => clearTimeout(t);
+  }, [preview, auth.user?.id, totalXp]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a share link opens the online library on that share
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("share");
+    if (!id || !/^[a-f0-9]{10}$/.test(id)) return;
+    try { sessionStorage.setItem("dwiddle-open-share", id); } catch {}
+    history.replaceState(null, "", window.location.pathname);
+    go("explore");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Session storage, so closing the tab brings the landing page back. Anyone
   // signed in skips it entirely, because their work is already safe.
@@ -820,6 +841,8 @@ export default function App() {
     upload: AddMaterial,
     library: preview ? FoldersBridge : Library,
     duel: preview ? Duel : Dashboard,
+    social: preview ? Social : Dashboard,
+    explore: preview ? Explore : Dashboard,
     reader: Library,
     settings: Settings,
     tests: TestPrep,
@@ -938,7 +961,7 @@ export default function App() {
           <span className="brand-hint">Home</span>
         </button>
 
-        <nav className="nav">
+        <nav className={"nav" + (preview ? " nav-big" : "")}>
           {/* Making something is the first thing on the list and styled as one of
               it, rather than a heavy button that belongs to no other element. */}
           <button data-tour="new" className={"nav-item nav-add" + (page === "upload" ? " on" : "")} onClick={() => go("upload")}>
@@ -948,7 +971,7 @@ export default function App() {
           {GROUPS.filter((g) => (!g.early || early) && !(preview && g.old) && (!g.fresh || preview)).map((g) => (
             <button key={g.id} data-tour={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
-              <Icon name={g.icon} />
+              {preview && g.pic ? <NavIcon id={g.pic} size={34} /> : <Icon name={g.icon} />}
               {g.label}
             </button>
           ))}
@@ -1046,6 +1069,12 @@ export default function App() {
             <span className="topbar-title">{title}</span>
           )}
           <span className="crumb small">{study && !mustPick ? study.title : ""}</span>
+          {preview && (
+            <span className="top-chips">
+              <button className="top-chip" title="Days in a row you have studied" onClick={() => go("social")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
+              <button className="top-chip" title={`${(stats.xp || 0).toLocaleString()} XP, level ${levelOf(stats.xp || 0).level}`} onClick={() => go("social")}><Coin size={24} />{(stats.xp || 0).toLocaleString()}</button>
+            </span>
+          )}
           <FullscreenButton className="icon-btn topbar-fs" />
         </header>
         <Boundary resetKey={`${page}:${seq}`} onLeave={() => go("home")}>
