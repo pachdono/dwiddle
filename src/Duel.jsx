@@ -19,7 +19,8 @@ export default function Duel({ auth, fullMade, materials = [], focus, go }) {
   const me = useMyProfile(auth?.user);
   const guest = useRef("g" + Math.random().toString(36).slice(2, 8));
   const myId = auth?.user?.id || guest.current;
-  const myName = me?.display_name?.trim().split(/\s+/)[0] || auth?.user?.email?.split("@")[0] || "Guest";
+  // the username they picked, never their email
+  const myName = me?.handle || me?.display_name?.trim().split(/\s+/)[0] || "Guest";
 
   const [phase, setPhase] = useState("menu"); // menu | lobby | count | play | over
   const [code, setCode] = useState("");

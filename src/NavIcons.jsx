@@ -55,6 +55,32 @@ export function NavIcon({ id, size = 34 }) {
       <path d="M12 9c5 0 6 4 4 7s-6 2-6 6 4 4 3 9c-7-3-11-9-9-15 1-4 4-7 8-7zM25 8c5 1 9 5 10 11-3-1-5 0-6-3-1-3-5-3-4-8zM27 27c3 0 6 1 7 3-2 3-5 5-9 6 1-3-1-6 2-9z" fill={f("b")} />
       <path d="M10 10c3-3 8-4 12-3" stroke="#fff" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round" />
     </>),
+    notes: (<>
+      <defs>{grad(k + "a", "#8fb4ff", "#3b5bfd")}</defs>
+      <path d="M9 4h16l7 7v21a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" fill="#fff" stroke="#c9d3e6" strokeWidth="1.600" />
+      <path d="M25 4v7h7z" fill={f("a")} />
+      <path d="M12 17h14M12 22h14M12 27h8" stroke={`url(#${k}a)`} strokeWidth="2.400" strokeLinecap="round" />
+    </>),
+    learn: (<>
+      <defs>{grad(k + "a", "#ffe27a", "#f0a020")}</defs>
+      <path d="M20 4c-6.500 0-11 4.500-11 10 0 3.600 1.800 6 4 8 1 1 1.500 2 1.500 3.500h11c0-1.500.5-2.500 1.500-3.500 2.200-2 4-4.400 4-8 0-5.500-4.500-10-11-10z" fill={f("a")} />
+      <rect x="14.500" y="27.500" width="11" height="3.500" rx="1.700" fill="#c9ced6" /><rect x="16" y="32" width="8" height="3.500" rx="1.700" fill="#c9ced6" />
+    </>),
+    practice: (<>
+      <defs>{grad(k + "a", "#ff9bc0", "#e0457f")}</defs>
+      <circle cx="20" cy="20" r="16" fill={f("a")} />
+      <path d="M15 16c0-3 2.500-5 5.200-5s5 1.800 5 4.500c0 2.200-1.600 3.200-3 4.200-1.200.800-1.800 1.500-1.800 3" stroke="#fff" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <circle cx="20.500" cy="29" r="2" fill="#fff" />
+    </>),
+    topics: (<>
+      <defs>{grad(k + "a", "#8ee6b0", "#27a35f")}</defs>
+      <rect x="5" y="7" width="30" height="7" rx="3.500" fill={f("a")} /><rect x="5" y="17" width="30" height="7" rx="3.500" fill={f("a")} opacity=".8" /><rect x="5" y="27" width="20" height="7" rx="3.500" fill={f("a")} opacity=".6" />
+    </>),
+    videos: (<>
+      <defs>{grad(k + "a", "#ff8a7a", "#e5432f")}</defs>
+      <rect x="3" y="8" width="34" height="24" rx="7" fill={f("a")} />
+      <path d="M16 14l11 6-11 6z" fill="#fff" />
+    </>),
     trophy: (<>
       <defs>{grad(k + "a", "#ffe27a", "#f0a020")}</defs>
       <path d="M11 5h18v10a9 9 0 0 1-18 0z" fill={f("a")} />

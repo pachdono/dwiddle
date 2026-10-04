@@ -9148,3 +9148,14 @@ body.has-backdrop main .page {
 .hf-decks > .page { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 !important; margin: 0 !important; max-width: none !important; border-radius: 0 !important; }
 .hf-decks > .page::before, .hf-decks > .page::after { display: none !important; }
 @media (max-width: 760px) { .top-chip { padding: 4px 10px 4px 6px; } .top-chip:nth-child(n+2) { font-size: 0; gap: 0; padding: 4px 8px; } }
+
+/* inside a folder: the menu stays tucked away until the top left button is pressed */
+.nav-back { font-weight: 800; }
+.nav-topic { padding: 2px 14px 8px 14px; font-size: 13px; font-weight: 700; opacity: .6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-sep { height: 1px; background: var(--line); margin: 8px 10px; }
+.nav-hide { display: none; }
+.study-mode .sidebar { position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: 280px; flex-basis: 280px; transition: left .22s cubic-bezier(.4,.15,.2,1); overflow-y: auto; box-shadow: 0 0 40px rgba(0,0,0,.25); }
+.study-mode .sidebar:not(.open) { left: -300px; box-shadow: none; }
+.study-mode .menu-btn { display: grid !important; margin-left: -6px; }
+.study-mode .drawer-close { display: grid; position: absolute; top: 12px; right: 12px; }
+.study-mode .side-scene { display: none; }

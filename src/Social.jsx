@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, PageHead } from "./ui.jsx";
 import { UserIcon } from "./Profile.jsx";
-import Duel from "./Duel.jsx";
 import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage, onMessage } from "./social.js";
 
 // Friends, the weekly board and messages, in one place.
 
-const TABS = [["board", "Leaderboard"], ["friends", "Friends"], ["chat", "Messages"], ["duel", "Duel"]];
+const TABS = [["friends", "Friends"], ["chat", "Messages"]];
 
 function Setup({ what }) {
   return (
@@ -17,15 +16,15 @@ function Setup({ what }) {
   );
 }
 
-export default function Social({ auth, stats, onSignIn, startTab, ...rest }) {
-  const [tab, setTab] = useState(() => { if (startTab) return startTab; try { return sessionStorage.getItem("dwiddle-social-tab") || "board"; } catch { return "board"; } });
+export default function Social({ auth, onSignIn }) {
+  const [tab, setTab] = useState(() => { try { const t = sessionStorage.getItem("dwiddle-social-tab"); return t === "chat" ? "chat" : "friends"; } catch { return "friends"; } });
   const [chatWith, setChatWith] = useState(null);
   const pick = (t) => { setTab(t); try { sessionStorage.setItem("dwiddle-social-tab", t); } catch {} };
 
   if (!auth?.user) {
     return (
       <div className="page fade sc">
-        <PageHead title="Friends" sub="Add friends, climb the weekly board and message them." />
+        <PageHead title="Friends" sub="Add friends and message them." />
         <div className="card card-pad sc-note"><b>Sign in to use this</b><p className="small muted">Friends and the board live on your account.</p>
           <button className="btn cta" onClick={onSignIn}>Sign in</button></div>
       </div>
@@ -33,14 +32,12 @@ export default function Social({ auth, stats, onSignIn, startTab, ...rest }) {
   }
   return (
     <div className="page fade sc">
-      <PageHead title="Friends" sub="Compete on the weekly board, add friends and message them." />
+      <PageHead title="Friends" sub="Add friends and message them." />
       <div className="hf-switch sc-tabs" role="tablist">
         {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => pick(id)}>{label}</button>)}
       </div>
-      {tab === "board" && <Board user={auth.user} stats={stats} />}
       {tab === "friends" && <Friends user={auth.user} openChat={(f) => { setChatWith(f); pick("chat"); }} />}
       {tab === "chat" && <Chat user={auth.user} start={chatWith} />}
-      {tab === "duel" && <div className="hf-decks"><Duel auth={auth} {...rest} /></div>}
     </div>
   );
 }
@@ -244,6 +241,24 @@ function Chat({ user, start }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// The weekly board on a page of its own, reached from the top bar.
+export function LeaderboardPage({ auth, onSignIn }) {
+  if (!auth?.user) {
+    return (
+      <div className="page fade sc">
+        <PageHead title="Leaderboard" sub="Who earned the most XP this week." />
+        <div className="card card-pad sc-note"><b>Sign in to see the board</b><button className="btn cta" onClick={onSignIn}>Sign in</button></div>
+      </div>
+    );
+  }
+  return (
+    <div className="page fade sc">
+      <PageHead title="Leaderboard" sub="Who earned the most XP this week." />
+      <Board user={auth.user} />
     </div>
   );
 }

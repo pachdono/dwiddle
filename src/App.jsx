@@ -14,7 +14,8 @@ import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
-import Social from "./Social.jsx";
+import Social, { LeaderboardPage } from "./Social.jsx";
+import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { reportXp } from "./social.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -289,7 +290,7 @@ const GROUPS = [
   },
   { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader", "explore"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
-  { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social", "duel"], fresh: true },
+  { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
     id: "exams", label: "Exams", icon: "target", pic: "exams", pages: ["tests", "courses"],
@@ -304,7 +305,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
-  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
+  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "leaderboard", label: "Leaderboard" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
@@ -836,7 +837,8 @@ export default function App() {
     videos: Videos,
     upload: AddMaterial,
     library: preview ? FoldersBridge : Library,
-    duel: preview ? DuelBridge : Dashboard,
+    duel: preview ? Duel : Dashboard,
+    leaderboard: preview ? LeaderboardPage : Dashboard,
     social: preview ? Social : Dashboard,
     explore: preview ? ExploreBridge : Dashboard,
     reader: Library,
@@ -857,6 +859,10 @@ export default function App() {
   const items = made?.materials || [];
   const mustPick = group?.id === "study" && items.length > 1 && !items.some((m) => m.id === focus);
   const Pick = preview ? FoldersBridge : StudyPicker;
+  // Inside a folder, testers get a smaller menu: the study pages first, then
+  // Friends, Notebooks and Chat. It stays tucked away until the button at the
+  // top left is pressed, so the page itself gets the room.
+  const studyMode = preview && group?.id === "study" && !mustPick;
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
   useEffect(() => {
@@ -924,7 +930,7 @@ export default function App() {
     (custom.photo.place === "background" || custom.photo.place === "both");
 
   return (
-    <div className={"app" + (isDesktop ? " is-desktop" : "") + (onMac ? " is-mac" : "")}>
+    <div className={"app" + (studyMode ? " study-mode" : "") + (isDesktop ? " is-desktop" : "") + (onMac ? " is-mac" : "")}>
       {showPhoto && (
         <div className="app-photo" aria-hidden="true">
           <img src={customBg} alt="" />
@@ -957,6 +963,28 @@ export default function App() {
           <span className="brand-hint">Home</span>
         </button>
 
+        {studyMode ? (
+          <nav className="nav nav-big nav-study">
+            <button className="nav-item nav-back" onClick={() => { setFocus(null); go("library"); }}>
+              <span className="hf-back-ico"><Icon name="arrow" size={16} /></span>
+              Library
+            </button>
+            <div className="nav-topic" title={study?.title}>{study?.title}</div>
+            {[["sheet", "Notes", "notes"], ["learn", "Learn", "learn"], ["quiz", "Practice", "practice"], ["topics", "Topics", "topics"], ["videos", "Videos", "videos"]].map(([id, label, pic]) => (
+              <button key={id} className={"nav-item" + (page === id ? " on" : "")} onClick={() => go(id)}>
+                <NavIcon id={pic} size={34} />
+                {label}
+              </button>
+            ))}
+            <div className="nav-sep" />
+            {GROUPS.filter((g) => ["social", "notebook", "chat"].includes(g.id)).map((g) => (
+              <button key={g.id} className="nav-item" onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
+                <NavIcon id={g.pic} size={34} />
+                {g.label}
+              </button>
+            ))}
+          </nav>
+        ) : (
         <nav className={"nav" + (preview ? " nav-big" : "")}>
           {/* Making something is the first thing on the list and styled as one of
               it, rather than a heavy button that belongs to no other element. */}
@@ -972,12 +1000,13 @@ export default function App() {
             </button>
           ))}
         </nav>
+        )}
 
         {/* The places people go now and then, kept to the foot but drawn the
             same way as everything above them. */}
         {/* the theme's little scene, in the space between the pages and the foot */}
         {hasScenery(look) && <div className="side-scene"><ThemeScenery theme={look} /></div>}
-        <nav className="nav nav-bottom">
+        <nav className={"nav nav-bottom" + (studyMode ? " nav-hide" : "")}>
           {!installed && !isDesktop && (
             <button className={"nav-item" + (page === "install" ? " on" : "")} onClick={() => go("install")}>
               <Icon name="download" />
@@ -1053,7 +1082,7 @@ export default function App() {
               <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Folders
             </button>
           )}
-          {group?.tabs ? (
+          {group?.tabs && !studyMode ? (
             <nav className="tabs" aria-label={group.label}>
               {group.pages.filter((id) => group.tabs[id] && (id !== "videos" || early)).map((id) => (
                 <button key={id} className={page === id ? "on" : ""} onClick={() => go(id)}>
@@ -1067,9 +1096,9 @@ export default function App() {
           <span className="crumb small">{study && !mustPick ? study.title : ""}</span>
           {preview && (
             <span className="top-chips">
-              <button className="top-chip" title="Days in a row you have studied" onClick={() => go("social")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
+              <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
               <button className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
-              <button className="top-chip" title="This week's leaderboard" onClick={() => { try { sessionStorage.setItem("dwiddle-social-tab", "board"); } catch {} go("social"); }}><NavIcon id="trophy" size={24} />Leaderboard</button>
+              <button className="top-chip" title="This week's leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}
           <FullscreenButton className="icon-btn topbar-fs" />
@@ -2396,7 +2425,6 @@ function StudyPicker({ materials, made, pick }) {
 // Home as folders, with the numbers it needs worked out here.
 function FoldersBridge(props) { return <HomeBridge {...props} home={false} />; }
 function ExploreBridge(props) { return <HomeBridge {...props} home={false} startView="explore" />; }
-function DuelBridge(props) { return <Social {...props} startTab="duel" />; }
 function HomeBridge({ home = true, ...props }) {
   const { auth, stats, bank = [], drills = [], srs = {} } = props;
   const [pick] = useState(() => Math.random());
