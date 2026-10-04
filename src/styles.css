@@ -9184,3 +9184,8 @@ body.has-backdrop main .page {
 .dk-flip .flip-face.back { background: linear-gradient(color-mix(in srgb, var(--dk) 22%, var(--surface)), color-mix(in srgb, var(--dk) 10%, var(--surface))); border-color: color-mix(in srgb, var(--dk) 55%, var(--line)); border-top: 5px solid var(--dk); }
 .hf-timer { max-width: 900px; margin: 0 auto 30px; }
 .topic-tip { margin-bottom: 0; }
+
+/* the heading sits on a soft panel, so a painted mountain behind it never fights the words */
+.hf-words { padding: 14px 22px 16px; border-radius: 20px; background: color-mix(in srgb, var(--surface) 82%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); }
+.hf-hello { opacity: 1; color: var(--ink-2); font-weight: 650; }
+.hf-ask { color: var(--ink); }
