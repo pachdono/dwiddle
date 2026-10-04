@@ -14,7 +14,7 @@ import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
-import Social, { LeaderboardPage } from "./Social.jsx";
+import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { reportXp } from "./social.js";
@@ -418,6 +418,7 @@ export default function App() {
   // button. Bumping the seq remounts the page component.
   const [seq, setSeq] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [lost, setLost] = useState(() => ROUTABLE && !REAL_PATHS.has(window.location.pathname));
   const [legal, setLegal] = useState(() => (ROUTABLE ? routeOf(window.location.pathname).legal : null));
 
@@ -865,6 +866,7 @@ export default function App() {
   // Friends, Notebooks and Chat. It stays tucked away until the button at the
   // top left is pressed, so the page itself gets the room.
   const studyMode = preview && group?.id === "study" && !mustPick;
+  useEffect(() => { if (!studyMode) setFriendsOpen(false); }, [studyMode]);
   const openStudy = (to) => { if (items.length > 1) setFocus(null); go(to); };
   const inApp = !atLanding && !legal && (!!auth.user || entered) && auth.ready;
   useEffect(() => {
@@ -979,8 +981,14 @@ export default function App() {
               </button>
             ))}
             <div className="nav-sep" />
+            {/* Chat and Friends open over the page, so you can keep studying while you use them. */}
             {GROUPS.filter((g) => ["social", "notebook", "chat"].includes(g.id)).map((g) => (
-              <button key={g.id} className="nav-item" onClick={() => go(lastInGroup.current[g.id] || g.pages[0])}>
+              <button key={g.id} className="nav-item"
+                onClick={() => {
+                  if (g.id === "chat") { setMenuOpen(false); window.dispatchEvent(new CustomEvent("dwiddle:ask", { detail: {} })); }
+                  else if (g.id === "social") { setMenuOpen(false); setFriendsOpen((v) => !v); }
+                  else go(lastInGroup.current[g.id] || g.pages[0]);
+                }}>
                 <NavIcon id={g.pic} size={34} />
                 {g.label}
               </button>
@@ -1184,6 +1192,7 @@ export default function App() {
       <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
       {touring && <Tour onClose={() => setTouring(false)} />}
       <UpdateBar />
+      {studyMode && friendsOpen && <FriendsPopup auth={auth} onSignIn={() => setSignInOpen(true)} onClose={() => setFriendsOpen(false)} />}
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
       <NarrationAsk />

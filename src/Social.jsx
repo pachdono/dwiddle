@@ -16,23 +16,23 @@ function Setup({ what }) {
   );
 }
 
-export default function Social({ auth, onSignIn }) {
+export default function Social({ auth, onSignIn, compact = false }) {
   const [tab, setTab] = useState(() => { try { const t = sessionStorage.getItem("dwiddle-social-tab"); return t === "chat" ? "chat" : "friends"; } catch { return "friends"; } });
   const [chatWith, setChatWith] = useState(null);
   const pick = (t) => { setTab(t); try { sessionStorage.setItem("dwiddle-social-tab", t); } catch {} };
 
   if (!auth?.user) {
     return (
-      <div className="page fade sc">
-        <PageHead title="Friends" sub="Add friends and message them." />
+      <div className={compact ? "sc-compact" : "page fade sc"}>
+        {!compact && <PageHead title="Friends" sub="Add friends and message them." />}
         <div className="card card-pad sc-note"><b>Sign in to use this</b><p className="small muted">Friends and the board live on your account.</p>
           <button className="btn cta" onClick={onSignIn}>Sign in</button></div>
       </div>
     );
   }
   return (
-    <div className="page fade sc">
-      <PageHead title="Friends" sub="Add friends and message them." />
+    <div className={compact ? "sc-compact" : "page fade sc"}>
+      {!compact && <PageHead title="Friends" sub="Add friends and message them." />}
       <div className="hf-switch sc-tabs" role="tablist">
         {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => pick(id)}>{label}</button>)}
       </div>
@@ -77,7 +77,7 @@ function Board({ user }) {
                 <span className={"sc-pos" + (rank > 99 ? " wide" : "")} style={rank <= 3 ? { background: medal[rank - 1], color: "#fff" } : null}>{rank > 10 ? "#" + rank.toLocaleString() : rank}</span>
                 <UserIcon avatar={r.avatar} user={null} size={34} />
                 <span className="sc-who"><b>{r.me ? "You" : r.name}</b>{r.handle && <span className="small muted">@{r.handle}</span>}</span>
-                <span className="sc-xp"><b>{r.score.toLocaleString()}</b><span className="small muted"> XP</span></span>
+                <span className="sc-xp"><b>{(r.score ?? r.week_xp ?? 0).toLocaleString()}</b><span className="small muted"> XP</span></span>
               </div>
             </div>
           );
@@ -170,7 +170,7 @@ function Friends({ user, openChat }) {
         {friends.map((f) => (
           <div key={f.user_id} className="sc-person">
             <UserIcon avatar={f.avatar} user={null} size={36} />
-            <span className="sc-who"><b>{f.name}</b><span className="small muted">{f.month_xp.toLocaleString()} XP this month</span></span>
+            <span className="sc-who"><b>{f.name}</b><span className="small muted">{(f.month_xp ?? f.week_xp ?? 0).toLocaleString()} XP this month</span></span>
             <button className="btn small" onClick={() => openChat(f)}>Message</button>
             <button className="icon-btn" title="Remove friend" aria-label={`Remove ${f.name}`} onClick={() => confirm(`Remove ${f.name} as a friend?`) && answerFriend(f.user_id, false).then(load)}><Icon name="close" size={14} /></button>
           </div>
@@ -266,6 +266,24 @@ export function LeaderboardPage({ auth, onSignIn }) {
     <div className="page fade sc">
       <PageHead title="Leaderboard" sub="All time among everyone, or this month among friends." />
       <Board user={auth.user} />
+    </div>
+  );
+}
+
+// Friends and messages in a window over the page, so someone studying a topic
+// can chat and keep reading at the same time.
+export function FriendsPopup({ auth, onSignIn, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fp" role="dialog" aria-label="Friends">
+      <div className="fp-head"><b>Friends</b>
+        <button className="icon-btn" aria-label="Close friends" onClick={onClose}><Icon name="close" size={15} /></button>
+      </div>
+      <div className="fp-body"><Social auth={auth} onSignIn={onSignIn} compact /></div>
     </div>
   );
 }
