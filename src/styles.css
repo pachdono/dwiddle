@@ -8995,3 +8995,24 @@ body.has-backdrop main .page {
 .hf-back-ico { display: inline-flex; transform: rotate(180deg); }
 .hf-decks > .page { padding: 0; max-width: none; }
 .hf-decks > .page > .page-head { display: none; }
+.hf-chips { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 4px; }
+.hf-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 700; font-size: 14px; }
+.hf-chip-ico { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #ffe9d1; color: #f08a24; font-size: 12px; }
+.hf-lv { background: var(--accent-soft); color: var(--accent); }
+.hf-hero { display: flex; align-items: center; justify-content: center; gap: 24px; margin: 6px 0 26px; flex-wrap: wrap; text-align: left; }
+.hf-hello { font-size: 15px; font-weight: 600; opacity: .65; }
+.hf-ask { margin: 2px 0 0; font-size: clamp(30px, 5vw, 46px); line-height: 1.05; letter-spacing: -.02em; }
+.hf-ask em { font-style: normal; color: var(--accent); }
+.hf-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; max-width: 900px; margin: 0 auto 14px; }
+.hf-actions button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; cursor: pointer; box-shadow: 0 2px 0 var(--line); transition: transform .12s, box-shadow .12s; }
+.hf-actions button:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--line); border-color: var(--accent); }
+.hf-actions b { font-size: 16px; }
+.hf-act-ico { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 16px; background: var(--accent-soft); color: var(--accent); margin-bottom: 6px; }
+.hf-pink { background: #ffe3ef; color: #e0457f; }
+.hf-green { background: #dcf6e4; color: #25a35a; }
+.hf-prompt { display: flex; gap: 10px; max-width: 900px; margin: 0 auto 30px; padding: 10px 10px 10px 20px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 2px 0 var(--line); }
+.hf-prompt input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; }
+.hf-sec { font-size: 20px; margin: 8px 0 12px; }
+.hf-continue { max-width: 900px; margin-left: auto; margin-right: auto; }
+.hf-continue { margin-bottom: 26px; }
+.hf-duck { flex: none; }

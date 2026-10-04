@@ -2369,7 +2369,7 @@ function HomeBridge(props) {
   const me = useMyProfile(auth?.user);
   const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
   const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
-  return <HomeFolders {...props} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} />;
+  return <HomeFolders {...props} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} level={levelOf(stats?.xp || 0).level} xp={stats?.xp || 0} prefill={(t) => { try { sessionStorage.setItem("dwiddle-handoff-notes", t); } catch {} props.go("upload"); }} />;
 }
 
 function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {
