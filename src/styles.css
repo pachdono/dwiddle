@@ -4499,8 +4499,9 @@ kbd {
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: grid;
-  place-items: center;
+  display: flex;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 24px;
   background: rgba(10, 10, 16, 0.5);
   backdrop-filter: blur(6px);
@@ -4510,6 +4511,7 @@ kbd {
 
 .gate {
   position: relative;
+  margin: auto; /* centred when it fits, and the page scrolls when it does not */
   width: min(440px, 100%);
   padding: 8px 30px 26px;
   border-radius: 20px;
@@ -9189,3 +9191,7 @@ body.has-backdrop main .page {
 .hf-words { padding: 14px 22px 16px; border-radius: 20px; background: color-mix(in srgb, var(--surface) 82%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); }
 .hf-hello { opacity: 1; color: var(--ink-2); font-weight: 650; }
 .hf-ask { color: var(--ink); }
+
+/* the button on the details form stays in view however tall the form is */
+.profile-actions { position: sticky; bottom: -1px; background: var(--surface); padding: 12px 0 4px; margin-top: 0; box-shadow: 0 -10px 12px -8px var(--surface); }
+.profile-form .hint { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }

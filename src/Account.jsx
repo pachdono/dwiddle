@@ -8,6 +8,7 @@ import { myLevel, setMyLevel } from "./level.js";
 import { useEffect, useState } from "react";
 import { supabase, configured, enabledProviders, syncNow, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
+import { setHandle } from "./social.js";
 import { ProfileCard, setMyProfile } from "./Profile.jsx";
 
 // Google supplies a profile picture; an email link sign in does not. Either
@@ -248,7 +249,7 @@ export function SignInPage({ onClose }) {
 // First name, last name, date of birth and country. Asked once, straight
 // after signing up, and changeable in Settings.
 export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" }) {
-  const [f, setF] = useState({ first_name: "", last_name: "", birth_date: "", country: "", ...(initial || {}) });
+  const [f, setF] = useState({ first_name: "", last_name: "", birth_date: "", country: "", display_name: "", handle: "", ...(initial || {}) });
   const [level, setLevel] = useState(() => myLevel()?.id || null);
   const [state, setState] = useState("idle");
   const [err, setErr] = useState("");
@@ -258,7 +259,8 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
   // of birth cannot complete an account.
   const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 8);
   const young = !!f.birth_date && f.birth_date > minAge.toISOString().slice(0, 10);
-  const ok = f.first_name.trim() && f.last_name.trim() && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young && level;
+  const handleOk = /^[a-z0-9_]{3,20}$/.test(String(f.handle || "").replace(/^@/, ""));
+  const ok = f.first_name.trim() && f.last_name.trim() && String(f.display_name || "").trim() && handleOk && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young && level;
 
   async function submit(e) {
     e.preventDefault();
@@ -267,7 +269,10 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
     setMyLevel(level);
     const r = await saveProfile(user.id, f);
     if (!r.ok) { setState("idle"); setErr(r.reason || "It could not be saved. Try again."); return; }
-    onSaved?.({ ...f, country: f.country?.trim() || null });
+    // the username is its own thing, so friends can find you; it is set once the profile exists
+    const h = await setHandle(String(f.handle || "").replace(/^@/, ""));
+    if (!h.ok && !h.missing) { setState("idle"); setErr(h.error || "That username did not work. Try another."); return; }
+    onSaved?.({ ...f, display_name: String(f.display_name || "").trim(), handle: h.ok ? h.data : f.handle, country: f.country?.trim() || null });
   }
 
   return (
@@ -278,6 +283,13 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
         <label className="field"><span>Last name</span>
           <input type="text" required autoComplete="family-name" maxLength={60} value={f.last_name} onChange={set("last_name")} /></label>
       </div>
+      <label className="field"><span>Display name</span>
+        <input type="text" required maxLength={40} value={f.display_name || ""} onChange={set("display_name")} placeholder="How you show up, e.g. Maya" />
+        <em className="hint">Shown to friends and on the leaderboard. It can be anything.</em></label>
+      <label className="field"><span>Username</span>
+        <input type="text" required maxLength={21} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={f.handle || ""}
+          onChange={(e) => setF((o) => ({ ...o, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, "") }))} placeholder="e.g. maya_studies" />
+        <em className="hint">How friends find you. 3 to 20 letters, numbers or underscores, and different from your display name.</em></label>
       <label className="field"><span>Date of birth</span>
         <input required type="date" autoComplete="bday" min="1900-01-02" max={today} value={f.birth_date} onChange={set("birth_date")} /></label>
       <label className="field"><span>Country <em className="muted">(optional)</em></span>
@@ -313,7 +325,7 @@ export function ProfileGate({ user }) {
       <div className="gate profile-gate" role="dialog" aria-modal="true" aria-labelledby="pf-title">
         <h2 id="pf-title">Finish setting up your account</h2>
         <p className="gate-sub">A few details so your account is yours. Only you and the Dwiddle team can see them.</p>
-        <ProfileForm user={user} initial={{ first_name: first, last_name: rest.join(" ") }} submitLabel="Continue" onSaved={(x) => { setMyProfile(x); setNeed(false); }} />
+        <ProfileForm user={user} initial={{ first_name: first, last_name: rest.join(" "), display_name: first }} submitLabel="Continue" onSaved={(x) => { setMyProfile(x); setNeed(false); }} />
       </div>
     </div>
   );

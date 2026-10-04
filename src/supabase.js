@@ -396,6 +396,7 @@ export async function saveProfile(userId, p) {
     last_name: p.last_name.trim(),
     birth_date: p.birth_date,
     country: p.country?.trim() || null,
+    ...(p.display_name?.trim() ? { display_name: p.display_name.trim().slice(0, 40) } : {}),
   }, { onConflict: "user_id" });
   return error ? { ok: false, reason: error.message } : { ok: true };
 }

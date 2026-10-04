@@ -162,43 +162,66 @@ export function ProfileCard({ user }) {
   );
 }
 
-/* ---------- a username, asked for once ---------- */
+/* ---------- a display name and a username, asked for once ---------- */
 
-// Friends find each other by username, so everyone signed in is asked for one
-// the next time they open Dwiddle, and cannot carry on without. It stays away
-// if the database does not have usernames yet, rather than trapping anyone.
+// Friends find each other by username, and the board shows a display name, so
+// everyone signed in is asked for both the next time they open Dwiddle and
+// cannot carry on without. It stays away if the database does not have them
+// yet, rather than trapping anyone.
 export function HandleGate({ user }) {
   const p = useMyProfile(user);
+  const [name, setName] = useState("");
   const [v, setV] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [skip, setSkip] = useState(false);
-  const need = !!user && !skip && p && p.handle === null; // undefined means the column is not there yet
+  // null means the column exists and is empty; undefined means it is not there yet
+  const need = !!user && !skip && p && (p.handle === null || p.display_name === null);
   useEffect(() => {
-    if (!need || v) return;
-    const first = String(p.first_name || p.display_name || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 14);
-    if (first.length >= 2) setV(first + Math.floor(100 + Math.random() * 900));
+    if (!need) return;
+    setName((n) => n || p.display_name || String(p.first_name || "").trim());
+    if (!v && p.handle === null) {
+      const first = String(p.first_name || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 14);
+      if (first.length >= 2) setV(first + Math.floor(100 + Math.random() * 900));
+    } else if (p.handle) setV(p.handle);
   }, [need]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!need) return null;
+  const clean = v.replace(/^@/, "");
   async function save() {
     setBusy(true); setErr("");
-    const r = await setHandle(v.trim().replace(/^@/, ""));
+    if (p.display_name === null || name.trim() !== (p.display_name || "")) {
+      const l = await saveLook(user.id, { display_name: name.trim().slice(0, 40), avatar: p.avatar || null });
+      if (!l.ok) { setBusy(false); setErr(l.reason || "That did not save. Try again."); return; }
+    }
+    if (p.handle === null) {
+      const r = await setHandle(clean);
+      if (!r.ok) {
+        setBusy(false);
+        if (r.missing) { setSkip(true); return; } // usernames are not switched on, so do not block anyone
+        setErr(r.error || "That did not work. Try another."); return;
+      }
+      setMyProfile({ display_name: name.trim(), handle: r.data });
+    } else setMyProfile({ display_name: name.trim() });
     setBusy(false);
-    if (r.ok) { setMyProfile({ handle: r.data }); return; }
-    if (r.missing) { setSkip(true); return; } // usernames are not switched on, so do not block anyone
-    setErr(r.error || "That did not work. Try another.");
   }
   return (
     <div className="gate-scrim">
-      <div className="gate" role="dialog" aria-modal="true" aria-labelledby="hg-title">
-        <h2 id="hg-title">Pick a username</h2>
-        <p className="gate-sub">Friends find you by it, and it is how you show up in duels. Use 3 to 20 letters, numbers or underscores. You can change it later under Friends.</p>
-        <form onSubmit={(e) => { e.preventDefault(); save(); }}>
-          <input className="sc-select" autoFocus value={v} maxLength={21} placeholder="e.g. maya_studies" aria-label="Username"
-            onChange={(e) => setV(e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, ""))} />
-          {err && <p className="small sc-msg" style={{ color: "var(--warn, #b25b00)" }}>{err}</p>}
-          <div className="gate-actions">
-            <button className="btn cta" type="submit" disabled={busy || v.replace(/^@/, "").length < 3}>{busy ? "Saving..." : "Continue"}</button>
+      <div className="gate profile-gate" role="dialog" aria-modal="true" aria-labelledby="hg-title">
+        <h2 id="hg-title">Choose how you show up</h2>
+        <p className="gate-sub">A display name and a username. They are two different things, and both are needed to continue.</p>
+        <form className="profile-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+          <label className="field"><span>Display name</span>
+            <input type="text" autoFocus maxLength={40} value={name} onChange={(e) => setName(e.target.value)} placeholder="How you show up, e.g. Maya" />
+            <em className="hint">Shown to friends and on the leaderboard. It can be anything.</em></label>
+          {p.handle === null && (
+            <label className="field"><span>Username</span>
+              <input type="text" maxLength={21} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={v} placeholder="e.g. maya_studies"
+                onChange={(e) => setV(e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, ""))} />
+              <em className="hint">How friends find you. 3 to 20 letters, numbers or underscores.</em></label>
+          )}
+          {err && <p className="small" style={{ color: "var(--warn, #b25b00)", margin: 0 }}>{err}</p>}
+          <div className="profile-actions">
+            <button className="btn cta" type="submit" disabled={busy || !name.trim() || (p.handle === null && !/^[a-z0-9_]{3,20}$/.test(clean))}>{busy ? "Saving..." : "Continue"}</button>
           </div>
         </form>
       </div>
