@@ -61,7 +61,7 @@ export function scheme(bg, ink, accent) {
     "--line-soft": mix(bg, ink, 0.042),
     "--ink": ink,
     "--ink-2": ensure(mix(ink, bg, 0.32), [bg, mix(bg, ink, 0.09)], 7, ink),
-    "--ink-3": ensure(mix(ink, bg, 0.55), [bg, mix(bg, ink, 0.09)], 4.6, ink),
+    "--ink-3": ensure(mix(ink, bg, 0.55), [bg, mix(bg, ink, 0.09), mix(bg, accent, 0.2)], 4.6, ink),
     "--accent": accent,
     // Text sitting on the accent. A user can pick anything from near black to
     // near white, so this is measured rather than assumed.

@@ -107,7 +107,7 @@ export function applyLook(id, resolved) {
 
   // Measured on the panels the text actually sits on, not just the page:
   // muted text and the accent, used as text, have to stay readable on all of them.
-  const sits = [bottom, top, m.card, vars["--panel"], vars["--sunken"], vars["--active"]];
+  const sits = [bottom, top, m.card, vars["--panel"], vars["--sunken"], vars["--hover"], vars["--active"], vars["--accent-soft"]];
   vars["--ink-3"] = ensure(mix(m.ink, m.card, 0.55), sits, 4.6, m.ink);
   vars["--ink-2"] = ensure(mix(m.ink, m.card, 0.32), sits, 7, m.ink);
   vars["--accent"] = ensure(m.accent, [m.card, vars["--panel"], bottom], 4.5, m.ink);

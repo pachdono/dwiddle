@@ -9195,3 +9195,6 @@ body.has-backdrop main .page {
 /* the button on the details form stays in view however tall the form is */
 .profile-actions { position: sticky; bottom: -1px; background: var(--surface); padding: 12px 0 4px; margin-top: 0; box-shadow: 0 -10px 12px -8px var(--surface); }
 .profile-form .hint { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.sc-gap { opacity: 1; color: var(--ink-3); }
+.nav-topic { opacity: 1; color: var(--ink-3); }
+.btn:disabled { opacity: .6; }
