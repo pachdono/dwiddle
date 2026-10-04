@@ -50,7 +50,7 @@ function Board({ user }) {
   const [miss, setMiss] = useState(false);
   const load = useCallback(() => {
     setRows(null);
-    leaderboard(scope).then((r) => { if (r.ok) { setRows((r.data || []).slice(0, 10)); setMiss(false); } else { setMiss(!!r.missing); setRows([]); } });
+    leaderboard(scope).then((r) => { if (r.ok) { setRows(r.data || []); setMiss(false); } else { setMiss(!!r.missing); setRows([]); } });
   }, [scope]);
   useEffect(load, [load]);
   if (miss) return <Setup what="The leaderboard" />;
@@ -67,14 +67,21 @@ function Board({ user }) {
       <div className="card">
         {rows === null && <div className="card-pad small muted">Loading...</div>}
         {rows?.length === 0 && <div className="card-pad small muted">{scope === "friends" ? "Add a friend and you will race here." : "Nobody is on the board yet. Pick a username under Friends to join it."}</div>}
-        {rows?.map((r, i) => (
-          <div key={r.user_id} className={"sc-rank" + (r.me ? " me" : "")}>
-            <span className="sc-pos" style={i < 3 ? { background: medal[i], color: "#fff" } : null}>{i + 1}</span>
-            <UserIcon avatar={r.avatar} user={null} size={34} />
-            <span className="sc-who"><b>{r.me ? "You" : r.name}</b>{r.handle && <span className="small muted">@{r.handle}</span>}</span>
-            <span className="sc-xp"><b>{r.score.toLocaleString()}</b><span className="small muted"> XP</span></span>
-          </div>
-        ))}
+        {rows?.map((r, i) => {
+          const rank = r.rank ?? i + 1;
+          if (rank > 10 && !r.me) return null;
+          return (
+            <div key={r.user_id}>
+              {rank > 10 && <div className="sc-gap" aria-hidden="true">...</div>}
+              <div className={"sc-rank" + (r.me ? " me" : "")}>
+                <span className={"sc-pos" + (rank > 99 ? " wide" : "")} style={rank <= 3 ? { background: medal[rank - 1], color: "#fff" } : null}>{rank > 10 ? "#" + rank.toLocaleString() : rank}</span>
+                <UserIcon avatar={r.avatar} user={null} size={34} />
+                <span className="sc-who"><b>{r.me ? "You" : r.name}</b>{r.handle && <span className="small muted">@{r.handle}</span>}</span>
+                <span className="sc-xp"><b>{r.score.toLocaleString()}</b><span className="small muted"> XP</span></span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </>
   );

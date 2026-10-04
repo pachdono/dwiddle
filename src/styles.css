@@ -9159,3 +9159,5 @@ body.has-backdrop main .page {
 .study-mode .menu-btn { display: grid !important; margin-left: -6px; }
 .study-mode .drawer-close { display: grid; position: absolute; top: 12px; right: 12px; }
 .study-mode .side-scene { display: none; }
+.sc-pos.wide { width: auto; min-width: 30px; padding: 0 8px; border-radius: 15px; }
+.sc-gap { text-align: center; letter-spacing: .3em; opacity: .5; padding: 2px 0; line-height: 1; }

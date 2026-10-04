@@ -28,6 +28,15 @@ alter table public.xp_board enable row level security;
 drop policy if exists "own xp row" on public.xp_board;
 create policy "own xp row" on public.xp_board for select to authenticated using (user_id = auth.uid());
 
+-- people who already have synced progress start on the board with the XP in it,
+-- instead of waiting for their app to report. Never overwrites a row.
+insert into public.xp_board (user_id, total, week_base, month_base)
+select p.user_id, x.n, x.n, x.n
+from public.progress p
+cross join lateral (select case when (p.data #>> '{dwiddle-stats,xp}') ~ '^[0-9]{1,9}$' then (p.data #>> '{dwiddle-stats,xp}')::int else 0 end as n) x
+where x.n > 0
+on conflict (user_id) do nothing;
+
 -- ---------- friends ----------
 create table if not exists public.friendships (
   a uuid not null references auth.users on delete cascade,
@@ -137,26 +146,32 @@ begin
   where user_id = auth.uid();
 end $$;
 
--- the board. 'everyone' is all time, for people who have picked a username.
+-- the board: the top 10, and you with your own rank if you are lower down.
+-- 'everyone' is all time, for people who have picked a username (and you).
 -- 'friends' (and you) is this month.
 drop function if exists public.leaderboard(text);
 create function public.leaderboard(scope text default 'everyone')
-returns table (user_id uuid, name text, avatar text, handle text, score int, me boolean)
+returns table (user_id uuid, name text, avatar text, handle text, score int, me boolean, rank int)
 language sql security definer set search_path = public stable as $$
-  select x.user_id, coalesce(p.display_name, p.handle, 'Someone'), p.avatar, p.handle,
-         case when scope = 'friends'
-              then (case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end)
-              else x.total end,
-         x.user_id = auth.uid()
-  from public.xp_board x
-  left join public.profiles p on p.user_id = x.user_id
-  where auth.uid() is not null and (
-    (scope = 'friends' and (x.user_id = auth.uid() or exists (select 1 from public.friendships f where f.status = 'accepted'
-          and f.a = least(x.user_id, auth.uid()) and f.b = greatest(x.user_id, auth.uid()))))
-    or (scope = 'everyone' and (p.handle is not null or x.user_id = auth.uid()))
+  with pool as (
+    select x.user_id, coalesce(p.display_name, p.handle, 'Someone') as name, p.avatar, p.handle,
+           case when scope = 'friends'
+                then (case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end)
+                else x.total end as score,
+           x.user_id = auth.uid() as me, x.total
+    from public.xp_board x
+    left join public.profiles p on p.user_id = x.user_id
+    where auth.uid() is not null and (
+      (scope = 'friends' and (x.user_id = auth.uid() or exists (select 1 from public.friendships f where f.status = 'accepted'
+            and f.a = least(x.user_id, auth.uid()) and f.b = greatest(x.user_id, auth.uid()))))
+      or (scope = 'everyone' and (p.handle is not null or x.user_id = auth.uid()))
+    )
+  ), ranked as (
+    select pool.*, (row_number() over (order by score desc, total desc, user_id))::int as rank from pool
   )
-  order by 5 desc, x.total desc
-  limit 10
+  select r.user_id, r.name, r.avatar, r.handle, r.score, r.me, r.rank
+  from ranked r where r.rank <= 10 or r.me
+  order by r.rank
 $$;
 
 -- look someone up by username
