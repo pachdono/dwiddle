@@ -147,14 +147,14 @@ begin
 end $$;
 
 -- the board: the top 10, and you with your own rank if you are lower down.
--- 'everyone' is all time, for people who have picked a username (and you).
+-- 'everyone' is all time, for everyone: by profile name, else first name, never an email.
 -- 'friends' (and you) is this month.
 drop function if exists public.leaderboard(text);
 create function public.leaderboard(scope text default 'everyone')
 returns table (user_id uuid, name text, avatar text, handle text, score int, me boolean, rank int)
 language sql security definer set search_path = public stable as $$
   with pool as (
-    select x.user_id, coalesce(p.display_name, p.handle, 'Someone') as name, p.avatar, p.handle,
+    select x.user_id, coalesce(p.display_name, p.first_name, p.handle, 'Someone') as name, p.avatar, p.handle,
            case when scope = 'friends'
                 then (case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end)
                 else x.total end as score,
@@ -164,7 +164,7 @@ language sql security definer set search_path = public stable as $$
     where auth.uid() is not null and (
       (scope = 'friends' and (x.user_id = auth.uid() or exists (select 1 from public.friendships f where f.status = 'accepted'
             and f.a = least(x.user_id, auth.uid()) and f.b = greatest(x.user_id, auth.uid()))))
-      or (scope = 'everyone' and (p.handle is not null or x.user_id = auth.uid()))
+      or scope = 'everyone'
     )
   ), ranked as (
     select pool.*, (row_number() over (order by score desc, total desc, user_id))::int as rank from pool
@@ -213,7 +213,7 @@ drop function if exists public.my_friends();
 create function public.my_friends()
 returns table (user_id uuid, name text, avatar text, handle text, status text, incoming boolean, month_xp int)
 language sql security definer set search_path = public stable as $$
-  select o.id, coalesce(p.display_name, p.handle, 'Someone'), p.avatar, p.handle, f.status, f.requested_by <> auth.uid(),
+  select o.id, coalesce(p.display_name, p.first_name, p.handle, 'Someone'), p.avatar, p.handle, f.status, f.requested_by <> auth.uid(),
          coalesce(case when x.month_start = date_trunc('month', now())::date then x.total - x.month_base else 0 end, 0)
   from public.friendships f
   cross join lateral (select case when f.a = auth.uid() then f.b else f.a end as id) o

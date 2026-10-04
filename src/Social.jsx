@@ -66,7 +66,7 @@ function Board({ user }) {
       </div>
       <div className="card">
         {rows === null && <div className="card-pad small muted">Loading...</div>}
-        {rows?.length === 0 && <div className="card-pad small muted">{scope === "friends" ? "Add a friend and you will race here." : "Nobody is on the board yet. Pick a username under Friends to join it."}</div>}
+        {rows?.length === 0 && <div className="card-pad small muted">{scope === "friends" ? "Add a friend and you will race here." : "Nobody is on the board yet."}</div>}
         {rows?.map((r, i) => {
           const rank = r.rank ?? i + 1;
           if (rank > 10 && !r.me) return null;
@@ -125,8 +125,8 @@ function Friends({ user, openChat }) {
     <div className="stack">
       <div className="card card-pad">
         <h3>Your username</h3>
-        {handle ? <p>Friends find you as <b>@{handle}</b>. It also puts you on the Everyone board.</p>
-          : <p className="small muted">Pick a username so friends can find you. It also puts you on the Everyone board.</p>}
+        {handle ? <p>Friends find you as <b>@{handle}</b>. </p>
+          : <p className="small muted">Pick a username so friends can find you. </p>}
         <div className="sc-form">
           <input value={mine} onChange={(e) => setMine(e.target.value.toLowerCase())} placeholder={handle ? "Change it" : "e.g. maya_studies"} maxLength={20} />
           <button className="btn" onClick={claim} disabled={mine.length < 3}>{handle ? "Change" : "Save"}</button>

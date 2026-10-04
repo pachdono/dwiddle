@@ -101,7 +101,11 @@ const PRIVACY = [
             Dwiddle's own illustrations, the picture from your Google account, or an image you
             upload. An uploaded image is reduced in size and stored with your account. Your
             profile name and picture are shown to you, to Dwiddle staff, and publicly beside any
-            review of yours that we publish.
+            review of yours that we publish. If you are signed in, your profile name (or, if you
+            have not chosen one, your first name), your picture and your total XP also appear on
+            the Dwiddle leaderboard, which other signed in people can see. Your email address is
+            never shown there. Your username, if you pick one, lets friends find you and is shown
+            to them.
           </dd>
           <dt>Feedback, bug reports and reviews</dt>
           <dd>
