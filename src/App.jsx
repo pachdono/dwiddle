@@ -467,9 +467,10 @@ export default function App() {
   // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
   const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
-  // The folder based Home is being tried by staff and testers first. Study,
-  // My decks and Library fold into it; everyone else keeps the old layout.
-  const preview = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
+  // The folder based Home, Friends, Duel, leaderboard and Explore are out for
+  // everyone now. To try the next big change on staff and testers first, gate it
+  // on staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
+  const preview = true;
   useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
   // everyone signed in tells the board their running total, a moment after it
