@@ -19,6 +19,26 @@ export function mix(a, b, t) {
   return str(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
 }
 
+// WCAG contrast between two colours, 1 to 21. Body text wants 4.5 or more.
+const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+const lumOf = (c) => { const [r, g, b] = hex(c); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
+export function contrast(a, b) {
+  const x = lumOf(a), y = lumOf(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+// The colour nearest fg, moving towards `toward`, that reads at `min` or more
+// on every one of `bgs`. A theme's muted text is picked for looks, and on some
+// it came out too faint to read; this nudges it only as far as it needs.
+export function ensure(fg, bgs, min, toward) {
+  for (let t = 0; t <= 1.0001; t += 0.03) {
+    const c = t === 0 ? fg : mix(fg, toward, Math.min(t, 1));
+    if (bgs.every((bg) => contrast(c, bg) >= min)) return c;
+  }
+  return toward;
+}
+// White or near black, whichever reads better on this colour.
+export const inkOn = (c) => (contrast("#FFFFFF", c) >= contrast("#101014", c) ? "#FFFFFF" : "#101014");
+
 // Relative luminance, used to decide whether a colour the user picked needs
 // light or dark text on top of it.
 export function isDark(c) {
@@ -40,12 +60,12 @@ export function scheme(bg, ink, accent) {
     "--line": mix(bg, ink, 0.085),
     "--line-soft": mix(bg, ink, 0.042),
     "--ink": ink,
-    "--ink-2": mix(ink, bg, 0.32),
-    "--ink-3": mix(ink, bg, 0.55),
+    "--ink-2": ensure(mix(ink, bg, 0.32), [bg, mix(bg, ink, 0.09)], 7, ink),
+    "--ink-3": ensure(mix(ink, bg, 0.55), [bg, mix(bg, ink, 0.09)], 4.6, ink),
     "--accent": accent,
     // Text sitting on the accent. A user can pick anything from near black to
     // near white, so this is measured rather than assumed.
-    "--accent-ink": isDark(accent) ? "#FFFFFF" : "#101014",
+    "--accent-ink": inkOn(accent),
     "--accent-soft": mix(bg, accent, 0.13),
     "--btn": ink,
     "--btn-ink": bg,

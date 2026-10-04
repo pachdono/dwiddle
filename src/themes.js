@@ -6,7 +6,7 @@
 // Classic is the look the stylesheet already has, so choosing it sets nothing.
 
 import { load, save } from "./store.js";
-import { scheme, mix } from "./custom.js";
+import { scheme, mix, ensure, inkOn } from "./custom.js";
 
 export const LOOK_KEY = "dwiddle-look";
 
@@ -104,6 +104,14 @@ export function applyLook(id, resolved) {
   // The highlighters take a tint of the theme, so a pink page does not carry
   // the default blue definition marks.
   vars["--hl-def"] = mix(m.card, m.accent, resolved === "dark" ? 0.3 : 0.2);
+
+  // Measured on the panels the text actually sits on, not just the page:
+  // muted text and the accent, used as text, have to stay readable on all of them.
+  const sits = [bottom, top, m.card, vars["--panel"], vars["--sunken"], vars["--active"]];
+  vars["--ink-3"] = ensure(mix(m.ink, m.card, 0.55), sits, 4.6, m.ink);
+  vars["--ink-2"] = ensure(mix(m.ink, m.card, 0.32), sits, 7, m.ink);
+  vars["--accent"] = ensure(m.accent, [m.card, vars["--panel"], bottom], 4.5, m.ink);
+  vars["--accent-ink"] = inkOn(vars["--accent"]);
 
   Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
   root.style.setProperty("--bg-grad", `linear-gradient(170deg, ${top} 0%, ${bottom} 100%)`);
