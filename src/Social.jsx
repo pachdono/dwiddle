@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, PageHead } from "./ui.jsx";
-import { UserIcon } from "./Profile.jsx";
-import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage, onMessage } from "./social.js";
+import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage } from "./social.js";
+import { useSocial, setActiveThread, seenUpTo, onIncoming, refreshSocial } from "./socialState.js";
+import { useMyProfile, UserIcon } from "./Profile.jsx";
 
 // Friends, the weekly board and messages, in one place.
 
@@ -19,6 +20,7 @@ function Setup({ what }) {
 export default function Social({ auth, onSignIn, compact = false }) {
   const [tab, setTab] = useState(() => { try { const t = sessionStorage.getItem("dwiddle-social-tab"); return t === "chat" ? "chat" : "friends"; } catch { return "friends"; } });
   const [chatWith, setChatWith] = useState(null);
+  const soc = useSocial();
   const pick = (t) => { setTab(t); try { sessionStorage.setItem("dwiddle-social-tab", t); } catch {} };
 
   if (!auth?.user) {
@@ -34,7 +36,10 @@ export default function Social({ auth, onSignIn, compact = false }) {
     <div className={compact ? "sc-compact" : "page fade sc"}>
       {!compact && <PageHead title="Friends" sub="Add friends and message them." />}
       <div className="hf-switch sc-tabs" role="tablist">
-        {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => pick(id)}>{label}</button>)}
+        {TABS.map(([id, label]) => {
+          const n = id === "friends" ? soc.requests : soc.messages;
+          return <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => pick(id)}>{label}{n > 0 && <i className="badge">{n > 99 ? "99+" : n}</i>}</button>;
+        })}
       </div>
       {tab === "friends" && <Friends user={auth.user} openChat={(f) => { setChatWith(f); pick("chat"); }} />}
       {tab === "chat" && <Chat user={auth.user} start={chatWith} />}
@@ -98,7 +103,7 @@ function Friends({ user, openChat }) {
   const [found, setFound] = useState(null);
   const [msg, setMsg] = useState("");
   const [loadErr, setLoadErr] = useState("");
-  const load = () => myFriends().then((r) => { if (r.ok) { setList(r.data || []); setMiss(false); setLoadErr(""); } else { setMiss(!!r.missing); setLoadErr(r.missing ? "" : r.error); setList([]); } });
+  const load = () => myFriends().then((r) => { if (r.ok) { refreshSocial(); setList(r.data || []); setMiss(false); setLoadErr(""); } else { setMiss(!!r.missing); setLoadErr(r.missing ? "" : r.error); setList([]); } });
   useEffect(() => { load(); myHandle(user.id).then(setH); }, [user.id]);
   if (miss) return <Setup what="Friends" />;
 
@@ -191,7 +196,20 @@ function Friends({ user, openChat }) {
 
 /* ---------- messages ---------- */
 
+const clock = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function dayLabel(t) {
+  const d = new Date(t), n = new Date();
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  if (same(d, n)) return "Today";
+  const y = new Date(n); y.setDate(n.getDate() - 1);
+  if (same(d, y)) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+const onlyEmoji = (t) => /^(\p{Extended_Pictographic}|\u200d|\ufe0f|\s){1,8}$/u.test(t);
+
 function Chat({ user, start }) {
+  const me = useMyProfile(user);
+  const soc = useSocial();
   const [friends, setFriends] = useState(null);
   const [miss, setMiss] = useState(false);
   const [with_, setWith] = useState(start || null);
@@ -199,18 +217,45 @@ function Chat({ user, start }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
   const end = useRef(null);
+  const box = useRef(null);
 
-  useEffect(() => { myFriends().then((r) => { if (r.ok) setFriends((r.data || []).filter((f) => f.status === "accepted")); else { setMiss(!!r.missing); setFriends([]); } }); }, []);
+  useEffect(() => {
+    myFriends().then((r) => {
+      if (!r.ok) { setMiss(!!r.missing); setFriends([]); return; }
+      const list = (r.data || []).filter((f) => f.status === "accepted");
+      setFriends(list);
+      // opened from a notification: go straight to that friend
+      let want = null;
+      try { want = sessionStorage.getItem("dwiddle-chat-with"); sessionStorage.removeItem("dwiddle-chat-with"); } catch {}
+      const f = want && list.find((x) => x.user_id === want);
+      if (f) setWith(f);
+    });
+  }, []);
+
   useEffect(() => {
     if (!with_) return;
     let live = true;
-    const pull = () => messagesWith(with_.user_id).then((r) => { if (live && r.ok) setMsgs(r.data); });
+    setActiveThread(with_.user_id);
+    const pull = () => messagesWith(with_.user_id).then((r) => {
+      if (!live || !r.ok) return;
+      setMsgs(r.data);
+      const top = r.data.filter((m) => m.from_id === with_.user_id).reduce((a, m) => Math.max(a, m.id), 0);
+      if (top) seenUpTo(with_.user_id, top);
+    });
     pull();
-    const off = onMessage(user.id, (m) => { if (m.from_id === with_.user_id) setMsgs((x) => (x.some((y) => y.id === m.id) ? x : [...x, m])); });
+    const off = onIncoming((m) => { if (m.from_id === with_.user_id) { setMsgs((x) => (x.some((y) => y.id === m.id) ? x : [...x, m])); seenUpTo(with_.user_id, m.id); } });
     const poll = setInterval(pull, 8000); // in case realtime is not switched on
-    return () => { live = false; off(); clearInterval(poll); };
+    return () => { live = false; off(); clearInterval(poll); setActiveThread(null); };
   }, [with_?.user_id, user.id]);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [msgs.length, with_]);
+
+  // the box grows with what is typed, up to a few lines
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }, [text, with_]);
 
   if (miss) return <Setup what="Messages" />;
   async function send() {
@@ -221,30 +266,59 @@ function Chat({ user, start }) {
     if (r.ok) setMsgs((x) => [...x, r.data]); else { setErr(r.error); setText(t); }
   }
 
+  const ordered = [...(friends || [])].sort((a, b) => (soc.unread[b.user_id] || 0) - (soc.unread[a.user_id] || 0));
+  let lastDay = "", prev = null;
+
   return (
     <div className="sc-chat card">
       <div className="sc-side">
         {friends === null && <div className="card-pad small muted">Loading...</div>}
         {friends?.length === 0 && <div className="card-pad small muted">Add a friend first, then message them here.</div>}
-        {friends?.map((f) => (
+        {ordered.map((f) => (
           <button key={f.user_id} className={"sc-pick" + (with_?.user_id === f.user_id ? " on" : "")} onClick={() => setWith(f)}>
-            <UserIcon avatar={f.avatar} user={null} size={30} /> <span>{f.name}</span>
+            <UserIcon avatar={f.avatar} user={null} size={36} />
+            <span className="sc-pick-who"><b>{f.name}</b>{f.handle && <span className="small">@{f.handle}</span>}</span>
+            {soc.unread[f.user_id] > 0 && with_?.user_id !== f.user_id && <i className="badge">{soc.unread[f.user_id] > 99 ? "99+" : soc.unread[f.user_id]}</i>}
           </button>
         ))}
       </div>
       <div className="sc-thread">
-        {!with_ ? <div className="sc-empty small muted">Pick a friend.</div> : (
+        {!with_ ? <div className="sc-empty small muted">Pick a friend to message.</div> : (
           <>
+            <div className="cm-head">
+              <UserIcon avatar={with_.avatar} user={null} size={40} />
+              <span className="sc-who"><b>{with_.name}</b>{with_.handle && <span className="small muted">@{with_.handle}</span>}</span>
+            </div>
             <div className="sc-msgs">
               {msgs.length === 0 && <div className="sc-empty small muted">Say hello to {with_.name}.</div>}
-              {msgs.map((m) => (
-                <div key={m.id} className={"sc-bubble" + (m.from_id === user.id ? " mine" : "")}>{m.body}</div>
-              ))}
+              {msgs.map((m) => {
+                const mine = m.from_id === user.id;
+                const day = dayLabel(m.created_at);
+                const newDay = day !== lastDay; lastDay = day;
+                const first = newDay || !prev || prev.from_id !== m.from_id || new Date(m.created_at) - new Date(prev.created_at) > 5 * 60000;
+                prev = m;
+                const big = onlyEmoji(m.body);
+                return (
+                  <div key={m.id} className="cm-wrap">
+                    {newDay && <div className="cm-day"><span>{day}</span></div>}
+                    <div className={"cm-row" + (mine ? " mine" : "") + (first ? " first" : "")}>
+                      {!mine && <span className="cm-av">{first && <UserIcon avatar={with_.avatar} user={null} size={32} />}</span>}
+                      <div className="cm-col">
+                        {first && <span className="cm-name">{mine ? "You" : with_.name}<time>{clock(m.created_at)}</time></span>}
+                        <div className={"cm-bubble" + (big ? " big" : "")}>{m.body}</div>
+                      </div>
+                      {mine && <span className="cm-av">{first && <UserIcon avatar={me?.avatar} user={user} size={32} />}</span>}
+                    </div>
+                  </div>
+                );
+              })}
               <div ref={end} />
             </div>
             {err && <div className="dl-err">{err}</div>}
-            <form className="sc-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
-              <input value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} placeholder={`Message ${with_.name}`} />
+            <form className="cm-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
+              <textarea ref={box} rows={1} value={text} maxLength={1000} placeholder={`Message ${with_.name}`} aria-label={`Message ${with_.name}`}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
               <button className="btn cta" type="submit" disabled={!text.trim()}>Send</button>
             </form>
           </>

@@ -18,6 +18,7 @@ import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { reportXp } from "./social.js";
+import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
@@ -473,6 +474,22 @@ export default function App() {
   const preview = true;
   useEffect(() => startDesktopReminder(), []);
   const profile = useMyProfile(auth.user);
+  // new messages and friend requests, for the badges and the little notification
+  const social = useSocial();
+  const [pop, setPop] = useState(null); // { from, name, avatar, body }
+  useEffect(() => {
+    if (!auth.user) { stopSocial(); return; }
+    startSocial(auth.user.id);
+    let hide = null;
+    const off = onIncoming((m) => {
+      if (activeNow() === m.from_id) return; // they are looking at that chat
+      const who = peopleNow()[m.from_id];
+      setPop({ from: m.from_id, name: who?.name || "A friend", avatar: who?.avatar || null, body: m.body });
+      clearTimeout(hide);
+      hide = setTimeout(() => setPop(null), 7000);
+    });
+    return () => { off(); clearTimeout(hide); };
+  }, [auth.user?.id]);
   // everyone signed in tells the board their running total, a moment after it
   // changes, so it is already full when the board opens to everyone. Only people
   // who have picked a username are ever shown on it.
@@ -1009,6 +1026,7 @@ export default function App() {
                 }}>
                 <NavIcon id={g.pic} size={34} />
                 {g.label}
+                {g.id === "social" && social.badge > 0 && <i className="badge nav-badge" aria-label={`${social.badge} new`}>{social.badge > 99 ? "99+" : social.badge}</i>}
               </button>
             ))}
           </nav>
@@ -1025,6 +1043,7 @@ export default function App() {
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               {preview && g.pic ? <NavIcon id={g.pic} size={34} /> : <Icon name={g.icon} />}
               {g.label}
+              {g.id === "social" && social.badge > 0 && <i className="badge nav-badge" aria-label={`${social.badge} new`}>{social.badge > 99 ? "99+" : social.badge}</i>}
             </button>
           ))}
         </nav>
@@ -1111,9 +1130,10 @@ export default function App() {
         )}
 
         <header className="topbar">
-          <button className="icon-btn menu-btn" aria-label="Open menu"
+          <button className="icon-btn menu-btn menu-badge-host" aria-label="Open menu"
             onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={18} />
+            {social.badge > 0 && <i className="badge dot" aria-hidden="true" />}
           </button>
           {studyMode && (
             <button className="btn quiet small hf-back" onClick={() => { setFocus(null); go("library"); }}>
@@ -1213,7 +1233,7 @@ export default function App() {
         ))}
         <button data-tour="more" className={"tab" + (["tests", "courses", "library", "reader", "settings", "feedback", "install", "install-all", "notebook"].includes(page) ? " on" : "")}
           onClick={() => setMenuOpen(true)}>
-          <span className="tab-icon"><Icon name="menu" size={21} /></span>
+          <span className="tab-icon"><Icon name="menu" size={21} />{social.badge > 0 && <i className="badge dot" aria-hidden="true" />}</span>
           <span className="tab-label">More</span>
         </button>
       </nav>
@@ -1221,6 +1241,16 @@ export default function App() {
       <ReadyToast go={(path) => { const id = PATH_PAGE[path]; if (id) go(id); }} />
       {touring && <Tour steps={preview ? FOLDER_STEPS : undefined} onClose={() => setTouring(false)} />}
       <UpdateBar />
+      {pop && (
+        <button className="msg-toast" onClick={() => {
+          try { sessionStorage.setItem("dwiddle-social-tab", "chat"); sessionStorage.setItem("dwiddle-chat-with", pop.from); } catch {}
+          setPop(null);
+          if (studyMode) { window.dispatchEvent(new Event("dwiddle:close-chat")); setFriendsOpen(true); } else go("social");
+        }}>
+          <UserIcon avatar={pop.avatar} user={null} size={38} />
+          <span className="msg-toast-text"><b>{pop.name}</b><span>{pop.body.length > 80 ? pop.body.slice(0, 79) + "…" : pop.body}</span></span>
+        </button>
+      )}
       {studyMode && friendsOpen && <FriendsPopup auth={auth} onSignIn={() => setSignInOpen(true)} onClose={() => setFriendsOpen(false)} />}
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
