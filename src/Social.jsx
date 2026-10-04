@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, PageHead } from "./ui.jsx";
 import { UserIcon } from "./Profile.jsx";
+import Duel from "./Duel.jsx";
 import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage, onMessage } from "./social.js";
 
 // Friends, the weekly board and messages, in one place.
 
-const TABS = [["board", "Leaderboard"], ["friends", "Friends"], ["chat", "Messages"]];
+const TABS = [["board", "Leaderboard"], ["friends", "Friends"], ["chat", "Messages"], ["duel", "Duel"]];
 
 function Setup({ what }) {
   return (
@@ -16,8 +17,8 @@ function Setup({ what }) {
   );
 }
 
-export default function Social({ auth, stats, onSignIn }) {
-  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem("dwiddle-social-tab") || "board"; } catch { return "board"; } });
+export default function Social({ auth, stats, onSignIn, startTab, ...rest }) {
+  const [tab, setTab] = useState(() => { if (startTab) return startTab; try { return sessionStorage.getItem("dwiddle-social-tab") || "board"; } catch { return "board"; } });
   const [chatWith, setChatWith] = useState(null);
   const pick = (t) => { setTab(t); try { sessionStorage.setItem("dwiddle-social-tab", t); } catch {} };
 
@@ -39,6 +40,7 @@ export default function Social({ auth, stats, onSignIn }) {
       {tab === "board" && <Board user={auth.user} stats={stats} />}
       {tab === "friends" && <Friends user={auth.user} openChat={(f) => { setChatWith(f); pick("chat"); }} />}
       {tab === "chat" && <Chat user={auth.user} start={chatWith} />}
+      {tab === "duel" && <div className="hf-decks"><Duel auth={auth} {...rest} /></div>}
     </div>
   );
 }

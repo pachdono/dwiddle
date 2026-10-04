@@ -1,14 +1,34 @@
 import { useState } from "react";
 import { Icon, PageHead, Portal } from "./ui.jsx";
 import Decks from "./Decks.jsx";
+import Explore from "./Explore.jsx";
 import { Duck } from "./Duck.jsx";
 import { HeroDuck } from "./HeroDuck.jsx";
 
 // Home for testers and above: one calm page. Each thing you have added is a
 // folder, and the way back to where you were is the biggest thing on it.
 // Counts are worked out here from the one store, so nothing new is saved.
-export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, picking, home }) {
-  const [view, setView] = useState("folders");
+// A manila folder drawn flat: a back with a tab, a sheet of paper showing, and
+// a front. Colours go round so a shelf of them is easy to tell apart.
+const TONES = [
+  ["#E9B949", "#F6CF66"], ["#E8789A", "#F29AB5"], ["#5B8DEF", "#7FA8F5"],
+  ["#4FB87A", "#72CC95"], ["#9A74E0", "#B496EC"], ["#EE8E4A", "#F5A96F"],
+];
+const tone = (id, n) => TONES[n % TONES.length];
+function FolderArt({ tone: [back, front] }) {
+  return (
+    <svg className="hf-art" viewBox="0 0 240 170" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M8 22a12 12 0 0 1 12-12h62l16 16h122a12 12 0 0 1 12 12v118a12 12 0 0 1-12 12H20a12 12 0 0 1-12-12z" fill={back} />
+      <rect x="22" y="34" width="196" height="90" rx="7" fill="#fff" opacity=".92" transform="rotate(-1.5 120 80)" />
+      <rect x="34" y="48" width="90" height="5" rx="2.5" fill={back} opacity=".35" transform="rotate(-1.5 120 80)" />
+      <rect x="34" y="62" width="130" height="5" rx="2.5" fill={back} opacity=".22" transform="rotate(-1.5 120 80)" />
+      <path d="M8 66a12 12 0 0 1 12-12h200a12 12 0 0 1 12 12v90a12 12 0 0 1-12 12H20a12 12 0 0 1-12-12z" fill={front} />
+    </svg>
+  );
+}
+
+export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, prefill, fullMade, materials, focus, setFocus, setTopic, deleteItem, deleteMaterial, picking, home, startView, auth, setMade, onSignIn }) {
+  const [view, setView] = useState(startView || "folders");
   const [find, setFind] = useState("");
   const [confirm, setConfirm] = useState(null);
   const [idea, setIdea] = useState("");
@@ -56,7 +76,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           </div>
         </div>
       ) : (
-        <PageHead title={picking ? "What are you studying?" : "Library"} sub={picking ? "Pick a folder to open its notes, lessons and practice." : "Everything you have added, as folders."} />
+        <PageHead title={picking ? "What are you studying?" : "Library"} sub={picking ? "Pick a folder to open its notes, lessons and practice." : ""} />
       )}
 
       {home && (
@@ -74,47 +94,43 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
       )}
 
       {!home && (<>
-      {view === "folders" && next && !picking && (
-        <button className="hf-continue" onClick={carryOn}>
-          <span className="hf-continue-k">Continue</span>
-          <b>{next.topic}</b>
-          <span className="small">{next.folder.title}</span>
-          {due > 0 && <span className="pill accent hf-due">{due} to review</span>}
-          <span className="hf-go">Open <Icon name="arrow" size={14} /></span>
-        </button>
-      )}
-
-      <h2 className="hf-sec">{view === "folders" ? "Your folders" : "Your decks"}</h2>
       <div className="hf-bar">
-        <div className="hf-switch" role="tablist" aria-label="Home view">
+        <div className="hf-switch" role="tablist" aria-label="Library view">
           <button role="tab" aria-selected={view === "folders"} className={view === "folders" ? "on" : ""} onClick={() => setView("folders")}>Folders</button>
           <button role="tab" aria-selected={view === "decks"} className={view === "decks" ? "on" : ""} onClick={() => setView("decks")}>My decks</button>
+          {!picking && <button role="tab" aria-selected={view === "explore"} className={view === "explore" ? "on" : ""} onClick={() => setView("explore")}>Explore</button>}
         </div>
-        {view === "folders" && folders.length > 0 && (
-          <input className="hf-find" type="search" placeholder="Search your folders" value={find}
+        {view === "folders" && next && !picking && (
+          <button className="btn cta small hf-resume" onClick={carryOn} title={`${next.topic}, in ${next.folder.title}`}>
+            Continue: {next.topic.length > 28 ? next.topic.slice(0, 27) + "…" : next.topic}{due > 0 ? ` · ${due} to review` : ""}
+          </button>
+        )}
+        {view === "folders" && folders.length > 2 && (
+          <input className="hf-find" type="search" placeholder="Search" value={find}
             onChange={(e) => setFind(e.target.value)} aria-label="Search your folders" />
         )}
       </div>
 
-      {view === "decks" ? <div className="hf-decks"><Decks /></div> : (
+      {view === "decks" && <div className="hf-decks"><Decks /></div>}
+      {view === "explore" && <div className="hf-decks"><Explore auth={auth} fullMade={fullMade} materials={materials} setMade={setMade} go={go} onSignIn={onSignIn} /></div>}
+      {view === "folders" && (
         <div className="hf-grid">
           <button className="hf-new" onClick={() => go("upload")}>
-            <span className="hf-new-plus"><Icon name="plus" size={20} /></span>
-            <b>New material</b>
-            <span className="small muted">Notes, a PDF, a photo or a topic</span>
+            <span className="hf-new-plus"><Icon name="plus" size={22} /></span>
+            <b>New folder</b>
+            <span className="small muted">Add notes, a PDF or a topic</span>
           </button>
-          {shown.map((f) => (
+          {shown.map((f, n) => (
             <div key={f.id} className={"hf-folder" + (focus === f.id ? " on" : "")}>
               <button className="hf-open" onClick={() => open(f)}>
-                <span className="hf-tab" aria-hidden="true" />
-                <b className="hf-title">{f.title}</b>
-                <span className="small muted">
-                  {f.topics.length} topic{f.topics.length === 1 ? "" : "s"} · {f.questions} question{f.questions === 1 ? "" : "s"}
+                <FolderArt tone={tone(f.id, n)} />
+                <span className="hf-fbody">
+                  <b className="hf-title">{f.title}</b>
+                  <span className="hf-meta">{f.topics.length} topic{f.topics.length === 1 ? "" : "s"} · {f.questions} question{f.questions === 1 ? "" : "s"}</span>
+                  <span className="hf-prog" aria-label={`${f.done} of ${f.topics.length} lessons done`}>
+                    <i style={{ width: `${f.topics.length ? (f.done / f.topics.length) * 100 : 0}%` }} />
+                  </span>
                 </span>
-                <span className="hf-prog" aria-label={`${f.done} of ${f.topics.length} lessons done`}>
-                  <i style={{ width: `${f.topics.length ? (f.done / f.topics.length) * 100 : 0}%` }} />
-                </span>
-                <span className="small muted">{f.done} of {f.topics.length} learned{when(f.at) ? ` · added ${when(f.at)}` : ""}</span>
               </button>
               <button className="icon-btn hf-del" title="Delete this folder" aria-label={`Delete ${f.title}`} onClick={() => setConfirm(f)}>
                 <Icon name="trash" size={15} />
@@ -131,7 +147,6 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           {folders.length > 0 && shown.length === 0 && <div className="hf-empty small muted">No folder matches that.</div>}
         </div>
       )}
-
       </>)}
 
       {confirm && (

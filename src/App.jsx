@@ -14,9 +14,7 @@ import { ThemeBackdrop } from "./ThemeBackdrop.jsx";
 import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
-import Duel from "./Duel.jsx";
 import Social from "./Social.jsx";
-import Explore from "./Explore.jsx";
 import { NavIcon, Flame, Coin } from "./NavIcons.jsx";
 import { reportXp } from "./social.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -289,11 +287,9 @@ const GROUPS = [
     tabs: { sheet: "Notes", learn: "Learn", quiz: "Practice", topics: "Topics", videos: "Videos" },
     old: true,
   },
-  { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader"], fresh: true },
+  { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader", "explore"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
-  { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
-  { id: "duel", label: "Duel", icon: "bolt", pic: "duel", pages: ["duel"], fresh: true },
-  { id: "explore", label: "Explore", icon: "library", pic: "explore", pages: ["explore"], fresh: true },
+  { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social", "duel"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
     id: "exams", label: "Exams", icon: "target", pic: "exams", pages: ["tests", "courses"],
@@ -840,9 +836,9 @@ export default function App() {
     videos: Videos,
     upload: AddMaterial,
     library: preview ? FoldersBridge : Library,
-    duel: preview ? Duel : Dashboard,
+    duel: preview ? DuelBridge : Dashboard,
     social: preview ? Social : Dashboard,
-    explore: preview ? Explore : Dashboard,
+    explore: preview ? ExploreBridge : Dashboard,
     reader: Library,
     settings: Settings,
     tests: TestPrep,
@@ -2398,6 +2394,8 @@ function StudyPicker({ materials, made, pick }) {
 
 // Home as folders, with the numbers it needs worked out here.
 function FoldersBridge(props) { return <HomeBridge {...props} home={false} />; }
+function ExploreBridge(props) { return <HomeBridge {...props} home={false} startView="explore" />; }
+function DuelBridge(props) { return <Social {...props} startTab="duel" />; }
 function HomeBridge({ home = true, ...props }) {
   const { auth, stats, bank = [], drills = [], srs = {} } = props;
   const [pick] = useState(() => Math.random());

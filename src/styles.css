@@ -9124,3 +9124,22 @@ body.has-backdrop main .page {
 .hf-hello { font-size: 14px; }
 .hd { filter: none; }
 .hf-hero { gap: 28px; }
+
+/* real looking folders, a quieter Library */
+.hf-bar { margin-top: 4px; }
+.hf-resume { margin-left: auto; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hf-find { flex: 0 1 220px; }
+.hf-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; }
+.hf-open { padding: 0; border: 0; background: transparent; min-height: 0; aspect-ratio: 240 / 170; border-radius: 0; box-shadow: none; display: block; }
+.hf-open:hover { transform: translateY(-3px); border: 0; }
+.hf-art { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,.12)); }
+.hf-fbody { position: absolute; left: 7%; right: 7%; bottom: 8%; top: 44%; display: flex; flex-direction: column; justify-content: center; gap: 4px; text-align: left; color: #20160a; }
+.hf-title { font-size: 15px; line-height: 1.2; padding: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hf-meta { font-size: 12px; opacity: .75; }
+.hf-prog { background: rgba(255,255,255,.55); margin-top: 4px; }
+.hf-prog i { background: #20160a; opacity: .75; }
+.hf-folder.on .hf-art { filter: drop-shadow(0 0 0 2px var(--accent)) drop-shadow(0 4px 6px rgba(0,0,0,.18)); }
+.hf-folder.on .hf-open::after { content: ""; position: absolute; left: -4px; right: -4px; top: -4px; bottom: -4px; border: 2px solid var(--accent); border-radius: 16px; pointer-events: none; }
+.hf-new { aspect-ratio: 240 / 170; min-height: 0; border: 2px dashed var(--line); border-radius: 16px; }
+.hf-del { top: 16px; right: 12px; background: rgba(255,255,255,.7); color: #333; }
+.hf-tab { display: none; }
