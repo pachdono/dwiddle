@@ -55,6 +55,12 @@ export function NavIcon({ id, size = 34 }) {
       <path d="M12 9c5 0 6 4 4 7s-6 2-6 6 4 4 3 9c-7-3-11-9-9-15 1-4 4-7 8-7zM25 8c5 1 9 5 10 11-3-1-5 0-6-3-1-3-5-3-4-8zM27 27c3 0 6 1 7 3-2 3-5 5-9 6 1-3-1-6 2-9z" fill={f("b")} />
       <path d="M10 10c3-3 8-4 12-3" stroke="#fff" strokeOpacity=".55" strokeWidth="2" strokeLinecap="round" />
     </>),
+    trophy: (<>
+      <defs>{grad(k + "a", "#ffe27a", "#f0a020")}</defs>
+      <path d="M11 5h18v10a9 9 0 0 1-18 0z" fill={f("a")} />
+      <path d="M11 8H5c0 6 2 9 6 9.500M29 8h6c0 6-2 9-6 9.500" stroke="#f0a020" strokeWidth="2.600" strokeLinecap="round" />
+      <rect x="17" y="24" width="6" height="6" fill="#e59316" /><rect x="11" y="30" width="18" height="5" rx="2.500" fill={f("a")} />
+    </>),
     exams: (<>
       <defs>{grad(k + "a", "#ff9a8a", "#e5432f")}</defs>
       <circle cx="20" cy="20" r="16" fill={f("a")} />

@@ -9143,3 +9143,8 @@ body.has-backdrop main .page {
 .hf-new { aspect-ratio: 240 / 170; min-height: 0; border: 2px dashed var(--line); border-radius: 16px; }
 .hf-del { top: 16px; right: 12px; background: rgba(255,255,255,.7); color: #333; }
 .hf-tab { display: none; }
+
+.top-chip .nav-pic { flex: none; }
+.hf-decks > .page { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 !important; margin: 0 !important; max-width: none !important; border-radius: 0 !important; }
+.hf-decks > .page::before, .hf-decks > .page::after { display: none !important; }
+@media (max-width: 760px) { .top-chip { padding: 4px 10px 4px 6px; } .top-chip:nth-child(n+2) { font-size: 0; gap: 0; padding: 4px 8px; } }

@@ -48,7 +48,7 @@ export default function Social({ auth, stats, onSignIn, startTab, ...rest }) {
 /* ---------- the weekly board ---------- */
 
 function Board({ user }) {
-  const [scope, setScope] = useState("friends");
+  const [scope, setScope] = useState("everyone");
   const [rows, setRows] = useState(null);
   const [miss, setMiss] = useState(false);
   const load = useCallback(() => {
@@ -62,8 +62,8 @@ function Board({ user }) {
     <>
       <div className="sc-row">
         <div className="hf-switch">
+          <button className={scope === "everyone" ? "on" : ""} onClick={() => setScope("everyone")}>Global</button>
           <button className={scope === "friends" ? "on" : ""} onClick={() => setScope("friends")}>Friends</button>
-          <button className={scope === "everyone" ? "on" : ""} onClick={() => setScope("everyone")}>Everyone</button>
         </div>
         <span className="small muted">XP earned since Monday. Resets every week.</span>
       </div>

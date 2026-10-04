@@ -15,7 +15,7 @@ import { LikeImFour } from "./LikeImFour.jsx";
 import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
 import Social from "./Social.jsx";
-import { NavIcon, Flame, Coin } from "./NavIcons.jsx";
+import { NavIcon, Flame } from "./NavIcons.jsx";
 import { reportXp } from "./social.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
@@ -1068,7 +1068,8 @@ export default function App() {
           {preview && (
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("social")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
-              <button className="top-chip" title={`${(stats.xp || 0).toLocaleString()} XP, level ${levelOf(stats.xp || 0).level}`} onClick={() => go("social")}><Coin size={24} />{(stats.xp || 0).toLocaleString()}</button>
+              <button className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
+              <button className="top-chip" title="This week's leaderboard" onClick={() => { try { sessionStorage.setItem("dwiddle-social-tab", "board"); } catch {} go("social"); }}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}
           <FullscreenButton className="icon-btn topbar-fs" />
