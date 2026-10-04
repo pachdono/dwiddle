@@ -50,7 +50,7 @@ function Board({ user }) {
   const [miss, setMiss] = useState(false);
   const load = useCallback(() => {
     setRows(null);
-    leaderboard(scope).then((r) => { if (r.ok) { setRows(r.data || []); setMiss(false); } else { setMiss(!!r.missing); setRows([]); } });
+    leaderboard(scope).then((r) => { if (r.ok) { setRows((r.data || []).slice(0, 10)); setMiss(false); } else { setMiss(!!r.missing); setRows([]); } });
   }, [scope]);
   useEffect(load, [load]);
   if (miss) return <Setup what="The leaderboard" />;

@@ -156,7 +156,7 @@ language sql security definer set search_path = public stable as $$
     or (scope = 'everyone' and (p.handle is not null or x.user_id = auth.uid()))
   )
   order by 5 desc, x.total desc
-  limit 50
+  limit 10
 $$;
 
 -- look someone up by username
