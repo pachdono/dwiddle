@@ -20,8 +20,27 @@ export function mathParts(text) {
   });
 }
 
-// <M t="..."/>: a string of text, with its maths set properly.
+// <M t="..."/>: a string of text, with its maths set properly, and the few bits
+// of markup a model puts in plain text: **bold**, *italic* and `code`. Without
+// this a question showed its asterisks as they were typed.
+const MARK = /\*\*([^*]+?)\*\*|`([^`]+)`|\*([^*\s][^*]*?)\*/g;
+
 export function M({ t }) {
   if (t == null || t === "") return null;
-  return <>{mathParts(t)}</>;
+  const s = String(t);
+  if (!/[*`]/.test(s)) return <>{mathParts(s)}</>;
+  const out = [];
+  let last = 0, k = 0, m;
+  MARK.lastIndex = 0;
+  while ((m = MARK.exec(s))) {
+    // a lone star between two words or numbers is multiplication, not italics
+    if (m[3] !== undefined && (/\w$/.test(s.slice(0, m.index)) || /^\w/.test(s.slice(m.index + m[0].length)))) continue;
+    if (m.index > last) out.push(<span key={k++}>{mathParts(s.slice(last, m.index))}</span>);
+    if (m[1] !== undefined) out.push(<strong key={k++}>{mathParts(m[1])}</strong>);
+    else if (m[2] !== undefined) out.push(<code key={k++} className="mt-code">{m[2]}</code>);
+    else out.push(<em key={k++}>{mathParts(m[3])}</em>);
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) out.push(<span key={k++}>{mathParts(s.slice(last).replace(/\*\*/g, ""))}</span>);
+  return <>{out}</>;
 }

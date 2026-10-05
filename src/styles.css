@@ -9244,3 +9244,4 @@ body.has-backdrop main .page {
 .cm-send .btn { height: 44px; border-radius: 22px; padding: 0 20px; }
 .sc-compact .sc-pick { width: auto; border-radius: 999px; margin: 6px 0 6px 8px; padding: 6px 12px 6px 8px; }
 .cm-send textarea { min-height: 44px; height: 44px; line-height: 1.4; resize: none; }
+.mt-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; padding: 1px 6px; border-radius: 6px; background: var(--sunken); }

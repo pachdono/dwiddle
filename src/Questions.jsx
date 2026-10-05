@@ -116,12 +116,12 @@ function Blank({ q, result, settle }) {
   return (
     <>
       <p className="qv-sentence">
-        {before}
+        <M t={before} />
         <input className={"qv-gap" + (result === null ? "" : result ? " right" : " wrong")}
           value={value} onChange={(e) => setValue(e.target.value)} disabled={result !== null}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); check(); } }}
           style={{ width: `${Math.max(6, String(q.answer).length + 2)}ch` }} autoFocus aria-label="The missing word" />
-        {after}
+        <M t={after} />
       </p>
       {result === null
         ? <button className="btn cta qv-check" onClick={check} disabled={!value.trim()}>Check</button>
@@ -176,7 +176,7 @@ function Open({ q, result, settle }) {
           {q.points?.length > 0 && (
             <>
               <span className="qv-label">What the examiner looks for</span>
-              <ul>{q.points.map((p, i) => <li key={i}>{p}</li>)}</ul>
+              <ul>{q.points.map((p, i) => <li key={i}><M t={p} /></li>)}</ul>
             </>
           )}
           <div className="qv-self">
@@ -221,13 +221,13 @@ function Match({ q, result, settle }) {
         <div>
           {pairs.map((p, i) => (
             <button key={i} className={"qv-tile" + (done.includes(i) ? " done" : held === i ? " held" : "")}
-              onClick={() => !done.includes(i) && setHeld(i)} disabled={result !== null}>{p.a}</button>
+              onClick={() => !done.includes(i) && setHeld(i)} disabled={result !== null}><M t={p.a} /></button>
           ))}
         </div>
         <div>
           {right.map(({ i, b }) => (
             <button key={i} className={"qv-tile def" + (done.includes(i) ? " done" : flash === i ? " miss" : "")}
-              onClick={() => pickRight(i)} disabled={result !== null || held === null && !done.includes(i)}>{b}</button>
+              onClick={() => pickRight(i)} disabled={result !== null || held === null && !done.includes(i)}><M t={b} /></button>
           ))}
         </div>
       </div>
@@ -262,7 +262,7 @@ function Order({ q, result, settle }) {
       {result === null && (
         <div className="qv-pool">
           {mixed.filter((x) => !placed.has(x.i)).map((x) => (
-            <button key={x.i} className="qv-tile" onClick={() => setSeq([...seq, x.i])}>{x.t}</button>
+            <button key={x.i} className="qv-tile" onClick={() => setSeq([...seq, x.i])}><M t={x.t} /></button>
           ))}
         </div>
       )}

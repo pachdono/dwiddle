@@ -297,7 +297,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
         {step?.type === "check" && (
           <article className="lp-card" key={at}>
             <span className="lp-kicker">Quick check</span>
-            <h2>{step.q}</h2>
+            <h2><M t={step.q} /></h2>
             <div className="lp-options">
               {step.choices.map((c, i) => {
                 const chosen = picked[at];
@@ -307,7 +307,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
                 return (
                   <button key={i} className={"lp-opt" + state} onClick={() => choose(i)}
                     disabled={chosen !== undefined}>
-                    <i>{"ABCD"[i]}</i><span>{c}</span>
+                    <i>{"ABCD"[i]}</i><span><M t={c} /></span>
                   </button>
                 );
               })}

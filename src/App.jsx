@@ -3472,7 +3472,7 @@ function Flashcards({ pool, made, early, topic }) {
         <div className={"flip-card" + (flipped ? " flipped" : "")}>
           <div className="flip-face front">
             <span className="flash-tag">{card.kind === "vocab" || card.kind === "notes" ? "Term" : "Question"}</span>
-            <p className="flash-body">{card.front}</p>
+            <p className="flash-body"><M t={card.front} /></p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
               <span className="kbd-hint"><kbd>Space</kbd> to flip</span>
@@ -3481,8 +3481,8 @@ function Flashcards({ pool, made, early, topic }) {
 
           <div className="flip-face back">
             <span className="flash-tag">Answer</span>
-            <p className="flash-body answer">{card.back}</p>
-            <p className="flash-note">{card.note}</p>
+            <p className="flash-body answer"><M t={card.back} /></p>
+            <p className="flash-note"><M t={card.note} /></p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
               <span className="kbd-hint"><kbd>Space</kbd> to flip back</span>
