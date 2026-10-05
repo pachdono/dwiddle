@@ -9292,3 +9292,17 @@ select { max-width: 100%; text-overflow: ellipsis; }
 @media (max-width: 860px) { .study-rail { display: none; } }
 .sr-menu { padding: 10px 4px; }
 @media (min-width: 861px) { .study-mode .topbar .menu-btn { display: none !important; } }
+
+/* your username card carries your picture */
+.sc-me { position: relative; padding-right: 96px; }
+.sc-me-av { position: absolute; top: 14px; right: 16px; border-radius: 50%; box-shadow: 0 0 0 3px var(--accent-soft); display: grid; }
+/* messages inside the popup: a list of friends first, then one conversation with a way back */
+.fp-body { display: flex; flex-direction: column; }
+.sc-compact { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.sc-compact .sc-chat.compact { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sc-compact .sc-chat.compact .sc-side { display: flex; flex-direction: column; overflow-y: auto; border: 0; flex: 1; }
+.sc-compact .sc-chat.compact .sc-pick { width: 100%; margin: 0; border-radius: 0; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); white-space: normal; }
+.sc-compact .sc-chat.compact .sc-pick-who b { font-size: 15.5px; white-space: normal; }
+.sc-compact .sc-chat.compact .sc-thread { flex: 1; min-height: 0; }
+.sc-compact .sc-chat.compact .sc-msgs { flex: 1; max-height: none; min-height: 0; }
+.cm-back { flex: none; }

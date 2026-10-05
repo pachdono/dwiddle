@@ -42,7 +42,7 @@ export default function Social({ auth, onSignIn, compact = false }) {
         })}
       </div>
       {tab === "friends" && <Friends user={auth.user} openChat={(f) => { setChatWith(f); pick("chat"); }} />}
-      {tab === "chat" && <Chat user={auth.user} start={chatWith} />}
+      {tab === "chat" && <Chat user={auth.user} start={chatWith} compact={compact} />}
     </div>
   );
 }
@@ -95,6 +95,8 @@ function Board({ user }) {
 /* ---------- friends ---------- */
 
 function Friends({ user, openChat }) {
+  const myProfile = useMyProfile(user);
+  const myName = myProfile?.display_name || "You";
   const [list, setList] = useState(null);
   const [miss, setMiss] = useState(false);
   const [handle, setH] = useState(null);
@@ -130,7 +132,8 @@ function Friends({ user, openChat }) {
   return (
     <div className="stack">
       {loadErr && <div className="dl-err">Could not load your friends: {loadErr}</div>}
-      <div className="card card-pad">
+      <div className="card card-pad sc-me">
+        <span className="sc-me-av" title={myName}><UserIcon avatar={myProfile?.avatar} user={user} size={60} /></span>
         <h3>Your username</h3>
         {handle ? <p>Friends find you as <b>@{handle}</b>. </p>
           : <p className="small muted">Pick a username so friends can find you. </p>}
@@ -207,7 +210,7 @@ function dayLabel(t) {
 }
 const onlyEmoji = (t) => /^(\p{Extended_Pictographic}|\u200d|\ufe0f|\s){1,8}$/u.test(t);
 
-function Chat({ user, start }) {
+function Chat({ user, start, compact = false }) {
   const me = useMyProfile(user);
   const soc = useSocial();
   const [friends, setFriends] = useState(null);
@@ -270,22 +273,26 @@ function Chat({ user, start }) {
   let lastDay = "", prev = null;
 
   return (
-    <div className="sc-chat card">
+    <div className={"sc-chat card" + (compact ? " compact" : "")}>
+      {(!compact || !with_) && (
       <div className="sc-side">
         {friends === null && <div className="card-pad small muted">Loading...</div>}
         {friends?.length === 0 && <div className="card-pad small muted">Add a friend first, then message them here.</div>}
         {ordered.map((f) => (
           <button key={f.user_id} className={"sc-pick" + (with_?.user_id === f.user_id ? " on" : "")} onClick={() => setWith(f)}>
-            <UserIcon avatar={f.avatar} user={null} size={36} />
+            <UserIcon avatar={f.avatar} user={null} size={compact ? 44 : 36} />
             <span className="sc-pick-who"><b>{f.name}</b>{f.handle && <span className="small">@{f.handle}</span>}</span>
             {soc.unread[f.user_id] > 0 && with_?.user_id !== f.user_id && <i className="badge">{soc.unread[f.user_id] > 99 ? "99+" : soc.unread[f.user_id]}</i>}
           </button>
         ))}
       </div>
+      )}
+      {(!compact || with_) && (
       <div className="sc-thread">
         {!with_ ? <div className="sc-empty small muted">Pick a friend to message.</div> : (
           <>
             <div className="cm-head">
+              {compact && <button type="button" className="icon-btn cm-back" aria-label="Back to your friends" onClick={() => setWith(null)}><span className="hf-back-ico"><Icon name="arrow" size={16} /></span></button>}
               <UserIcon avatar={with_.avatar} user={null} size={40} />
               <span className="sc-who"><b>{with_.name}</b>{with_.handle && <span className="small muted">@{with_.handle}</span>}</span>
             </div>
@@ -324,6 +331,7 @@ function Chat({ user, start }) {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

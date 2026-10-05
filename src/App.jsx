@@ -1135,7 +1135,7 @@ export default function App() {
         {studyMode && page !== "notebook" && !tipGone && (
           <div className="notice topic-tip">
             <span className="notice-dot" />
-            <span className="notice-text"><b>There is more here than notes.</b> Use the tabs at the top to switch between Notes, Learn, Practice, Topics and Videos.</span>
+            <span className="notice-text"><b>There is more here than notes.</b> Use the icons down the left to switch between Notes, Learn, Practice, Topics and Videos.</span>
             <button className="btn" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} }}>Got it</button>
             <button className="icon-btn" aria-label="Dismiss" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} }}>
               <Icon name="close" size={14} />
