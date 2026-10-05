@@ -3192,7 +3192,7 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         <div className="card card-pad spread">
           <div>
             <b>Layout</b>
-            <p className="small muted" style={{ margin: "2px 0 0" }}>Classic is the original look. New is plainer: words instead of icons, no duck, flat cards, smooth gliding animations, and a folder opens to a course page with a Continue button and your topics in order.</p>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>Classic is the original look. New is the same app with small outline icons instead of the coloured pictures, no duck mascot, one calm cream and charcoal look, and smoother movement.</p>
           </div>
           <CleanPicker />
         </div>

@@ -9343,32 +9343,6 @@ select { max-width: 100%; text-overflow: ellipsis; }
 html[data-fx="lite"] .dscat { display: none; }
 html[data-fx="lite"] .hf-folder, html[data-fx="lite"] .hf-actions button, html[data-fx="lite"] .hf-new, html[data-fx="lite"] .xp-card, html[data-fx="lite"] .hf-duck { animation: none; }
 
-.cc { max-width: 1100px; }
-.cc-back { margin-bottom: 14px; }
-.cc-head { display: flex; align-items: center; gap: 28px; margin: 6px 0 26px; }
-.cc-titles { flex: 1; min-width: 0; }
-.cc-titles h1 { font-size: clamp(28px, 4.2vw, 46px); line-height: 1.12; margin: 0 0 14px; overflow-wrap: anywhere; }
-.cc-prog { display: flex; align-items: center; gap: 14px; }
-.cc-prog > span { flex: 1; max-width: 420px; height: 12px; border-radius: 99px; background: var(--panel); overflow: hidden; }
-.cc-prog i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .6s; }
-.cc-go { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-bottom: 36px; }
-.cc-continue { font-size: 18px; padding: 14px 40px; border-radius: 16px; }
-.cc-label { font-size: 12px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600; }
-.cc-next { font-size: 17px; font-weight: 600; }
-.cc-cont { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
-.cc-cont h2 { font-size: 28px; margin: 0; }
-.cc-list { list-style: none; margin: 0; padding: 0; position: relative; }
-.cc-list li { display: flex; gap: 20px; align-items: flex-start; position: relative; padding-bottom: 22px; }
-.cc-list li::before { content: ""; position: absolute; left: 21px; top: 44px; bottom: 0; width: 3px; background: var(--line, rgba(128, 128, 128, .3)); }
-.cc-list li:last-child::before { display: none; }
-.cc-list li.done::before { background: #4FB87A; }
-.cc-dot { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--panel); color: var(--ink-2); border: 2px solid var(--line, rgba(128, 128, 128, .3)); }
-.cc-list li.done .cc-dot { background: #4FB87A; border-color: #4FB87A; color: #fff; }
-.cc-list li.now .cc-dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 25%, transparent); }
-.cc-row { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 16px; border-radius: 16px; font-size: 18px; }
-.cc-row b { overflow-wrap: anywhere; }
-.cc-list li.now .cc-row { background: var(--panel); border: 1px solid var(--line, rgba(128, 128, 128, .3)); padding: 20px 22px; }
-@media (max-width: 640px) { .cc-head { flex-direction: column; align-items: flex-start; } }
 
 /* ---------- the New layout (Settings, Layout) ----------
    The same app and the same look, with three differences: small outline icons
@@ -9391,6 +9365,4 @@ html[data-clean="1"] .page.fade { animation: smooth-in .45s cubic-bezier(.2, .8,
 html[data-clean="1"] .btn:active, html[data-clean="1"] .hf-folder:active, html[data-clean="1"] .choice:active { transform: scale(.98); }
 html[data-clean="1"] .nav-item:hover, html[data-clean="1"] .sr-item:hover { transform: translateX(2px); }
 html[data-clean="1"] .hf-folder:hover, html[data-clean="1"] .hf-actions button:hover { transform: translateY(-3px); }
-html[data-clean="1"] .cc-list li { animation: smooth-in .5s both; }
-html[data-clean="1"] .cc-list li:nth-child(2) { animation-delay: .05s; } html[data-clean="1"] .cc-list li:nth-child(3) { animation-delay: .1s; } html[data-clean="1"] .cc-list li:nth-child(n + 4) { animation-delay: .15s; }
 @media (prefers-reduced-motion: reduce) { html[data-clean="1"] * { animation: none !important; transition: none !important; } }

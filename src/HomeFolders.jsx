@@ -5,7 +5,6 @@ import Explore from "./Explore.jsx";
 import { StudyTimerCard } from "./StudyTimer.jsx";
 import { Duck } from "./Duck.jsx";
 import { HeroDuck } from "./HeroDuck.jsx";
-import { useClean } from "./clean.js";
 
 // Home for testers and above: one calm page. Each thing you have added is a
 // folder, and the way back to where you were is the biggest thing on it.
@@ -35,8 +34,6 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
   const [confirm, setConfirm] = useState(null);
   const [renaming, setRenaming] = useState(null); // { id, value }
   const [idea, setIdea] = useState("");
-  const [course, setCourse] = useState(null); // clean mode: the folder whose course page is open
-  const clean = useClean();
   const made = fullMade;
   const lessons = made?.lessons || {};
 
@@ -61,7 +58,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
     return null;
   })();
 
-  const open = (f, to = "sheet") => { if (clean && to === "sheet" && !picking) { setCourse(f.id); return; } setFocus(f.id); go(to); };
+  const open = (f, to = "sheet") => { setFocus(f.id); go(to); };
   const carryOn = () => { setFocus(next.folder.id); setTopic?.(next.topic); go("learn"); };
 
   const shown = folders.filter((f) => {
@@ -69,46 +66,6 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
     return !q || f.title.toLowerCase().includes(q) || f.topics.some((t) => t.toLowerCase().includes(q));
   });
   const when = (t) => (t ? new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "");
-
-  const cf = clean && course ? folders.find((f) => f.id === course) : null;
-  if (cf) {
-    const todo = cf.topics.find((t) => !lessons[t]?.done);
-    const start = (t, to = "learn") => { setFocus(cf.id); setTopic?.(t); go(to); };
-    const pct = cf.topics.length ? Math.round((cf.done / cf.topics.length) * 100) : 0;
-    return (
-      <div className="page wide fade cc">
-        <button className="btn quiet small cc-back" onClick={() => setCourse(null)}>Back to folders</button>
-        <div className="cc-head">
-          <div className="cc-titles">
-            <h1>{cf.title}</h1>
-            <div className="cc-prog"><span><i style={{ width: `${pct}%` }} /></span><b>{pct}%</b></div>
-          </div>
-        </div>
-        <div className="cc-go">
-          <button className="btn cta cc-continue" onClick={() => start(todo || cf.topics[0])}>{cf.done ? "Continue" : "Start"}</button>
-          <div><span className="cc-label">UP NEXT</span><div className="cc-next">{todo || "Everything is done. Revise any topic below."}</div></div>
-          <button className="btn ghost" onClick={() => { setFocus(cf.id); go("sheet"); }}>Open notes</button>
-        </div>
-        <div className="cc-cont"><h2>Contents</h2><span className="muted">{cf.done} of {cf.topics.length} complete</span></div>
-        <ol className="cc-list">
-          {cf.topics.map((t, n) => {
-            const done = !!lessons[t]?.done;
-            const now = t === todo;
-            return (
-              <li key={t} className={done ? "done" : now ? "now" : ""}>
-                <span className="cc-dot">{done ? <Icon name="check" size={18} /> : n + 1}</span>
-                <div className="cc-row">
-                  <b>{t}</b>
-                  {(now || done) && <button className="btn cta small" onClick={() => start(t)}>{done ? "Review" : "Start"}</button>}
-                  {!now && !done && <button className="btn quiet small" onClick={() => start(t)}>Open</button>}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-    );
-  }
 
   return (
     <div className="page wide fade hf">
