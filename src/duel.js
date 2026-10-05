@@ -1,3 +1,4 @@
+import { spreadAnswers } from "./mathText.js";
 // The rules of a duel, kept apart from the screen so they can be tested.
 // Everyone gets the same questions in the same order and the same number of
 // seconds. A right answer is worth 100, plus up to 50 for being quick, so
@@ -30,5 +31,5 @@ export const cleanCode = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]
 export function duelQuestions(list, n = 20) {
   const ok = (list || []).filter((q) => q && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2 && Number.isInteger(q.answer) && q.choices[q.answer] != null);
   const shuffled = [...ok].sort(() => Math.random() - 0.5).slice(0, n);
-  return shuffled.map((q) => ({ q: q.q, choices: q.choices, answer: q.answer, why: q.why || "", topic: q.topic || "" }));
+  return shuffled.map((q) => spreadAnswers(q)).map((q) => ({ q: q.q, choices: q.choices, answer: q.answer, why: q.why || "", topic: q.topic || "" }));
 }

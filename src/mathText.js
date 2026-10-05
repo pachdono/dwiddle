@@ -128,7 +128,29 @@ export function tidyMath(input) {
 // for, and the original is kept as the term.
 const ASKS = /^(what|which|why|how|when|where|who|whose|whom|define|explain|describe|state|give|name|identify|outline|calculate|work|find|compare|contrast|suggest|evaluate|discuss|assess|analyse|analyze|justify|predict|complete|choose|select|is|are|was|were|does|do|did|can|could|should|would|will|has|have)\b/i;
 
+// Models put the right option first far too often. The order is mixed with a
+// seed from the question itself, so it is random across questions but the same
+// every time one question is shown. "All of the above" and its kind stay last.
+const LAST = /\b(all|none|both|neither)\b.*\b(above|these|them)\b|\bboth\b.*\band\b/i;
+export function spreadAnswers(q) {
+  if (!q || !Array.isArray(q.choices) || q.choices.length < 3 || !Number.isInteger(q.answer) || q.choices[q.answer] == null) return q;
+  if (q.choices.some((c) => LAST.test(String(c)))) return q;
+  let s = [...String(q.id ?? q.q)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 17) || 1;
+  const order = q.choices.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    const j = ((t ^ (t >>> 14)) >>> 0) % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return { ...q, choices: order.map((i) => q.choices[i]), answer: order.indexOf(q.answer) };
+}
+
 export function phraseQuestion(q) {
+  return spreadAnswers(phrase(q));
+}
+function phrase(q) {
   if (!q || typeof q !== "object" || typeof q.q !== "string") return q;
   const raw = q.q.trim().replace(/[.:\s]+$/, "");
   if (!raw || raw.endsWith("?") || ASKS.test(raw)) return q;

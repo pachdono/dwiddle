@@ -18,6 +18,7 @@ import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { getFx, setFx } from "./perf.js";
+import { useClean, setClean } from "./clean.js";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -38,7 +39,7 @@ import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { setEarlyAccess, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
-import { QuestionView, isDrill, derivedDrills } from "./Questions.jsx";
+import { QuestionView, isDrill, derivedDrills, typedFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
@@ -2530,6 +2531,16 @@ function FxPicker() {
     </div>
   );
 }
+function CleanPicker() {
+  const on = useClean();
+  return (
+    <div className="hf-switch" role="radiogroup" aria-label="Clean mode">
+      {[[false, "Off"], [true, "On"]].map(([v, l]) => (
+        <button key={l} role="radio" aria-checked={on === v} className={on === v ? "on" : ""} onClick={() => setClean(v)}>{l}</button>
+      ))}
+    </div>
+  );
+}
 function FoldersBridge(props) { return <HomeBridge {...props} home={false} />; }
 function ExploreBridge(props) { return <HomeBridge {...props} home={false} startView="explore" />; }
 function HomeBridge({ home = true, ...props }) {
@@ -2824,7 +2835,12 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       while (main.length < len && main.length) main = [...main, ...shuffle(pool)];
       main = main.slice(0, len);
       const extra = shuffle(drillPool);
-      return main.map((q, n) => (n % 3 === 2 && extra.length ? extra.pop() : q));
+      // Every other question is typed rather than picked, which is what stops it
+      // being easy; the rest of the variety comes from the drill kinds.
+      return main.map((q, n) => {
+        if (n % 3 === 2 && extra.length) return extra.pop();
+        return n % 2 === 1 ? (typedFrom(q) || q) : q;
+      });
     };
     setQUIZ(build());
   }
@@ -3186,6 +3202,14 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
             <p className="small muted" style={{ margin: "2px 0 0" }}>If Dwiddle feels slow or laggy, choose Smoother: the moving scenery stops and nothing blurs. Automatic switches it on for slower devices.</p>
           </div>
           <FxPicker />
+        </div>
+
+        <div className="card card-pad spread">
+          <div>
+            <b>Clean mode</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>A quieter layout: the scattered ducks go, text gets bigger and calmer, and opening a folder shows a course page with a Continue button and your topics in order.</p>
+          </div>
+          <CleanPicker />
         </div>
 
         <div className="card">

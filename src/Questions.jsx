@@ -324,3 +324,16 @@ export function derivedDrills(questions) {
   });
   return out;
 }
+
+// A multiple choice question asked again with no options to pick from, so the
+// answer has to be recalled and typed. Only where that is fair: a short answer,
+// and a stem that does not lean on the options being on screen.
+export function typedFrom(q) {
+  if (!q || isDrill(q) || !Array.isArray(q.choices) || typeof q.answer !== "number") return null;
+  const a = String(q.choices[q.answer] ?? "").trim();
+  const stem = String(q.q || "").trim();
+  if (!a || a.length > 28 || a.split(/\s+/).length > 3) return null;
+  if (/all of the above|none of the above|both |which of the (following|these)|the options|above|below|\bnot\b|\bexcept\b/i.test(stem + " " + a)) return null;
+  if (/[=<>]|\\\(|\$/.test(a)) return null;
+  return { id: q.id, topic: q.topic, type: "blank", q: /_{3,}/.test(stem) ? stem : stem + " ______", answer: a, why: q.why || "" };
+}

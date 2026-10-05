@@ -109,7 +109,12 @@ async function run(a, opts = {}) {
     }
     case "draw": {
       const svg = cleanSvg(a.svg);
-      if (!svg) return { ok: false, text: "Could not draw that" };
+      if (!svg) {
+        // A drawing that would not parse is replaced by a real picture rather than an apology.
+        const query = str(a.query, 80);
+        if (query) return { ok: true, text: "Found a picture", art: { query } };
+        return { ok: false, text: "Could not draw that" };
+      }
       return { ok: true, text: "Drew a picture", art: { svg, caption: str(a.caption, 80) } };
     }
     case "picture": {

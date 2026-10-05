@@ -6,7 +6,7 @@
 
 let n = 0;
 
-export function HeroDuck({ size = 220, className = "" }) {
+export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
   const id = `hd${(n = (n + 1) % 1000)}`;
   const u = (k) => `${id}${k}`;
   return (
@@ -94,7 +94,7 @@ export function HeroDuck({ size = 220, className = "" }) {
         <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill="#4A4A4A" />
 
         {/* straw hat, lit from above left */}
-        <g className="hd-hat">
+        {variant === "hat" && <g className="hd-hat">
           <ellipse cx="64" cy="28.5" rx="43" ry="9.2" fill={`url(#${u("brim")})`} />
           <ellipse cx="64" cy="26" rx="29" ry="6.4" fill="#F3E3B3" />
           <path d="M26 30c14 7 62 7 76 0" stroke="#A98A4C" strokeOpacity=".35" strokeWidth="1.6" strokeLinecap="round" />
@@ -102,8 +102,58 @@ export function HeroDuck({ size = 220, className = "" }) {
           <path d="M45 26.6h39" stroke="#8F3A24" strokeOpacity=".5" strokeWidth="1.2" />
           <path d="M45.5 19.5c0-9 8-14.5 19-14.5s19 5.5 19 14.5z" fill={`url(#${u("crown")})`} />
           <path d="M52 15c4-3 21-3 25 0M50 11c5-3.2 25-3.2 29 0" stroke="#B89B5A" strokeOpacity=".5" strokeWidth="1.2" strokeLinecap="round" />
-        </g>
+        </g>}
+        {variant === "grad" && (
+          <g className="hd-hat">
+            <path d="M64 12l42 12-42 12-42-12z" fill="#2B2F3A" />
+            <path d="M40 31v10c0 5 48 5 48 0V31c-10 6-38 6-48 0z" fill="#20232C" />
+            <path d="M104 25v18" stroke="#E0A63A" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="104" cy="45" r="3" fill="#E0A63A" />
+          </g>
+        )}
+        {variant === "party" && (
+          <g className="hd-hat">
+            <path d="M64 -4l20 34H44z" fill="#E86F9A" />
+            <path d="M50 20l28 0M55 11l18 0" stroke="#FFF" strokeOpacity=".7" strokeWidth="2.4" strokeLinecap="round" />
+            <circle cx="64" cy="-4" r="4" fill="#F6D04D" />
+          </g>
+        )}
+        {variant === "phones" && (
+          <g className="hd-hat">
+            <path d="M30 56c-6-30 6-46 34-46s40 16 34 46" stroke="#3A3D48" strokeWidth="5" strokeLinecap="round" />
+            <rect x="22" y="48" width="12" height="20" rx="6" fill="#E86F9A" />
+            <rect x="94" y="48" width="12" height="20" rx="6" fill="#E86F9A" />
+          </g>
+        )}
+        {variant === "beanie" && (
+          <g className="hd-hat">
+            <path d="M34 34c0-22 14-30 30-30s30 8 30 30z" fill="#5B7FD6" />
+            <rect x="32" y="30" width="64" height="9" rx="4.5" fill="#4A68B8" />
+            <circle cx="64" cy="3" r="5" fill="#F1ECE0" />
+          </g>
+        )}
       </g>
     </svg>
+  );
+}
+
+// Ducks scattered round a page: small, in different hats, each moving in its
+// own way. They sit behind the content and never take a click.
+const SPOTS = [
+  { v: "grad", x: "17.4%", y: "40%", s: 74, a: "sway", d: "0s" },
+  { v: "party", x: "94.2%", y: "36%", s: 70, a: "hop", d: "1.2s" },
+  { v: "phones", x: "93.8%", y: "70%", s: 80, a: "float", d: ".6s" },
+  { v: "beanie", x: "17.4%", y: "80%", s: 66, a: "hop", d: "2s" },
+  { v: "hat", x: "48%", y: "96%", s: 60, a: "peek", d: "0s" },
+];
+export function DuckScatter() {
+  return (
+    <div className="dscat" aria-hidden="true">
+      {SPOTS.map((p, n) => (
+        <span key={n} className={"dscat-i " + p.a} style={{ left: p.x, top: p.y, animationDelay: p.d }}>
+          <HeroDuck size={p.s} variant={p.v} />
+        </span>
+      ))}
+    </div>
   );
 }

@@ -4,8 +4,10 @@ import App from "./App.jsx";
 import { ContextMenu } from "./ContextMenu.jsx";
 import "./styles.css";
 import { applyFx, watchFrames } from "./perf.js";
+import { applyClean } from "./clean.js";
 
 applyFx();
+applyClean();
 watchFrames();
 
 // After a new deploy, a page that was already open still asks for the old

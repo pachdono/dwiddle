@@ -57,26 +57,41 @@ export function pathOf(pts, smooth) {
 
 // A drawing from the model, as SVG text, made safe to put on a page: only
 // plain shapes and text, no scripts, links, images or event handlers.
-const OK_TAGS = new Set(["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "text", "tspan"]);
-const OK_ATTRS = new Set(["d", "cx", "cy", "r", "rx", "ry", "x", "y", "x1", "y1", "x2", "y2", "width", "height", "points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray", "opacity", "transform", "font-size", "font-family", "text-anchor", "viewBox", "font-weight", "font-style"]);
+const OK_TAGS = new Set(["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "text", "tspan", "defs", "linearGradient", "radialGradient", "stop"]);
+const OK_ATTRS = new Set(["id", "d", "cx", "cy", "r", "rx", "ry", "x", "y", "x1", "y1", "x2", "y2", "width", "height", "points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray", "opacity", "fill-opacity", "stroke-opacity", "transform", "font-size", "font-family", "text-anchor", "dominant-baseline", "viewBox", "font-weight", "font-style", "offset", "stop-color", "stop-opacity", "gradientUnits", "fx", "fy"]);
+// Models wrap the drawing in a code fence, leave a bare & in a label or add
+// prose around it. All of that is mended before the drawing is thrown away.
+function repairSvg(src) {
+  let t = String(src || "");
+  const m = t.match(/<svg[\s\S]*<\/svg>/i);
+  if (m) t = m[0];
+  return t.replace(/&(?!(amp|lt|gt|quot|apos|#\d+);)/g, "&amp;");
+}
+let drawn = 0;
 export function cleanSvg(src) {
-  if (typeof src !== "string" || src.length > 12000) return null;
+  src = repairSvg(src);
+  if (!src || src.length > 16000) return null;
   const doc = new DOMParser().parseFromString(src, "image/svg+xml");
   const root = doc.documentElement;
   if (!root || root.nodeName !== "svg" || doc.querySelector("parsererror")) return null;
+  const pre = "d" + (++drawn) + "-";
   const walk = (el) => {
     for (const child of [...el.children]) {
       if (!OK_TAGS.has(child.nodeName)) { child.remove(); continue; }
       walk(child);
     }
     for (const a of [...el.attributes]) {
+      // a gradient may be used by name from inside the same drawing, nothing else
+      const ref = /^url\(#([\w-]+)\)$/.exec(a.value.trim());
+      if (ref && (a.name === "fill" || a.name === "stroke")) { el.setAttribute(a.name, `url(#${pre}${ref[1]})`); continue; }
+      if (a.name === "id" && /^[\w-]+$/.test(a.value)) { el.setAttribute("id", pre + a.value); continue; }
       const bad = !OK_ATTRS.has(a.name) || /url\(|javascript:|data:|<|&/i.test(a.value);
       if (bad) el.removeAttribute(a.name);
     }
   };
   walk(root);
   root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  if (!root.getAttribute("viewBox")) root.setAttribute("viewBox", "0 0 300 220");
+  if (!root.getAttribute("viewBox")) root.setAttribute("viewBox", "0 0 400 300");
   root.removeAttribute("width"); root.removeAttribute("height");
   return new XMLSerializer().serializeToString(root);
 }
