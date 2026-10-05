@@ -17,7 +17,6 @@ import { HomeFolders } from "./HomeFolders.jsx";
 import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
-import { getFx, setFx } from "./perf.js";
 import { useClean, setClean } from "./clean.js";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
@@ -2521,21 +2520,11 @@ function StudyPicker({ materials, made, pick }) {
 }
 
 // Home as folders, with the numbers it needs worked out here.
-function FxPicker() {
-  const [v, setV] = useState(getFx());
-  return (
-    <div className="hf-switch" role="radiogroup" aria-label="Effects">
-      {[["auto", "Automatic"], ["full", "Full"], ["lite", "Smoother"]].map(([id, l]) => (
-        <button key={id} role="radio" aria-checked={v === id} className={v === id ? "on" : ""} onClick={() => { setFx(id); setV(id); }}>{l}</button>
-      ))}
-    </div>
-  );
-}
 function CleanPicker() {
   const on = useClean();
   return (
-    <div className="hf-switch" role="radiogroup" aria-label="Clean mode">
-      {[[false, "Off"], [true, "On"]].map(([v, l]) => (
+    <div className="hf-switch" role="radiogroup" aria-label="Layout">
+      {[[false, "Classic"], [true, "New"]].map(([v, l]) => (
         <button key={l} role="radio" aria-checked={on === v} className={on === v ? "on" : ""} onClick={() => setClean(v)}>{l}</button>
       ))}
     </div>
@@ -3198,16 +3187,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
         <div className="card card-pad spread">
           <div>
-            <b>Effects</b>
-            <p className="small muted" style={{ margin: "2px 0 0" }}>If Dwiddle feels slow or laggy, choose Smoother: the moving scenery stops and nothing blurs. Automatic switches it on for slower devices.</p>
-          </div>
-          <FxPicker />
-        </div>
-
-        <div className="card card-pad spread">
-          <div>
-            <b>Clean mode</b>
-            <p className="small muted" style={{ margin: "2px 0 0" }}>A quieter layout: the scattered ducks go, text gets bigger and calmer, and opening a folder shows a course page with a Continue button and your topics in order.</p>
+            <b>Layout</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>Classic is the original look. New is lighter and quieter: no ducks scattered about, plain small icons, nothing blurring or drifting (so it runs smoothly on slower devices), and a folder opens to a course page with a Continue button and your topics in order.</p>
           </div>
           <CleanPicker />
         </div>

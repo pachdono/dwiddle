@@ -117,6 +117,11 @@ async function run(a, opts = {}) {
       }
       return { ok: true, text: "Drew a picture", art: { svg, caption: str(a.caption, 80) } };
     }
+    case "paint": {
+      const prompt = str(a.prompt, 400);
+      if (!prompt) return { ok: false, text: "Nothing to paint" };
+      return { ok: true, text: "Made a picture", art: { paint: prompt, query: str(a.query, 80) } };
+    }
     case "picture": {
       const query = str(a.query, 80);
       if (!query) return { ok: false, text: "No picture" };

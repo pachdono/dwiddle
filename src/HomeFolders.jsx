@@ -79,7 +79,6 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
       <div className="page wide fade cc">
         <button className="btn quiet small cc-back" onClick={() => setCourse(null)}>Back to folders</button>
         <div className="cc-head">
-          <Duck size={120} outfit="wizard" />
           <div className="cc-titles">
             <h1>{cf.title}</h1>
             <div className="cc-prog"><span><i style={{ width: `${pct}%` }} /></span><b>{pct}%</b></div>

@@ -9375,3 +9375,16 @@ html[data-clean="1"] .page h1, html[data-clean="1"] .hf-ask { letter-spacing: -.
 .cc-row b { overflow-wrap: anywhere; }
 .cc-list li.now .cc-row { background: var(--panel); border: 1px solid var(--line, rgba(128, 128, 128, .3)); padding: 20px 22px; }
 @media (max-width: 640px) { .cc-head { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- the new layout (Settings, Layout): plain, light, easy to scan ---------- */
+html[data-clean="1"] .nav-pic, html[data-clean="1"] .sr-ico svg { filter: grayscale(1) contrast(.9); opacity: .75; transform: scale(.78); transition: none; }
+html[data-clean="1"] .nav-item.on .nav-pic, html[data-clean="1"] .study-rail .on .nav-pic { opacity: 1; filter: none; }
+html[data-clean="1"] .hf-hero { justify-content: flex-start; margin-bottom: 18px; }
+html[data-clean="1"] .hf-ask { font-size: clamp(26px, 3.4vw, 38px); }
+html[data-clean="1"] .hf-hello { color: var(--ink-3); }
+html[data-clean="1"] .hf-act-ico { background: var(--panel) !important; color: var(--ink-2) !important; }
+html[data-clean="1"] .hf-actions button, html[data-clean="1"] .hf-folder { border-radius: 14px; }
+html[data-clean="1"] .hf-folder svg.hf-art { filter: grayscale(.85); opacity: .55; }
+html[data-clean="1"] .hf-timer, html[data-clean="1"] .hf-prompt { max-width: 760px; }
+html[data-clean="1"] .btn.cta { box-shadow: none; }
+html[data-clean="1"] .page { font-size: 1.04em; line-height: 1.6; }

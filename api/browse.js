@@ -259,6 +259,62 @@ async function frame(req, res) {
   }
 }
 
+// Pictures made from a description. Every free source is tried in turn, best
+// first, so one being busy or out of its daily allowance just moves on to the
+// next. Keys are optional: with none set, only the keyless one is used.
+const STYLE = "Clean flat educational illustration for a school student, simple shapes, bold clear colours, plain light background, few labels with large readable spelling, no watermark. Subject: ";
+const grab = async (url, init, ms = 25000) => {
+  const r = await fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r;
+};
+const PAINTERS = [
+  ["gemini", async (p) => {
+    const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!key) return null;
+    const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+    const r = await grab(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({ contents: [{ parts: [{ text: STYLE + p }] }], generationConfig: { responseModalities: ["IMAGE"] } }),
+    }, 40000);
+    const part = ((await r.json()).candidates?.[0]?.content?.parts || []).find((x) => x.inlineData?.data);
+    return part ? `data:${part.inlineData.mimeType || "image/png"};base64,${part.inlineData.data}` : null;
+  }],
+  ["cloudflare", async (p) => {
+    const id = process.env.CF_ACCOUNT_ID, token = process.env.CF_API_TOKEN;
+    if (!id || !token) return null;
+    const r = await grab(`https://api.cloudflare.com/client/v4/accounts/${id}/ai/run/@cf/black-forest-labs/flux-1-schnell`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ prompt: STYLE + p, steps: 6 }),
+    });
+    const b64 = (await r.json()).result?.image;
+    return b64 ? `data:image/jpeg;base64,${b64}` : null;
+  }],
+  ["huggingface", async (p) => {
+    const token = process.env.HF_TOKEN;
+    if (!token) return null;
+    const r = await grab("https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "image/png" },
+      body: JSON.stringify({ inputs: STYLE + p }),
+    }, 40000);
+    const type = r.headers.get("content-type") || "";
+    return /^image\//.test(type) ? `data:${type.split(";")[0]};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}` : null;
+  }],
+  ["pollinations", async (p) => {
+    const r = await grab(`https://image.pollinations.ai/prompt/${encodeURIComponent(STYLE + p)}?width=768&height=576&nologo=true&model=flux&seed=${Math.floor(Math.random() * 1e6)}`, {}, 45000);
+    const type = r.headers.get("content-type") || "";
+    if (!/^image\/(png|jpe?g|webp)/.test(type)) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return buf.length > MAX_IMAGE ? null : `data:${type.split(";")[0]};base64,${buf.toString("base64")}`;
+  }],
+];
+async function paint(prompt) {
+  for (const [name, run] of PAINTERS) {
+    try { const data = await run(prompt); if (data) return { data, by: name }; } catch { /* next one */ }
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method === "GET" && req.query?.view) return frame(req, res);
   if (!allow(req, res, { limit: 40 })) return;
@@ -280,6 +336,13 @@ export default async function handler(req, res) {
       if (!/text\/html|application\/xhtml/i.test(type)) return userError(res, 415, "That is not a web page. Open it in your own browser instead.");
       const page = reader(buf.toString("utf8"), final);
       return res.status(200).json({ url: final.href, framable: framable(r, final) && r.ok, ...page });
+    }
+    if (action === "paint") {
+      const prompt = String(q || "").trim().slice(0, 400);
+      if (!prompt) return userError(res, 400, "Say what to draw.");
+      const made = await paint(prompt);
+      if (!made) return userError(res, 502, "No picture could be made just now.");
+      return res.status(200).json(made);
     }
     if (action === "image") {
       const { res: r, buf } = await get(url, { accept: "image/*", limit: MAX_IMAGE });

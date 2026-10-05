@@ -21,6 +21,7 @@ import { Icon, Portal } from "./ui.jsx";
 import { agentTurn } from "./agent.js";
 import { Sketch } from "./Sketch.jsx";
 import { findPicture } from "./wikiPic.js";
+import { browse } from "./ai.js";
 
 /* ---------- reaching the panel from anywhere ---------- */
 
@@ -428,13 +429,32 @@ function Did({ did, onShow }) {
         <div key={i} className={"dc-art" + (d.art.svg ? " svg" : "")}>
           {d.art.sketch && <Sketch spec={d.art.sketch} />}
           {d.art.svg && <><div dangerouslySetInnerHTML={{ __html: d.art.svg }} />{d.art.caption && <p className="small muted">{d.art.caption}</p>}</>}
-          {d.art.query && <ChatPicture query={d.art.query} />}
+          {d.art.paint ? <ChatPaint prompt={d.art.paint} query={d.art.query} /> : d.art.query && <ChatPicture query={d.art.query} />}
         </div>
       ))}
       <div className="dc-did">{did.map((d, i) => d.where
         ? <button key={i} className="dc-chip-go" onClick={() => { window.dispatchEvent(new CustomEvent("dwiddle:show", { detail: d.where })); onShow?.(); }}>Done: {d.text}. <u>View in notes</u></button>
         : <span key={i} className={d.ok ? "" : "no"}>{d.ok ? "Done: " : "Could not: "}{d.text}</span>)}</div>
     </>
+  );
+}
+
+// A picture made from a description. If every image maker is busy, the real
+// picture of the thing is shown instead, so there is always something.
+function ChatPaint({ prompt, query }) {
+  const [img, setImg] = useState(undefined);
+  useEffect(() => {
+    let live = true;
+    browse("paint", { q: prompt }).then((r) => { if (live) setImg(r?.data || null); }).catch(() => { if (live) setImg(null); });
+    return () => { live = false; };
+  }, [prompt]);
+  if (img === undefined) return <p className="small muted">Drawing it...</p>;
+  if (!img) return query ? <ChatPicture query={query} /> : <p className="small muted">I could not make that picture just now. Try again in a minute.</p>;
+  return (
+    <figure className="nt-pic">
+      <img src={img} alt={prompt} />
+      <figcaption>Made by Dwiddle. AI pictures can have mistakes, so check any labels.</figcaption>
+    </figure>
   );
 }
 
