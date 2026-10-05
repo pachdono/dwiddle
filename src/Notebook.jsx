@@ -7,6 +7,7 @@
 // from the pen's pressure the way a real nib spreads, and a pen being used
 // switches touch to scrolling, so a resting palm does not draw.
 
+import { isScribble } from "./scribble.js";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getStroke } from "perfect-freehand";
 import { FONTS } from "./nbFonts.js";
@@ -1342,29 +1343,6 @@ function recognise(points) {
     }
   }
   return [...ring, ring[0]];
-}
-
-// A quick zigzag back and forth over something: scribbled out, as in Notes+.
-function isScribble(points, zoom) {
-  if (points.length < 12) return false;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, len = 0;
-  for (let i = 0; i < points.length; i++) {
-    const [x, y] = points[i];
-    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-    if (i) len += Math.hypot(x - points[i - 1][0], y - points[i - 1][1]);
-  }
-  const w = x1 - x0, h = y1 - y0, diag = Math.hypot(w, h);
-  if (diag * zoom < 24 || len < diag * 4.5) return false;
-  const horiz = w >= h, k = horiz ? 0 : 1, step = Math.max(w, h) * 0.15;
-  let dir = 0, from = points[0][k], turns = 0;
-  for (const p of points) {
-    const d = p[k] - from;
-    if (Math.abs(d) < step) continue;
-    const s = Math.sign(d);
-    if (dir && s !== dir) turns += 1;
-    dir = s; from = p[k];
-  }
-  return turns >= 5;
 }
 
 function eraseItems(items, x, y, r, whole, only) {
