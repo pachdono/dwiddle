@@ -4,7 +4,7 @@ import Decks from "./Decks.jsx";
 import Explore from "./Explore.jsx";
 import { StudyTimerCard } from "./StudyTimer.jsx";
 import { Duck } from "./Duck.jsx";
-import { HeroDuck, DuckScatter } from "./HeroDuck.jsx";
+import { HeroDuck } from "./HeroDuck.jsx";
 import { useClean } from "./clean.js";
 
 // Home for testers and above: one calm page. Each thing you have added is a
@@ -112,8 +112,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
 
   return (
     <div className="page wide fade hf">
-      {home && !clean && <DuckScatter />}
-      {home ? (
+            {home ? (
         <div className="hf-hero">
           <HeroDuck size={230} className="hf-duck" />
           <div className="hf-words">

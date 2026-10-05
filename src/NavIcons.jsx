@@ -2,12 +2,18 @@
 // outlines, so each place looks like somewhere. Each is drawn in a 40 unit
 // square with its own gradients.
 
+import { useClean } from "./clean.js";
+
 let n = 0;
+
+
 const grad = (id, a, b) => (
   <linearGradient id={id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>
 );
 
 export function NavIcon({ id, size = 34 }) {
+  const clean = useClean();
+  if (clean) return null; // the New layout has no icons, only words
   const k = `ni${(n = (n + 1) % 10000)}`;
   const f = (s) => `url(#${k}${s})`;
   const body = {
@@ -99,6 +105,8 @@ export function NavIcon({ id, size = 34 }) {
 }
 
 export function Flame({ size = 26, lit = true }) {
+  const clean = useClean();
+  if (clean) return null;
   const k = `fl${(n = (n + 1) % 10000)}`;
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
