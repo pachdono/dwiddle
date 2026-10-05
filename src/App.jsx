@@ -1108,9 +1108,8 @@ export default function App() {
 
       {studyMode && (
         <nav className="study-rail" aria-label="This folder">
-          <button className="sr-item sr-back" onClick={() => { setFocus(null); go("library"); }} title="Back to your library">
-            <span className="sr-ico"><span className="hf-back-ico"><Icon name="arrow" size={18} /></span></span>
-            <span className="sr-label">Library</span>
+          <button className="sr-item sr-back sr-menu" onClick={() => setMenuOpen(true)} title="Menu: back to Library, Home and the rest" aria-label="Open menu">
+            <span className="sr-ico"><Icon name="menu" size={22} />{social.badge > 0 && <i className="badge dot" aria-hidden="true" />}</span>
           </button>
           {[["sheet", "Notes", "notes"], ["learn", "Learn", "learn"], ["quiz", "Practice", "practice"], ["topics", "Topics", "topics"], ["videos", "Videos", "videos"]].map(([id, label, pic]) => (
             <button key={id} className={"sr-item" + (page === id ? " on" : "")} onClick={() => go(id)} aria-current={page === id ? "page" : undefined}>

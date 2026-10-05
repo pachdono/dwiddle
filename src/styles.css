@@ -9290,3 +9290,5 @@ select { max-width: 100%; text-overflow: ellipsis; }
 /* the top bar's tabs are for small screens only now that the rail is there */
 @media (min-width: 861px) { .study-mode .topbar .tabs, .study-mode .topbar .hf-back { display: none; } }
 @media (max-width: 860px) { .study-rail { display: none; } }
+.sr-menu { padding: 10px 4px; }
+@media (min-width: 861px) { .study-mode .topbar .menu-btn { display: none !important; } }
