@@ -25,7 +25,7 @@ const STEPS = [
 // a folder has far more than notes in it, which people were missing.
 export const FOLDER_STEPS = [
   STEPS[0],
-  { where: ["folders", "more"], title: "Your folders", text: "Everything you add becomes a folder. Open one, then press the menu button at the top left: Notes, Learn, Practice, Topics and Videos are all in there, not just notes.", tap: "Tap Library" },
+  { where: ["folders", "more"], title: "Your folders", text: "Everything you add becomes a folder. Open one and use the tabs along the top: Notes, Learn, Practice, Topics and Videos are all in there, not just notes.", tap: "Tap Library" },
   { where: ["chat"], title: "Chat with Dwiddle", text: "Ask anything, or send a question you are stuck on, even a photo of it. Dwiddle can quiz you or make a video too.", tap: "Tap Chat" },
   { where: ["social"], title: "Friends", text: "Add friends by username, message them and see who is ahead. Inside a folder it opens over the page, so you can chat and study together.", tap: "Tap Friends" },
   { where: ["duel"], title: "Duel and Leaderboard", text: "Race a friend on the same questions, and see the top 10 and your own rank, up here.", tap: "Tap Duel" },

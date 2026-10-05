@@ -17,6 +17,7 @@ import { HomeFolders } from "./HomeFolders.jsx";
 import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
+import { getFx, setFx } from "./perf.js";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -895,6 +896,8 @@ export default function App() {
   // top left is pressed, so the page itself gets the room.
   const studyMode = preview && !mustPick && !!focus && (group?.id === "study" || (page === "notebook" && inFolder));
   useEffect(() => { if (!studyMode) setFriendsOpen(false); }, [studyMode]);
+  // the study tabs sit in the top bar, so Notes, Learn, Practice, Topics and Videos are always in sight
+  const tabGroup = studyMode ? GROUPS.find((g) => g.id === "study") : group;
   // Friends and the Dwiddle chat share one corner: opening one replaces the other.
   useEffect(() => {
     const onAsk = () => setFriendsOpen(false);
@@ -1108,8 +1111,8 @@ export default function App() {
         {studyMode && page !== "notebook" && !tipGone && (
           <div className="notice topic-tip">
             <span className="notice-dot" />
-            <span className="notice-text"><b>There is more here than notes.</b> Press the menu button at the top left for Learn, Practice, Topics and Videos.</span>
-            <button className="btn" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} setMenuOpen(true); }}>Show me</button>
+            <span className="notice-text"><b>There is more here than notes.</b> Use the tabs at the top to switch between Notes, Learn, Practice, Topics and Videos.</span>
+            <button className="btn" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} }}>Got it</button>
             <button className="icon-btn" aria-label="Dismiss" onClick={() => { setTipGone(true); try { localStorage.setItem("dwiddle-topic-tip", "1"); } catch {} }}>
               <Icon name="close" size={14} />
             </button>
@@ -1140,11 +1143,11 @@ export default function App() {
               <span className="hf-back-ico"><Icon name="arrow" size={13} /></span> Library
             </button>
           )}
-          {group?.tabs && !studyMode ? (
-            <nav className="tabs" aria-label={group.label}>
-              {group.pages.filter((id) => group.tabs[id] && (id !== "videos" || early)).map((id) => (
+          {tabGroup?.tabs ? (
+            <nav className="tabs" aria-label={tabGroup.label}>
+              {tabGroup.pages.filter((id) => tabGroup.tabs[id] && (id !== "videos" || early)).map((id) => (
                 <button key={id} className={page === id ? "on" : ""} onClick={() => go(id)}>
-                  {group.tabs[id]}
+                  {tabGroup.tabs[id]}
                 </button>
               ))}
             </nav>
@@ -2493,6 +2496,16 @@ function StudyPicker({ materials, made, pick }) {
 }
 
 // Home as folders, with the numbers it needs worked out here.
+function FxPicker() {
+  const [v, setV] = useState(getFx());
+  return (
+    <div className="hf-switch" role="radiogroup" aria-label="Effects">
+      {[["auto", "Automatic"], ["full", "Full"], ["lite", "Smoother"]].map(([id, l]) => (
+        <button key={id} role="radio" aria-checked={v === id} className={v === id ? "on" : ""} onClick={() => { setFx(id); setV(id); }}>{l}</button>
+      ))}
+    </div>
+  );
+}
 function FoldersBridge(props) { return <HomeBridge {...props} home={false} />; }
 function ExploreBridge(props) { return <HomeBridge {...props} home={false} startView="explore" />; }
 function HomeBridge({ home = true, ...props }) {
@@ -2762,12 +2775,17 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   // the style of the ones it has, and they are kept for next time.
   const short = !ordered && !!setMade && pool.length > 0 && len > pool.length;
   const [more, setMore] = useState(short ? null : []);
+  const [note, setNote] = useState(""); // said when fewer new questions came back than asked for
   useEffect(() => {
     if (!short) return;
     let live = true;
-    moreQuestions(made, [...new Set(pool.map((x) => x.topic))], len - pool.length).then((qs) => {
+    const need = len - pool.length;
+    moreQuestions(made, [...new Set(pool.map((x) => x.topic))], need).then((qs) => {
       if (qs.length) setMade({ title: made?.title, topics: [], questions: qs }, { material: "none" });
-      if (live) setMore(qs.map(phraseQuestion));
+      if (live) {
+        setMore(qs.map(phraseQuestion));
+        if (qs.length < need) setNote(qs.length ? `Dwiddle could only write ${qs.length} of the ${need} new questions this time, so some come round again.` : "Dwiddle could not write new questions just now, so this quiz repeats yours. Try again in a minute for fresh ones.");
+      }
     });
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2777,7 +2795,10 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   if (!QUIZ && more) {
     const build = () => {
       if (ordered) return pool.slice(0, len);
-      const main = [...shuffle(pool), ...shuffle(more)].slice(0, len);
+      let main = [...shuffle(pool), ...shuffle(more)];
+      // Not enough even then: the ones there are come round again, rather than a ten question quiz stopping at three.
+      while (main.length < len && main.length) main = [...main, ...shuffle(pool)];
+      main = main.slice(0, len);
       const extra = shuffle(drillPool);
       return main.map((q, n) => (n % 3 === 2 && extra.length ? extra.pop() : q));
     };
@@ -3133,6 +3154,14 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
             <p className="small muted" style={{ margin: "2px 0 0" }}>A look round the app: where to add material, study, your library, chat and themes.</p>
           </div>
           <button className="btn ghost" onClick={() => { resetTour(); go("home"); setTimeout(() => dispatchEvent(new Event("dwiddle:tour")), 300); }}>Show the tour</button>
+        </div>
+
+        <div className="card card-pad spread">
+          <div>
+            <b>Effects</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>If Dwiddle feels slow or laggy, choose Smoother: the moving scenery stops and nothing blurs. Automatic switches it on for slower devices.</p>
+          </div>
+          <FxPicker />
         </div>
 
         <div className="card">

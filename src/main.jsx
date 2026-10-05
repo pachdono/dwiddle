@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import { ContextMenu } from "./ContextMenu.jsx";
 import "./styles.css";
+import { applyFx, watchFrames } from "./perf.js";
+
+applyFx();
+watchFrames();
 
 // After a new deploy, a page that was already open still asks for the old
 // file names, which no longer exist. Load the new version once instead of

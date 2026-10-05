@@ -105,7 +105,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
         </div>
         {view === "folders" && next && !picking && (
           <button className="btn cta small hf-resume" onClick={carryOn} title={`${next.topic}, in ${next.folder.title}`}>
-            Continue: {next.topic.length > 28 ? next.topic.slice(0, 27) + "…" : next.topic}{due > 0 ? ` · ${due} to review` : ""}
+            Continue: {next.topic}{due > 0 ? ` · ${due} to review` : ""}
           </button>
         )}
         {view === "folders" && folders.length > 2 && (
@@ -139,7 +139,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
                         if (e.key === "Escape") setRenaming(null);
                       }}
                       onBlur={() => { renameItem?.(f.id, renaming.value); setRenaming(null); }} />
-                  ) : <b className="hf-title">{f.title}</b>}
+                  ) : <b className={"hf-title" + (f.title.length > 70 ? " xs" : f.title.length > 38 ? " sm" : "")}>{f.title}</b>}
                   <span className="hf-meta">{f.topics.length} topic{f.topics.length === 1 ? "" : "s"} · {f.questions} question{f.questions === 1 ? "" : "s"}</span>
                   <span className="hf-prog" aria-label={`${f.done} of ${f.topics.length} lessons done`}>
                     <i style={{ width: `${f.topics.length ? (f.done / f.topics.length) * 100 : 0}%` }} />

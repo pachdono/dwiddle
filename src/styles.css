@@ -9245,3 +9245,32 @@ body.has-backdrop main .page {
 .sc-compact .sc-pick { width: auto; border-radius: 999px; margin: 6px 0 6px 8px; padding: 6px 12px 6px 8px; }
 .cm-send textarea { min-height: 44px; height: 44px; line-height: 1.4; resize: none; }
 .mt-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; padding: 1px 6px; border-radius: 6px; background: var(--sunken); }
+
+/* ---------- smoothness ---------- */
+/* The cards on a long page are nearly solid, so blurring behind each one cost a
+   lot and showed almost nothing. */
+.notes { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.notes.glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+/* Lite: the scenery stands still and nothing blurs. Chosen automatically on slow
+   machines, or in Settings. */
+html[data-fx="lite"] .theme-backdrop, html[data-fx="lite"] .theme-backdrop *, html[data-fx="lite"] .home-scene *, html[data-fx="lite"] .side-scene * { animation: none !important; }
+html[data-fx="lite"] .tb-grain { display: none; }
+html[data-fx="lite"] * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-fx="lite"] .notes.glass { background: var(--surface); }
+html[data-fx="lite"] .hd-bob, html[data-fx="lite"] .hd-wing, html[data-fx="lite"] .hd-hat, html[data-fx="lite"] .hd-shadow { animation: none; }
+html[data-fx="lite"] .hf-words, html[data-fx="lite"] .msg-toast { background: var(--surface); }
+
+/* long names: nothing is cut off, and the box grows to fit the words */
+.topbar .crumb { min-width: 0; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+.topbar .tabs { flex: 0 0 auto; }
+.btn { white-space: normal; }
+.hf-resume { max-width: min(560px, 100%); height: auto; text-align: left; overflow: visible; text-overflow: clip; white-space: normal; padding-top: 8px; padding-bottom: 8px; }
+.hf-open { aspect-ratio: auto; min-height: 150px; display: flex; flex-direction: column; justify-content: flex-end; padding: 72px 16px 14px; }
+.hf-fbody { position: relative; z-index: 1; inset: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.hf-title { display: block; -webkit-line-clamp: unset; overflow: visible; overflow-wrap: anywhere; }
+.hf-title.sm { font-size: 14px; }
+.hf-title.xs { font-size: 13px; line-height: 1.25; }
+.hf-new { aspect-ratio: auto; min-height: 150px; }
+.tab-label, .nav-item { overflow-wrap: anywhere; }
+.pill, .chip, .nt-chip, .nt-pill { white-space: normal; height: auto; }
+select { max-width: 100%; text-overflow: ellipsis; }
