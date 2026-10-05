@@ -9343,12 +9343,6 @@ select { max-width: 100%; text-overflow: ellipsis; }
 html[data-fx="lite"] .dscat { display: none; }
 html[data-fx="lite"] .hf-folder, html[data-fx="lite"] .hf-actions button, html[data-fx="lite"] .hf-new, html[data-fx="lite"] .xp-card, html[data-fx="lite"] .hf-duck { animation: none; }
 
-/* ---------- clean mode ---------- */
-html[data-clean="1"] .dscat { display: none; }
-html[data-clean="1"] .hf-hero { padding-top: 8px; }
-html[data-clean="1"] .hf-duck { display: none; }
-html[data-clean="1"] .card, html[data-clean="1"] .hf-folder { box-shadow: none; }
-html[data-clean="1"] .page h1, html[data-clean="1"] .hf-ask { letter-spacing: -.02em; }
 .cc { max-width: 1100px; }
 .cc-back { margin-bottom: 14px; }
 .cc-head { display: flex; align-items: center; gap: 28px; margin: 6px 0 26px; }
@@ -9376,46 +9370,27 @@ html[data-clean="1"] .page h1, html[data-clean="1"] .hf-ask { letter-spacing: -.
 .cc-list li.now .cc-row { background: var(--panel); border: 1px solid var(--line, rgba(128, 128, 128, .3)); padding: 20px 22px; }
 @media (max-width: 640px) { .cc-head { flex-direction: column; align-items: flex-start; } }
 
-/* ---------- the New layout (Settings, Layout): words only, flat, and smooth ---------- */
-html[data-clean="1"] .hf-hero { justify-content: flex-start; margin-bottom: 18px; }
-html[data-clean="1"] .hf-ask { font-size: clamp(26px, 3.4vw, 38px); }
-html[data-clean="1"] .hf-hello { color: var(--ink-3); }
-html[data-clean="1"] .hf-act-ico, html[data-clean="1"] .hf-new-plus, html[data-clean="1"] .hf-folder svg.hf-art, html[data-clean="1"] .nav-pic { display: none; }
-html[data-clean="1"] .hf-actions button { padding-top: 26px; padding-bottom: 26px; }
-html[data-clean="1"] .hf-actions button, html[data-clean="1"] .hf-folder, html[data-clean="1"] .hf-new { border-radius: 14px; }
-html[data-clean="1"] .hf > *, html[data-clean="1"] .hf-timer, html[data-clean="1"] .hf-prompt { max-width: 900px; margin-left: auto; margin-right: auto; }
-html[data-clean="1"] .hf-hero { padding-left: 0; }
-html[data-clean="1"] .hf-hello, html[data-clean="1"] .hf-ask { text-align: left; }
-html[data-clean="1"] .st-card-icon { display: none; }
-html[data-clean="1"] .nav-item .nav-plus, html[data-clean="1"] .new-material svg { display: none; }
-html[data-clean="1"] .btn.cta { box-shadow: none; }
-html[data-clean="1"] .page { font-size: 1.04em; line-height: 1.6; }
-html[data-clean="1"] .hf-fbody { padding: 18px; }
+/* ---------- the New layout (Settings, Layout) ----------
+   The same app and the same look, with three differences: small outline icons
+   instead of the coloured pictures, no duck mascot on the pages, and smoother
+   movement. */
+html[data-clean="1"] .dscat, html[data-clean="1"] .hf-duck, html[data-clean="1"] .st-card-icon,
+html[data-clean="1"] .dt, html[data-clean="1"] .pc-duck, html[data-clean="1"] .welcome-duck,
+html[data-clean="1"] .page svg[viewBox^="0 -14 120"], html[data-clean="1"] .page svg[viewBox="0 0 120 140"],
+html[data-clean="1"] .quiz-more svg { display: none; }
+html[data-clean="1"] .hf-hero { justify-content: flex-start; }
+html[data-clean="1"] .nav-line { display: block; }
+html[data-clean="1"] .nav-item .nav-line { flex: none; opacity: .85; }
+html[data-clean="1"] .sr-ico { height: 28px; color: var(--ink-3); }
+html[data-clean="1"] .study-rail .on .sr-ico, html[data-clean="1"] .study-rail .sr-item:hover .sr-ico { color: var(--accent); }
+html[data-clean="1"] .sr-label { font-size: 12.5px; font-weight: 500; }
 /* smooth: everything eases, pages glide in, presses sink a little */
-html[data-clean="1"] .nav-item, html[data-clean="1"] .btn, html[data-clean="1"] .card, html[data-clean="1"] .hf-folder, html[data-clean="1"] .hf-actions button, html[data-clean="1"] .choice, html[data-clean="1"] .pill, html[data-clean="1"] input, html[data-clean="1"] select, html[data-clean="1"] textarea { transition: background-color .25s ease, color .25s ease, border-color .25s ease, transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s ease, opacity .25s ease; }
+html[data-clean="1"] .nav-item, html[data-clean="1"] .btn, html[data-clean="1"] .card, html[data-clean="1"] .hf-folder, html[data-clean="1"] .hf-actions button, html[data-clean="1"] .choice, html[data-clean="1"] .pill, html[data-clean="1"] input, html[data-clean="1"] select, html[data-clean="1"] textarea, html[data-clean="1"] .sr-item { transition: background-color .25s ease, color .25s ease, border-color .25s ease, transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s ease, opacity .25s ease; }
 html[data-clean="1"] .page.fade { animation: smooth-in .45s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes smooth-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 html[data-clean="1"] .btn:active, html[data-clean="1"] .hf-folder:active, html[data-clean="1"] .choice:active { transform: scale(.98); }
-html[data-clean="1"] .nav-item:hover { transform: translateX(3px); }
+html[data-clean="1"] .nav-item:hover, html[data-clean="1"] .sr-item:hover { transform: translateX(2px); }
 html[data-clean="1"] .hf-folder:hover, html[data-clean="1"] .hf-actions button:hover { transform: translateY(-3px); }
 html[data-clean="1"] .cc-list li { animation: smooth-in .5s both; }
 html[data-clean="1"] .cc-list li:nth-child(2) { animation-delay: .05s; } html[data-clean="1"] .cc-list li:nth-child(3) { animation-delay: .1s; } html[data-clean="1"] .cc-list li:nth-child(n + 4) { animation-delay: .15s; }
 @media (prefers-reduced-motion: reduce) { html[data-clean="1"] * { animation: none !important; transition: none !important; } }
-/* New layout: a folder is a plain card, so its words take the page's own colours */
-html[data-clean="1"] .hf-open { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-height: 130px; padding: 20px; justify-content: flex-end; }
-html[data-clean="1"] .hf-open:hover { border-color: var(--accent); }
-html[data-clean="1"] .hf-fbody { position: static; color: var(--ink); width: 100%; gap: 6px; }
-html[data-clean="1"] .hf-title { font-size: 17px; font-weight: 600; color: var(--ink); -webkit-line-clamp: 3; }
-html[data-clean="1"] .hf-meta { color: var(--ink-3); opacity: 1; font-size: 13px; }
-html[data-clean="1"] .hf-prog { background: var(--line-soft, rgba(128, 128, 128, .25)); margin-top: 8px; }
-html[data-clean="1"] .hf-prog i { background: var(--accent); opacity: 1; }
-html[data-clean="1"] .hf-folder.on .hf-open::after { display: none; }
-html[data-clean="1"] .hf-folder.on .hf-open { border-color: var(--accent); }
-html[data-clean="1"] .hf-new { background: transparent; }
-/* the sidebar, quieter: smaller, lighter words */
-html[data-clean="1"] .nav-item { font-size: 14.5px; font-weight: 500; padding: 9px 14px; border-radius: 10px; color: var(--ink-2); }
-html[data-clean="1"] .nav-item.on { font-weight: 600; }
-html[data-clean="1"] .nav-item .nav-new, html[data-clean="1"] .new-material { font-weight: 600; }
-html[data-clean="1"] .sr-ico { height: 28px; color: var(--ink-3); }
-html[data-clean="1"] .study-rail .on .sr-ico, html[data-clean="1"] .study-rail .sr-item:hover .sr-ico { color: var(--accent); }
-html[data-clean="1"] .sr-label { font-size: 12.5px; font-weight: 500; }

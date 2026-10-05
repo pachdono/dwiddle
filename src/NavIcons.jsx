@@ -10,6 +10,11 @@ let n = 0;
 // text colour, with a word under each, as a tool bar does. Everywhere else it
 // is words only.
 const LINE = {
+  home: "M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z",
+  exams: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
+  duel: "M13 3 5 13h6l-1 8 8-10h-6z",
+  explore: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z",
+  trophy: "M8 4h8v6a4 4 0 0 1-8 0zM8 6H4c0 3 1.5 4.5 4 5M16 6h4c0 3-1.500 4.500-4 5M12 14v4M8 20h8",
   chat: "M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 10h8M8 13h5",
   folders: "M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z",
   notebook: "M6 4h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6zM9 4v16M12 9h4M12 13h4",
@@ -31,7 +36,7 @@ const grad = (id, a, b) => (
 
 export function NavIcon({ id, size = 34, rail = false }) {
   const clean = useClean();
-  if (clean) return rail ? line(id, 24) || null : null;
+  if (clean && LINE[id] && !["trophy", "duel"].includes(id)) return line(id, rail ? 24 : Math.round(size * 0.62));
   const k = `ni${(n = (n + 1) % 10000)}`;
   const f = (s) => `url(#${k}${s})`;
   const body = {
@@ -123,8 +128,6 @@ export function NavIcon({ id, size = 34, rail = false }) {
 }
 
 export function Flame({ size = 26, lit = true }) {
-  const clean = useClean();
-  if (clean) return null;
   const k = `fl${(n = (n + 1) % 10000)}`;
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
