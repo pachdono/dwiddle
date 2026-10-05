@@ -324,8 +324,11 @@ export default function App() {
   // The dashboard editor is retired in favour of themes. What someone set up
   // with it is left in storage but no longer applied.
   const [custom, setCustomRaw] = useState(() => ({ ...loadCustom(), on: false }));
-  const [look, setLookRaw] = useState(() => loadLook());
+  const [pickedLook, setLookRaw] = useState(() => loadLook());
   const [resolved, setResolved] = useState("light");
+  const newLayout = useClean();
+  // the New layout has its own single look, so no theme scenery shows in it
+  const look = newLayout ? "classic" : pickedLook;
   function setLook(id) {
     setLookRaw(id);
     saveLook(id);
@@ -856,7 +859,7 @@ export default function App() {
     if (theme !== "system") return;
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
-  }, [theme, look]);
+  }, [theme, look, newLayout]);
 
   const Page = {
     home: preview ? HomeBridge : Dashboard,
@@ -3154,6 +3157,7 @@ function VoiceCard() {
 }
 
 function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
+  const calm = useClean();
 
   const [name, setNameRaw] = useState(() => auth?.user ? displayName(auth.user) : load(KEYS.name, ""));
   function setName(v) {
@@ -3195,7 +3199,8 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
 
         <div className="card">
           <div className="card-head"><h3>Appearance</h3></div>
-          <div className="th-grid" data-tour="themes" role="radiogroup" aria-label="Theme">
+          {calm && <p className="small muted" style={{ margin: "0 20px 6px" }}>The New layout has one calm look, cream by day and soft charcoal at night. Choose Classic layout above to pick a theme.</p>}
+          <div className="th-grid" data-tour="themes" role="radiogroup" aria-label="Theme" hidden={calm}>
             {THEMES.map((t) => {
               const m = t[resolved] || t.light;
               const [top, bottom] = m?.grad || t.preview[resolved];
@@ -3220,7 +3225,7 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
               );
             })}
           </div>
-          <SetRow label="Mode" hint="Every theme has a light and a dark version. System follows your device.">
+          <SetRow label="Mode" hint={calm ? "Light is cream, Dark is soft charcoal. System follows your device." : "Every theme has a light and a dark version. System follows your device."}>
             <div className="seg">
               <button className={theme === "system" ? "on" : ""} onClick={() => setTheme("system")}>
                 System

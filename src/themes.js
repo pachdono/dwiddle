@@ -70,6 +70,14 @@ export const THEMES = [
   },
 ];
 
+// The New layout's only look: warm cream by day, soft charcoal at night, with
+// one calm purple. It is not in the list; the layout switches to it.
+export const CALM = {
+  id: "calm", name: "Calm", radius: "14px",
+  light: { grad: ["#F7F2E8", "#F0E9DB"], card: "#FCFAF5", ink: "#2A2722", accent: "#6A4FE0" },
+  dark: { grad: ["#1A1A1B", "#161617"], card: "#202022", ink: "#ECE9E2", accent: "#A38BF5" },
+};
+
 export const themeOf = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
 export const loadLook = () => load(LOOK_KEY, "classic");
 export const saveLook = (id) => save(LOOK_KEY, id);
@@ -80,8 +88,10 @@ const SET = [...Object.keys(scheme("#ffffff", "#000000", "#000000")),
 export function applyLook(id, resolved) {
   const root = document.documentElement;
   SET.forEach((v) => root.style.removeProperty(v));
-  root.dataset.look = id || "classic";
-  const t = themeOf(id);
+  // the New layout has no scenery: its own look is the only one
+  root.dataset.look = root.dataset.clean === "1" ? "calm" : id || "classic";
+  const calm = root.dataset.clean === "1";
+  const t = calm ? CALM : themeOf(id);
   const m = t[resolved === "dark" ? "dark" : "light"];
   if (!m) return;
 
