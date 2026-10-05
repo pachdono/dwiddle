@@ -9274,3 +9274,19 @@ html[data-fx="lite"] .hf-words, html[data-fx="lite"] .msg-toast { background: va
 .tab-label, .nav-item { overflow-wrap: anywhere; }
 .pill, .chip, .nt-chip, .nt-pill { white-space: normal; height: auto; }
 select { max-width: 100%; text-overflow: ellipsis; }
+
+/* inside a folder: a slim rail down the left with the study pages, always in view */
+.study-rail { flex: 0 0 98px; width: 98px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 14px 8px; border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; scrollbar-width: none; }
+.study-rail::-webkit-scrollbar { display: none; }
+.sr-item { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px 7px; border: 0; border-radius: 14px; background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; transition: background .12s, transform .12s; }
+.sr-item:hover { background: var(--hover); }
+.sr-item:hover .nav-pic { transform: scale(1.08) rotate(-3deg); }
+.sr-item.on { background: var(--accent-soft); color: var(--accent); }
+.sr-ico { position: relative; display: grid; place-items: center; height: 34px; }
+.sr-ico .nav-pic { transition: transform .15s; filter: drop-shadow(0 2px 2px rgba(0,0,0,.14)); }
+.sr-label { font-size: 12px; font-weight: 700; line-height: 1.1; text-align: center; overflow-wrap: normal; word-break: keep-all; max-width: 100%; }
+.sr-back { color: var(--ink-3); margin-bottom: 4px; }
+.sr-sep { height: 1px; background: var(--line); margin: 8px 10px; flex: none; }
+/* the top bar's tabs are for small screens only now that the rail is there */
+@media (min-width: 861px) { .study-mode .topbar .tabs, .study-mode .topbar .hf-back { display: none; } }
+@media (max-width: 860px) { .study-rail { display: none; } }
