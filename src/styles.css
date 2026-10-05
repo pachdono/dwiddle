@@ -9380,7 +9380,7 @@ html[data-clean="1"] .page h1, html[data-clean="1"] .hf-ask { letter-spacing: -.
 html[data-clean="1"] .hf-hero { justify-content: flex-start; margin-bottom: 18px; }
 html[data-clean="1"] .hf-ask { font-size: clamp(26px, 3.4vw, 38px); }
 html[data-clean="1"] .hf-hello { color: var(--ink-3); }
-html[data-clean="1"] .hf-act-ico, html[data-clean="1"] .hf-new-plus, html[data-clean="1"] .hf-folder svg.hf-art, html[data-clean="1"] .sr-ico, html[data-clean="1"] .nav-pic { display: none; }
+html[data-clean="1"] .hf-act-ico, html[data-clean="1"] .hf-new-plus, html[data-clean="1"] .hf-folder svg.hf-art, html[data-clean="1"] .nav-pic { display: none; }
 html[data-clean="1"] .hf-actions button { padding-top: 26px; padding-bottom: 26px; }
 html[data-clean="1"] .hf-actions button, html[data-clean="1"] .hf-folder, html[data-clean="1"] .hf-new { border-radius: 14px; }
 html[data-clean="1"] .hf > *, html[data-clean="1"] .hf-timer, html[data-clean="1"] .hf-prompt { max-width: 900px; margin-left: auto; margin-right: auto; }
@@ -9401,3 +9401,21 @@ html[data-clean="1"] .hf-folder:hover, html[data-clean="1"] .hf-actions button:h
 html[data-clean="1"] .cc-list li { animation: smooth-in .5s both; }
 html[data-clean="1"] .cc-list li:nth-child(2) { animation-delay: .05s; } html[data-clean="1"] .cc-list li:nth-child(3) { animation-delay: .1s; } html[data-clean="1"] .cc-list li:nth-child(n + 4) { animation-delay: .15s; }
 @media (prefers-reduced-motion: reduce) { html[data-clean="1"] * { animation: none !important; transition: none !important; } }
+/* New layout: a folder is a plain card, so its words take the page's own colours */
+html[data-clean="1"] .hf-open { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-height: 130px; padding: 20px; justify-content: flex-end; }
+html[data-clean="1"] .hf-open:hover { border-color: var(--accent); }
+html[data-clean="1"] .hf-fbody { position: static; color: var(--ink); width: 100%; gap: 6px; }
+html[data-clean="1"] .hf-title { font-size: 17px; font-weight: 600; color: var(--ink); -webkit-line-clamp: 3; }
+html[data-clean="1"] .hf-meta { color: var(--ink-3); opacity: 1; font-size: 13px; }
+html[data-clean="1"] .hf-prog { background: var(--line-soft, rgba(128, 128, 128, .25)); margin-top: 8px; }
+html[data-clean="1"] .hf-prog i { background: var(--accent); opacity: 1; }
+html[data-clean="1"] .hf-folder.on .hf-open::after { display: none; }
+html[data-clean="1"] .hf-folder.on .hf-open { border-color: var(--accent); }
+html[data-clean="1"] .hf-new { background: transparent; }
+/* the sidebar, quieter: smaller, lighter words */
+html[data-clean="1"] .nav-item { font-size: 14.5px; font-weight: 500; padding: 9px 14px; border-radius: 10px; color: var(--ink-2); }
+html[data-clean="1"] .nav-item.on { font-weight: 600; }
+html[data-clean="1"] .nav-item .nav-new, html[data-clean="1"] .new-material { font-weight: 600; }
+html[data-clean="1"] .sr-ico { height: 28px; color: var(--ink-3); }
+html[data-clean="1"] .study-rail .on .sr-ico, html[data-clean="1"] .study-rail .sr-item:hover .sr-ico { color: var(--accent); }
+html[data-clean="1"] .sr-label { font-size: 12.5px; font-weight: 500; }

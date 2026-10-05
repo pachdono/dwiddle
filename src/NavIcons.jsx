@@ -6,14 +6,32 @@ import { useClean } from "./clean.js";
 
 let n = 0;
 
+// The New layout keeps the study rail's icons, but as plain outlines in the
+// text colour, with a word under each, as a tool bar does. Everywhere else it
+// is words only.
+const LINE = {
+  chat: "M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 10h8M8 13h5",
+  folders: "M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z",
+  notebook: "M6 4h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6zM9 4v16M12 9h4M12 13h4",
+  social: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 19c0-3 2.7-5 6-5s6 2 6 5M16 11a2.5 2.5 0 1 0 0-5M17 14c2.5.3 4 2 4 5",
+  notes: "M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6",
+  learn: "M3 6h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H3zM21 6h-7a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h7z",
+  practice: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8 12l3 3 5-6",
+  topics: "M4 6h16M4 12h16M4 18h10",
+  videos: "M4 6h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM16 10l5-3v10l-5-3",
+};
+const line = (id, size) => LINE[id] && (
+  <svg className="nav-line" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={LINE[id]} /></svg>
+);
+
 
 const grad = (id, a, b) => (
   <linearGradient id={id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>
 );
 
-export function NavIcon({ id, size = 34 }) {
+export function NavIcon({ id, size = 34, rail = false }) {
   const clean = useClean();
-  if (clean) return null; // the New layout has no icons, only words
+  if (clean) return rail ? line(id, 24) || null : null;
   const k = `ni${(n = (n + 1) % 10000)}`;
   const f = (s) => `url(#${k}${s})`;
   const body = {

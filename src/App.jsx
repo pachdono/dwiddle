@@ -1113,19 +1113,19 @@ export default function App() {
           </button>
           {[["sheet", "Notes", "notes"], ["learn", "Learn", "learn"], ["quiz", "Practice", "practice"], ["topics", "Topics", "topics"], ["videos", "Videos", "videos"]].map(([id, label, pic]) => (
             <button key={id} className={"sr-item" + (page === id ? " on" : "")} onClick={() => go(id)} aria-current={page === id ? "page" : undefined}>
-              <span className="sr-ico"><NavIcon id={pic} size={30} /></span>
+              <span className="sr-ico"><NavIcon id={pic} size={30} rail /></span>
               <span className="sr-label">{label}</span>
             </button>
           ))}
           <span className="sr-sep" />
           <button className="sr-item" onClick={() => { window.dispatchEvent(new CustomEvent("dwiddle:ask", { detail: {} })); }} title="Chat with Dwiddle">
-            <span className="sr-ico"><NavIcon id="chat" size={30} /></span><span className="sr-label">Chat</span>
+            <span className="sr-ico"><NavIcon id="chat" size={30} rail /></span><span className="sr-label">Chat</span>
           </button>
           <button className="sr-item" onClick={() => { window.dispatchEvent(new Event("dwiddle:close-chat")); setFriendsOpen((v) => !v); }} title="Friends">
-            <span className="sr-ico"><NavIcon id="social" size={30} />{social.badge > 0 && <i className="badge dot" aria-hidden="true" />}</span><span className="sr-label">Friends</span>
+            <span className="sr-ico"><NavIcon id="social" size={30} rail />{social.badge > 0 && <i className="badge dot" aria-hidden="true" />}</span><span className="sr-label">Friends</span>
           </button>
           <button className={"sr-item" + (page === "notebook" ? " on" : "")} onClick={() => go("notebook")} title="Notebooks">
-            <span className="sr-ico"><NavIcon id="notebook" size={30} /></span><span className="sr-label">Notebooks</span>
+            <span className="sr-ico"><NavIcon id="notebook" size={30} rail /></span><span className="sr-label">Notebooks</span>
           </button>
         </nav>
       )}
