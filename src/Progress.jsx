@@ -230,6 +230,7 @@ function GoogleCard({ plan, busy, setBusy, now }) {
       <div>
         <b>{on ? "Google Calendar is connected" : "Connect Google Calendar"}</b>
         <p className="small muted">{on ? "Dwiddle reads when you are busy, plans around it, and keeps your study sessions in your calendar up to date." : "Sign in with Google once. Dwiddle plans around what is already in your calendar and adds your study sessions to it. Nothing else is touched, and you can disconnect any time."}</p>
+        {!on && <p className="small muted">By connecting you let Dwiddle read the times of your events and add study sessions. It does not read or keep their titles or details. <a href="/privacy" target="_blank" rel="noreferrer">Privacy policy</a></p>}
         {on && <label className="sc-check"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Update my calendar automatically when the plan changes</label>}
         {msg && <p className="small pl-msg">{msg}</p>}
       </div>

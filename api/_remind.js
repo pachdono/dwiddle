@@ -74,8 +74,8 @@ export async function remind(req, res) {
           days ? `It has been ${days} days since your last study session, and Dwiddle has been waiting by the pond.` : "You have not studied with Dwiddle for a little while, and Dwiddle has been waiting by the pond.",
           "Your notes, lessons and questions are all still there. Even ten minutes today makes a real difference, and a quick quiz is the easiest way back in.",
           `Pick up where you left off: ${SITE}`,
-          `Not for you? Stop these emails with one click: ${SITE}/api/models?unsub=${u.user_id}.${sign(u.user_id, secret)}`,
         ],
+        unsubscribe: `${SITE}/api/models?unsub=${u.user_id}.${sign(u.user_id, secret)}`,
       }).catch(() => false);
       if (ok) { done.push(u.user_id); emailed++; }
     }
@@ -88,8 +88,8 @@ export async function remind(req, res) {
 export async function unsubscribe(req, res) {
   const secret = process.env.CRON_SECRET || "";
   const [uid, sig] = String(req.query?.unsub || "").split(".");
-  const page = (msg) => res.status(200).setHeader("Content-Type", "text/html; charset=utf-8")
-    .send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font:16px system-ui,sans-serif;display:grid;place-items:center;height:90vh;text-align:center;color:#1e2a21;background:#eef3e7"><div><h2>${msg}</h2><p><a href="${SITE}" style="color:#3d8c58">Back to Dwiddle</a></p></div>`);
+  const page = (msg, more = "") => res.status(200).setHeader("Content-Type", "text/html; charset=utf-8")
+    .send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font:16px system-ui,sans-serif;display:grid;place-items:center;height:90vh;text-align:center;color:#1e2a21;background:#eef3e7"><div><h2>${msg}</h2>${more ? `<p style="color:#4a5a4e">${more}</p>` : ""}<p><a href="${SITE}" style="color:#3d8c58">Back to Dwiddle</a></p></div>`);
   const good = /^[0-9a-f-]{36}$/i.test(uid || "") && sig && secret && (() => {
     const a = Buffer.from(sig), b = Buffer.from(sign(uid, secret));
     return a.length === b.length && timingSafeEqual(a, b);
@@ -97,5 +97,5 @@ export async function unsubscribe(req, res) {
   if (!good) return page("That link is not valid any more.");
   const db = createClient(URL_, ANON, { auth: { persistSession: false } });
   await db.rpc("nudge_optout", { key: secret, uid });
-  return page("Done. Dwiddle will not email you about missed days again.");
+  return page("Done. Dwiddle will not email you again.", "You can turn emails back on any time in Settings, under Notifications.");
 }

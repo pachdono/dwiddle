@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import StorageNotice from "./StorageNotice.jsx";
 import { ContextMenu } from "./ContextMenu.jsx";
 import "./styles.css";
 import { applyFx, watchFrames } from "./perf.js";
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />
     <ContextMenu />
+    <StorageNotice />
   </StrictMode>,
 );
 

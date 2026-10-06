@@ -206,6 +206,9 @@ export function SignInPanel({ onDone }) {
       </form>
 
       {state === "error" && <p className="small warn-text auth-error">{message}</p>}
+      <p className="small muted" style={{ marginTop: 12, textAlign: "center" }}>
+        By continuing you agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and have read the <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+      </p>
     </>
   );
 }
