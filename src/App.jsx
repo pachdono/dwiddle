@@ -2136,9 +2136,9 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       setCondense({ done: 0, of: 0 });
       setSize(text.trim().split(/\s+/).length);
       let digest = "";
-      baseRef.current = 0.5; setPct(0);
+      baseRef.current = 0.5; setPct(0.15);
       try {
-        digest = await condenseSource(text, { onProgress: (done, of) => { setCondense({ done, of }); setPct(0.5 * done / of); } });
+        digest = await condenseSource(text, { onProgress: (done, of) => { setCondense({ done, of }); setPct(0.15 + 0.35 * done / of); } });
       } catch (err) {
         setCondense(null);
         setState("error");
@@ -2149,7 +2149,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       build(digest, false);
       return;
     }
-    baseRef.current = 0; setPct(0);
+    baseRef.current = 0.15; setPct(0.15);
     build(text, false);
   }
 
@@ -2160,6 +2160,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
     setState("brief");
     try {
       const written = await writeBrief(request, answers);
+      baseRef.current = 0.12; setPct(0.12);
       build(written, false);
     } catch (err) {
       setState("error");
@@ -2388,17 +2389,17 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
                 : state === "asking" ? "Working out what you want to study"
                 : state === "brief" ? "Writing full notes, topic by topic"
                 : "Writing questions with an explanation for every answer"}
-              progress={state === "working" && pct != null ? pct : condense ? (condense.of ? condense.done / condense.of : null) : state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
-                : state === "reading" && pageOf ? pageOf.p / pageOf.of
+              progress={state === "working" && pct != null ? pct : condense ? (condense.of ? condense.done / condense.of : null) : state === "reading" && files.length > 1 ? 0.15 * (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
+                : state === "reading" && pageOf ? 0.15 * pageOf.p / pageOf.of
                 : state === "working" && progress ? (progress.n - 1) / progress.of : null}
               count={!early ? null
                 : state === "reading" && pageOf ? `Page ${pageOf.p} of ${pageOf.of}${files.length > 1 ? ` · file ${reading} of ${files.length}` : ""}`
                 : state === "reading" && files.length > 1 ? `File ${reading} of ${files.length}`
                 : state === "working" && progress ? `Part ${progress.n} of ${progress.of}` : null}
               eta={!early ? null
-                : state === "brief" ? 45
-                : state === "working" && !progress ? Math.min(150, 25 + Math.round(size / 70)) : null}
-              outfit={state === "reading" ? "detective" : state === "brief" ? "wizard" : "graduate"} />
+                : state === "brief" ? null
+                : state === "working" && !progress && pct == null ? Math.min(150, 25 + Math.round(size / 70)) : null}
+              cap={state === "working" ? 0.95 : 0.12} outfit={state === "reading" ? "detective" : state === "brief" ? "wizard" : "graduate"} />
           )}
           <div className="notes-foot">
             <span className="small muted">

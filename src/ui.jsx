@@ -176,44 +176,46 @@ const TIPS = [
 ];
 
 // count: "12 of 45", shown large, so it is clear how close it is.
-// eta: for one long step with nothing to count, about how many seconds it
-// takes; the bar then fills with the time and says about how long is left,
-// and "Nearly there" once the estimate has passed.
-export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle", count = null, eta = null }) {
+// progress: the real fraction done when it is known. The number shown never
+// goes backwards and never sits still: it follows the real progress, and
+// between real updates it keeps creeping up, slower the nearer it gets to the
+// end, so a slow last step still looks like it is moving. It only ever reaches
+// 100 because the screen goes away when the work is done.
+// cap: how far it may creep on its own (a step that is only the start of a
+// longer job should not run ahead to the end).
+export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle", count = null, eta = null, cap = 0.95 }) {
   const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
   const [started] = useState(() => Date.now());
-  const [, tick] = useState(0);
+  const [shown, setShown] = useState(0);
+  const real = useRef(0);
+  real.current = typeof progress === "number" && isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+  const ceiling = cap >= 0.9 ? 0.995 : cap;
   useEffect(() => {
     const t = setInterval(() => setTip((n) => (n + 1) % TIPS.length), 4500);
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 500);
+    const t = setInterval(() => setShown((s) => {
+      const n = Math.max(s, Math.min(real.current, ceiling));
+      return Math.min(ceiling, n + Math.max(0.0012, (ceiling - n) * 0.02));
+    }), 300);
     return () => clearInterval(t);
-  }, []);
-  // never goes backwards, even if the estimate is revised
-  const high = useRef(0);
+  }, [ceiling]);
   const spent = (Date.now() - started) / 1000;
   const left = eta ? Math.max(0, Math.round(eta - spent)) : null;
-  if (eta && progress === null) progress = Math.min(0.94, spent / eta);
-  // With nothing to count, the percentage still creeps up (never past 95) so
-  // the wait feels like it is going somewhere.
-  if (progress === null) progress = 0.95 * (1 - Math.exp(-spent / 25));
-  const known = typeof progress === "number" && isFinite(progress);
-  if (known) high.current = Math.max(high.current, Math.min(1, progress));
-  const pct = Math.round(high.current * 100);
+  const pct = shown >= 0.95 ? Math.floor(shown * 1000) / 10 : Math.floor(shown * 100);
   return createPortal(
     <div className="busy" role="status" aria-live="polite">
       <div className="busy-card">
         <div className="busy-duck"><Duck size={110} outfit={outfit === "dwiddle" ? undefined : outfit} /></div>
         <h2>{title}</h2>
-        <div className="busy-pct" aria-label={`${pct} percent`}>{pct}%</div>
+        <div className="busy-pct" aria-label={`${Math.floor(pct)} percent`}>{shown >= 0.95 ? pct.toFixed(1) : pct}%</div>
         {count && <div className="busy-count" key={count}>{count}</div>}
         {detail && <p className="busy-detail">{detail}</p>}
         <div className="busy-bar">
-          <span style={{ width: `${Math.max(3, pct)}%` }} />
+          <span style={{ width: `${Math.max(3, shown * 100)}%` }} />
         </div>
-        {eta && <p className="busy-left">{left > 0 ? `About ${left < 60 ? `${left} seconds` : `${Math.ceil(left / 60)} minute${Math.ceil(left / 60) === 1 ? "" : "s"}`} left` : "Nearly there…"}</p>}
+        {eta && left > 0 && <p className="busy-left">{`About ${left < 60 ? `${left} second${left === 1 ? "" : "s"}` : `${Math.ceil(left / 60)} minute${Math.ceil(left / 60) === 1 ? "" : "s"}`} left`}</p>}
         <p className="busy-tip" key={tip}>Tip: {TIPS[tip]}</p>
       </div>
     </div>,
