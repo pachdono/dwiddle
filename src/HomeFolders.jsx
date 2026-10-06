@@ -5,6 +5,7 @@ import Explore from "./Explore.jsx";
 import { StudyTimerCard } from "./StudyTimer.jsx";
 import { Duck } from "./Duck.jsx";
 import { HeroDuck } from "./HeroDuck.jsx";
+import { startGuide } from "./Guide.jsx";
 
 // Home for testers and above: one calm page. Each thing you have added is a
 // folder, and the way back to where you were is the biggest thing on it.
@@ -75,6 +76,7 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
           <div className="hf-words">
             <div className="hf-hello">{hello}</div>
             <h1 className="hf-ask">What are we studying today?</h1>
+            <button className="btn quiet small hf-guide" onClick={() => startGuide()}>New here? Take the guide</button>
           </div>
         </div>
       ) : (

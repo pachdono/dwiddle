@@ -20,6 +20,7 @@ import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
 import { logAnswer, readLog } from "./studylog.js";
 import Progress from "./Progress.jsx";
+import { GuideHost, startGuide } from "./Guide.jsx";
 import { masteryOf } from "./insights.js";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
@@ -996,6 +997,7 @@ export default function App() {
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <ProfileGate user={auth.user} />
       <HandleGate user={auth.user} />
+      <GuideHost go={go} />
       {/* A painted place behind every page, for testers for now; the old
           weather over the home screen for everyone else. */}
       {early && !showPhoto && <ThemeBackdrop theme={look} resolved={resolved} />}
@@ -3254,6 +3256,13 @@ function Settings({ theme, setTheme, auth, go, look, setLook, resolved }) {
         <LevelCard />
 
         <NotifyCard user={auth?.user} />
+        <div className="card card-pad spread">
+          <div>
+            <b>Guide</b>
+            <p className="small muted" style={{ margin: "2px 0 0" }}>Walks you through every part of Dwiddle, page by page: adding material, studying, practice, the report, the planner, friends and settings.</p>
+          </div>
+          <button className="btn" onClick={() => startGuide()}>Start the guide</button>
+        </div>
         <div className="card card-pad spread">
           <div>
             <b>Quick tour</b>
