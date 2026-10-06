@@ -10,7 +10,9 @@
 
 import { isDesktop } from "./desktop.js";
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+// A Google OAuth client ID is public by design (it is sent to every browser), so
+// it can live in the code. VITE_GOOGLE_CLIENT_ID overrides it for another copy.
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "861885157451-778msu2fjh2vq169bheltl1hhv2qpf0g.apps.googleusercontent.com";
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const API = "https://www.googleapis.com/calendar/v3";
 const TOKEN_KEY = "dwiddle-gtoken";
