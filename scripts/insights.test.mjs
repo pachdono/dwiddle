@@ -114,3 +114,21 @@ test("many subjects raise the number of sessions", () => {
   const est = suggestPrefs({ goal: "school", subjects: 7, now: Date.UTC(2026, 9, 6) });
   assert.equal(est.perWeek, 7);
 });
+
+import { topicMastery, predictGrade, gradeFor } from "../src/insights.js";
+test("memory fades with time, skill leans on recent answers, and the grade says how sure it is", () => {
+  const now = Date.UTC(2026, 9, 6, 12);
+  const mk = (topic, oks, endDaysAgo) => oks.map((ok, i) => ({ t: now - (endDaysAgo + (oks.length - i) * 0.01) * 864e5, ok, topic }));
+  const log = [...mk("Cells", Array(12).fill(true), 0), ...mk("Osmosis", Array(12).fill(true), 20), ...mk("Enzymes", [false, false, false, true, false, false], 1), ...mk("Lucky", [true], 0)];
+  const m = Object.fromEntries(topicMastery(log, now).map((t) => [t.name, t]));
+  assert.ok(m.Cells.skill >= 90 && m.Cells.memory >= m.Cells.skill - 2);
+  assert.ok(m.Osmosis.skill >= 90 && m.Osmosis.memory < m.Osmosis.skill - 25 && m.Osmosis.status === "fading");
+  assert.ok(m.Enzymes.status === "weak");
+  assert.ok(m.Lucky.skill < 80 && m.Lucky.status === "early");
+  const early = predictGrade(topicMastery(mk("Cells", Array(12).fill(true), 0), now));
+  assert.ok(early.grade === "A*" || early.grade === "A");
+  assert.equal(early.sure, "an early guess");
+  assert.ok(early.hi - early.lo >= 18);
+  assert.equal(predictGrade(topicMastery(mk("Cells", [true, false], 0), now)), null);
+  assert.equal(gradeFor(65), "C");
+});

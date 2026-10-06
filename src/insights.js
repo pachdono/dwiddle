@@ -361,3 +361,48 @@ export function suggestPrefs({ goal = "school", exam = "", summary = null, now =
   if (!hard && days !== 0) why.push("Sessions stay under an hour and one day a week is left free, so you do not burn out. You can raise either one yourself.");
   return { perWeek: Math.min(perWeek, hard ? 9 : 10), sessionMin, why, crash: hard };
 }
+
+/* ---------- memory, skill and a predicted grade ---------- */
+
+const DAY = 864e5;
+// Skill is how well the answers on a topic have gone, with recent ones counting
+// most (an answer's weight halves every 8 answers) and a small pull towards 50%
+// so one lucky answer is not 100%. Memory is that skill after forgetting: it
+// fades with the days since the topic was last practised, more slowly the more
+// there has been practice. Both are estimates from the answer log, nothing more.
+export function topicMastery(log, now = Date.now()) {
+  const by = {};
+  log.forEach((e) => (by[e.topic || "General"] ||= []).push(e));
+  return Object.entries(by).map(([name, list]) => {
+    list.sort((a, b) => a.t - b.t);
+    let w = 0, r = 0;
+    list.forEach((e, i) => { const wt = Math.pow(0.5, (list.length - 1 - i) / 8); w += wt; if (e.ok) r += wt; });
+    const skill = Math.round(((r + 0.5) / (w + 1)) * 100);
+    const days = Math.max(0, (now - list[list.length - 1].t) / DAY);
+    // never to nothing: what was once learnt comes back quickly on a second look
+    const stability = 5 + 1.5 * Math.sqrt(list.length);
+    const memory = Math.round(skill * (0.35 + 0.65 * Math.exp(-days / stability)));
+    const lastFive = list.slice(-5), priorFive = list.slice(-10, -5);
+    const trend = priorFive.length >= 4 ? pct(lastFive.filter((e) => e.ok).length, lastFive.length) - pct(priorFive.filter((e) => e.ok).length, priorFive.length) : null;
+    const total = list.length;
+    const status = total < 4 ? "early" : skill >= 60 && skill - memory >= 12 ? "fading" : memory >= 80 ? "strong" : memory >= 60 ? "solid" : "weak";
+    return { name, total, skill, memory, days: Math.floor(days), trend, status, last: list[list.length - 1].t };
+  }).sort((a, b) => a.memory - b.memory);
+}
+
+export const STATUS_LABEL = { early: "Just started", fading: "Fading, review soon", strong: "Strong", solid: "Solid", weak: "Needs work" };
+
+const BANDS = [[90, "A*"], [80, "A"], [70, "B"], [60, "C"], [50, "D"], [40, "E"]];
+export const gradeFor = (score) => (BANDS.find(([min]) => score >= min) || [0, "U"])[1];
+
+// A rough predicted grade from how much is remembered across the topics, with
+// a range that is wider the fewer answers it rests on. It says how sure it is.
+export function predictGrade(topics) {
+  const n = topics.reduce((s, t) => s + t.total, 0);
+  if (n < 10 || !topics.length) return null;
+  const weight = (t) => Math.min(t.total, 10);
+  const score = Math.round(topics.reduce((s, t) => s + t.memory * weight(t), 0) / topics.reduce((s, t) => s + weight(t), 0));
+  const margin = Math.round(22 / Math.sqrt(1 + n / 6));
+  const lo = Math.max(0, score - margin), hi = Math.min(100, score + margin);
+  return { score, lo, hi, grade: gradeFor(score), gradeLo: gradeFor(lo), gradeHi: gradeFor(hi), sure: n >= 80 ? "fairly sure" : n >= 30 ? "moderately sure" : "an early guess", answers: n };
+}

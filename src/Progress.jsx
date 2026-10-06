@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHead } from "./ui.jsx";
 import { load, save } from "./store.js";
 import { readLog } from "./studylog.js";
-import { summarise, advice, bestWindow, planWeek, suggestPrefs, GOALS, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
+import { summarise, advice, bestWindow, topicMastery, predictGrade, STATUS_LABEL, planWeek, suggestPrefs, GOALS, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
 import { levelOf } from "./xp.js";
 import { gcalAvailable, connected, connect, disconnect, busyTimes, syncPlan } from "./gcal.js";
 import { isDesktop } from "./desktop.js";
@@ -22,7 +22,6 @@ function useLog() {
 }
 
 const tone = (a) => (a == null ? "" : a >= 80 ? "good" : a >= 60 ? "mid" : "low");
-const grade = (a) => (a == null ? "" : a >= 80 ? "Strong" : a >= 60 ? "Getting there" : "Needs work");
 
 // a ring for one percentage
 function Ring({ value, size = 96, label }) {
@@ -80,41 +79,82 @@ function Heatmap({ days }) {
   );
 }
 
+const ago = (d) => (d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`);
+
+function Meter({ value, label }) {
+  return (
+    <div className="rt-meter" aria-label={`${label} ${value}%`}>
+      <span className="rp-track"><i className={tone(value)} style={{ width: `${value}%` }} /></span>
+      <b>{value}%</b>
+    </div>
+  );
+}
+
+// Every topic with how well it is known (skill) and how much of it is likely
+// still remembered today (memory), weakest first, with a way to practise it.
+function TopicTable({ rows, go, setTopic }) {
+  if (!rows.length) return <p className="small muted">Answer some questions and each topic shows up here with a skill and a memory score.</p>;
+  return (
+    <div className="rt" role="table" aria-label="Skill and memory for each topic">
+      <div className="rt-head" role="row"><span>Topic</span><span>Skill</span><span>Memory</span><span className="rt-when">Last practised</span><span /></div>
+      {rows.map((t) => (
+        <div key={t.name} className="rt-row" role="row">
+          <div className="rt-name"><b>{t.name}</b><span className={"rp-badge " + (t.status === "strong" ? "good" : t.status === "solid" ? "mid" : t.status === "early" ? "" : "low")}>{STATUS_LABEL[t.status]}</span></div>
+          <Meter value={t.skill} label="Skill" />
+          <Meter value={t.memory} label="Memory" />
+          <span className="rt-when small muted">{t.last ? ago(t.days) : ""}{t.trend != null && t.trend !== 0 ? <i className={"rt-trend " + (t.trend > 0 ? "up" : "down")}>{t.trend > 0 ? "up" : "down"} {Math.abs(t.trend)}</i> : null}</span>
+          <button className="btn small ghost" onClick={() => { setTopic?.(t.name); go("quiz"); }}>{t.status === "strong" ? "Keep fresh" : "Practise"}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Report({ stats, go, setTopic, log, summary }) {
   const lv = levelOf(stats?.xp || 0);
-  const topics = summary.topics.length ? summary.topics : Object.entries(stats?.byTopic || {}).map(([name, v]) => ({ name, total: v.total, accuracy: v.total ? Math.round((v.right / v.total) * 100) : null })).sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0));
+  const rows = useMemo(() => topicMastery(log), [log]);
+  const fallback = !rows.length && stats?.byTopic ? Object.entries(stats.byTopic).filter(([, v]) => v.total).map(([name, v]) => { const a = Math.round((v.right / v.total) * 100); return { name, total: v.total, skill: a, memory: a, days: 0, last: 0, trend: null, status: v.total < 4 ? "early" : a >= 80 ? "strong" : a >= 60 ? "solid" : "weak" }; }).sort((a, b) => a.memory - b.memory) : [];
+  const table = rows.length ? rows : fallback;
+  const predicted = predictGrade(table);
   const days = summary.days.slice(-14);
   const maxDay = Math.max(1, ...days.map((d) => d.answered));
   const tips = advice(summary);
   const acc = stats?.answered ? Math.round((stats.correct / stats.answered) * 100) : summary.accuracy;
-  const practise = (t) => <button className="btn small ghost rp-go" onClick={() => { setTopic?.(t); go("quiz"); }}>Practise</button>;
+  const skillAll = table.length ? Math.round(table.reduce((s, t) => s + t.skill * Math.min(t.total, 10), 0) / table.reduce((s, t) => s + Math.min(t.total, 10), 0)) : null;
   const win = bestWindow(summary);
+  const due = table.filter((t) => t.status === "fading" || t.status === "weak").slice(0, 3);
   return (
     <div className="rp stack">
-      <div className="rp-hero">
-        <div className="rp-hero-ring"><Ring value={acc} size={118} label="right overall" /><span>right overall</span></div>
+      <div className="rp-hero rp-grade">
+        <div className="rg-grade">
+          <span className="rg-label">Predicted grade</span>
+          {predicted ? (<>
+            <b className="rg-big">{predicted.grade}</b>
+            <span className="rg-range">{predicted.gradeLo === predicted.gradeHi ? `${predicted.gradeLo}` : `${predicted.gradeLo} to ${predicted.gradeHi}`} possible, {predicted.sure}</span>
+          </>) : (<><b className="rg-big dim">-</b><span className="rg-range">Answer about 10 questions to get one</span></>)}
+        </div>
+        <div className="rp-hero-ring"><Ring value={predicted ? predicted.score : null} size={104} label="memory" /><span>Memory</span><small>what you would remember today</small></div>
+        <div className="rp-hero-ring"><Ring value={skillAll} size={104} label="skill" /><span>Skill</span><small>how well you know it</small></div>
         <div className="rp-hero-stats">
-          <div><b>{stats?.answered ?? 0}</b><span>questions answered</span></div>
+          <div><b>{Math.max(stats?.answered || 0, summary.total)}</b><span>questions answered</span></div>
+          <div><b>{acc == null ? "-" : acc}<small>%</small></b><span>right overall</span></div>
           <div><b>{summary.daysThisWeek}<small>/7</small></b><span>days studied this week</span></div>
           <div><b>{summary.minutesThisWeek}<small> min</small></b><span>studied this week</span></div>
-          <div><b>Lv {lv.level}</b><span>{stats?.xp || 0} XP</span></div>
         </div>
       </div>
+      {predicted && <p className="small muted rp-foot" style={{ margin: "-6px 4px 0" }}>The grade is a rough guide worked out from your practice answers, weighted towards recent ones, and it drops for topics you have not practised in a while. Real papers differ, so treat it as a direction, not a promise.</p>}
 
-      <div className="rp-two">
-        <div className="card card-pad">
-          <h3>Topics</h3>
-          {topics.length === 0 ? <p className="small muted">Answer some questions and your topics appear here.</p> : topics.map((t) => (
-            <div key={t.name} className="rp-topic">
-              <div className="rp-topic-top"><b>{t.name}</b><span className={"rp-badge " + tone(t.accuracy)}>{grade(t.accuracy)}</span></div>
-              <Bar label="" value={t.accuracy} total={t.total} sub={`${t.total} answered${t.recent != null ? `, lately ${t.recent}%` : ""}`} action={t.accuracy != null && t.accuracy < 80 ? practise(t.name) : null} />
-            </div>
-          ))}
-        </div>
-        <div className="card card-pad">
-          <h3>What to do next</h3>
-          {tips.map((t) => <div key={t.id} className={"rp-tip " + t.tone}><b>{t.title}</b><span>{t.text}</span></div>)}
-        </div>
+      <div className="card card-pad">
+        <div className="spread"><h3 style={{ margin: 0 }}>Skill and memory by topic</h3><span className="small muted">Weakest first</span></div>
+        <TopicTable rows={table} go={go} setTopic={setTopic} />
+      </div>
+
+      <div className="card card-pad">
+        <h3>What to do next</h3>
+        {due.length > 0 && <p className="rn-lead">Start with <b>{due.map((t) => t.name).join(", ")}</b>. {due.some((t) => t.status === "fading") ? "Some of it is fading from memory, and a short review brings it back fast." : "These are the topics holding your grade down."}</p>}
+        <ul className="rn">
+          {tips.map((t) => <li key={t.id} className={t.tone}><b>{t.title}</b><span>{t.text}</span></li>)}
+        </ul>
       </div>
 
       <div className="card card-pad">
@@ -511,7 +551,7 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
       {tips.length > 0 && (
         <div className="card card-pad">
           <h3>What your results say about when to study</h3>
-          {tips.map((t) => <div key={t.id} className={"rp-tip " + t.tone}><b>{t.title}</b><span>{t.text}</span></div>)}
+          <ul className="rn">{tips.map((t) => <li key={t.id} className={t.tone}><b>{t.title}</b><span>{t.text}</span></li>)}</ul>
         </div>
       )}
 
