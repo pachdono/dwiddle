@@ -312,6 +312,7 @@ function Chat({ user, start, compact = false, beta = false }) {
   const photoIn = useRef(null);
   const fileIn = useRef(null);
   const end = useRef(null);
+  const list = useRef(null);
   const box = useRef(null);
 
   useEffect(() => {
@@ -342,7 +343,9 @@ function Chat({ user, start, compact = false, beta = false }) {
     const poll = setInterval(pull, 8000); // in case realtime is not switched on
     return () => { live = false; off(); clearInterval(poll); setActiveThread(null); };
   }, [with_?.user_id, user.id]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [msgs.length, with_]);
+  // Scrolls the message list itself, never the page around it, so typing and
+  // sending do not make the whole screen jump.
+  useEffect(() => { const el = list.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, with_]);
 
   // the box grows with what is typed, up to a few lines
   useEffect(() => {
@@ -418,7 +421,7 @@ function Chat({ user, start, compact = false, beta = false }) {
               <UserIcon avatar={with_.avatar} user={null} size={40} />
               <span className="sc-who"><b>{with_.name}</b>{with_.handle && <span className="small muted">@{with_.handle}</span>}</span>
             </div>
-            <div className="sc-msgs">
+            <div className="sc-msgs" ref={list}>
               {msgs.length === 0 && <div className="sc-empty small muted">Say hello to {with_.name}.</div>}
               {msgs.map((m) => {
                 const mine = m.from_id === user.id;
@@ -440,7 +443,7 @@ function Chat({ user, start, compact = false, beta = false }) {
                           : <div className={"cm-bubble" + (big ? " big" : "")}>{m.body}</div>}
                         {beta && (
                           <span className="cm-acts">
-                            <button type="button" onClick={() => { setReplyTo(m); box.current?.focus(); }}>Reply</button>
+                            <button type="button" onClick={() => { setReplyTo(m); box.current?.focus({ preventScroll: true }); }}>Reply</button>
                             {mine && <button type="button" onClick={() => remove(m)}>Delete</button>}
                           </span>
                         )}
