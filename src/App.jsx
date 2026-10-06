@@ -2815,19 +2815,22 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     (async () => {
       const got = [];
       let why = "";
-      for (let tries = 0; tries < 6 && got.length < need && live; tries++) {
+      for (let tries = 0; tries < 3 && got.length < need && live; tries++) {
         const qs = await moreQuestions(made, topics, need - got.length, got.map((x) => x.q)).catch((e) => { why = e?.message || ""; return []; });
         if (qs.error) why = qs.error;
-        const fresh = uniqueQuestions(qs.map(phraseQuestion).filter(answerable)).filter((x) => {
+        const candidates = uniqueQuestions(qs.map((q) => phraseQuestion(q))).filter((x) => {
           const k = x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
           if (seen.has(k)) return false;
           seen.add(k);
           return true;
         });
+        // unanswerable wording is skipped, but not at the price of getting nothing
+        const fresh = candidates.filter(answerable).length ? candidates.filter(answerable) : candidates;
+        if (qs.length && !candidates.length) why = "the new questions were copies of ones already there";
         if (fresh.length) {
           got.push(...fresh);
           setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
-        } else if (tries >= 2) break; // nothing new three times running: stop waiting
+        } else break; // nothing new: asking again straight away would not help
       }
       if (!live) return;
       setMore(got);
