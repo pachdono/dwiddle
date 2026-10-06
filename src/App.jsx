@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
-import { phraseQuestion, answerable, uniqueQuestions } from "./mathText.js";
+import { phraseQuestion, answerable, uniqueQuestions, practiceBank } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
@@ -673,7 +673,7 @@ export default function App() {
   // Study shows the focused library item only; everything else (saving,
   // syncing) works on the whole store.
   const study = focus ? viewOf(made, focus) : made;
-  const bank = uniqueQuestions((study?.questions || []).map(phraseQuestion).filter(answerable));
+  const bank = practiceBank((study?.questions || []).map((q) => phraseQuestion(q)));
 
   // Topics left with no questions (their batch failed while the material was
   // being made) get them written from their saved notes, once per visit.

@@ -198,3 +198,17 @@ export function uniqueQuestions(list) {
     return true;
   });
 }
+
+// The questions to practise from: duplicates out, and questions that lean on
+// something unseen out too, but never so many that a topic is left empty. A
+// topic made from a past paper can be full of "shown below", and those are
+// better than no questions at all, so if fewer than three would be left the
+// topic keeps all of its own.
+export function practiceBank(list) {
+  const unique = uniqueQuestions(list);
+  const byTopic = new Map();
+  unique.forEach((q) => { const k = q.topic || ""; (byTopic.get(k) || byTopic.set(k, []).get(k)).push(q); });
+  const out = [];
+  byTopic.forEach((qs) => { const ok = qs.filter(answerable); out.push(...(ok.length >= 3 ? ok : qs)); });
+  return unique.filter((q) => out.includes(q));
+}

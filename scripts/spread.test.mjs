@@ -41,3 +41,11 @@ test("questions about a labelled thing that is not shown are dropped", () => {
   assert.equal(answerable({ q: "Explain the effect of high temperature on a protein." }), true);
   assert.equal(answerable({ q: "What does vitamin C prevent?" }), true);
 });
+
+import { practiceBank } from "../src/mathText.js";
+test("a topic is never emptied by the filters", () => {
+  const all = Array.from({ length: 4 }, (_, i) => ({ id: "p" + i, topic: "Atoms", q: `What does the table shown below say about element ${i}?` }));
+  assert.equal(practiceBank(all).length, 4);
+  const mixed = [...all, ...Array.from({ length: 3 }, (_, i) => ({ id: "m" + i, topic: "Other", q: `Plain question ${i}?` })), { id: "m9", topic: "Other", q: "See the diagram above, which part?" }];
+  assert.equal(practiceBank(mixed).length, 7);
+});
