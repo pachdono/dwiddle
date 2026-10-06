@@ -619,6 +619,14 @@ const PRIVACY = [
           If you import a calendar file (.ics) instead, it is read on your device to find busy
           times and is not uploaded.
         </p>
+        <p>
+          Signed in people can also get a live calendar link. It does not involve Google sign in.
+          Your planned study sessions (the time, the topic and a short reason) are stored with
+          your account and shown at a private link made of a long random code. A calendar app that
+          subscribes to the link fetches them. Anyone who has the link can see those sessions, so
+          keep it private, and you can replace it with a new one at any time, which stops the old
+          one working. Deleting your account deletes the sessions and the link.
+        </p>
       </>
     ),
   },

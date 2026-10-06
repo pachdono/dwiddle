@@ -173,8 +173,10 @@ export function googleLink(s) {
 }
 
 // a file any calendar app can import (Google, Apple, Outlook)
-export function makeIcs(sessions, now = Date.now()) {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Dwiddle//Study plan//EN", "CALSCALE:GREGORIAN"];
+export function makeIcs(sessions, now = Date.now(), name = "") {
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Dwiddle//Study plan//EN", "CALSCALE:GREGORIAN",
+    // a calendar someone subscribes to is named, and asked to refresh hourly
+    ...(name ? [`X-WR-CALNAME:${esc(name)}`, "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"] : [])];
   sessions.forEach((s, i) => {
     lines.push("BEGIN:VEVENT", `UID:dwiddle-${s.start}-${i}@dwiddle`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(s.start)}`, `DTEND:${stamp(s.end)}`,
       `SUMMARY:${esc(title(s))}`, `DESCRIPTION:${esc(s.reason + ". Planned in Dwiddle.")}`, "BEGIN:VALARM", "TRIGGER:-PT10M", "ACTION:DISPLAY", "DESCRIPTION:Study time", "END:VALARM", "END:VEVENT");

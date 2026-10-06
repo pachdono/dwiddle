@@ -6,6 +6,7 @@ import { summarise, advice, bestWindow, planWeek, defaultPrefs, DAY_NAMES, googl
 import { levelOf } from "./xp.js";
 import { gcalAvailable, connected, connect, disconnect, busyTimes, syncPlan } from "./gcal.js";
 import { isDesktop } from "./desktop.js";
+import { getFeed, pushSessions, replaceFeed, feedLinks } from "./calfeed.js";
 
 // The report and the planner, one page with two tabs. Everything here is worked
 // out on this device from the answers already given; nothing is sent anywhere.
@@ -275,7 +276,40 @@ function WeekView({ plan, busy, prefs, now }) {
   );
 }
 
-function Planner({ summary, go, setTopic }) {
+// The live calendar link: one secret address that Google Calendar, Apple
+// Calendar and Outlook subscribe to, and keep the study sessions up to date by
+// themselves. No Google sign in is involved, so there is no warning screen.
+function FeedCard({ user, plan }) {
+  const [feed, setFeed] = useState(null); // { token } | { error }
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { let live = true; if (user) getFeed(user.id).then((f) => live && setFeed(f)); return () => { live = false; }; }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sig = JSON.stringify(plan.map((x) => [x.start, x.topic]));
+  useEffect(() => {
+    if (!feed?.token || !user) return;
+    const t = setTimeout(() => pushSessions(user.id, plan), 1500);
+    return () => clearTimeout(t);
+  }, [sig, feed?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!user) return <div className="pl-google off"><div><b>Live calendar link</b><p className="small muted">Sign in to get a link that keeps your calendar up to date by itself. The links on each session below work without signing in.</p></div></div>;
+  if (!feed) return <div className="pl-google off"><div><b>Live calendar link</b><p className="small muted">Getting your link...</p></div></div>;
+  if (feed.error) return <div className="pl-google off"><div><b>Live calendar link</b><p className="small muted">{feed.error === "setup" ? "Not switched on yet. The links on each session below still work." : feed.error}</p></div></div>;
+  const l = feedLinks(feed.token);
+  return (
+    <div className="pl-google on">
+      <div>
+        <b>Keep my calendar up to date</b>
+        <p className="small muted">Add your Dwiddle calendar once and your study sessions appear in it and change as your plan changes. No sign in with Google, no warnings. Calendars refresh on their own every few hours.</p>
+        <div className="dl-row" style={{ justifyContent: "flex-start", marginTop: 10 }}>
+          <a className="btn cta" href={l.google} target="_blank" rel="noreferrer">Add to Google Calendar</a>
+          <a className="btn ghost" href={l.webcal}>Apple Calendar or Outlook</a>
+          <button className="btn quiet" onClick={() => { navigator.clipboard?.writeText(l.url); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? "Copied" : "Copy link"}</button>
+        </div>
+        <p className="small muted" style={{ marginTop: 10 }}>The link is private to you. Anyone who has it can see your study times, so do not share it. <button className="linkish" onClick={async () => setFeed(await replaceFeed(user.id))}>Make a new link</button> if it gets out.</p>
+      </div>
+    </div>
+  );
+}
+
+function Planner({ summary, go, setTopic, user }) {
   const [prefs, setPrefsRaw] = useState(() => ({ ...defaultPrefs(), ...load(PREFS_KEY, {}) }));
   const [fileBusy, setFileBusyRaw] = useState(() => load(BUSY_KEY, []));
   const [gBusy, setGBusy] = useState([]);
@@ -312,7 +346,14 @@ function Planner({ summary, go, setTopic }) {
 
   return (
     <div className="rp stack pl">
-      <GoogleCard plan={plan} busy={busy} setBusy={setGBusy} now={now} />
+      <FeedCard user={user} plan={plan} />
+      {gcalAvailable() && (
+        <details className="pl-adv">
+          <summary>Advanced: connect with Google sign in</summary>
+          <p className="small muted">This also lets Dwiddle see when you are busy so it plans around it. Google shows a warning screen because the app is not verified by Google yet. Most people should use the link above.</p>
+          <GoogleCard plan={plan} busy={busy} setBusy={setGBusy} now={now} />
+        </details>
+      )}
 
       {tips.length > 0 && (
         <div className="card card-pad">
@@ -396,7 +437,7 @@ function Planner({ summary, go, setTopic }) {
   );
 }
 
-export default function Progress({ stats, go, setTopic, page }) {
+export default function Progress({ stats, go, setTopic, page, auth }) {
   const log = useLog();
   const summary = useMemo(() => summarise(log), [log]);
   const tab = page === "planner" ? "planner" : "report";
@@ -407,7 +448,7 @@ export default function Progress({ stats, go, setTopic, page }) {
         <button role="tab" className={tab === "report" ? "on" : ""} onClick={() => go("report")}>Report</button>
         <button role="tab" className={tab === "planner" ? "on" : ""} onClick={() => go("planner")}>Planner</button>
       </div>
-      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} />}
+      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} />}
     </div>
   );
 }
