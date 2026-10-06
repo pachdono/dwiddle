@@ -57,3 +57,14 @@ test("a question that points at a diagram gets a picture prompt that hides the a
   assert.equal(needsVisual({ q: "What is the charge of a proton?" }), false);
   assert.match(visualPrompt(q), /do not mark or label which one is right/);
 });
+
+import { tidyMath } from "../src/mathText.js";
+test("latex a model writes is shown as printed maths", () => {
+  const raw = "\\(\n\\lim_{x \\to c} f(x)=L\n\\)\nreads the limit. \\[ \\lim_{x\\to c} f(x)=L \\iff \\forall\\,\\varepsilon>0\\,\\exists\\,\\delta>0 \\]";
+  const out = tidyMath(raw);
+  assert.ok(!/\\\(|\\\)|\\\[|\\\]|\\lim|\\forall|\\varepsilon/.test(out), out);
+  assert.match(out, /lim\(x → c\) f\(x\)=L/);
+  assert.match(out, /∀/);
+  assert.match(out, /ε/);
+  assert.equal(tidyMath("\\frac{a}{b} and \\frac{x+1}{y}"), "a/b and (x+1)/(y)");
+});

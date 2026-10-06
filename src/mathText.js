@@ -71,8 +71,18 @@ const OPS = [
 // LaTeX a model slipped in, as it would be printed.
 const TEX = { times: "×", cdot: "·", div: "÷", approx: "≈", pm: "±", leq: "≤", le: "≤", geq: "≥", ge: "≥", neq: "≠", ne: "≠",
   infty: "∞", pi: "π", mu: "µ", alpha: "α", beta: "β", gamma: "γ", delta: "δ", Delta: "Δ", theta: "θ", lambda: "λ", sigma: "σ",
-  omega: "ω", Omega: "Ω", rho: "ρ", degree: "°", circ: "°", rightarrow: "→", to: "→", leftarrow: "←", propto: "∝", sum: "Σ" };
+  omega: "ω", Omega: "Ω", rho: "ρ", degree: "°", circ: "°", rightarrow: "→", to: "→", leftarrow: "←", propto: "∝", sum: "Σ",
+  varepsilon: "ε", epsilon: "ε", forall: "∀", exists: "∃", iff: "⇔", implies: "⇒", Rightarrow: "⇒", Longrightarrow: "⇒", Leftrightarrow: "⇔", Longleftrightarrow: "⇔",
+  in: "∈", notin: "∉", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩", int: "∫", partial: "∂", nabla: "∇", ldots: "…", cdots: "…", dots: "…", mid: "|", lvert: "|", rvert: "|",
+  lim: "lim", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", max: "max", min: "min", prod: "∏", angle: "∠", perp: "⊥", parallel: "∥", therefore: "∴", ne: "≠" };
 function untex(s) {
+  // The brackets a model wraps maths in, on a line of their own or not, are not part of it.
+  s = s.replace(/\s*\\[()[\]]\s*/g, (m) => (/\n/.test(m) ? "\n" : " ")).replace(/\\[;,:! ]/g, " ");
+  s = s.replace(/\\lim_\{([^{}]*)\}/g, (m, a) => `lim(${untexInner(a)})`);
+  for (let k = 0; k < 3; k++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`));
+  return untexInner(s);
+}
+function untexInner(s) {
   return s
     .replace(/\\(?:text|mathrm|mathbf|operatorname)\{([^{}]*)\}/g, "$1")
     .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`))
@@ -80,7 +90,8 @@ function untex(s) {
     .replace(/\\(left|right)([()[\]|])/g, "$2")
     .replace(/\\([A-Za-z]+)/g, (m, w) => TEX[w] ?? m)
     .replace(/\$([^$]{1,80})\$/g, "$1")
-    .replace(/µ (?=[mgsLlM]\b|m[³²]?)/g, "µ");
+    .replace(/µ (?=[mgsLlM]\b|m[³²]?)/g, "µ")
+    .replace(/(\S)([⇒⇔])/g, "$1 $2");
 }
 
 export function tidyMath(input) {
