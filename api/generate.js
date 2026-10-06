@@ -592,6 +592,21 @@ async function part(req, res, mode, notes) {
     return res.status(200).json({ sections });
   }
 
+  // One long chunk of a big source boiled down to a dense digest, so twenty
+  // files can be built from as one. Nothing a student could be asked about is
+  // dropped; repetition, filler and admin are.
+  if (mode === "condense") {
+    const text = await ask({
+      system: CONDENSE,
+      user: `Condense this part of the student's material:\n\n${notes}`,
+      maxTokens: 3400,
+      temperature: 0.15,
+    });
+    const digest = String(text || "").replace(/\s*[\u2013\u2014]\s*/g, ", ").trim();
+    if (digest.length < 120) return userError(res, 502, "The summary did not come back complete. Try again.");
+    return res.status(200).json({ digest });
+  }
+
   if (mode === "sheet") {
     const text = await ask({
       system: SHEET.replace("__SHEET_SIZE__", sheetSize(notes.length)),

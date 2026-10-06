@@ -40,7 +40,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, browse, moreQuestions, longQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, browse, moreQuestions, longQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, condenseSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills, typedFrom, trueFalseFrom, matchFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";
@@ -1934,7 +1934,7 @@ function Topics({ go, topic, setTopic, hidden, setHidden, topics: allTopics, mat
 
 const LIMIT = 24000; // characters the server takes in one call
 
-const MAX_MATERIAL_FILES = 10;
+const MAX_MATERIAL_FILES = 25;
 
 // The opening of a transcript, a few sentences long, to recognise it by.
 function firstSentences(text, n) {
@@ -2016,6 +2016,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       setFetching(false);
     }
   }
+  const [condense, setCondense] = useState(null); // { done, of } while a big source is summarised first
   const [progress, setProgress] = useState(null); // { n, of } while working in parts
   const [waiting, setWaiting] = useState(null); // { seconds, why } between parts
   const [unfinished, setUnfinished] = useState(null); // { rest, done, error } if a long job stopped early
@@ -2122,9 +2123,24 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
     // Past what one go can take, the choice is theirs: all of it in parts, or
     // the first ten pages. The server would only have refused it anyway, after
     // the whole file had been read.
+    // Past that, it is summarised first (side by side, keeping every fact) and
+    // everything is built from the summary, like handing a pile of files to a
+    // person who reads them all and writes you the study notes.
     if (text.trim().length > LIMIT) {
-      setLong(text);
-      setState("toomuch");
+      setState("working");
+      setCondense({ done: 0, of: 0 });
+      setSize(text.trim().split(/\s+/).length);
+      let digest = "";
+      try {
+        digest = await condenseSource(text, { onProgress: (done, of) => setCondense({ done, of }) });
+      } catch (err) {
+        setCondense(null);
+        setState("error");
+        setError(err.message);
+        return;
+      }
+      setCondense(null);
+      build(digest, false);
       return;
     }
     build(text, false);
@@ -2358,12 +2374,12 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
 
           {["reading", "asking", "brief", "working"].includes(state) && (
             <BusyScreen
-              title={state === "reading" ? "Reading your material" : state === "asking" ? "Reading your request" : "Making your study material"}
-              detail={state === "reading" ? (files.length > 1 ? `File ${reading} of ${files.length}` : "Pulling the text out of your file")
+              title={condense ? "Summarising your material" : state === "reading" ? "Reading your material" : state === "asking" ? "Reading your request" : "Making your study material"}
+              detail={condense ? (condense.of ? `Boiling ${condense.of} chunks down to what you can be tested on, ${condense.done} done. Questions come next.` : "Splitting it into chunks") : state === "reading" ? (files.length > 1 ? `File ${reading} of ${files.length}` : "Pulling the text out of your file")
                 : state === "asking" ? "Working out what you want to study"
                 : state === "brief" ? "Writing full notes, topic by topic"
                 : "Writing questions with an explanation for every answer"}
-              progress={state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
+              progress={condense ? (condense.of ? condense.done / condense.of : null) : state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
                 : state === "reading" && pageOf ? pageOf.p / pageOf.of
                 : state === "working" && progress ? (progress.n - 1) / progress.of : null}
               count={!early ? null

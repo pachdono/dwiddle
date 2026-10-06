@@ -58,8 +58,32 @@ export async function readFile(file, { onPage } = {}) {
       onPage?.(p, doc.numPages);
       text += content.items.map((it) => it.str).join(" ") + "\n";
     }
-    if (!text.trim()) {
-      throw new Error("That PDF has no selectable text, so it is probably a scan. Reading those needs OCR, which this does not do yet.");
+    // Little or no text means a scan or photographed pages: each page is
+    // drawn to a picture and read like a photo, a few at a time.
+    if (text.replace(/\s/g, "").length < 40 * doc.numPages * 0.25 || text.trim().length < 80) {
+      const pages = Math.min(doc.numPages, 25);
+      const out = new Array(pages).fill("");
+      let next = 1, done = 0, failed = 0;
+      const worker = async () => {
+        while (next <= pages) {
+          const n = next++;
+          try {
+            const page = await doc.getPage(n);
+            const base = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: Math.min(2, 1500 / Math.max(base.width, base.height)) });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
+            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+            const { text: t } = await readImage(canvas.toDataURL("image/jpeg", 0.8));
+            out[n - 1] = t || "";
+          } catch { failed++; }
+          onPage?.(++done, pages);
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      const joined = out.filter(Boolean).join("\n");
+      if (!joined.trim()) throw new Error(failed ? "That PDF is a scan and its pages could not be read just now. Try again in a minute, or add photos of the pages." : "That PDF has no readable text, not even as pictures of pages. Try a clearer copy.");
+      return doc.numPages > pages ? `${joined}\n(Only the first ${pages} pages of this scan were read.)` : joined;
     }
     return text;
   }

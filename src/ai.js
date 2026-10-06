@@ -92,7 +92,7 @@ function tidyPart(p) {
 // it for a whole chapter ran past the time a function is allowed; these parts
 // each finish well inside it.
 const Q_BATCH = 3; // topics per call for questions
-const AT_ONCE = 5; // calls in flight together
+const AT_ONCE = 8; // calls in flight together
 
 // Longer sources get fewer topics per notes call, since complete notes run
 // about as long as the source itself.
@@ -463,6 +463,35 @@ export async function generateInParts(text, { onProgress, onPart, onWait, startA
     whole = mergeMaterial(whole, material, n + startAt);
   }
   return { material: whole, done: parts.length, rest: "", error: "" };
+}
+
+// A source too big for one go (twenty files, a whole textbook) is boiled down
+// first, chunk by chunk and side by side, into a dense digest that keeps every
+// fact, then everything is built from the digest in one go. That is quicker
+// than working through it a part a minute, and nothing past page forty five
+// is left out. onProgress(done, of) is told as chunks come back.
+const CHUNK = 20000, DIGEST_CAP = 23000, MAX_CHUNKS = 48;
+export async function condenseSource(text, { onProgress } = {}) {
+  let current = String(text || "").trim();
+  for (let round = 0; round < 3 && current.length > DIGEST_CAP; round++) {
+    const parts = splitSource(current, CHUNK).slice(0, MAX_CHUNKS);
+    let done = 0;
+    const digests = await pool(parts.map((part, i) => async () => {
+      let out = "";
+      for (let tries = 0; tries < 3 && !out; tries++) {
+        out = await post("/api/generate", { notes: part, mode: "condense" }, { retry: false }).then((d) => d.digest).catch(async (e) => {
+          if (e?.limit) throw e;
+          await new Promise((r) => setTimeout(r, 2500 * (tries + 1)));
+          return "";
+        });
+      }
+      onProgress?.(++done, parts.length, round);
+      // a chunk that could not be summarised keeps its opening rather than vanishing
+      return out || part.slice(0, 3500);
+    }), 4);
+    current = digests.join("\n\n");
+  }
+  return current.length > DIGEST_CAP + 1000 ? current.slice(0, DIGEST_CAP + 1000) : current;
 }
 
 // Full notes for topics that do not have them yet: material made before full
