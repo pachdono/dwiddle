@@ -177,10 +177,12 @@ export function tidyQuestion(q) {
 // "the diagram above") cannot be answered, so it is left out. Questions that
 // carry their own passage or figure are fine.
 const UNSEEN = /\b(in|from|by|on) (the|these|your|this) (notes|text|passage|material|lesson|sheet|page)\b|according to the (notes|text|passage)|as (listed|stated|mentioned|described|shown) (in|above|below)|(the|this) (image|diagram|figure|picture|graph|table|chart|photo) (above|below)|\b(shown|pictured|illustrated) (above|below|in the)|listed (as|in) .{0,30}\bnotes\b/i;
+const LABELLED = /\b(molecules?|substances?|compounds?|structures?|parts?|labels?|tubes?|samples?|objects?|points?|solutions?|liquids?|organs?|cells?|letters?) [A-Z]\b(?![a-z'])/;
+const NUMBERED = /\b(figure|fig\.?|table|diagram|graph|chart) ?\d/i;
 export function answerable(q) {
   if (!q || typeof q.q !== "string") return false;
   if (q.passage || q.figure || q.image || q.diagram) return true;
-  return !UNSEEN.test(q.q);
+  return !UNSEEN.test(q.q) && !LABELLED.test(q.q) && !NUMBERED.test(q.q);
 }
 
 // One of each question. The same one turning up five times in a run happened

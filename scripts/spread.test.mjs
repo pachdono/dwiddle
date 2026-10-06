@@ -34,3 +34,10 @@ test("the same question is kept once", () => {
   const list = [{ q: "What is meant by the term starch test?" }, { q: "what is meant by the term  Starch test" }, { q: "Something else?" }];
   assert.equal(uniqueQuestions(list).length, 2);
 });
+
+test("questions about a labelled thing that is not shown are dropped", () => {
+  assert.equal(answerable({ q: "Explain the effect of very high temperature on the shape of molecule Z." }), false);
+  assert.equal(answerable({ q: "What does Figure 2 show?" }), false);
+  assert.equal(answerable({ q: "Explain the effect of high temperature on a protein." }), true);
+  assert.equal(answerable({ q: "What does vitamin C prevent?" }), true);
+});
