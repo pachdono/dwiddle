@@ -164,11 +164,13 @@ export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Dat
 const pad = (n) => String(n).padStart(2, "0");
 const stamp = (t) => { const d = new Date(t); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`; };
 const esc = (s) => String(s).replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
-const title = (s) => (s.topic ? `Study: ${s.topic}` : "Study session");
+// short enough to read on a calendar bar; the whole topic is in the description
+const clip = (t, n = 24) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "…" : t);
+const title = (s) => (s.topic ? `Study: ${clip(s.topic)}` : "Study session");
 
 // one link that opens the event ready to save in Google Calendar
 export function googleLink(s) {
-  const q = new URLSearchParams({ action: "TEMPLATE", text: title(s), dates: `${stamp(s.start)}/${stamp(s.end)}`, details: `${s.reason}. Planned in Dwiddle.` });
+  const q = new URLSearchParams({ action: "TEMPLATE", text: title(s), dates: `${stamp(s.start)}/${stamp(s.end)}`, details: `${s.topic ? s.topic + ". " : ""}${s.reason}. Planned in Dwiddle.` });
   return `https://calendar.google.com/calendar/render?${q}`;
 }
 
@@ -179,30 +181,98 @@ export function makeIcs(sessions, now = Date.now(), name = "") {
     ...(name ? [`X-WR-CALNAME:${esc(name)}`, "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"] : [])];
   sessions.forEach((s, i) => {
     lines.push("BEGIN:VEVENT", `UID:dwiddle-${s.start}-${i}@dwiddle`, `DTSTAMP:${stamp(now)}`, `DTSTART:${stamp(s.start)}`, `DTEND:${stamp(s.end)}`,
-      `SUMMARY:${esc(title(s))}`, `DESCRIPTION:${esc(s.reason + ". Planned in Dwiddle.")}`, "BEGIN:VALARM", "TRIGGER:-PT10M", "ACTION:DISPLAY", "DESCRIPTION:Study time", "END:VALARM", "END:VEVENT");
+      `SUMMARY:${esc(title(s))}`, `DESCRIPTION:${esc((s.topic ? s.topic + ". " : "") + s.reason + ". Planned in Dwiddle.")}`, "BEGIN:VALARM", "TRIGGER:-PT10M", "ACTION:DISPLAY", "DESCRIPTION:Study time", "END:VALARM", "END:VEVENT");
   });
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
 
-// the busy times in a calendar file someone exported, so the plan keeps clear of them
-export function parseIcsBusy(text) {
-  const unfolded = String(text || "").replace(/\r?\n[ \t]/g, "");
+// the busy times in a calendar file (or a calendar's secret address), so the
+// plan keeps clear of them. Repeating events, such as a weekly lesson, are
+// expanded across the window, with their time zone, their skipped dates and any
+// single changed occurrence.
+const ICS_DAYS = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+function zoned(y, mo, d, h, mi, tz) {
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  if (!tz) return new Date(y, mo - 1, d, h, mi).getTime();
+  try {
+    const f = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    let t = guess;
+    for (let k = 0; k < 2; k++) {
+      const p = Object.fromEntries(f.formatToParts(t).map((x) => [x.type, x.value]));
+      t = guess - (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - t);
+    }
+    return t;
+  } catch { return new Date(y, mo - 1, d, h, mi).getTime(); }
+}
+
+// "DTSTART;TZID=Asia/Bangkok:20261006T150000" into its parts
+function icsTime(line) {
+  if (!line) return null;
+  const i = line.indexOf(":");
+  const head = line.slice(0, i), val = line.slice(i + 1).trim();
+  const tz = (/TZID=([^;:]+)/.exec(head) || [])[1];
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(val);
+  if (!m) return null;
+  const [, y, mo, d, h = "0", mi = "0", , z] = m;
+  const allDay = /VALUE=DATE(?!-)/.test(head) || (val.length === 8);
+  return { y: +y, mo: +mo, d: +d, h: +h, mi: +mi, utc: !!z, tz: z ? null : tz, allDay,
+    at: (yy = +y, mm = +mo, dd = +d) => (z ? Date.UTC(yy, mm - 1, dd, +h, +mi) : zoned(yy, mm, dd, +h, +mi, tz)) };
+}
+
+export function parseIcsBusy(text, from = Date.now(), to = from + 21 * 864e5) {
+  const unfolded = String(text || "").replace(/\r?\n[ \t]/g, "").replace(/\r/g, "");
   const out = [];
-  const when = (v) => {
-    const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(v.trim());
-    if (!m) return null;
-    const [, y, mo, d, h = "0", mi = "0", , z] = m;
-    return z ? Date.UTC(+y, +mo - 1, +d, +h, +mi) : new Date(+y, +mo - 1, +d, +h, +mi).getTime();
-  };
-  unfolded.split("BEGIN:VEVENT").slice(1).forEach((block) => {
-    const body = block.split("END:VEVENT")[0];
-    const get = (k) => { const m = new RegExp(`^${k}[^:\\n]*:(.*)$`, "m").exec(body); return m ? m[1].trim() : ""; };
-    if (/^TRANSP:TRANSPARENT/m.test(body)) return; // marked as free
-    const s = when(get("DTSTART")), e = when(get("DTEND")) ?? (s != null ? s + HOUR : null);
-    if (s != null && e != null && e > s) out.push([s, e]);
+  const blocks = unfolded.split("BEGIN:VEVENT").slice(1).map((b) => b.split("END:VEVENT")[0]);
+  const lineOf = (body, k) => (new RegExp(`^${k}[^\\n]*`, "m").exec(body) || [""])[0];
+  const moved = new Set(); // the original start times of occurrences that were changed individually
+  blocks.forEach((body) => {
+    const rid = icsTime(lineOf(body, "RECURRENCE-ID"));
+    if (rid) moved.add(rid.at());
   });
-  return out;
+  blocks.forEach((body) => {
+    if (/^TRANSP:TRANSPARENT/m.test(body) || /^STATUS:CANCELLED/m.test(body)) return; // marked as free, or called off
+    const st = icsTime(lineOf(body, "DTSTART"));
+    if (!st || st.allDay) return; // a birthday or a holiday is not busy time
+    const en = icsTime(lineOf(body, "DTEND"));
+    const dur = en && !en.allDay ? en.at() - st.at() : 36e5;
+    if (!(dur > 0)) return;
+    const rule = (/^RRULE:(.*)$/m.exec(body) || [])[1];
+    if (!rule) { const s0 = st.at(); if (s0 + dur > from && s0 < to) out.push([s0, s0 + dur]); return; }
+    const r = Object.fromEntries(rule.split(";").map((kv) => kv.split("=")));
+    const step = Math.max(1, Number(r.INTERVAL) || 1);
+    const until = r.UNTIL ? icsTime("X:" + r.UNTIL)?.at() : Infinity;
+    const max = r.COUNT ? Number(r.COUNT) : Infinity;
+    const skip = new Set([...body.matchAll(/^EXDATE[^\n]*/gm)].flatMap((m) => {
+      const i = m[0].indexOf(":");
+      return m[0].slice(i + 1).split(",").map((v) => icsTime(m[0].slice(0, i) + ":" + v.trim())?.at()).filter((x) => x != null);
+    }));
+    let n = 0;
+    const emit = (yy, mm, dd) => {
+      const s0 = st.at(yy, mm, dd);
+      if (s0 > until) return false;
+      n++;
+      if (n > max) return false;
+      if (!skip.has(s0) && !moved.has(s0) && s0 + dur > from && s0 < to) out.push([s0, s0 + dur]);
+      return s0 < to;
+    };
+    const start = new Date(Date.UTC(st.y, st.mo - 1, st.d));
+    if (r.FREQ === "DAILY") {
+      for (let k = 0; k < 800; k++) { const d = new Date(start.getTime() + k * step * 864e5); if (!emit(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate())) break; }
+    } else if (r.FREQ === "WEEKLY") {
+      const days = (r.BYDAY ? r.BYDAY.split(",").map((x) => ICS_DAYS[x.slice(-2)]) : [start.getUTCDay()]).sort((a, b) => a - b);
+      const weekStart = start.getTime() - start.getUTCDay() * 864e5;
+      outer: for (let w = 0; w < 300; w++) {
+        for (const wd of days) {
+          const d = new Date(weekStart + (w * step * 7 + wd) * 864e5);
+          if (d < start) continue;
+          if (!emit(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate())) break outer;
+        }
+      }
+    } else { const s0 = st.at(); if (s0 + dur > from && s0 < to) out.push([s0, s0 + dur]); }
+  });
+  return out.filter(([s, e]) => e > s);
 }
 
 // How well the topics are known, from the last few answers on them.

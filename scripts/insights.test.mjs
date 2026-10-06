@@ -42,8 +42,8 @@ test("calendar output", () => {
   assert.match(googleLink(s), /^https:\/\/calendar\.google\.com\/calendar\/render\?action=TEMPLATE/);
   const ics = makeIcs([s]);
   assert.match(ics, /BEGIN:VEVENT/); assert.match(ics, /SUMMARY:Study: Cells/);
-  const busy = parseIcsBusy("BEGIN:VEVENT\nDTSTART:20261006T150000Z\nDTEND:20261006T163000Z\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART;VALUE=DATE:20261007\nDTEND;VALUE=DATE:20261008\nEND:VEVENT");
-  assert.equal(busy.length, 2);
+  const busy = parseIcsBusy("BEGIN:VEVENT\nDTSTART:20261006T150000Z\nDTEND:20261006T163000Z\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART;VALUE=DATE:20261007\nDTEND;VALUE=DATE:20261008\nEND:VEVENT", Date.UTC(2026, 9, 6), Date.UTC(2026, 9, 20));
+  assert.equal(busy.length, 1); // an all day event is not busy time
   assert.equal(busy[0][1] - busy[0][0], 90 * MIN);
 });
 
@@ -53,4 +53,24 @@ test("mastery comes from the last few answers on the topics", () => {
   assert.equal(masteryOf(mk([true, true, true, true, true, false, true]), ["Cells"]), "high");
   assert.equal(masteryOf(mk([false, false, true, false, false, true]), ["Cells"]), "low");
   assert.equal(masteryOf(mk([true, true]), ["Cells"]), "unknown");
+});
+
+test("repeating lessons are expanded, in their own time zone, minus skipped and changed ones", () => {
+  const ics = [
+    "BEGIN:VEVENT", "DTSTART;TZID=Asia/Bangkok:20260601T170000", "DTEND;TZID=Asia/Bangkok:20260601T180000", "RRULE:FREQ=WEEKLY;BYDAY=MO,WE", "EXDATE;TZID=Asia/Bangkok:20260610T170000", "SUMMARY:Guitar", "END:VEVENT",
+    "BEGIN:VEVENT", "DTSTART;TZID=Asia/Bangkok:20260612T090000", "DTEND;TZID=Asia/Bangkok:20260612T100000", "SUMMARY:One off", "END:VEVENT",
+  ].join("\n");
+  const from = Date.UTC(2026, 5, 7), to = Date.UTC(2026, 5, 15);
+  const busy = parseIcsBusy(ics, from, to);
+  // Mon 8, (Wed 10 skipped), Mon 15 is outside the window; the one off on Fri 12
+  const hoursUtc = busy.map(([s]) => new Date(s).toISOString().slice(0, 16));
+  assert.deepEqual(hoursUtc, ["2026-06-08T10:00", "2026-06-12T02:00"]); // 17:00 in Bangkok is 10:00 UTC
+  assert.equal(busy[0][1] - busy[0][0], 3600e3);
+});
+
+test("calendar titles are kept short", () => {
+  const s = { start: Date.UTC(2026, 5, 7, 10), end: Date.UTC(2026, 5, 7, 11), topic: "Effect of very high temperature on molecule shape", reason: "x" };
+  const ics = makeIcs([s]);
+  assert.match(ics, /SUMMARY:Study: Effect of very high tem…/);
+  assert.match(ics, /DESCRIPTION:Effect of very high temperature on molecule shape/);
 });

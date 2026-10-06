@@ -8,7 +8,7 @@
 import { listModels, candidates, provider, providers, fail } from "./_llm.js";
 import { admin } from "./_guard.js";
 import { remind, unsubscribe } from "./_remind.js";
-import { calfeed } from "./_calfeed.js";
+import { calfeed, fetchIcs } from "./_calfeed.js";
 
 export const config = { maxDuration: 60 };
 
@@ -63,6 +63,7 @@ export default async function handler(req, res) {
   if (req.query?.cron === "remind") return remind(req, res);
   if (req.query?.unsub) return unsubscribe(req, res);
   if (req.query?.cal) return calfeed(req, res);
+  if (req.query?.ics) return fetchIcs(req, res);
   // Reports which provider and models the account can use, and the probe spends
   // quota on every model it tries, so it is not something to leave open.
   if (!admin(req, res)) return;

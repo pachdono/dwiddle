@@ -26,3 +26,12 @@ test("an unknown or malformed link gives nothing", async () => {
   assert.equal((await run("b".repeat(36))).status, 404);
   assert.equal((await run("../etc")).status, 404);
 });
+
+test("only calendar providers can be fetched", async () => {
+  const { fetchIcs } = await import("../api/_calfeed.js");
+  const run = (url) => { const out = { status: 0, body: null }; const res = { setHeader() {}, status(c) { out.status = c; return this; }, json(b) { out.body = b; return this; } };
+    return fetchIcs({ method: "POST", body: { url }, headers: {}, socket: {} }, res).then(() => out); };
+  assert.equal((await run("https://evil.example.com/x.ics")).status, 400);
+  assert.equal((await run("http://calendar.google.com/x")).status, 400);
+  assert.equal((await run("not a url")).status, 400);
+});

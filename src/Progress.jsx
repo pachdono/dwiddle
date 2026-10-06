@@ -297,7 +297,7 @@ function FeedCard({ user, plan }) {
     <div className="pl-google on">
       <div>
         <b>Keep my calendar up to date</b>
-        <p className="small muted">Add your Dwiddle calendar once and your study sessions appear in it and change as your plan changes. No sign in with Google, no warnings. Calendars refresh on their own every few hours.</p>
+        <p className="small muted">Add your Dwiddle calendar once and your study sessions appear in it and change as your plan changes. No sign in with Google, no warnings. Calendars refresh on their own every few hours. A subscribed calendar is read only, so to move a session change your free hours here, press Skip on it, or use <b>Add to Google</b> on a session for a copy you can edit.</p>
         <div className="dl-row" style={{ justifyContent: "flex-start", marginTop: 10 }}>
           <a className="btn cta" href={l.google} target="_blank" rel="noreferrer">Add to Google Calendar</a>
           <a className="btn ghost" href={l.webcal}>Apple Calendar or Outlook</a>
@@ -320,16 +320,32 @@ function Planner({ summary, go, setTopic, user }) {
   const applyPreset = (pr) => setPrefs({ ...prefs, days: Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, { ...prefs.days[d], ...pr.set(d) }])) });
   const now = useMemo(() => Date.now(), []);
   const busy = useMemo(() => [...fileBusy, ...gBusy].filter(([, e]) => e > now), [fileBusy, gBusy, now]);
-  const plan = useMemo(() => planWeek({ prefs, summary, busy, now }), [prefs, summary, busy, now]);
+  const [skipped, setSkipped] = useState(() => load("dwiddle-skipped", []));
+  const skip = (t) => { const n = [...skipped, t].slice(-60); setSkipped(n); save("dwiddle-skipped", n); };
+  const plan = useMemo(() => planWeek({ prefs, summary, busy, now }).filter((x) => !skipped.includes(x.start)), [prefs, summary, busy, now, skipped]);
   const tips = advice(summary).filter((t) => ["best", "burnout", "late", "days"].includes(t.id));
   const daysToExam = prefs.exam ? Math.ceil((new Date(prefs.exam).getTime() - now) / 864e5) : null;
 
+  const [addr, setAddr] = useState(() => load("dwiddle-ical-url", ""));
+  async function useAddress(url = addr, quiet = false) {
+    if (!url.trim()) return;
+    try {
+      const r = await fetch("/api/models?ics=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || "The calendar could not be read.");
+      const found = parseIcsBusy(d.ics, Date.now(), Date.now() + 9 * 864e5).slice(0, 600);
+      setFileBusyRaw(found); save(BUSY_KEY, found); save("dwiddle-ical-url", url.trim());
+      if (!quiet) setNote(`Read your calendar: ${found.length} booked time${found.length === 1 ? "" : "s"} this week. The plan keeps clear of them.`);
+    } catch (e) { if (!quiet) setNote(e.message); }
+  }
+  // the saved address is read again each visit, so the plan follows the calendar
+  useEffect(() => { if (addr) useAddress(addr, true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function onFile(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const found = parseIcsBusy(await f.text()).filter(([, end]) => end > now && end < now + 40 * 864e5).slice(0, 600);
+    const found = parseIcsBusy(await f.text(), Date.now(), Date.now() + 9 * 864e5).slice(0, 600);
     setFileBusyRaw(found); save(BUSY_KEY, found);
-    setNote(found.length ? `Read ${found.length} upcoming event${found.length === 1 ? "" : "s"}. The plan keeps clear of them.` : "No upcoming events were found in that file.");
+    setNote(found.length ? `Read ${found.length} booked time${found.length === 1 ? "" : "s"}. The plan keeps clear of them.` : "No upcoming events were found in that file.");
     e.target.value = "";
   }
   function download() {
@@ -396,7 +412,14 @@ function Planner({ summary, go, setTopic, user }) {
           })}
         </div>
         <div className="pl-file">
-          <span className="small muted">No Google? Choose a calendar file (.ics) exported from Apple, Outlook or Google, and the plan keeps clear of what is in it. It is read on this device and not uploaded.</span>
+          <b className="small">Keep clear of what is already in my calendar</b>
+          <span className="small muted">Paste your calendar's secret address and the plan avoids your lessons and other events, including ones that repeat. In Google Calendar: Settings, then your calendar, then Integrate calendar, then <i>Secret address in iCal format</i>. Keep it private. It is only used to read when you are busy and is saved on this device.</span>
+          <div className="dl-row" style={{ justifyContent: "flex-start", flexWrap: "nowrap" }}>
+            <input className="pl-addr" type="url" placeholder="https://calendar.google.com/calendar/ical/..." value={addr} onChange={(e) => setAddr(e.target.value)} aria-label="Secret calendar address" />
+            <button className="btn small" onClick={() => useAddress()} disabled={!addr.trim()}>Use it</button>
+            {addr && <button className="btn quiet small" onClick={() => { setAddr(""); save("dwiddle-ical-url", ""); setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar forgotten."); }}>Forget</button>}
+          </div>
+          <span className="small muted">Or choose a calendar file (.ics) instead, which is read on this device and not uploaded.</span>
           <div className="dl-row" style={{ justifyContent: "flex-start" }}>
             <button className="btn ghost small" onClick={() => file.current?.click()}>Choose a calendar file</button>
             {fileBusy.length > 0 && <button className="btn quiet small" onClick={() => { setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar file forgotten."); }}>Forget it ({fileBusy.length} events)</button>}
@@ -426,6 +449,7 @@ function Planner({ summary, go, setTopic, user }) {
                 </div>
                 <div className="pl-act">
                   {s.topic && <button className="btn small quiet" onClick={() => { setTopic?.(s.topic); go("quiz"); }}>Start now</button>}
+                  <button className="btn small quiet" onClick={() => skip(s.start)}>Skip</button>
                   <a className="btn small ghost" href={googleLink(s)} target="_blank" rel="noreferrer">Add to Google</a>
                 </div>
               </div>
