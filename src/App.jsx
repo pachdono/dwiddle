@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
-import { phraseQuestion } from "./mathText.js";
+import { phraseQuestion, answerable, uniqueQuestions } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
@@ -673,7 +673,7 @@ export default function App() {
   // Study shows the focused library item only; everything else (saving,
   // syncing) works on the whole store.
   const study = focus ? viewOf(made, focus) : made;
-  const bank = (study?.questions || []).map(phraseQuestion);
+  const bank = uniqueQuestions((study?.questions || []).map(phraseQuestion).filter(answerable));
 
   // Topics left with no questions (their batch failed while the material was
   // being made) get them written from their saved notes, once per visit.
@@ -2810,7 +2810,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     moreQuestions(made, [...new Set(pool.map((x) => x.topic))], need).then((qs) => {
       if (qs.length) setMade({ title: made?.title, topics: [], questions: qs }, { material: "none" });
       if (live) {
-        setMore(qs.map(phraseQuestion));
+        setMore(uniqueQuestions(qs.map(phraseQuestion).filter(answerable)).filter((x) => !pool.some((p) => p.q.toLowerCase().trim() === x.q.toLowerCase().trim())));
         if (qs.length < need) setNote(qs.length ? `Dwiddle could only write ${qs.length} of the ${need} new questions this time, so some come round again.` : "Dwiddle could not write new questions just now, so this quiz repeats yours. Try again in a minute for fresh ones.");
       }
     });

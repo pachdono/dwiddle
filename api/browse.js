@@ -309,10 +309,15 @@ const PAINTERS = [
   }],
 ];
 async function paint(prompt) {
+  const tried = [];
   for (const [name, run] of PAINTERS) {
-    try { const data = await run(prompt); if (data) return { data, by: name }; } catch { /* next one */ }
+    try {
+      const data = await run(prompt);
+      if (data) return { data, by: name };
+      tried.push(`${name}: no key or no picture`);
+    } catch (e) { tried.push(`${name}: ${e.name === "TimeoutError" ? "too slow" : e.message}`); }
   }
-  return null;
+  return { tried };
 }
 
 export default async function handler(req, res) {
@@ -341,7 +346,7 @@ export default async function handler(req, res) {
       const prompt = String(q || "").trim().slice(0, 400);
       if (!prompt) return userError(res, 400, "Say what to draw.");
       const made = await paint(prompt);
-      if (!made) return userError(res, 502, "No picture could be made just now.");
+      if (!made.data) return userError(res, 502, `No picture could be made just now (${made.tried.join("; ")}).`);
       return res.status(200).json(made);
     }
     if (action === "image") {

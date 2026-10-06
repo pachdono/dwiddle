@@ -160,6 +160,8 @@ export async function runActions(actions, opts = {}) {
 // like "I added it to your notes" is only believed if the notes really changed.
 // When it did not, the model is told what happened and tries again, up to
 // twice; if it still cannot, the student gets an honest, kind answer.
+const IMAGE_ASK = /\b(image|picture|illustration|diagram|drawing|poster|photo)\b/i;
+const IMAGE_FILLER = /\b(can|could|would|will)? ?you\b|\b(please|pls|generate|make|create|draw|show|give|get|me|an?|of|image|picture|illustration|diagram|drawing|poster|photo|i (want|need)|for)\b/gi;
 export async function agentTurn(context, history) {
   const lastUser = [...history].reverse().find((m) => m.role === "user")?.content || "";
   const wantNotes = /\bnotes?\b/i.test(lastUser) && /\b(add|put|place|insert|save|include|show|in|on|to)\b/i.test(lastUser);
@@ -172,6 +174,11 @@ export async function agentTurn(context, history) {
   for (let round = 0; round < 3; round++) {
     const got = await askAgent(context, appState(), msgs);
     reply = got.reply;
+    // Asked for a picture and the model did not choose to make one: make one.
+    if (round === 0 && IMAGE_ASK.test(lastUser) && !got.actions.some((a) => ["paint", "draw", "picture", "sketch"].includes(a.type))) {
+      const subject = lastUser.replace(IMAGE_FILLER, " ").replace(/\s+/g, " ").trim().slice(0, 300) || lastUser;
+      got.actions = [...got.actions, { type: "paint", prompt: subject, query: subject.slice(0, 80) }];
+    }
     const did = await runActions(got.actions, { wantNotes, userText: lastUser });
     kept.push(...did.filter((d) => d.ok || d.art));
     failed = did.filter((d) => !d.ok);

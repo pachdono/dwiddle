@@ -128,7 +128,8 @@ Rules:
 - Write questions only for the topics you are given, and nothing on any other part of the notes.
 - Every question must be answerable from the notes alone. Only ask about terms, names, facts, figures and definitions that are written in the notes; never ask about anything the notes do not mention, however closely related. The right answer must be stated in the notes. Wrong options can be other believable terms.
 - 3 questions for each topic, 4 when it is marked large.
-- 4 choices each; "answer" is the index of the correct one. The wrong options must be believable.
+- 4 choices each; "answer" is the index of the correct one, and it must vary: spread it evenly across 0, 1, 2 and 3, never mostly 0. The wrong options must be believable.
+- Every question must stand alone. Never write "in the notes", "listed in the text", "the diagram above" or anything that points at something the student cannot see. Never repeat or reword an earlier question.
 - Every "q" is a full question a student could answer without guessing what is being asked. For a vocab question write "What is meant by the term demand curve?" or "Define opportunity cost.", never the bare term on its own.
 - "why" must teach something, not restate the answer. Two sentences, no more.
 ${STYLE}`;

@@ -443,13 +443,14 @@ function Did({ did, onShow }) {
 // picture of the thing is shown instead, so there is always something.
 function ChatPaint({ prompt, query }) {
   const [img, setImg] = useState(undefined);
+  const [why, setWhy] = useState("");
   useEffect(() => {
     let live = true;
-    browse("paint", { q: prompt }).then((r) => { if (live) setImg(r?.data || null); }).catch(() => { if (live) setImg(null); });
+    browse("paint", { q: prompt }).then((r) => { if (live) setImg(r?.data || null); }).catch((e) => { if (live) { setWhy(e?.message || ""); setImg(null); } });
     return () => { live = false; };
   }, [prompt]);
-  if (img === undefined) return <p className="small muted">Drawing it...</p>;
-  if (!img) return query ? <ChatPicture query={query} /> : <p className="small muted">I could not make that picture just now. Try again in a minute.</p>;
+  if (img === undefined) return <p className="small muted">Drawing it, this can take up to half a minute...</p>;
+  if (!img) return query ? <ChatPicture query={query} /> : <p className="small muted">I could not make that picture just now. {why}</p>;
   return (
     <figure className="nt-pic">
       <img src={img} alt={prompt} />

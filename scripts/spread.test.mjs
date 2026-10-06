@@ -20,3 +20,17 @@ test("all of the above stays put", () => {
   const q = { id: "y", q: "Q?", choices: ["a", "b", "All of the above"], answer: 2 };
   assert.equal(spreadAnswers(q), q);
 });
+
+import { answerable, uniqueQuestions } from "../src/mathText.js";
+
+test("questions about unseen notes or pictures are dropped", () => {
+  assert.equal(answerable({ q: "Which of the following is listed as a cell structure in the notes?" }), false);
+  assert.equal(answerable({ q: "Which part of the diagram above makes protein?" }), false);
+  assert.equal(answerable({ q: "Which part of the diagram makes protein?", figure: "x" }), true);
+  assert.equal(answerable({ q: "What makes protein in a cell?" }), true);
+});
+
+test("the same question is kept once", () => {
+  const list = [{ q: "What is meant by the term starch test?" }, { q: "what is meant by the term  Starch test" }, { q: "Something else?" }];
+  assert.equal(uniqueQuestions(list).length, 2);
+});

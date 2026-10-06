@@ -172,3 +172,27 @@ export function tidyQuestion(q) {
     choices: Array.isArray(q.choices) ? q.choices.map(tidyMath) : q.choices,
   };
 }
+
+// A question that leans on something the student cannot see ("in the notes",
+// "the diagram above") cannot be answered, so it is left out. Questions that
+// carry their own passage or figure are fine.
+const UNSEEN = /\b(in|from|by|on) (the|these|your|this) (notes|text|passage|material|lesson|sheet|page)\b|according to the (notes|text|passage)|as (listed|stated|mentioned|described|shown) (in|above|below)|(the|this) (image|diagram|figure|picture|graph|table|chart|photo) (above|below)|\b(shown|pictured|illustrated) (above|below|in the)|listed (as|in) .{0,30}\bnotes\b/i;
+export function answerable(q) {
+  if (!q || typeof q.q !== "string") return false;
+  if (q.passage || q.figure || q.image || q.diagram) return true;
+  return !UNSEEN.test(q.q);
+}
+
+// One of each question. The same one turning up five times in a run happened
+// when the bank held several copies of it, or of a rewording that differs only
+// in case or punctuation.
+const key = (q) => String(q?.q || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+export function uniqueQuestions(list) {
+  const seen = new Set();
+  return (list || []).filter((q) => {
+    const k = key(q);
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}

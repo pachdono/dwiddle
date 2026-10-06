@@ -34,7 +34,9 @@ export const KIND_LABEL = {
 
 /* ---------- marking ---------- */
 
-const norm = (s) => String(s || "")
+const NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const digits = (t) => t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/gi, (w) => String(NUMBERS.indexOf(w.toLowerCase())));
+const norm = (s) => digits(String(s || ""))
   .toLowerCase()
   .normalize("NFKD").replace(/[̀-ͯ]/g, "")
   .replace(/[^a-z0-9%.+\-² ]/g, " ")
@@ -328,6 +330,7 @@ export function derivedDrills(questions) {
 // A multiple choice question asked again with no options to pick from, so the
 // answer has to be recalled and typed. Only where that is fair: a short answer,
 // and a stem that does not lean on the options being on screen.
+const NAMED = /\b(called|name of|term for|word for|known as|stands for|symbol (for|of)|is the (process|organ|structure|name|term|word|unit|gas|enzyme|test)|what (is|are) the (process|organ|structure|name|term|word|unit|gas|enzyme))\b/i;
 export function typedFrom(q) {
   if (!q || isDrill(q) || !Array.isArray(q.choices) || typeof q.answer !== "number") return null;
   const a = String(q.choices[q.answer] ?? "").trim();
@@ -335,5 +338,9 @@ export function typedFrom(q) {
   if (!a || a.length > 28 || a.split(/\s+/).length > 3) return null;
   if (/all of the above|none of the above|both |which of the (following|these)|the options|above|below|\bnot\b|\bexcept\b/i.test(stem + " " + a)) return null;
   if (/[=<>]|\\\(|\$/.test(a)) return null;
+  // only where the answer is one fixed term: a name, a word, a symbol. "What
+  // are the factors..." or "the effect of..." has several right answers.
+  if (!NAMED.test(stem) || /meant by|define|describe|explain/i.test(stem)) return null;
+  if (/\b(factors|effects?|reasons?|examples?|ways|types|advantages|disadvantages|differences?|features|causes)\b/i.test(stem)) return null;
   return { id: q.id, topic: q.topic, type: "blank", q: /_{3,}/.test(stem) ? stem : stem + " ______", answer: a, why: q.why || "" };
 }
