@@ -304,7 +304,7 @@ export async function moreQuestions(made, names, count, avoidMore = []) {
   // Material made from a past paper has questions and answers but hardly any
   // notes, and the writer refuses to work from a few lines. What the questions
   // and their explanations already establish is the material then.
-  if (notes.length < 1500) {
+  if (notes.length < 220) {
     const facts = have.map((q) => `${q.q} The answer is ${q.choices?.[q.answer] ?? ""}. ${q.why || ""}`.trim()).join("\n");
     notes = `${notes}\n\nFacts already established about these topics (write about the same subject, from different angles):\n${facts}`.slice(0, 20000);
   }
@@ -313,7 +313,7 @@ export async function moreQuestions(made, names, count, avoidMore = []) {
   // Four at a time finish quickly, run side by side, and a batch that fails is
   // tried once more.
   const BATCH = 4;
-  const avoid = [...have.map((q) => q.q), ...avoidMore].slice(-60);
+  const avoid = [...have.map((q) => q.q.slice(0, 120)), ...avoidMore].slice(-24);
   const calls = Math.ceil(count / BATCH);
   const stamp = Date.now() % 1e6;
   let lastError = "";

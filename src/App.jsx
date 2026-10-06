@@ -27,7 +27,6 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
-import { PictureFor } from "./QuestionPicture.jsx";
 import { phraseQuestion, answerable, uniqueQuestions, practiceBank } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -2815,7 +2814,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     (async () => {
       const got = [];
       let why = "";
-      for (let tries = 0; tries < 3 && got.length < need && live; tries++) {
+      for (let tries = 0; tries < 2 && got.length < need && live; tries++) {
         const qs = await moreQuestions(made, topics, need - got.length, got.map((x) => x.q)).catch((e) => { why = e?.message || ""; return []; });
         if (qs.error) why = qs.error;
         const candidates = uniqueQuestions(qs.map((q) => phraseQuestion(q))).filter((x) => {
@@ -2952,7 +2951,6 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
             <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
               <M t={q.q} />
             </h3>
-            <PictureFor q={q} />
 
             {q.choices.map((c, n) => {
               let cls = "choice";
@@ -3750,7 +3748,6 @@ function MockExam({ grade, pool }) {
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
         <M t={q.q} />
       </h3>
-      <PictureFor q={q} />
 
       {q.choices.map((c, n) => (
         <button key={n}
@@ -3829,8 +3826,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
         <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
           <M t={q.q} />
         </h3>
-        <PictureFor q={q} />
-
+  
         {q.choices.map((c, n) => {
           let cls = "choice";
           if (picked !== null && n === q.answer) cls += " right";
@@ -3944,7 +3940,6 @@ function SpeedRound({ grade, pool }) {
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
         <M t={q.q} />
       </h3>
-      <PictureFor q={q} />
 
       {q.choices.map((c, k) => (
         <button key={`${n}-${k}`} className="choice" onClick={() => answer(k)}>
