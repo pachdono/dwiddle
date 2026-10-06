@@ -297,7 +297,7 @@ export async function questionsFor(made, names) {
   return results.flat().map(tidyQuestion);
 }
 
-export async function moreQuestions(made, names, count) {
+export async function moreQuestions(made, names, count, avoidMore = []) {
   const have = (made?.questions || []).filter((q) => names.includes(q.topic));
   if (!have.length || count < 1) return [];
   const notes = notesText(made, names).slice(0, 20000);
@@ -306,6 +306,7 @@ export async function moreQuestions(made, names, count) {
   // Four at a time finish quickly, run side by side, and a batch that fails is
   // tried once more.
   const BATCH = 4;
+  const avoid = [...have.map((q) => q.q), ...avoidMore].slice(-60);
   const calls = Math.ceil(count / BATCH);
   const stamp = Date.now() % 1e6;
   const results = await pool(Array.from({ length: calls }, (_, n) => async () => {
@@ -314,7 +315,7 @@ export async function moreQuestions(made, names, count) {
       .map(({ q, choices, topic }) => ({ q, choices, topic }));
     const topics = [...new Set(like.map((q) => q.topic))].map((name) => ({ name }));
     for (let tries = 0; tries < 2; tries++) {
-      const got = await post("/api/generate", { notes, mode: "questions", topics, like, count: want, batch: `${stamp}${n}${tries}` })
+      const got = await post("/api/generate", { notes, mode: "questions", topics, like, avoid, count: want, batch: `${stamp}${n}${tries}` })
         .then((d) => d.questions || []).catch(() => []);
       if (got.length) return got;
     }

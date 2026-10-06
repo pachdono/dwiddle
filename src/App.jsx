@@ -2814,7 +2814,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     (async () => {
       const got = [];
       for (let tries = 0; tries < 6 && got.length < need && live; tries++) {
-        const qs = await moreQuestions(made, topics, need - got.length).catch(() => []);
+        const qs = await moreQuestions(made, topics, need - got.length, got.map((x) => x.q)).catch(() => []);
         const fresh = uniqueQuestions(qs.map(phraseQuestion).filter(answerable)).filter((x) => {
           const k = x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
           if (seen.has(k)) return false;
@@ -2828,7 +2828,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       }
       if (!live) return;
       setMore(got);
-      if (got.length < need) setNote(`Dwiddle wrote ${got.length} of the ${need} new questions it needed, so the quiz is ${pool.length + got.length} questions long instead of ${len}. Nothing is repeated.`);
+      if (got.length < need) setNote(`Dwiddle wrote ${got.length} of the ${need} new questions it needed, so the quiz is ${pool.length + got.length} questions long instead of ${len}. Nothing is repeated. Go back and press Start again to try for the rest.`);
     })();
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2929,6 +2929,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         <div className="bar" style={{ marginBottom: 22 }}>
           <i style={{ width: `${((i + (answered ? 1 : 0)) / QUIZ.length) * 100}%` }} />
         </div>
+        {note && i === 0 && !answered && <p className="small muted" style={{ margin: "-10px 0 16px" }}>{note}</p>}
 
         {drill ? (
           <QuestionView key={q.id + ":" + i} q={q} onDone={(ok) => { setPicked(ok); settle(ok); }} />
