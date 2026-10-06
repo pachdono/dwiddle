@@ -396,6 +396,15 @@ Rules:
 - The model answer covers every mark point, in three to six sentences.
 - British English. Do not use em dashes or en dashes.`;
 
+const CONDENSE = `You condense study material into a digest that exam questions and lessons will later be written from. Nothing a student could be tested on may be lost.
+
+Rules:
+- Keep EVERY distinct term, definition, name, date, number, unit, formula, equation, rule, step of a process, classification, cause and effect, worked example and exam question that is in the material. Do not summarise away detail and do not leave out anything because it seems minor.
+- The only things to remove are exact repeats: where the same fact, question or example appears again (including past paper questions that repeat in different words), write it once. Also remove filler, introductions, page headers and footers, slide numbers, references and admin that is not subject knowledge.
+- Structure it with a short heading line (starting with "## ") for each topic, then compact lines or bullets under it. Keep the original order. Where there are several files, keep their topics distinct.
+- Write maths as plain symbols, units included. Never invent anything that is not in the material.
+- Use as much room as the material needs, up to about 9000 characters. British English. Do not use em dashes or en dashes. Output the digest as plain text only.`;
+
 const MARK_PAPER =`You are an experienced examiner marking a candidate's written answers strictly against the mark scheme.
 
 Return ONE JSON object and nothing else:

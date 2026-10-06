@@ -2675,7 +2675,7 @@ const MODES = [
 const QUIZ_LENGTHS = [5, 10, 20, 30, 50];
 
 function Practice(props) {
-  const { pMode, setPMode, missed, topic, setTopic, go, hidden, bank, topics } = props;
+  const { pMode, setPMode, missed, topic: pickedTopic, setTopic, go, hidden, bank, topics } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
   const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
@@ -2691,6 +2691,9 @@ function Practice(props) {
   // list would not actually declutter anything.
   const liveTopics = topics.filter((t) => !hidden.includes(t.id)).map((t) => t.name);
   const choices = [...new Set(bank.map((q) => q.topic))].filter((t) => liveTopics.includes(t));
+  // A topic picked earlier that has no questions here (another material, or
+  // removed) must not leave Practice empty under an "All topics" label.
+  const topic = pickedTopic && choices.includes(pickedTopic) ? pickedTopic : null;
 
   // Every mode draws from here, so changing the topic changes the whole page.
   const pool = topic
@@ -2708,8 +2711,8 @@ function Practice(props) {
   const [session, record] = usePracticeSession();
   useCheerSounds(session);
   const modeProps = early
-    ? { ...props, grade: (id, ok, t, kind) => { props.grade(id, ok, t, kind); record(ok, { quiet: active.id === "mock" }); } }
-    : props;
+    ? { ...props, topic, grade: (id, ok, t, kind) => { props.grade(id, ok, t, kind); record(ok, { quiet: active.id === "mock" }); } }
+    : { ...props, topic };
   useEffect(() => {
     if (!playing) return;
     const onKey = (e) => { if (e.key === "Escape" && !e.target.closest?.("input, textarea")) setPlaying(false); };
