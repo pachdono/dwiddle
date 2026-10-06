@@ -2,10 +2,9 @@
 // everything a person practises comes from their own notes.
 
 export const DECKS = [
-  { id: "all", label: "All cards", hint: "Everything in this material" },
-  { id: "vocab", label: "Vocabulary", hint: "Terms to define word for word" },
-  { id: "concept", label: "Concepts", hint: "Ideas you have to reason about" },
-  { id: "process", label: "Processes", hint: "Mechanisms and their steps" },
+  { id: "all", label: "All cards", hint: "Every term and method in this material" },
+  { id: "terms", label: "Terms", hint: "Vocabulary and what it means" },
+  { id: "howto", label: "How to", hint: "The steps of a method or process" },
 ];
 
 // Realistic paper sizes and durations.

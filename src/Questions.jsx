@@ -344,3 +344,36 @@ export function typedFrom(q) {
   if (/\b(factors|effects?|reasons?|examples?|ways|types|advantages|disadvantages|differences?|features|causes)\b/i.test(stem)) return null;
   return { id: q.id, topic: q.topic, type: "blank", q: /_{3,}/.test(stem) ? stem : stem + " ______", answer: a, why: q.why || "" };
 }
+
+// A multiple choice question turned into "is this answer right?", with the
+// right answer half the time and a wrong option the other half, chosen by the
+// question so it is the same each time it is shown.
+export function trueFalseFrom(q) {
+  if (!q || isDrill(q) || !Array.isArray(q.choices) || q.choices.length < 2 || typeof q.answer !== "number") return null;
+  const stem = String(q.q || "").trim();
+  if (stem.length > 220 || /which of the (following|these)|all of the above|none of the above/i.test(stem + " " + q.choices.join(" "))) return null;
+  const h = [...String(q.id ?? stem)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 11);
+  const truth = h % 2 === 0;
+  const right = String(q.choices[q.answer]);
+  const wrong = q.choices.filter((_, i) => i !== q.answer);
+  const given = truth ? right : String(wrong[h % wrong.length]);
+  return { id: q.id, topic: q.topic, type: "tf", q: `Is this answer correct?  ${stem}  Answer: ${given}`, answer: truth, correction: truth ? "" : `The answer is ${right}.`, why: q.why || "" };
+}
+
+// Four short question and answer pairs from one topic, to match up.
+export function matchFrom(questions, used = new Set()) {
+  const byTopic = {};
+  questions.forEach((q) => {
+    if (isDrill(q) || !Array.isArray(q.choices) || typeof q.answer !== "number" || used.has(q.id)) return;
+    const a = String(q.choices[q.answer] ?? "");
+    const stem = String(q.q || "");
+    if (!a || a.split(/\s+/).length > 6 || stem.length > 110 || /which of the (following|these)|all of the above|none of the above/i.test(stem + a)) return;
+    (byTopic[q.topic] ||= []).push({ id: q.id, a: stem, b: a });
+  });
+  for (const list of Object.values(byTopic)) {
+    const pick = [];
+    for (const p of list) if (!pick.some((x) => x.b.toLowerCase() === p.b.toLowerCase()) && pick.length < 4) pick.push(p);
+    if (pick.length >= 3) return { id: `mq-${pick.map((p) => p.id).join("-")}`, topic: list[0] && questions.find((q) => q.id === pick[0].id)?.topic, type: "match", q: "Match each question to its answer", pairs: pick.map((p) => ({ a: p.a, b: p.b })), why: "", from: pick.map((p) => p.id) };
+  }
+  return null;
+}

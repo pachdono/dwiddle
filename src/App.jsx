@@ -38,7 +38,7 @@ import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
 import { setEarlyAccess, browse, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
-import { QuestionView, isDrill, derivedDrills, typedFrom } from "./Questions.jsx";
+import { QuestionView, isDrill, derivedDrills, typedFrom, trueFalseFrom, matchFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";
 import { DwiddleChat, AskDwiddleButton, usePageContext, useDictation, PermissionPrompt } from "./Chat.jsx";
 import { RecordingView } from "./Record.jsx";
@@ -2684,7 +2684,7 @@ function Practice(props) {
   const stat = {
     quiz: `${pool.length} question${pool.length === 1 ? "" : "s"}`,
     review: dueCount ? `${dueCount} due now` : "Nothing due",
-    cards: (() => { const n = pool.length + (early ? notesCards(props.made, topic).length : 0); return `${n} card${n === 1 ? "" : "s"}`; })(),
+    cards: (() => { const n = flashDeck(pool, props.made, topic).length; return `${n} card${n === 1 ? "" : "s"}`; })(),
     mock: `${Math.min(pool.length, 20)} questions, timed`,
     speed: "60 seconds",
     missed: missed.length ? `${missed.length} to fix` : "None yet",
@@ -2841,12 +2841,20 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       let main = [...shuffle(pool), ...shuffle(more)];
       main = main.slice(0, len);
       const extra = shuffle(drillPool);
-      // Every other question is typed rather than picked, which is what stops it
-      // being easy; the rest of the variety comes from the drill kinds.
-      return main.map((q, n) => {
+      // A run is a mix, not a row of the same thing: picked, typed, true or
+      // false and matching, in turn, with the drill kinds the topic has mixed
+      // in as well. Each kind falls back to a plain pick where the question
+      // does not suit it.
+      const used = new Set();
+      const mixed = main.map((q, n) => {
         if (n % 3 === 2 && extra.length) return extra.pop();
-        return n % 2 === 1 ? (typedFrom(q) || q) : q;
+        if (n % 5 === 4) { const m = matchFrom(main.filter((x, k) => k >= n), used); if (m) { m.from.forEach((id) => used.add(id)); return m; } }
+        if (n % 4 === 1) return typedFrom(q) || trueFalseFrom(q) || q;
+        if (n % 4 === 3) return trueFalseFrom(q) || typedFrom(q) || q;
+        return q;
       });
+      // what a matching round already asked is not asked again on its own
+      return mixed.filter((x) => x.type === "match" || !used.has(x.id));
     };
     setQUIZ(build());
   }
@@ -3428,37 +3436,43 @@ function UpdateSettings() {
 /* ---------- practice: flashcards ---------- */
 
 // A card per bank question. The front asks, the back answers and explains.
-function cardsFrom(questions) {
-  return questions.map((q) => ({
-    id: q.id,
-    kind: q.kind,
-    topic: q.topic,
-    front: q.kind === "vocab" && q.term ? q.term : q.q,
-    back: q.choices[q.answer],
-    note: q.why,
-  }));
-}
-
-// Cards from the notes themselves (testers): every term with its definition,
-// and every hard word with the meaning it pops up with.
-function notesCards(made, topic) {
+// Flashcards are for learning, not for testing, so they are not the quiz
+// questions again. Terms and what they mean, and how to do things: the steps of
+// a method or process. Both come from what the notes already hold.
+const keyOf = (t) => flatMarks(t).trim().toLowerCase();
+function flashDeck(pool, made, topic) {
   const out = [], seen = new Set();
+  const add = (card) => {
+    const k = keyOf(card.front);
+    if (!k || !card.back || seen.has(k) || card.front.length > 110) return;
+    seen.add(k);
+    out.push(card);
+  };
+  // vocabulary the questions already define
+  for (const q of pool) {
+    if (q.kind === "vocab" && q.term && Array.isArray(q.choices) && q.choices[q.answer]) {
+      add({ id: q.id, kind: "terms", topic: q.topic, front: q.term, back: q.choices[q.answer], note: q.why });
+    }
+  }
   for (const [name, blocks] of Object.entries(made?.notes || {})) {
     if (topic && name !== topic) continue;
+    let heading = "";
     for (const b of blocks || []) {
-      const add = (front, back) => {
-        const f = flatMarks(front).trim(), k = f.toLowerCase();
-        if (!f || !back || seen.has(k) || f.length > 80) return;
-        seen.add(k);
-        out.push({ id: "n:" + name + ":" + k, kind: "notes", topic: name, front: f, back: flatMarks(back).trim(), note: "" });
-      };
-      if (b?.term) add(b.term, b.def);
-      for (const t of blockTexts(b)) for (const seg of parseMarks(t)) if (seg.mark === "word") add(seg.t, seg.def);
+      if (b?.h) heading = flatMarks(b.h);
+      if (b?.term) add({ id: "n:" + name + ":" + keyOf(b.term), kind: "terms", topic: name, front: flatMarks(b.term).trim(), back: flatMarks(b.def).trim(), note: "" });
+      for (const t of blockTexts(b)) for (const seg of parseMarks(t)) {
+        if (seg.mark === "word" && seg.def) add({ id: "n:" + name + ":" + keyOf(seg.t), kind: "terms", topic: name, front: flatMarks(seg.t).trim(), back: flatMarks(seg.def).trim(), note: "" });
+      }
+      // how to do something: a flow of steps, or a list under a "how to" heading
+      const steps = b?.flow?.steps || (b?.list && /\b(how|method|steps?|procedure|process|to )\b/i.test(heading) ? b.list : null);
+      if (steps && steps.length >= 2) {
+        const title = b?.flow?.title ? flatMarks(b.flow.title) : heading;
+        if (title) add({ id: "h:" + name + ":" + keyOf(title), kind: "howto", topic: name, front: /^how\b/i.test(title) ? title : `How to: ${title}`, back: steps.map((x, n) => `${n + 1}. ${flatMarks(x)}`).join("\n"), note: "" });
+      }
     }
   }
   return out;
 }
-
 function Flashcards({ pool, made, early, topic }) {
   const [deck, setDeck] = useState("all");
   const [known, setKnown] = useState(() => load(KEYS.known, []));
@@ -3466,7 +3480,7 @@ function Flashcards({ pool, made, early, topic }) {
   const [flipped, setFlipped] = useState(false);
   const [again, setAgain] = useState([]); // cards pushed to the back of the run
 
-  const deckSource = [...cardsFrom(pool), ...(early ? notesCards(made, topic) : [])];
+  const deckSource = flashDeck(pool, made, topic);
   const inDeck = deckSource.filter((c) => deck === "all" || c.kind === deck);
   const live = inDeck.filter((c) => !known.includes(c.id));
   const queue = [...live.filter((c) => !again.includes(c.id)), ...live.filter((c) => again.includes(c.id))];
@@ -3521,7 +3535,7 @@ function Flashcards({ pool, made, early, topic }) {
 
   const decks = (
     <div className="deck-picker">
-      {[...DECKS, ...(deckSource.some((c) => c.kind === "notes") ? [{ id: "notes", label: "From your notes", hint: "Every term and hard word in your notes" }] : [])].map((d) => {
+      {DECKS.map((d) => {
         const all = deckSource.filter((c) => d.id === "all" || c.kind === d.id);
         const left = all.filter((c) => !known.includes(c.id)).length;
         return (
@@ -3541,11 +3555,13 @@ function Flashcards({ pool, made, early, topic }) {
         {decks}
         <div className="card card-pad" style={{ textAlign: "center", padding: 44 }}>
           <Duck size={92} outfit="party" />
-          <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>Deck clear</h3>
+          <h3 style={{ margin: "10px 0 4px", fontSize: 17 }}>{inDeck.length ? "Deck clear" : "No cards here yet"}</h3>
           <p className="muted small" style={{ margin: "0 0 20px" }}>
-            You retired all {inDeck.length} cards in this deck. They will not come back until you reset it.
+            {inDeck.length
+              ? `You retired all ${inDeck.length} cards in this deck. They will not come back until you reset it.`
+              : "Flashcards are for terms and for how to do things. They come from the terms and the step by step methods in your notes, and this material has none of that kind yet."}
           </p>
-          <button className="btn" onClick={reset}>Bring them back</button>
+          {inDeck.length > 0 && <button className="btn" onClick={reset}>Bring them back</button>}
         </div>
       </div>
     );
@@ -3568,7 +3584,7 @@ function Flashcards({ pool, made, early, topic }) {
       <div className="flip-scene" onClick={() => setFlipped((f) => !f)}>
         <div className={"flip-card" + (flipped ? " flipped" : "")}>
           <div className="flip-face front">
-            <span className="flash-tag">{card.kind === "vocab" || card.kind === "notes" ? "Term" : "Question"}</span>
+            <span className="flash-tag">{card.kind === "howto" ? "How to" : "Term"}</span>
             <p className="flash-body"><M t={card.front} /></p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
@@ -3578,7 +3594,7 @@ function Flashcards({ pool, made, early, topic }) {
 
           <div className="flip-face back">
             <span className="flash-tag">Answer</span>
-            <p className="flash-body answer"><M t={card.back} /></p>
+            <p className="flash-body answer" style={{ whiteSpace: "pre-line" }}><M t={card.back} /></p>
             <p className="flash-note"><M t={card.note} /></p>
             <span className="flash-foot">
               <span className="pill">{card.topic}</span>
