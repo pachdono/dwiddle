@@ -6,6 +6,7 @@
 // checks. It fills the screen while it runs, because a lesson read beside a
 // sidebar and a list of other things to do is a lesson half read.
 
+import { PictureFor } from "./QuestionPicture.jsx";
 import { spreadAnswers } from "./mathText.js";
 import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -299,6 +300,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
           <article className="lp-card" key={at}>
             <span className="lp-kicker">Quick check</span>
             <h2><M t={step.q} /></h2>
+            <PictureFor q={step} />
             <div className="lp-options">
               {step.choices.map((c, i) => {
                 const chosen = picked[at];

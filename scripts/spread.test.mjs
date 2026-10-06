@@ -25,7 +25,7 @@ import { answerable, uniqueQuestions } from "../src/mathText.js";
 
 test("questions about unseen notes or pictures are dropped", () => {
   assert.equal(answerable({ q: "Which of the following is listed as a cell structure in the notes?" }), false);
-  assert.equal(answerable({ q: "Which part of the diagram above makes protein?" }), false);
+  assert.equal(answerable({ q: "Which part of the diagram above makes protein?" }), true); // a picture is made for it
   assert.equal(answerable({ q: "Which part of the diagram makes protein?", figure: "x" }), true);
   assert.equal(answerable({ q: "What makes protein in a cell?" }), true);
 });
@@ -44,8 +44,16 @@ test("questions about a labelled thing that is not shown are dropped", () => {
 
 import { practiceBank } from "../src/mathText.js";
 test("a topic is never emptied by the filters", () => {
-  const all = Array.from({ length: 4 }, (_, i) => ({ id: "p" + i, topic: "Atoms", q: `What does the table shown below say about element ${i}?` }));
+  const all = Array.from({ length: 4 }, (_, i) => ({ id: "p" + i, topic: "Atoms", q: `What does the note in your notes say about element ${i}?` }));
   assert.equal(practiceBank(all).length, 4);
-  const mixed = [...all, ...Array.from({ length: 3 }, (_, i) => ({ id: "m" + i, topic: "Other", q: `Plain question ${i}?` })), { id: "m9", topic: "Other", q: "See the diagram above, which part?" }];
+  const mixed = [...all, ...Array.from({ length: 3 }, (_, i) => ({ id: "m" + i, topic: "Other", q: `Plain question ${i}?` })), { id: "m9", topic: "Other", q: "As listed in the notes, which part?" }];
   assert.equal(practiceBank(mixed).length, 7);
+});
+
+import { needsVisual, visualPrompt } from "../src/mathText.js";
+test("a question that points at a diagram gets a picture prompt that hides the answer", () => {
+  const q = { q: "Which element is found in all three biological molecules shown in the diagram?", choices: ["Carbon", "Sulfur"], answer: 0, topic: "Biological molecules" };
+  assert.equal(needsVisual(q), true);
+  assert.equal(needsVisual({ q: "What is the charge of a proton?" }), false);
+  assert.match(visualPrompt(q), /do not mark or label which one is right/);
 });

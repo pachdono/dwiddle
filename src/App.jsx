@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
+import { PictureFor } from "./QuestionPicture.jsx";
 import { phraseQuestion, answerable, uniqueQuestions, practiceBank } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -2948,7 +2949,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
             <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
               <M t={q.q} />
             </h3>
-            {q.picture && <QuestionPicture text={q.picture} />}
+            <PictureFor q={q} />
 
             {q.choices.map((c, n) => {
               let cls = "choice";
@@ -2986,24 +2987,6 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       </div>
     </div>
   );
-}
-
-// The picture a question needs, made once and kept for the session. If no
-// picture can be made the question still shows, with a line saying so.
-const madePics = new Map();
-function QuestionPicture({ text }) {
-  const [src, setSrc] = useState(madePics.get(text));
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (madePics.has(text)) { setSrc(madePics.get(text)); return; }
-    let live = true;
-    setSrc(undefined); setFailed(false);
-    browse("paint", { q: text }).then((r) => { if (r?.data) madePics.set(text, r.data); if (live) { setSrc(r?.data); setFailed(!r?.data); } }).catch(() => { if (live) setFailed(true); });
-    return () => { live = false; };
-  }, [text]);
-  if (failed) return <p className="small muted">The picture for this question could not be made just now: {text}</p>;
-  if (!src) return <p className="small muted">Drawing the picture for this question...</p>;
-  return <figure className="nt-pic"><img src={src} alt={text} /><figcaption>AI picture. Labels may not be perfect.</figcaption></figure>;
 }
 
 // What Dwiddle is told about a question when asked about it.
@@ -3764,6 +3747,7 @@ function MockExam({ grade, pool }) {
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
         <M t={q.q} />
       </h3>
+      <PictureFor q={q} />
 
       {q.choices.map((c, n) => (
         <button key={n}
@@ -3842,6 +3826,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
         <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
           <M t={q.q} />
         </h3>
+        <PictureFor q={q} />
 
         {q.choices.map((c, n) => {
           let cls = "choice";
@@ -3956,6 +3941,7 @@ function SpeedRound({ grade, pool }) {
       <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
         <M t={q.q} />
       </h3>
+      <PictureFor q={q} />
 
       {q.choices.map((c, k) => (
         <button key={`${n}-${k}`} className="choice" onClick={() => answer(k)}>
