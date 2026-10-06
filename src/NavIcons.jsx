@@ -10,6 +10,8 @@ let n = 0;
 // text colour, with a word under each, as a tool bar does. Everywhere else it
 // is words only.
 const LINE = {
+  report: "M5 20v-6M12 20V6M19 20v-10",
+  planner: "M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M9 3v4M15 3v4",
   home: "M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z",
   exams: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
   duel: "M13 3 5 13h6l-1 8 8-10h-6z",
@@ -109,6 +111,10 @@ export function NavIcon({ id, size = 34, rail = false }) {
       <defs>{grad(k + "a", "#ff8a7a", "#e5432f")}</defs>
       <rect x="3" y="8" width="34" height="24" rx="7" fill={f("a")} />
       <path d="M16 14l11 6-11 6z" fill="#fff" />
+    </>),
+    report: (<>
+      <defs>{grad(k + "a", "#8ec5ff", "#3b7bf0")}{grad(k + "b", "#ffd36e", "#f0a020")}{grad(k + "c", "#9be7b4", "#37b36a")}</defs>
+      <rect x="5" y="22" width="8" height="13" rx="2.5" fill={f("a")} /><rect x="16" y="12" width="8" height="23" rx="2.5" fill={f("b")} /><rect x="27" y="5" width="8" height="30" rx="2.5" fill={f("c")} />
     </>),
     trophy: (<>
       <defs>{grad(k + "a", "#ffe27a", "#f0a020")}</defs>

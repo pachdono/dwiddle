@@ -18,6 +18,8 @@ import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
+import { logAnswer } from "./studylog.js";
+import Progress from "./Progress.jsx";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -90,6 +92,8 @@ const PAGE_PATH = {
   tests: "/test-prep",
   courses: "/courses",
   notebook: "/notebook",
+  report: "/report",
+  planner: "/planner",
   upload: "/add-material",
   library: "/library",
   feedback: "/feedback",
@@ -292,6 +296,7 @@ const GROUPS = [
   },
   { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader", "explore"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
+  { id: "progress", label: "Progress", icon: "target", pic: "report", pages: ["report", "planner"], fresh: true },
   { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
@@ -308,7 +313,7 @@ const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
   { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "leaderboard", label: "Leaderboard" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
-  { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" },
+  { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" }, { id: "report", label: "Report" }, { id: "planner", label: "Planner" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
   { id: "reader", label: "Material" }, { id: "install", label: "Get the app" },
@@ -382,7 +387,8 @@ export default function App() {
   }
 
   // A question joins the list when you get it wrong and leaves when you get it right.
-  function grade(id, correct, topicName) {
+  function grade(id, correct, topicName, kind) {
+    logAnswer({ id, topic: topicName, ok: correct, kind: kind || "mc" });
     setSrs(recordReview(id, correct));
     setMissed((prev) => {
       const next = correct ? prev.filter((x) => x !== id) : prev.includes(id) ? prev : [...prev, id];
@@ -881,6 +887,8 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     notebook: NotebookLoader,
+    report: Progress,
+    planner: Progress,
     chat: ChatRoom,
     feedback: FeedbackPage,
     install: Install,
@@ -1195,6 +1203,7 @@ export default function App() {
         {mustPick ? <Pick materials={made.materials} made={made} fullMade={made} pick={setFocus} setFocus={setFocus} go={go} picking auth={auth} stats={stats} bank={bank} drills={drills} srs={srs} focus={focus} setTopic={setTopic} deleteItem={(id) => { setMadeRaw((prev) => { const next = withoutMaterial(prev, id); save(KEYS.made, next && { ...next, savedAt: Date.now() }); return next; }); if (focus === id) setFocus(null); }} deleteMaterial={deleteMaterial} /> : <Page
           key={`${page}:${seq}`}
           go={go}
+          page={page}
           early={early}
           look={look}
           resolved={resolved}
@@ -2672,7 +2681,7 @@ function Practice(props) {
   const [session, record] = usePracticeSession();
   useCheerSounds(session);
   const modeProps = early
-    ? { ...props, grade: (id, ok, t) => { props.grade(id, ok, t); record(ok, { quiet: active.id === "mock" }); } }
+    ? { ...props, grade: (id, ok, t, kind) => { props.grade(id, ok, t, kind); record(ok, { quiet: active.id === "mock" }); } }
     : props;
   useEffect(() => {
     if (!playing) return;
@@ -2894,7 +2903,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
 
   function settle(ok) {
     if (ok) setScore((s) => s + 1);
-    grade(q.id, ok, q.topic);
+    grade(q.id, ok, q.topic, q.type || "mc");
   }
 
   function pick(n) {
