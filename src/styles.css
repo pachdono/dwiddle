@@ -9547,3 +9547,5 @@ i.good { background: var(--good, #2f9e6b); } i.mid { background: #d9a336; } i.lo
 .qv-write.long { min-height: 150px; }
 .qv-score { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel); font-size: 14px; line-height: 1.5; }
 .qv-score b { font-size: 18px; } .qv-score.right b { color: var(--good, #2f9e5b); } .qv-score.wrong b { color: var(--warn, #c9772b); }
+.busy-pct { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+.busy-bar > span { transition: width 0.5s ease; }

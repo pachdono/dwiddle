@@ -234,9 +234,11 @@ export async function writePastPaper(syllabus, topics, count, onProgress) {
 }
 export const markPastPaper = (items) => post("/api/generate", { mode: "markpaper", items }).then((d) => d.results);
 
-export async function generateFromNotes(notes, { style = "" } = {}) {
+export async function generateFromNotes(notes, { style = "", onProgress } = {}) {
+  onProgress?.(0.03);
   const plan = await post("/api/generate", { notes, mode: "plan" });
   const topics = plan.topics || [];
+  onProgress?.(0.15);
 
   // A batch of questions that fails costs those questions, not the whole
   // material: the notes and the other batches still arrive.
@@ -250,7 +252,9 @@ export async function generateFromNotes(notes, { style = "" } = {}) {
     }).catch(() => null));
   const noteTasks = notesTasks(notes, topics);
 
-  const results = await pool([...questionTasks, ...noteTasks], AT_ONCE);
+  const all = [...questionTasks, ...noteTasks];
+  let finished = 0;
+  const results = await pool(all.map((t) => async () => { const r = await t(); onProgress?.(0.15 + 0.8 * (++finished / all.length)); return r; }), AT_ONCE);
   const parts = results.slice(0, questionTasks.length);
   // Batches that failed are tried once more, one at a time, once the rush is
   // over, so a busy moment does not leave a topic with no questions.

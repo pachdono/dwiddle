@@ -2016,6 +2016,8 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       setFetching(false);
     }
   }
+  const [pct, setPct] = useState(null); // 0 to 1 while building, across summarising and writing
+  const baseRef = useRef(0);
   const [condense, setCondense] = useState(null); // { done, of } while a big source is summarised first
   const [progress, setProgress] = useState(null); // { n, of } while working in parts
   const [waiting, setWaiting] = useState(null); // { seconds, why } between parts
@@ -2131,8 +2133,9 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       setCondense({ done: 0, of: 0 });
       setSize(text.trim().split(/\s+/).length);
       let digest = "";
+      baseRef.current = 0.5; setPct(0);
       try {
-        digest = await condenseSource(text, { onProgress: (done, of) => setCondense({ done, of }) });
+        digest = await condenseSource(text, { onProgress: (done, of) => { setCondense({ done, of }); setPct(0.5 * done / of); } });
       } catch (err) {
         setCondense(null);
         setState("error");
@@ -2143,6 +2146,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       build(digest, false);
       return;
     }
+    baseRef.current = 0; setPct(0);
     build(text, false);
   }
 
@@ -2166,6 +2170,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
     setSize(text.trim().split(/\s+/).length);
     setState("working");
     setProgress(null);
+    if (inParts) setPct(null);
     setWaiting(null);
     let unfinishedLeft = false;
     try {
@@ -2183,7 +2188,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
         setUnfinished(run.rest ? { rest: run.rest, done: (carryOn?.done || 0) + run.done, error: run.error } : null);
         unfinishedLeft = !!run.rest;
       } else {
-        data = await generateFromNotes(text);
+        data = await generateFromNotes(text, { onProgress: (f) => setPct(baseRef.current + (1 - baseRef.current) * f) });
         rememberSource(data, { notes: text });
         setUnfinished(null);
       }
@@ -2202,6 +2207,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
       setError(err.message);
     } finally {
       setProgress(null);
+      setPct(null);
       setWaiting(null);
     }
   }
@@ -2379,7 +2385,7 @@ function AddMaterial({ go, setMade, auth, early, setFocus = () => {} }) {
                 : state === "asking" ? "Working out what you want to study"
                 : state === "brief" ? "Writing full notes, topic by topic"
                 : "Writing questions with an explanation for every answer"}
-              progress={condense ? (condense.of ? condense.done / condense.of : null) : state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
+              progress={state === "working" && pct != null ? pct : condense ? (condense.of ? condense.done / condense.of : null) : state === "reading" && files.length > 1 ? (reading - 1 + (pageOf ? pageOf.p / pageOf.of : 0)) / files.length
                 : state === "reading" && pageOf ? pageOf.p / pageOf.of
                 : state === "working" && progress ? (progress.n - 1) / progress.of : null}
               count={!early ? null

@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
 import { M } from "./MathText.jsx";
 import { createPortal } from "react-dom";
 import { HL_KINDS } from "./mock.js";
@@ -188,23 +188,30 @@ export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle",
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
-    if (!eta) return;
-    const t = setInterval(() => tick((n) => n + 1), 1000);
+    const t = setInterval(() => tick((n) => n + 1), 500);
     return () => clearInterval(t);
-  }, [eta]);
+  }, []);
+  // never goes backwards, even if the estimate is revised
+  const high = useRef(0);
   const spent = (Date.now() - started) / 1000;
   const left = eta ? Math.max(0, Math.round(eta - spent)) : null;
   if (eta && progress === null) progress = Math.min(0.94, spent / eta);
+  // With nothing to count, the percentage still creeps up (never past 95) so
+  // the wait feels like it is going somewhere.
+  if (progress === null) progress = 0.95 * (1 - Math.exp(-spent / 25));
   const known = typeof progress === "number" && isFinite(progress);
+  if (known) high.current = Math.max(high.current, Math.min(1, progress));
+  const pct = Math.round(high.current * 100);
   return createPortal(
     <div className="busy" role="status" aria-live="polite">
       <div className="busy-card">
         <div className="busy-duck"><Duck size={110} outfit={outfit === "dwiddle" ? undefined : outfit} /></div>
         <h2>{title}</h2>
+        <div className="busy-pct" aria-label={`${pct} percent`}>{pct}%</div>
         {count && <div className="busy-count" key={count}>{count}</div>}
         {detail && <p className="busy-detail">{detail}</p>}
-        <div className={"busy-bar" + (known ? "" : " sweep")}>
-          <span style={known ? { width: `${Math.max(4, Math.min(100, progress * 100))}%` } : undefined} />
+        <div className="busy-bar">
+          <span style={{ width: `${Math.max(3, pct)}%` }} />
         </div>
         {eta && <p className="busy-left">{left > 0 ? `About ${left < 60 ? `${left} seconds` : `${Math.ceil(left / 60)} minute${Math.ceil(left / 60) === 1 ? "" : "s"}`} left` : "Nearly there…"}</p>}
         <p className="busy-tip" key={tip}>Tip: {TIPS[tip]}</p>
