@@ -40,7 +40,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, browse, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, browse, moreQuestions, longQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills, typedFrom, trueFalseFrom, matchFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";
@@ -2835,8 +2835,12 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   const needPlain = Math.max(0, len - pool.length);
   // A run longer than the questions there are gets new ones first, written in
   // the style of the ones it has, and they are kept for next time.
-  const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0);
+  // Longer quizzes also get a long answer or two, worth a few marks each and
+  // marked against a scheme, like a real paper.
+  const wantLong = !ordered && !!setMade && level !== "recall" && len >= 8 && pool.length > 0 ? (len >= 15 ? 2 : 1) : 0;
+  const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0 || wantLong > 0);
   const [more, setMore] = useState(short ? null : []);
+  const [longs, setLongs] = useState([]);
   const [note, setNote] = useState(""); // said when fewer new questions came back than asked for
   useEffect(() => {
     if (!short) return;
@@ -2868,9 +2872,13 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       return got;
     }
     (async () => {
-      const hard = needHard ? await gen(needHard, "apply") : [];
+      const [lg, hard] = await Promise.all([
+        wantLong ? longQuestions(made, topics, wantLong).catch(() => []) : [],
+        needHard ? gen(needHard, "apply") : [],
+      ]);
       const plain = needPlain ? await gen(needPlain, "") : [];
       if (!live) return;
+      setLongs(lg.filter((x) => x?.q && Array.isArray(x.scheme)));
       setMore([...hard, ...plain]);
       const missing = (needHard - hard.length) + (needPlain - plain.length);
       if (needPlain && plain.length < needPlain) setNote(`Dwiddle wrote ${plain.length} of the ${needPlain} new questions it needed, so the quiz is ${pool.length + plain.length + hard.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."} Go back and press Start again to try for the rest.`);
@@ -2906,7 +2914,10 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         return q;
       });
       // what a matching round already asked is not asked again on its own
-      return mixed.filter((x) => x.type === "match" || !used.has(x.id));
+      const out = mixed.filter((x) => x.type === "match" || !used.has(x.id));
+      // long answers sit later in the run, spread out, so it builds up to them
+      longs.forEach((lq, k) => out.splice(Math.min(out.length, Math.round(out.length * (longs.length === 1 ? 0.7 : 0.55 + 0.4 * k))), 0, lq));
+      return out;
     };
     setQUIZ(build());
   }

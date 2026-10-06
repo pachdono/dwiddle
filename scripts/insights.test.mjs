@@ -83,14 +83,34 @@ test("the estimate keeps rest days and shorter sessions, and says why", () => {
   const far = suggestPrefs({ goal: "exam", exam: "2027-03-01", now });
   assert.equal(far.perWeek, 4);
   assert.ok(near.why.some((w) => /estimate/.test(w)));
-  assert.ok(near.why.some((w) => /free so you do not burn out/.test(w)));
+  assert.ok(near.why.some((w) => /do not burn out/.test(w)));
 });
 
-test("a plan leaves a rest day, stops by 21:30 and covers topics not yet practised", () => {
+test("a plan leaves a rest day, keeps sessions under two hours and covers topics not yet practised", () => {
   const prefs = defaultPrefs(); prefs.perWeek = 9; prefs.sessionMin = 90; prefs.prefer = "20:00";
   Object.values(prefs.days).forEach((d) => { d.on = true; d.from = "08:00"; d.to = "23:30"; });
   const plan = planWeek({ prefs, summary: summarise([]), now: new Date(2026, 9, 5, 7).getTime(), topicNames: ["Cells", "Osmosis"] });
   assert.ok(new Set(plan.map((s) => new Date(s.start).toDateString())).size <= 6);
-  plan.forEach((s) => { assert.ok(s.end - s.start <= 50 * 60e3); assert.ok(new Date(s.end).getHours() * 60 + new Date(s.end).getMinutes() <= 21 * 60 + 30); });
+  plan.forEach((s) => { assert.ok(s.end - s.start <= 60 * 60e3); });
   assert.ok(plan.some((s) => s.topic === "Cells") && plan.some((s) => s.topic === "Osmosis"));
+});
+
+test("an exam in two days gives a crash plan: long sessions, several a day, nights allowed, nothing after the exam", () => {
+  const now = new Date(2026, 9, 6, 9).getTime();
+  const est = suggestPrefs({ goal: "exam", exam: "2026-10-08", now });
+  assert.ok(est.crash && est.perWeek >= 6 && est.sessionMin === 60);
+  const prefs = { ...defaultPrefs(), exam: "2026-10-08", perWeek: 6, sessionMin: 90, prefer: "22:00" };
+  Object.values(prefs.days).forEach((d) => { d.on = true; d.from = "09:00"; d.to = "23:30"; });
+  const plan = planWeek({ prefs, summary: summarise([]), now, topicNames: ["Maths", "French", "Physics"] });
+  const days = new Set(plan.map((s) => new Date(s.start).toDateString()));
+  assert.ok(plan.length >= 5);
+  assert.ok(days.size <= 2 && plan.every((s) => new Date(s.start) < new Date(2026, 9, 8)));
+  assert.ok(plan.some((s) => s.end - s.start === 90 * 60e3));
+  assert.ok(plan.some((s) => new Date(s.end).getHours() >= 21));
+  assert.deepEqual([...new Set(plan.map((s) => s.topic))].sort(), ["French", "Maths", "Physics"]);
+});
+
+test("many subjects raise the number of sessions", () => {
+  const est = suggestPrefs({ goal: "school", subjects: 7, now: Date.UTC(2026, 9, 6) });
+  assert.equal(est.perWeek, 7);
 });

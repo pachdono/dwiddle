@@ -172,9 +172,11 @@ const hm = (t) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: 
 const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const PRESETS = [
   { id: "school", label: "After school", set: (d) => (d >= 1 && d <= 5 ? { on: true, from: "16:30", to: "20:30" } : { on: false }) },
-  { id: "evenings", label: "Evenings", set: () => ({ on: true, from: "18:00", to: "21:30" }) },
+  { id: "evenings", label: "Evenings", set: () => ({ on: true, from: "18:00", to: "22:00" }) },
+  { id: "nights", label: "Night owl", set: () => ({ on: true, from: "20:00", to: "23:59" }) },
   { id: "weekends", label: "Weekends only", set: (d) => (d === 0 || d === 6 ? { on: true, from: "10:00", to: "17:00" } : { on: false }) },
   { id: "all", label: "Every day", set: () => ({ on: true, from: "09:00", to: "20:00" }) },
+  { id: "allday", label: "All day, every day", set: () => ({ on: true, from: "08:00", to: "23:00" }) },
 ];
 
 // Google Calendar: connect once, and the plan is written into the calendar and
@@ -339,15 +341,20 @@ function PlanWizard({ prefs, setPrefs, setDay, applyPreset, summary, topicNames,
     prefer: prefs.setup ? prefs.prefer : (win ? "auto" : "16:30"), sessionMin: prefs.sessionMin || 40, perWeek: prefs.perWeek || 4,
   }));
   const [touched, setTouched] = useState(false);
-  const est = useMemo(() => suggestPrefs({ goal: d.goal, exam: d.exam, summary, now }), [d.goal, d.exam, summary, now]);
+  const [extra, setExtra] = useState("");
+  const est = useMemo(() => suggestPrefs({ goal: d.goal, exam: d.exam, summary, now, subjects: d.focus.length }), [d.goal, d.exam, summary, now, d.focus.length]);
+  const crash = est.crash;
   // the estimate follows the goal until the person sets the numbers themselves
   useEffect(() => { if (!touched) setD((x) => ({ ...x, perWeek: est.perWeek, sessionMin: est.sessionMin })); }, [est.perWeek, est.sessionMin, touched]);
   const draft = { ...prefs, ...d, setup: true };
   const preview = useMemo(() => planWeek({ prefs: draft, summary, busy: [], now, topicNames }), [d, prefs.days, summary, now, topicNames.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const steps = ["Goal", "Focus", "Your time", "When you are free", "Your plan"];
   const set = (patch) => setD((x) => ({ ...x, ...patch }));
-  const toggleFocus = (n) => set({ focus: d.focus.includes(n) ? d.focus.filter((x) => x !== n) : [...d.focus, n].slice(0, 3) });
-  const TIMES = [["07:30", "Morning", "before school or work"], ["16:30", "After school", "just after the day ends"], ["18:30", "Evening", "after dinner"], ["20:00", "Later on", "no later than 21:30"]];
+  const toggleFocus = (n) => set({ focus: d.focus.includes(n) ? d.focus.filter((x) => x !== n) : [...d.focus, n].slice(0, 12) });
+  const addExtra = () => { const n = extra.trim().slice(0, 60); if (n && !d.focus.includes(n)) set({ focus: [...d.focus, n].slice(0, 12) }); setExtra(""); };
+  const TIMES = [["07:30", "Morning", "before school or work"], ["16:30", "After school", "just after the day ends"], ["18:30", "Evening", "after dinner"], ["20:30", "Late evening", "once everything else is done"], ["22:00", "Night", "I study late"]];
+  const LENGTHS = crash ? [45, 60, 90, 120] : [25, 35, 45, 60];
+  const COUNTS = crash ? [3, 4, 6, 9] : [2, 3, 4, 5, 6, 8];
   const next = () => (step < steps.length - 1 ? setStep(step + 1) : onDone({ ...d, setup: true }));
   return (
     <div className="card card-pad stack pw">
@@ -360,9 +367,13 @@ function PlanWizard({ prefs, setPrefs, setDay, applyPreset, summary, topicNames,
       </>)}
 
       {step === 1 && (<>
-        <h3>What matters most?</h3>
-        <p className="small muted">{topicNames.length ? "Pick up to three topics to put first. Leave it empty to cover everything evenly, with the weak ones coming first once you have answered some questions." : "Add some material first and your topics will be listed here. The plan will cover everything evenly."}</p>
-        <div className="pw-chips">{topicNames.map((n) => <button key={n} className={"pl-chip" + (d.focus.includes(n) ? " on" : "")} onClick={() => toggleFocus(n)}>{n}</button>)}</div>
+        <h3>What do you need to cover?</h3>
+        <p className="small muted">Pick every topic or subject you need, as many as you like, and add any that are not listed (another subject, a paper, a chapter). They come first and take turns. Leave it empty to cover everything evenly, with the weak ones first once you have answered some questions.</p>
+        <div className="pw-chips">{[...topicNames, ...d.focus.filter((n) => !topicNames.includes(n))].map((n) => <button key={n} className={"pl-chip" + (d.focus.includes(n) ? " on" : "")} onClick={() => toggleFocus(n)}>{n}</button>)}</div>
+        <form className="pw-add" onSubmit={(e) => { e.preventDefault(); addExtra(); }}>
+          <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Add a subject or topic, e.g. French, Maths paper 2" maxLength={60} aria-label="Add a subject or topic" />
+          <button className="btn ghost" type="submit" disabled={!extra.trim()}>Add</button>
+        </form>
         <p className="small muted">{summary.total >= 10 ? `Your ${summary.total} answers so far will be used to find your weak spots.` : "You have not answered many questions yet, so the plan starts from an estimate and adjusts as you practise."}</p>
       </>)}
 
@@ -372,17 +383,17 @@ function PlanWizard({ prefs, setPrefs, setDay, applyPreset, summary, topicNames,
           {TIMES.map(([t, l, h]) => <button key={t} className={"pw-card" + (d.prefer === t ? " on" : "")} onClick={() => set({ prefer: t })}><b>{l}</b><span className="small muted">{h}</span></button>)}</div>
         <div className="pw-two">
           <div><span className="pl-k">How long can you focus?</span>
-            <div className="seg tight">{[25, 35, 40, 50].map((m) => <button key={m} className={d.sessionMin === m ? "on" : ""} onClick={() => { setTouched(true); set({ sessionMin: m }); }}>{m} min</button>)}</div>
-            <span className="small muted">{d.sessionMin >= 50 ? "50 is the most that is worth doing in one go." : "Short sessions you finish beat long ones you do not."}</span></div>
-          <div><span className="pl-k">Sessions a week</span>
-            <div className="seg tight">{[2, 3, 4, 5, 6].map((m) => <button key={m} className={d.perWeek === m ? "on" : ""} onClick={() => { setTouched(true); set({ perWeek: m }); }}>{m}</button>)}</div>
-            <span className="small muted">Suggested: {est.perWeek}. Never seven, so there is always a rest day.</span></div>
+            <div className="seg tight">{LENGTHS.map((m) => <button key={m} className={d.sessionMin === m ? "on" : ""} onClick={() => { setTouched(true); set({ sessionMin: m }); }}>{m} min</button>)}</div>
+            <span className="small muted">{crash ? "Your exam is close, so long sessions are fine. Take a short break between them." : d.sessionMin >= 60 ? "An hour is plenty in one go. Take a break after." : "Short sessions you finish beat long ones you do not."}</span></div>
+          <div><span className="pl-k">{crash ? "Sessions before the exam" : "Sessions a week"}</span>
+            <div className="seg tight">{COUNTS.map((m) => <button key={m} className={d.perWeek === m ? "on" : ""} onClick={() => { setTouched(true); set({ perWeek: m }); }}>{m}</button>)}</div>
+            <span className="small muted">Suggested: {est.perWeek}.{crash ? "" : " A rest day is kept free."}</span></div>
         </div>
       </>)}
 
       {step === 3 && (<>
         <h3>When are you free?</h3>
-        <p className="small muted">Switch off the days you cannot study and set the hours you can. Sessions are only placed inside these.</p>
+        <p className="small muted">{crash ? "Your exam is close, so give it as many hours as you can, nights included. Sessions are only placed inside these." : "Switch off the days you cannot study and set the hours you can, late nights included if that is when you work. Sessions are only placed inside these."}</p>
         <div className="pw-chips">{PRESETS.map((pr) => <button key={pr.id} className="pl-chip" onClick={() => applyPreset(pr)}>{pr.label}</button>)}</div>
         <FreeWeek prefs={prefs} setDay={setDay} />
         {calendar}
@@ -487,7 +498,7 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
 
   return (
     <div className="rp stack pl">
-      <div className="card card-pad spread"><div><b>Your plan is set up</b><p className="small muted" style={{ margin: "2px 0 0" }}>{(GOALS.find((g) => g.id === prefs.goal) || GOALS[1]).label}, {prefs.perWeek} sessions of {Math.min(prefs.sessionMin, 50)} minutes a week.</p></div><button className="btn ghost" onClick={() => setEditing(true)}>Change my answers</button></div>
+      <div className="card card-pad spread"><div><b>Your plan is set up</b><p className="small muted" style={{ margin: "2px 0 0" }}>{(GOALS.find((g) => g.id === prefs.goal) || GOALS[1]).label}, {prefs.perWeek} sessions of {prefs.sessionMin} minutes{daysToExam != null && daysToExam <= 3 ? " before your exam" : " a week"}.</p></div><button className="btn ghost" onClick={() => setEditing(true)}>Change my answers</button></div>
       <FeedCard user={user} plan={plan} />
       {gcalAvailable() && (
         <details className="pl-adv">
@@ -510,10 +521,10 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
           <div><span className="pl-k">Best time of day</span>
             <select value={prefs.prefer} onChange={(e) => setPrefs({ ...prefs, prefer: e.target.value })}>
               <option value="auto">Pick from my results</option>
-              {["07:00", "09:00", "12:00", "15:00", "17:00", "19:00", "20:30"].map((t) => <option key={t} value={t}>Around {t}</option>)}
+              {["07:00", "09:00", "12:00", "15:00", "17:00", "19:00", "20:30", "22:00"].map((t) => <option key={t} value={t}>Around {t}</option>)}
             </select></div>
-          <div><span className="pl-k">Session length</span><Seg label="Session length" value={prefs.sessionMin} onChange={(v) => setPrefs({ ...prefs, sessionMin: v })} options={[[25, "25 min"], [40, "40 min"], [60, "60 min"]]} /></div>
-          <div><span className="pl-k">Sessions a week</span><Seg label="Sessions a week" value={prefs.perWeek} onChange={(v) => setPrefs({ ...prefs, perWeek: v })} options={[[3, "3"], [4, "4"], [5, "5"], [7, "7"]]} /></div>
+          <div><span className="pl-k">Session length</span><Seg label="Session length" value={prefs.sessionMin} onChange={(v) => setPrefs({ ...prefs, sessionMin: v })} options={[[25, "25 min"], [40, "40 min"], [60, "60 min"], [90, "90 min"], [120, "2 hours"]]} /></div>
+          <div><span className="pl-k">Sessions a week</span><Seg label="Sessions a week" value={prefs.perWeek} onChange={(v) => setPrefs({ ...prefs, perWeek: v })} options={[[3, "3"], [4, "4"], [5, "5"], [7, "7"], [10, "10"]]} /></div>
           <div><span className="pl-k">Exam or test date</span><input type="date" value={prefs.exam} onChange={(e) => setPrefs({ ...prefs, exam: e.target.value })} /></div>
         </div>
         {daysToExam != null && daysToExam >= 0 && <p className="small">{daysToExam === 0 ? "Your exam is today." : `${daysToExam} day${daysToExam === 1 ? "" : "s"} to your exam.`}{daysToExam <= 14 && prefs.perWeek < 6 ? " That is close, so think about 6 or more sessions a week." : ""}</p>}

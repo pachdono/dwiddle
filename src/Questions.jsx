@@ -18,8 +18,9 @@
 import { M } from "./MathText.jsx";
 import { useMemo, useState } from "react";
 import { Icon } from "./ui.jsx";
+import { markLong } from "./ai.js";
 
-export const KINDS = ["blank", "word", "finish", "match", "order", "tf", "written"];
+export const KINDS = ["blank", "word", "finish", "match", "order", "tf", "written", "long"];
 export const isDrill = (q) => q && KINDS.includes(q.type);
 
 export const KIND_LABEL = {
@@ -30,6 +31,7 @@ export const KIND_LABEL = {
   order: "Put them in order",
   tf: "True or false",
   written: "In your own words",
+  long: "Long answer",
 };
 
 /* ---------- marking ---------- */
@@ -95,6 +97,7 @@ export function QuestionView({ q, onDone, big = false }) {
       {q.type === "blank" && <Blank {...props} />}
       {q.type === "word" && <Word {...props} />}
       {(q.type === "finish" || q.type === "written") && <Open {...props} />}
+      {q.type === "long" && <Long {...props} />}
       {q.type === "match" && <Match {...props} />}
       {q.type === "order" && <Order {...props} />}
       {q.type === "tf" && <TrueFalse {...props} />}
@@ -188,6 +191,65 @@ function Open({ q, result, settle }) {
             <button className={"qv-pill" + (result === false ? " on wrong" : "")} onClick={() => settle(false)}
               disabled={result !== null}>Not quite</button>
           </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// A few marks' worth of writing. The answer is marked against the mark scheme
+// by the examiner prompt on the server; if that cannot be reached, the student
+// compares with the scheme and marks themselves instead. Two thirds of the
+// marks counts as right for the streak and the report.
+function Long({ q, result, settle }) {
+  const [text, setText] = useState("");
+  const [state, setState] = useState("write"); // write | marking | marked | self
+  const [got, setGot] = useState(null);
+  const [model, setModel] = useState(false);
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  async function mark() {
+    setState("marking");
+    try {
+      const r = await markLong(q, text);
+      if (!r) throw new Error("no mark");
+      setGot(r);
+      setState("marked");
+      settle(r.awarded / q.marks >= 2 / 3);
+    } catch { setState("self"); }
+  }
+  return (
+    <>
+      <h3 className="qv-q"><M t={q.q} /></h3>
+      <span className="qv-marks">{q.marks} marks</span>
+      <textarea className="qv-write long" value={text} readOnly={state !== "write"} onChange={(e) => setText(e.target.value)}
+        placeholder="Write your answer. Aim for a point for each mark, with the reason behind it." />
+      {state === "write" && (
+        <div className="qv-row">
+          <button className="btn cta" onClick={mark} disabled={words < 3}>Mark my answer</button>
+          <button className="btn ghost" onClick={() => setState("self")}>Show the mark scheme</button>
+          <span className="small muted">{words} word{words === 1 ? "" : "s"}</span>
+        </div>
+      )}
+      {state === "marking" && <p className="small muted">Marking against the scheme...</p>}
+      {(state === "marked" || state === "self") && (
+        <div className="qv-model fade">
+          {state === "marked" && got && (
+            <div className={"qv-score " + (got.awarded / q.marks >= 2 / 3 ? "right" : "wrong")}>
+              <b>{got.awarded} / {q.marks}</b> <span>{got.feedback}</span>
+            </div>
+          )}
+          <span className="qv-label">Likely mark scheme, one mark each</span>
+          <ul>{q.scheme.map((p, i) => <li key={i}><M t={p} /></li>)}</ul>
+          {model
+            ? <><span className="qv-label">A full marks answer</span><p><M t={q.answer} /></p></>
+            : <button className="btn ghost" onClick={() => setModel(true)}>Show the model answer</button>}
+          {state === "self" && (
+            <div className="qv-self">
+              <span>Did yours earn at least {Math.ceil(q.marks * 2 / 3)} of the {q.marks} marks?</span>
+              <button className={"qv-pill" + (result === true ? " on right" : "")} onClick={() => settle(true)} disabled={result !== null}><Icon name="check" size={14} /> Yes</button>
+              <button className={"qv-pill" + (result === false ? " on wrong" : "")} onClick={() => settle(false)} disabled={result !== null}>Not quite</button>
+            </div>
+          )}
         </div>
       )}
     </>

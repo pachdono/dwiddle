@@ -384,7 +384,19 @@ Rules:
 - Stay strictly inside this syllabus and its tier. Only facts from a standard textbook for the course; never invent data you then treat as real.
 - Mathematics with real symbols and units. British English. Do not use em dashes or en dashes.`;
 
-const MARK_PAPER = `You are an experienced examiner marking a candidate's written answers strictly against the mark scheme.
+const LONG_QUESTIONS = `You write long answer exam questions for students, each worth 3 to 6 marks, with a mark scheme.
+
+Return ONE JSON object and nothing else:
+{ "questions": [ { "topic": "exactly one of the topic names given", "q": "the question, with its command word (Explain, Describe, Compare, Evaluate, Suggest why) and the marks in brackets at the end, e.g. (4 marks)", "marks": 4, "scheme": ["one mark point per entry, as an examiner would write it", "..."], "model": "a full marks answer, in the way a good student would write it" } ] }
+
+Rules:
+- Use only facts that are in the notes. The question must be answerable from the notes alone and stand alone with everything it needs written in it.
+- Prefer a situation, an experiment or a real example over just naming a term. The answer must need linking ideas together, not one word.
+- "marks" equals the number of mark points in "scheme" (3 to 6). Each point is one clear creditable idea. Add "ALLOW ..." for a real alternative wording.
+- The model answer covers every mark point, in three to six sentences.
+- British English. Do not use em dashes or en dashes.`;
+
+const MARK_PAPER =`You are an experienced examiner marking a candidate's written answers strictly against the mark scheme.
 
 Return ONE JSON object and nothing else:
 { "results": [ { "awarded": whole number of marks, "feedback": "one or two sentences: which mark points were earned, quoting the answer, and exactly what was missing" } ] }
@@ -492,6 +504,31 @@ async function part(req, res, mode, notes) {
       .map((q, n) => `${n + 1}. [${String(q.topic || "").slice(0, 120)}] ${String(q.q).slice(0, 400)}${Array.isArray(q.choices) ? `\n   Options: ${q.choices.map((c) => String(c).slice(0, 160)).join(" | ")}` : ""}`);
     const avoid = (Array.isArray(req.body?.avoid) ? req.body.avoid : []).map((t) => String(t).slice(0, 200)).slice(0, 60);
     const count = Math.max(1, Math.min(12, Number(req.body?.count) || like.length || 3));
+    // Long answer questions, worth three to six marks, with a mark scheme the
+    // answer is then marked against (the markpaper mode below).
+    if (req.body?.depth === "long") {
+      const n = Math.max(1, Math.min(3, Number(req.body?.count) || 1));
+      const text = await ask({
+        system: LONG_QUESTIONS,
+        user: `Write exactly ${n} long answer question${n === 1 ? "" : "s"} for these topics only:\n${list}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}${style ? `\n\nUse the command words and mark values of ${style} exam papers.` : ""}\n\nThe notes:\n\n${notes}`,
+        maxTokens: 2600,
+        json: true,
+        temperature: 0.45,
+      });
+      const data = safeParse(text, "questions");
+      const clean = (v) => String(v || "").replace(/\s*[–—]\s*/g, ", ").trim();
+      const stamp = String(req.body?.batch ?? 0).replace(/[^0-9a-z]/gi, "").slice(0, 12);
+      const questions = (Array.isArray(data?.questions) ? data.questions : []).map((q, i) => {
+        const scheme = (Array.isArray(q?.scheme) ? q.scheme : []).map(clean).filter(Boolean).slice(0, 8);
+        const marks = Math.max(2, Math.min(6, Math.round(Number(q?.marks) || scheme.length || 4)));
+        return {
+          id: `lg${stamp}${i}`, type: "long", topic: names.includes(String(q?.topic)) ? String(q.topic) : names[i % names.length],
+          q: clean(q?.q), marks, scheme, answer: clean(q?.model), why: "",
+        };
+      }).filter((q) => q.q.length > 20 && q.scheme.length >= 2 && q.answer);
+      if (!questions.length) return userError(res, 502, "The long answer questions did not come back complete. Try again.");
+      return res.status(200).json({ questions });
+    }
     const apply = req.body?.depth === "apply";
     const asking = apply
       ? `Write exactly ${count} NEW application questions for these topics only:\n${list}\n\nEach one must be INDIRECT: describe a situation, an observation, an experiment result or a real example, and ask what is happening, why it happens, or which process or idea explains it. NEVER name the answer, its term or its definition in the question. Example: instead of "What is osmosis?" write "Red blood cells placed in a strong salt solution shrink. Why?" with osmosis, as water moving out of the cells, among the answers. The wrong options must be believable misunderstandings. Every question must still be answerable from the notes' facts, and must stand alone with everything it needs written in it.${like.length ? `\n\nQuestions the student has already seen, for the topic and level only:\n${like.join("\n")}` : ""}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`

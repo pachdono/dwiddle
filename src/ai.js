@@ -297,6 +297,27 @@ export async function questionsFor(made, names) {
   return results.flat().map(tidyQuestion);
 }
 
+// Long answer questions (3 to 6 marks) with a mark scheme, written from the
+// same notes. Quietly returns nothing if they cannot be written in time, so a
+// quiz is never held up by them for long.
+export async function longQuestions(made, names, count = 1, avoidMore = []) {
+  const have = (made?.questions || []).filter((q) => names.includes(q.topic));
+  if (!have.length) return [];
+  let notes = notesText(made, names).slice(0, 20000);
+  if (notes.length < 220) {
+    const facts = have.map((q) => `${q.q} The answer is ${q.choices?.[q.answer] ?? ""}. ${q.why || ""}`.trim()).join("\n");
+    notes = `${notes}\n\nFacts already established about these topics:\n${facts}`.slice(0, 20000);
+  }
+  const topics = names.slice(0, 4).map((name) => ({ name }));
+  const avoid = [...have.map((q) => q.q.slice(0, 120)), ...avoidMore].slice(-20);
+  const run = post("/api/generate", { notes, mode: "questions", depth: "long", topics, avoid, count, batch: `L${Date.now() % 1e6}` }).then((d) => d.questions || []).catch(() => []);
+  const timeout = new Promise((r) => setTimeout(() => r([]), 40000));
+  return Promise.race([run, timeout]);
+}
+
+export const markLong = (q, answer) =>
+  post("/api/generate", { mode: "markpaper", items: [{ stem: q.q, marks: q.marks, scheme: q.scheme, answer }] }).then((d) => d.results?.[0]);
+
 export async function moreQuestions(made, names, count, avoidMore = [], level = "") {
   const have = (made?.questions || []).filter((q) => names.includes(q.topic));
   if (!have.length || count < 1) return [];
