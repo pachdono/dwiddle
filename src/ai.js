@@ -300,7 +300,14 @@ export async function questionsFor(made, names) {
 export async function moreQuestions(made, names, count, avoidMore = []) {
   const have = (made?.questions || []).filter((q) => names.includes(q.topic));
   if (!have.length || count < 1) return [];
-  const notes = notesText(made, names).slice(0, 20000);
+  let notes = notesText(made, names).slice(0, 20000);
+  // Material made from a past paper has questions and answers but hardly any
+  // notes, and the writer refuses to work from a few lines. What the questions
+  // and their explanations already establish is the material then.
+  if (notes.length < 1500) {
+    const facts = have.map((q) => `${q.q} The answer is ${q.choices?.[q.answer] ?? ""}. ${q.why || ""}`.trim()).join("\n");
+    notes = `${notes}\n\nFacts already established about these topics (write about the same subject, from different angles):\n${facts}`.slice(0, 20000);
+  }
   // Small batches: one call writing ten questions was often too slow for the
   // free models and came back with nothing, so a longer quiz stayed at three.
   // Four at a time finish quickly, run side by side, and a batch that fails is
