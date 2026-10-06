@@ -2807,13 +2807,29 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     if (!short) return;
     let live = true;
     const need = len - pool.length;
-    moreQuestions(made, [...new Set(pool.map((x) => x.topic))], need).then((qs) => {
-      if (qs.length) setMade({ title: made?.title, topics: [], questions: qs }, { material: "none" });
-      if (live) {
-        setMore(uniqueQuestions(qs.map(phraseQuestion).filter(answerable)).filter((x) => !pool.some((p) => p.q.toLowerCase().trim() === x.q.toLowerCase().trim())));
-        if (qs.length < need) setNote(qs.length ? `Dwiddle could only write ${qs.length} of the ${need} new questions this time, so some come round again.` : "Dwiddle could not write new questions just now, so this quiz repeats yours. Try again in a minute for fresh ones.");
+    const topics = [...new Set(pool.map((x) => x.topic))];
+    const seen = new Set(pool.map((x) => x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()));
+    // Waits for as many new questions as the quiz needs, asking again for the
+    // rest rather than letting the same ones come round twice.
+    (async () => {
+      const got = [];
+      for (let tries = 0; tries < 6 && got.length < need && live; tries++) {
+        const qs = await moreQuestions(made, topics, need - got.length).catch(() => []);
+        const fresh = uniqueQuestions(qs.map(phraseQuestion).filter(answerable)).filter((x) => {
+          const k = x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        if (fresh.length) {
+          got.push(...fresh);
+          setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
+        } else if (tries >= 2) break; // nothing new three times running: stop waiting
       }
-    });
+      if (!live) return;
+      setMore(got);
+      if (got.length < need) setNote(`Dwiddle wrote ${got.length} of the ${need} new questions it needed, so the quiz is ${pool.length + got.length} questions long instead of ${len}. Nothing is repeated.`);
+    })();
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // A run mixes kinds: about one question in three is another way of
@@ -2823,8 +2839,6 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     const build = () => {
       if (ordered) return pool.slice(0, len);
       let main = [...shuffle(pool), ...shuffle(more)];
-      // Not enough even then: the ones there are come round again, rather than a ten question quiz stopping at three.
-      while (main.length < len && main.length) main = [...main, ...shuffle(pool)];
       main = main.slice(0, len);
       const extra = shuffle(drillPool);
       // Every other question is typed rather than picked, which is what stops it
@@ -2856,7 +2870,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       <div className="card card-pad quiz-more">
         <Duck size={90} outfit="wizard" />
         <b>Writing {len - pool.length} more questions</b>
-        <p className="small muted">In the same style as yours, on the same topics, with different numbers and answers. They are kept for next time.</p>
+        <p className="small muted">In the same style as yours, on the same topics, with different numbers and answers. It waits until there are enough, which can take a minute. They are kept for next time.</p>
         <div className="busy-bar sweep"><span /></div>
       </div>
     );
