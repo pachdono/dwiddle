@@ -298,7 +298,7 @@ const GROUPS = [
   },
   { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader", "explore"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
-  { id: "progress", label: "Progress", icon: "target", pic: "report", pages: ["report", "planner"], fresh: true },
+  { id: "progress", label: "Progress", icon: "target", pic: "report", pages: ["report", "planner"], fresh: true, beta: true },
   { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
@@ -478,6 +478,8 @@ export default function App() {
   // Everything testers were trying out is now out for everyone. For the next
   // feature to be tried by staff and testers first, gate it on
   // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
+  // Progress (the report and the planner) is still being tried by staff and testers.
+  const beta = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
   const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
   // The folder based Home, Friends, Duel, leaderboard and Explore are out for
@@ -889,8 +891,8 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     notebook: NotebookLoader,
-    report: Progress,
-    planner: Progress,
+    report: beta ? Progress : Dashboard,
+    planner: beta ? Progress : Dashboard,
     chat: ChatRoom,
     feedback: FeedbackPage,
     install: Install,
@@ -997,7 +999,7 @@ export default function App() {
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <ProfileGate user={auth.user} />
       <HandleGate user={auth.user} />
-      <GuideHost go={go} />
+      <GuideHost go={go} beta={beta} />
       {/* A painted place behind every page, for testers for now; the old
           weather over the home screen for everyone else. */}
       {early && !showPhoto && <ThemeBackdrop theme={look} resolved={resolved} />}
@@ -1055,7 +1057,7 @@ export default function App() {
             <span className="nav-add-icon"><Icon name="plus" size={14} /></span>
             New material
           </button>
-          {GROUPS.filter((g) => (!g.early || early) && !(preview && g.old) && (!g.fresh || preview)).map((g) => (
+          {GROUPS.filter((g) => (!g.early || early) && (!g.beta || beta) && !(preview && g.old) && (!g.fresh || preview)).map((g) => (
             <button key={g.id} data-tour={g.id} className={"nav-item" + (g.pages.includes(page) ? " on" : "")}
               onClick={() => (g.id === "study" ? openStudy(lastInGroup.current.study || "sheet") : go(lastInGroup.current[g.id] || g.pages[0]))}>
               {preview && g.pic ? <NavIcon id={g.pic} size={34} /> : <Icon name={g.icon} />}

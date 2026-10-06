@@ -17,8 +17,8 @@ export const STEPS = [
   { page: "topics", title: "Topics and videos", text: "Topics lists what your material covers, and lets you remove ones you do not need. Videos makes a short explainer video on any topic, and the podcast on the Practice page reads your notes aloud.", where: "Inside a folder, Topics and Videos" },
   { page: "chat", title: "Ask Dwiddle", text: "Ask anything, in the chat or from the Ask Dwiddle button on any page. It can explain, change your notes, draw a diagram, make a picture, or start new material for you.", where: "Chat, and the Ask Dwiddle button" },
   { page: "notebook", title: "Notebooks", text: "A notebook for handwriting and drawing, with pens, highlighters, shapes and graphs. It stays separate from your folders.", where: "Notebooks" },
-  { page: "report", title: "Your report", text: "How you are doing: accuracy on each topic and each kind of question, your last two weeks, and the hours you do best. It ends with what to do next.", where: "Progress, Report" },
-  { page: "planner", title: "Study planner", text: "Say when you are free and how you like to study, and it plans your week with the weak topics first. Add the sessions to Google Calendar, or load your calendar file so it keeps clear of what is already booked.", where: "Progress, Planner" },
+  { beta: true, page: "report", title: "Your report", text: "How you are doing: accuracy on each topic and each kind of question, your last two weeks, and the hours you do best. It ends with what to do next.", where: "Progress, Report" },
+  { beta: true, page: "planner", title: "Study planner", text: "Say when you are free and how you like to study, and it plans your week with the weak topics first. Add the sessions to Google Calendar, or load your calendar file so it keeps clear of what is already booked.", where: "Progress, Planner" },
   { page: "social", title: "Friends, Duel and the leaderboard", text: "Add friends by username, message them, and race them on the same questions in Duel. The leaderboard shows everyone overall and your friends this month.", where: "Friends, and the top bar" },
   { page: "tests", title: "Exams", text: "Sit full test papers and work through courses, with a mark and feedback at the end.", where: "Exams" },
   { page: "settings", title: "Settings", text: "Your account, how you are called, the Layout (Classic, or the plainer New one), themes, notifications and this guide. The gear at the bottom of the left menu opens it.", where: "The gear, bottom left" },
@@ -29,7 +29,8 @@ const write = (n) => { try { n < 0 ? sessionStorage.removeItem(KEY) : sessionSto
 
 export const startGuide = () => dispatchEvent(new CustomEvent("dwiddle:guide", { detail: { at: 0 } }));
 
-export function GuideHost({ go }) {
+export function GuideHost({ go, beta = false }) {
+  const steps = beta ? STEPS : STEPS.filter((x) => !x.beta);
   const [at, setAt] = useState(read);
   useEffect(() => {
     const on = (e) => { const n = e.detail?.at ?? 0; write(n); setAt(n); show(n); };
@@ -38,33 +39,33 @@ export function GuideHost({ go }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function show(n) {
-    const s = STEPS[n];
+    const s = steps[n];
     if (!s) return;
     go(s.page);
   }
   function jump(n) {
-    if (n < 0 || n >= STEPS.length) { write(-1); setAt(-1); return; }
+    if (n < 0 || n >= steps.length) { write(-1); setAt(-1); return; }
     write(n); setAt(n); show(n);
   }
-  if (at < 0 || !STEPS[at]) return null;
-  const s = STEPS[at];
+  if (at < 0 || !steps[at]) return null;
+  const s = steps[at];
   return (
     <aside className="guide" role="dialog" aria-label="Guide">
       <div className="guide-top">
-        <span className="guide-count">{at + 1} of {STEPS.length}</span>
+        <span className="guide-count">{at + 1} of {steps.length}</span>
         <select value={at} onChange={(e) => jump(Number(e.target.value))} aria-label="Jump to a step">
-          {STEPS.map((x, i) => <option key={i} value={i}>{i + 1}. {x.title}</option>)}
+          {steps.map((x, i) => <option key={i} value={i}>{i + 1}. {x.title}</option>)}
         </select>
         <button className="icon-btn" aria-label="Close the guide" onClick={() => jump(-1)}><Icon name="close" size={14} /></button>
       </div>
       <h3>{s.title}</h3>
       <p>{s.text}</p>
       <p className="small muted guide-where">Find it: {s.where}.{s.needs ? ` ${s.needs}` : ""}</p>
-      <div className="guide-dots" aria-hidden="true">{STEPS.map((_, i) => <i key={i} className={i === at ? "on" : i < at ? "past" : ""} />)}</div>
+      <div className="guide-dots" aria-hidden="true">{steps.map((_, i) => <i key={i} className={i === at ? "on" : i < at ? "past" : ""} />)}</div>
       <div className="guide-act">
         <button className="btn ghost" disabled={at === 0} onClick={() => jump(at - 1)}>Back</button>
         <button className="btn quiet" onClick={() => show(at)}>Open this page</button>
-        <button className="btn cta" onClick={() => jump(at + 1)}>{at === STEPS.length - 1 ? "Finish" : "Next"}</button>
+        <button className="btn cta" onClick={() => jump(at + 1)}>{at === steps.length - 1 ? "Finish" : "Next"}</button>
       </div>
     </aside>
   );
