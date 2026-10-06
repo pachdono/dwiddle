@@ -119,12 +119,14 @@ Shape:
       "term": "only when kind is vocab: the bare term being defined",
       "choices": ["four options"],
       "answer": 0,
-      "why": "two sentences: why the right answer is right, and why the most tempting wrong one is wrong"
+      "why": "two sentences: why the right answer is right, and why the most tempting wrong one is wrong",
+      "picture": "optional, only when the question truly needs the student to see something: a plain description of the picture to show, such as a labelled plant cell with the nucleus, chloroplast and vacuole marked"
     }
   ]
 }
 
 Rules:
+- Use "picture" for at most one question in five, only where seeing it is needed (identify a part, read a diagram). The question must then say what to look at, for example "In the picture, which part makes protein?". Leave it out for everything else.
 - Write questions only for the topics you are given, and nothing on any other part of the notes.
 - Every question must be answerable from the notes alone. Only ask about terms, names, facts, figures and definitions that are written in the notes; never ask about anything the notes do not mention, however closely related. The right answer must be stated in the notes. Wrong options can be other believable terms.
 - 3 questions for each topic, 4 when it is marked large.
@@ -263,6 +265,7 @@ function cleanQuestions(list, allowed, prefix) {
       choices: q.choices.map(String),
       answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
       why: String(q.why || ""),
+      ...(typeof q.picture === "string" && q.picture.trim() ? { picture: q.picture.trim().slice(0, 240) } : {}),
     }));
 }
 

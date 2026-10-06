@@ -36,7 +36,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, browse, moreQuestions, questionsFor, generateFromNotes, generateFromSyllabus, generateInParts, splitSource, gradeWriting, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills, typedFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";
@@ -2937,6 +2937,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
             <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>
               <M t={q.q} />
             </h3>
+            {q.picture && <QuestionPicture text={q.picture} />}
 
             {q.choices.map((c, n) => {
               let cls = "choice";
@@ -2974,6 +2975,24 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       </div>
     </div>
   );
+}
+
+// The picture a question needs, made once and kept for the session. If no
+// picture can be made the question still shows, with a line saying so.
+const madePics = new Map();
+function QuestionPicture({ text }) {
+  const [src, setSrc] = useState(madePics.get(text));
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (madePics.has(text)) { setSrc(madePics.get(text)); return; }
+    let live = true;
+    setSrc(undefined); setFailed(false);
+    browse("paint", { q: text }).then((r) => { if (r?.data) madePics.set(text, r.data); if (live) { setSrc(r?.data); setFailed(!r?.data); } }).catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [text]);
+  if (failed) return <p className="small muted">The picture for this question could not be made just now: {text}</p>;
+  if (!src) return <p className="small muted">Drawing the picture for this question...</p>;
+  return <figure className="nt-pic"><img src={src} alt={text} /><figcaption>AI picture. Labels may not be perfect.</figcaption></figure>;
 }
 
 // What Dwiddle is told about a question when asked about it.

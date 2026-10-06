@@ -181,7 +181,7 @@ const LABELLED = /\b(molecules?|substances?|compounds?|structures?|parts?|labels
 const NUMBERED = /\b(figure|fig\.?|table|diagram|graph|chart) ?\d/i;
 export function answerable(q) {
   if (!q || typeof q.q !== "string") return false;
-  if (q.passage || q.figure || q.image || q.diagram) return true;
+  if (q.passage || q.figure || q.image || q.diagram || q.picture) return true;
   return !UNSEEN.test(q.q) && !LABELLED.test(q.q) && !NUMBERED.test(q.q);
 }
 
