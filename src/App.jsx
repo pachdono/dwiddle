@@ -18,8 +18,9 @@ import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
-import { logAnswer } from "./studylog.js";
+import { logAnswer, readLog } from "./studylog.js";
 import Progress from "./Progress.jsx";
+import { masteryOf } from "./insights.js";
 import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
@@ -2654,6 +2655,8 @@ function Practice(props) {
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
   const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
+  const [quizLevel, setQuizLevelRaw] = useState(() => load("dwiddle-quizlevel", "auto"));
+  const setQuizLevel = (v) => { setQuizLevelRaw(v); save("dwiddle-quizlevel", v); };
 
   function setQuizLen(n) {
     setQuizLenRaw(n);
@@ -2752,6 +2755,15 @@ function Practice(props) {
                 )}
                 <span className="pz-go">Start <Icon name="arrow" size={14} /></span>
               </div>
+              {m.id === "quiz" && (
+                <div className="seg tight pz-level" onClick={(e) => e.stopPropagation()} role="radiogroup" aria-label="How hard">
+                  {[["auto", "Adaptive"], ["recall", "Recall"], ["hard", "Harder"]].map(([id, l]) => (
+                    <button key={id} role="radio" aria-checked={quizLevel === id} className={quizLevel === id ? "on" : ""}
+                      title={id === "hard" ? "Indirect questions: a situation to explain instead of a term to recognise" : id === "auto" ? "Gets harder on topics you know well" : "Straight questions on the facts"}
+                      onClick={() => setQuizLevel(id)}>{l}</button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -2789,7 +2801,7 @@ function Practice(props) {
               {early && <PracticeSides s={session} />}
               <div className="pz-inner">
                 <p className="pz-sub muted">{active.sub}</p>
-                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen} {...modeProps} pool={pool} drillPool={drillPool} len={quizLen} />
+                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen + ":" + quizLevel} {...modeProps} pool={pool} drillPool={drillPool} len={quizLen} level={quizLevel} />
               </div>
             </div>
             {early && <Cheer cheer={session.cheer} />}
@@ -2802,32 +2814,44 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto" }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  // How hard this run is. Harder means indirect questions: a situation to
+  // explain instead of a term to recognise. Automatic turns that up for topics
+  // the last few answers show are well known, and down for ones that are not.
+  const [hardShare] = useState(() => {
+    if (ordered || level === "recall") return 0;
+    if (level === "hard") return 0.7;
+    return masteryOf(readLog(), [...new Set(pool.map((x) => x.topic))]) === "high" ? 0.4 : 0;
+  });
+  const wantHard = Math.round(len * hardShare);
+  const hardHave = pool.filter((x) => x.level === "apply").length;
+  const needHard = Math.max(0, wantHard - hardHave);
+  const needPlain = Math.max(0, len - pool.length);
   // A run longer than the questions there are gets new ones first, written in
   // the style of the ones it has, and they are kept for next time.
-  const short = !ordered && !!setMade && pool.length > 0 && len > pool.length;
+  const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0);
   const [more, setMore] = useState(short ? null : []);
   const [note, setNote] = useState(""); // said when fewer new questions came back than asked for
   useEffect(() => {
     if (!short) return;
     let live = true;
-    const need = len - pool.length;
     const topics = [...new Set(pool.map((x) => x.topic))];
-    const seen = new Set(pool.map((x) => x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()));
-    // Waits for as many new questions as the quiz needs, asking again for the
+    const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const seen = new Set(pool.map((x) => norm(x.q)));
+    let why = "";
+    // Waits for as many new questions as are needed, asking again for the
     // rest rather than letting the same ones come round twice.
-    (async () => {
+    async function gen(count, depth) {
       const got = [];
-      let why = "";
-      for (let tries = 0; tries < 2 && got.length < need && live; tries++) {
-        const qs = await moreQuestions(made, topics, need - got.length, got.map((x) => x.q)).catch((e) => { why = e?.message || ""; return []; });
+      for (let tries = 0; tries < 2 && got.length < count && live; tries++) {
+        const qs = await moreQuestions(made, topics, count - got.length, got.map((x) => x.q), depth).catch((e) => { why = e?.message || ""; return []; });
         if (qs.error) why = qs.error;
         const candidates = uniqueQuestions(qs.map((q) => phraseQuestion(q))).filter((x) => {
-          const k = x.q.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          const k = norm(x.q);
           if (seen.has(k)) return false;
           seen.add(k);
           return true;
@@ -2835,14 +2859,20 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         // unanswerable wording is skipped, but not at the price of getting nothing
         const fresh = candidates.filter(answerable).length ? candidates.filter(answerable) : candidates;
         if (qs.length && !candidates.length) why = "the new questions were copies of ones already there";
-        if (fresh.length) {
-          got.push(...fresh);
-          setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
-        } else break; // nothing new: asking again straight away would not help
+        if (!fresh.length) break; // nothing new: asking again straight away would not help
+        got.push(...fresh);
+        setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
       }
+      return got;
+    }
+    (async () => {
+      const hard = needHard ? await gen(needHard, "apply") : [];
+      const plain = needPlain ? await gen(needPlain, "") : [];
       if (!live) return;
-      setMore(got);
-      if (got.length < need) setNote(`Dwiddle wrote ${got.length} of the ${need} new questions it needed, so the quiz is ${pool.length + got.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."} Go back and press Start again to try for the rest.`);
+      setMore([...hard, ...plain]);
+      const missing = (needHard - hard.length) + (needPlain - plain.length);
+      if (needPlain && plain.length < needPlain) setNote(`Dwiddle wrote ${plain.length} of the ${needPlain} new questions it needed, so the quiz is ${pool.length + plain.length + hard.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."} Go back and press Start again to try for the rest.`);
+      else if (missing > 0) setNote("Some of the harder questions could not be written just now, so a few easier ones are in their place.");
     })();
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2852,7 +2882,13 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   if (!QUIZ && more) {
     const build = () => {
       if (ordered) return pool.slice(0, len);
-      let main = [...shuffle(pool), ...shuffle(more)];
+      const all = [...pool, ...more];
+      let main;
+      if (wantHard) {
+        const hardQs = shuffle(all.filter((x) => x.level === "apply")).slice(0, wantHard);
+        const rest = shuffle(all.filter((x) => !hardQs.includes(x)));
+        main = shuffle([...hardQs, ...rest.slice(0, Math.max(0, len - hardQs.length))]);
+      } else main = [...shuffle(pool), ...shuffle(more)];
       main = main.slice(0, len);
       const extra = shuffle(drillPool);
       // A run is a mix, not a row of the same thing: picked, typed, true or
@@ -2891,7 +2927,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     return (
       <div className="card card-pad quiz-more">
         <Duck size={90} outfit="wizard" />
-        <b>Writing {len - pool.length} more questions</b>
+        <b>Writing {Math.max(1, needPlain + needHard)} more question{needPlain + needHard === 1 ? "" : "s"}{needHard ? `, ${needHard} of them harder` : ""}</b>
         <p className="small muted">In the same style as yours, on the same topics, with different numbers and answers. It waits until there are enough, which can take a minute. They are kept for next time.</p>
         <div className="busy-bar sweep"><span /></div>
       </div>

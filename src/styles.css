@@ -9398,3 +9398,4 @@ i.good { background: var(--good, #2f9e6b); } i.mid { background: #d9a336; } i.lo
 .rp-session { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
 @media (max-width: 640px) { .rp-row { grid-template-columns: 1fr 2fr 44px; } .rp-n { display: none; } }
 @media print { .sidebar, .tabbar, .topbar, .study-rail, .hf-switch, .dl-row, .ask-fab { display: none !important; } .rp-page { max-width: none; } }
+.pz-level { margin-top: 10px; }

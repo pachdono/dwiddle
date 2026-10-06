@@ -202,3 +202,12 @@ export function parseIcsBusy(text) {
   });
   return out;
 }
+
+// How well the topics are known, from the last few answers on them.
+export function masteryOf(log, topics) {
+  const set = new Set(topics);
+  const recent = log.filter((e) => set.has(e.topic)).slice(-8);
+  if (recent.length < 6) return "unknown";
+  const acc = recent.filter((e) => e.ok).length / recent.length;
+  return acc >= 0.8 ? "high" : acc < 0.5 ? "low" : "mid";
+}

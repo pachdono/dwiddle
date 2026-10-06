@@ -46,3 +46,11 @@ test("calendar output", () => {
   assert.equal(busy.length, 2);
   assert.equal(busy[0][1] - busy[0][0], 90 * MIN);
 });
+
+import { masteryOf } from "../src/insights.js";
+test("mastery comes from the last few answers on the topics", () => {
+  const mk = (oks) => oks.map((ok, i) => ({ t: i, id: "q" + i, topic: "Cells", ok }));
+  assert.equal(masteryOf(mk([true, true, true, true, true, false, true]), ["Cells"]), "high");
+  assert.equal(masteryOf(mk([false, false, true, false, false, true]), ["Cells"]), "low");
+  assert.equal(masteryOf(mk([true, true]), ["Cells"]), "unknown");
+});

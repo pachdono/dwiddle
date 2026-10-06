@@ -297,7 +297,7 @@ export async function questionsFor(made, names) {
   return results.flat().map(tidyQuestion);
 }
 
-export async function moreQuestions(made, names, count, avoidMore = []) {
+export async function moreQuestions(made, names, count, avoidMore = [], level = "") {
   const have = (made?.questions || []).filter((q) => names.includes(q.topic));
   if (!have.length || count < 1) return [];
   let notes = notesText(made, names).slice(0, 20000);
@@ -325,7 +325,7 @@ export async function moreQuestions(made, names, count, avoidMore = []) {
     for (let tries = 0; tries < 2; tries++) {
       // the second go drops the "in the style of" part, which is the plain way
       // questions were first made and is the likelier to come back
-      const got = await post("/api/generate", { notes, mode: "questions", topics, ...(tries === 0 ? { like } : {}), avoid, count: want, batch: `${stamp}${n}${tries}` })
+      const got = await post("/api/generate", { notes, mode: "questions", topics, ...(tries === 0 ? { like } : {}), avoid, ...(level ? { depth: level } : {}), count: want, batch: `${stamp}${n}${tries}` })
         .then((d) => d.questions || []).catch((e) => { lastError = e?.message || "the request failed"; return []; });
       if (got.length) return got;
     }

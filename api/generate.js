@@ -492,7 +492,10 @@ async function part(req, res, mode, notes) {
       .map((q, n) => `${n + 1}. [${String(q.topic || "").slice(0, 120)}] ${String(q.q).slice(0, 400)}${Array.isArray(q.choices) ? `\n   Options: ${q.choices.map((c) => String(c).slice(0, 160)).join(" | ")}` : ""}`);
     const avoid = (Array.isArray(req.body?.avoid) ? req.body.avoid : []).map((t) => String(t).slice(0, 200)).slice(0, 60);
     const count = Math.max(1, Math.min(12, Number(req.body?.count) || like.length || 3));
-    const asking = like.length
+    const apply = req.body?.depth === "apply";
+    const asking = apply
+      ? `Write exactly ${count} NEW application questions for these topics only:\n${list}\n\nEach one must be INDIRECT: describe a situation, an observation, an experiment result or a real example, and ask what is happening, why it happens, or which process or idea explains it. NEVER name the answer, its term or its definition in the question. Example: instead of "What is osmosis?" write "Red blood cells placed in a strong salt solution shrink. Why?" with osmosis, as water moving out of the cells, among the answers. The wrong options must be believable misunderstandings. Every question must still be answerable from the notes' facts, and must stand alone with everything it needs written in it.${like.length ? `\n\nQuestions the student has already seen, for the topic and level only:\n${like.join("\n")}` : ""}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`
+      : like.length
       ? `Write exactly ${count} NEW questions for these topics only:\n${list}\n\nUse these questions the student has already seen only for the kind and style. Every new question must test a DIFFERENT fact, term, step or idea from the notes than any of them: never reword, reverse or repeat one. Where the topic is maths or calculation, use different numbers and situations instead. The "3 or 4 for each topic" rule does not apply; write ${count} in total.\n\nQuestions to match in style:\n${like.join("\n")}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`
       : `Write ${Number(req.body?.count) > 0 ? `exactly ${count} NEW questions` : "questions"} for these topics only:\n${list}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`;
     const text = await ask({
@@ -508,7 +511,7 @@ async function part(req, res, mode, notes) {
     // Questions about things the notes never mention are dropped, unless that
     // would leave almost nothing, when the check itself is probably wrong.
     const kept = all.filter((q) => fromNotes(q, notes));
-    const questions = kept.length >= Math.ceil(all.length / 2) ? kept : all;
+    const questions = (kept.length >= Math.ceil(all.length / 2) ? kept : all).map((q) => (apply ? { ...q, level: "apply" } : q));
     if (questions.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
     return res.status(200).json({ questions });
   }
