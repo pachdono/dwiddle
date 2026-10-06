@@ -309,19 +309,24 @@ export async function moreQuestions(made, names, count, avoidMore = []) {
   const avoid = [...have.map((q) => q.q), ...avoidMore].slice(-60);
   const calls = Math.ceil(count / BATCH);
   const stamp = Date.now() % 1e6;
+  let lastError = "";
   const results = await pool(Array.from({ length: calls }, (_, n) => async () => {
     const want = Math.min(BATCH, count - n * BATCH);
     const like = Array.from({ length: want }, (_, k) => have[(n * BATCH + k) % have.length])
       .map(({ q, choices, topic }) => ({ q, choices, topic }));
     const topics = [...new Set(like.map((q) => q.topic))].map((name) => ({ name }));
     for (let tries = 0; tries < 2; tries++) {
-      const got = await post("/api/generate", { notes, mode: "questions", topics, like, avoid, count: want, batch: `${stamp}${n}${tries}` })
-        .then((d) => d.questions || []).catch(() => []);
+      // the second go drops the "in the style of" part, which is the plain way
+      // questions were first made and is the likelier to come back
+      const got = await post("/api/generate", { notes, mode: "questions", topics, ...(tries === 0 ? { like } : {}), avoid, count: want, batch: `${stamp}${n}${tries}` })
+        .then((d) => d.questions || []).catch((e) => { lastError = e?.message || "the request failed"; return []; });
       if (got.length) return got;
     }
     return [];
   }), 3);
-  return results.flat().map(tidyQuestion);
+  const out = results.flat().map(tidyQuestion);
+  out.error = out.length ? "" : lastError;
+  return out;
 }
 
 // ---------- more than fits in one go ----------

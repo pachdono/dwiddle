@@ -494,7 +494,7 @@ async function part(req, res, mode, notes) {
     const count = Math.max(1, Math.min(12, Number(req.body?.count) || like.length || 3));
     const asking = like.length
       ? `Write exactly ${count} NEW questions for these topics only:\n${list}\n\nUse these questions the student has already seen only for the kind and style. Every new question must test a DIFFERENT fact, term, step or idea from the notes than any of them: never reword, reverse or repeat one. Where the topic is maths or calculation, use different numbers and situations instead. The "3 or 4 for each topic" rule does not apply; write ${count} in total.\n\nQuestions to match in style:\n${like.join("\n")}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`
-      : `Write questions for these topics only:\n${list}`;
+      : `Write ${Number(req.body?.count) > 0 ? `exactly ${count} NEW questions` : "questions"} for these topics only:\n${list}${avoid.length ? `\n\nAlready asked, so do NOT ask these or anything that tests the same fact:\n${avoid.map((t) => "- " + t).join("\n")}` : ""}`;
     const text = await ask({
       system: QUESTIONS,
       user: `${asking}${style ? `\n\nWrite them in the style of ${style} exam papers: its command words, its structure and its difficulty, with the marks a real question like it would carry reflected in how much the answer needs. They must be new questions; never reproduce a real past paper question.` : ""}\n\nThe notes:\n\n${notes}`,
