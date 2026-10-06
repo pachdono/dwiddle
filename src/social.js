@@ -57,24 +57,54 @@ export async function removeShare(id) {
 
 /* ---------- messages ---------- */
 
+const COLS = "id, from_id, to_id, body, created_at";
+const COLS_V2 = COLS + ", kind, attach, reply_to, reply_preview";
+
 export async function messagesWith(friend, limit = 80) {
   if (!supabase) return { ok: false, missing: true };
   const { data: u } = await supabase.auth.getUser();
   const me = u?.user?.id;
   if (!me) return { ok: false, error: "Sign in first." };
-  const { data, error } = await supabase.from("messages").select("id, from_id, to_id, body, created_at")
+  const ask = (cols) => supabase.from("messages").select(cols)
     .or(`and(from_id.eq.${me},to_id.eq.${friend}),and(from_id.eq.${friend},to_id.eq.${me})`)
     .order("id", { ascending: false }).limit(limit);
-  return error ? fail(error) : { ok: true, me, data: (data || []).reverse() };
+  // the newer columns come from supabase/messages-v2.sql; without it, plain text
+  let { data, error } = await ask(COLS_V2);
+  let v2 = !error;
+  if (error) ({ data, error } = await ask(COLS));
+  return error ? fail(error) : { ok: true, me, v2, data: (data || []).reverse() };
 }
 
-export async function sendMessage(to, body) {
+// extra: { kind, attach, data, replyTo, replyPreview } for replies, photos, files and shares
+export async function sendMessage(to, body, extra = {}) {
   const { data: u } = await supabase.auth.getUser();
+  const kind = extra.kind || "text";
   const text = String(body || "").trim().slice(0, 1000);
   if (!text) return { ok: false, error: "Nothing to send." };
-  const { data, error } = await supabase.from("messages").insert({ from_id: u.user.id, to_id: to, body: text }).select("id, from_id, to_id, body, created_at").single();
+  const row = { from_id: u.user.id, to_id: to, body: text };
+  const rich = kind !== "text" || extra.replyTo;
+  if (kind !== "text") Object.assign(row, { kind, attach: extra.attach || null, data: extra.data || null });
+  if (extra.replyTo) Object.assign(row, { reply_to: extra.replyTo, reply_preview: extra.replyPreview || null });
+  const { data, error } = await supabase.from("messages").insert(row).select(rich ? COLS_V2 : COLS).single();
+  if (error && /column|schema cache/i.test(error.message || "")) return { ok: false, error: "Replies, photos and files are not switched on yet. Staff: run supabase/messages-v2.sql once." };
   return error ? fail(error) : { ok: true, data };
 }
+
+export async function deleteMessage(id) {
+  const { error } = await supabase.from("messages").delete().eq("id", id);
+  return error ? fail(error) : { ok: true };
+}
+
+// A photo or file is kept out of the message list and fetched when it is shown.
+const dataCache = new Map();
+export async function messageData(id) {
+  if (dataCache.has(id)) return dataCache.get(id);
+  const { data, error } = await supabase.rpc("message_data", { mid: id });
+  if (error || !data) return null;
+  dataCache.set(id, data);
+  return data;
+}
+export const cacheMessageData = (id, data) => { if (data) dataCache.set(id, data); };
 
 // Calls back when a message for this person arrives. Returns how to stop.
 export function onMessage(me, fn) {

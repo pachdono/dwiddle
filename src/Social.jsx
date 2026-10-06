@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, PageHead } from "./ui.jsx";
-import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage } from "./social.js";
+import { leaderboard, myFriends, addFriend, answerFriend, findPerson, setHandle, myHandle, messagesWith, sendMessage, deleteMessage, messageData, cacheMessageData, publish, packMaterial } from "./social.js";
+import { shrink } from "./custom.js";
+import { load } from "./store.js";
+import { KEYS } from "./store.js";
+import { viewOf } from "./materials.js";
+import { listBooks, getBook } from "./notebookStore.js";
 import { useSocial, setActiveThread, seenUpTo, onIncoming, refreshSocial } from "./socialState.js";
 import { useMyProfile, UserIcon } from "./Profile.jsx";
 
@@ -17,7 +22,7 @@ function Setup({ what }) {
   );
 }
 
-export default function Social({ auth, onSignIn, compact = false }) {
+export default function Social({ auth, onSignIn, compact = false, beta = false }) {
   const [tab, setTab] = useState(() => { try { const t = sessionStorage.getItem("dwiddle-social-tab"); return t === "chat" ? "chat" : "friends"; } catch { return "friends"; } });
   const [chatWith, setChatWith] = useState(null);
   const soc = useSocial();
@@ -42,7 +47,7 @@ export default function Social({ auth, onSignIn, compact = false }) {
         })}
       </div>
       {tab === "friends" && <Friends user={auth.user} openChat={(f) => { setChatWith(f); pick("chat"); }} />}
-      {tab === "chat" && <Chat user={auth.user} start={chatWith} compact={compact} />}
+      {tab === "chat" && <Chat user={auth.user} start={chatWith} compact={compact} beta={beta} />}
     </div>
   );
 }
@@ -210,7 +215,89 @@ function dayLabel(t) {
 }
 const onlyEmoji = (t) => /^(\p{Extended_Pictographic}|\u200d|\ufe0f|\s){1,8}$/u.test(t);
 
-function Chat({ user, start, compact = false }) {
+/* ---------- photos, files, shares and replies (testers for now) ---------- */
+
+const FILE_MAX = 700 * 1024;
+const sizeText = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+const readAsData = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onerror = () => rej(new Error("That file could not be read.")); r.onload = () => res(r.result); r.readAsDataURL(file); });
+const previewOf = (m) => (m.kind === "image" ? "Photo" : m.kind === "file" ? (m.attach?.name || "File") : m.kind === "share" ? (m.attach?.title || "Shared") : String(m.body || "").slice(0, 90));
+
+// A photo or file is fetched when it comes into view, not with the message list.
+function useMessageData(m) {
+  const [data, setData] = useState(m.data || null);
+  useEffect(() => {
+    if (m.data) { cacheMessageData(m.id, m.data); return; }
+    let live = true;
+    messageData(m.id).then((d) => live && setData(d));
+    return () => { live = false; };
+  }, [m.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return data;
+}
+
+function Attachment({ m }) {
+  const data = useMessageData(m);
+  if (m.kind === "image") {
+    return data
+      ? <a className="cm-img" href={data} target="_blank" rel="noreferrer" aria-label="Open the photo"><img src={data} alt="A photo sent in the chat" loading="lazy" /></a>
+      : <div className="cm-img wait small muted">Loading photo...</div>;
+  }
+  if (m.kind === "file") {
+    return (
+      <a className={"cm-file" + (data ? "" : " wait")} href={data || undefined} download={m.attach?.name || "file"} aria-disabled={!data}>
+        <span className="cm-file-ico"><Icon name="file" size={20} /></span>
+        <span className="cm-file-t"><b>{m.attach?.name || "File"}</b><span className="small">{m.attach?.size ? sizeText(m.attach.size) : ""}{data ? " · Download" : " · Loading"}</span></span>
+      </a>
+    );
+  }
+  if (m.kind === "share") {
+    return (
+      <div className="cm-share">
+        <span className={"xp-kind " + (m.attach?.kind || "material")}>{m.attach?.kind === "notebook" ? "Notebook" : "Folder"}</span>
+        <b>{m.attach?.title}</b>
+        <button className="btn small" onClick={() => { location.assign(`${location.origin}/?share=${m.attach?.id}`); }}>Open and save a copy</button>
+      </div>
+    );
+  }
+  return null;
+}
+
+// Pick one of your own folders or notebooks to send. It is shared by link only,
+// as a copy, so nothing of yours changes and nothing about your progress goes.
+function SharePicker({ onSend, onClose }) {
+  const [kind, setKind] = useState("material");
+  const [books, setBooks] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const made = load(KEYS.made, null);
+  const folders = (made?.materials || []).map((m) => ({ id: m.id, title: m.title })).reverse();
+  useEffect(() => { listBooks().then((b) => setBooks(b || [])).catch(() => {}); }, []);
+  const options = kind === "material" ? folders : books.map((b) => ({ id: b.id, title: b.title }));
+  async function pick(o) {
+    setBusy(true); setErr("");
+    let payload, title = o.title;
+    if (kind === "material") { const v = viewOf(made, o.id); payload = v && packMaterial(v); } else payload = await getBook(o.id);
+    if (!payload) { setErr("That could not be read."); setBusy(false); return; }
+    const r = await publish({ kind, title, payload, listed: false });
+    if (!r.ok) { setErr(r.missing ? "Sharing is not switched on yet." : r.error); setBusy(false); return; }
+    const sent = await onSend({ kind, id: r.id, title });
+    setBusy(false);
+    if (sent) onClose();
+  }
+  return (
+    <div className="cm-picker" role="dialog" aria-label="Share a notebook or folder">
+      <div className="spread"><b className="small">Send a copy of one of yours</b><button className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" size={14} /></button></div>
+      <div className="dl-lens"><button className={kind === "material" ? "on" : ""} onClick={() => setKind("material")}>Folders</button><button className={kind === "notebook" ? "on" : ""} onClick={() => setKind("notebook")}>Notebooks</button></div>
+      <div className="cm-picker-list">
+        {options.length === 0 && <p className="small muted">You have no {kind === "material" ? "folders" : "notebooks"} yet.</p>}
+        {options.map((o) => <button key={o.id} className="cm-picker-row" disabled={busy} onClick={() => pick(o)}>{o.title}</button>)}
+      </div>
+      {err && <div className="dl-err">{err}</div>}
+      <p className="small muted">They get a link to a copy. Your own stays private, and nothing about your progress is shared.</p>
+    </div>
+  );
+}
+
+function Chat({ user, start, compact = false, beta = false }) {
   const me = useMyProfile(user);
   const soc = useSocial();
   const [friends, setFriends] = useState(null);
@@ -219,6 +306,11 @@ function Chat({ user, start, compact = false }) {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
+  const [picker, setPicker] = useState(false);
+  const [sending, setSending] = useState(false);
+  const photoIn = useRef(null);
+  const fileIn = useRef(null);
   const end = useRef(null);
   const box = useRef(null);
 
@@ -261,12 +353,42 @@ function Chat({ user, start, compact = false }) {
   }, [text, with_]);
 
   if (miss) return <Setup what="Messages" />;
+  const replyExtra = () => (replyTo ? { replyTo: replyTo.id, replyPreview: { from: replyTo.from_id === user.id ? "You" : with_.name, text: previewOf(replyTo) } } : {});
   async function send() {
     const t = text.trim();
     if (!t) return;
     setText(""); setErr("");
-    const r = await sendMessage(with_.user_id, t);
-    if (r.ok) setMsgs((x) => [...x, r.data]); else { setErr(r.error); setText(t); }
+    const r = await sendMessage(with_.user_id, t, beta ? replyExtra() : {});
+    if (r.ok) { setMsgs((x) => [...x, r.data]); setReplyTo(null); } else { setErr(r.error); setText(t); }
+  }
+  // a photo, a file or a shared notebook goes as a message of its own
+  async function sendRich(kind, body, attach, data) {
+    setErr(""); setSending(true);
+    const r = await sendMessage(with_.user_id, body, { kind, attach, data, ...replyExtra() });
+    setSending(false);
+    if (!r.ok) { setErr(r.error); return false; }
+    cacheMessageData(r.data.id, data);
+    setMsgs((x) => [...x, r.data]); setReplyTo(null);
+    return true;
+  }
+  async function pickPhoto(file) {
+    if (!file) return;
+    try {
+      const data = await shrink(file, 1280, 0.78);
+      if (data.length > 1100000) { setErr("That photo is too big even after shrinking it."); return; }
+      await sendRich("image", "Sent a photo", { name: file.name, type: "image/jpeg" }, data);
+    } catch (e) { setErr(e.message); }
+  }
+  async function pickFile(file) {
+    if (!file) return;
+    if (file.size > FILE_MAX) { setErr(`Files up to ${sizeText(FILE_MAX)} can be sent. Send a bigger one as a shared folder or notebook instead.`); return; }
+    try { await sendRich("file", `Sent a file: ${file.name}`.slice(0, 300), { name: file.name, type: file.type || "application/octet-stream", size: file.size }, await readAsData(file)); }
+    catch (e) { setErr(e.message); }
+  }
+  async function remove(m) {
+    if (!confirm("Delete this message for everyone?")) return;
+    const r = await deleteMessage(m.id);
+    if (r.ok) setMsgs((x) => x.filter((y) => y.id !== m.id)); else setErr(r.error);
   }
 
   const ordered = [...(friends || [])].sort((a, b) => (soc.unread[b.user_id] || 0) - (soc.unread[a.user_id] || 0));
@@ -312,7 +434,16 @@ function Chat({ user, start, compact = false }) {
                       {!mine && <span className="cm-av">{first && <UserIcon avatar={with_.avatar} user={null} size={32} />}</span>}
                       <div className="cm-col">
                         {first && <span className="cm-name">{mine ? "You" : with_.name}<time>{clock(m.created_at)}</time></span>}
-                        <div className={"cm-bubble" + (big ? " big" : "")}>{m.body}</div>
+                        {m.reply_preview && <div className="cm-quote"><b>{m.reply_preview.from}</b><span>{m.reply_preview.text}</span></div>}
+                        {m.kind && m.kind !== "text"
+                          ? <div className={"cm-bubble rich " + m.kind}><Attachment m={m} /></div>
+                          : <div className={"cm-bubble" + (big ? " big" : "")}>{m.body}</div>}
+                        {beta && (
+                          <span className="cm-acts">
+                            <button type="button" onClick={() => { setReplyTo(m); box.current?.focus(); }}>Reply</button>
+                            {mine && <button type="button" onClick={() => remove(m)}>Delete</button>}
+                          </span>
+                        )}
                       </div>
                       {mine && <span className="cm-av">{first && <UserIcon avatar={me?.avatar} user={user} size={32} />}</span>}
                     </div>
@@ -322,7 +453,21 @@ function Chat({ user, start, compact = false }) {
               <div ref={end} />
             </div>
             {err && <div className="dl-err">{err}</div>}
+            {beta && replyTo && (
+              <div className="cm-replying"><span><b>Replying to {replyTo.from_id === user.id ? "yourself" : with_.name}</b> {previewOf(replyTo)}</span>
+                <button type="button" className="icon-btn" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><Icon name="close" size={13} /></button></div>
+            )}
+            {beta && picker && <SharePicker onClose={() => setPicker(false)} onSend={({ kind, id, title }) => sendRich("share", `Shared ${kind === "notebook" ? "a notebook" : "a folder"}: ${title}`.slice(0, 300), { id, kind, title }, null)} />}
             <form className="cm-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
+              {beta && (
+                <span className="cm-tools">
+                  <button type="button" className="icon-btn" aria-label="Send a photo" title="Photo" disabled={sending} onClick={() => photoIn.current?.click()}><Icon name="image" size={18} /></button>
+                  <button type="button" className="icon-btn" aria-label="Send a file" title="File" disabled={sending} onClick={() => fileIn.current?.click()}><Icon name="file" size={18} /></button>
+                  <button type="button" className="icon-btn" aria-label="Share a notebook or folder" title="Share a notebook or folder" disabled={sending} onClick={() => setPicker((v) => !v)}><Icon name="folder" size={18} /></button>
+                  <input ref={photoIn} type="file" accept="image/*" hidden onChange={(e) => { pickPhoto(e.target.files[0]); e.target.value = ""; }} />
+                  <input ref={fileIn} type="file" hidden onChange={(e) => { pickFile(e.target.files[0]); e.target.value = ""; }} />
+                </span>
+              )}
               <textarea ref={box} rows={1} value={text} maxLength={1000} placeholder={`Message ${with_.name}`} aria-label={`Message ${with_.name}`}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
@@ -356,7 +501,7 @@ export function LeaderboardPage({ auth, onSignIn }) {
 
 // Friends and messages in a window over the page, so someone studying a topic
 // can chat and keep reading at the same time.
-export function FriendsPopup({ auth, onSignIn, onClose }) {
+export function FriendsPopup({ auth, onSignIn, onClose, beta = false }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     addEventListener("keydown", onKey);
@@ -367,7 +512,7 @@ export function FriendsPopup({ auth, onSignIn, onClose }) {
       <div className="fp-head"><b>Friends</b>
         <button className="icon-btn" aria-label="Close friends" onClick={onClose}><Icon name="close" size={15} /></button>
       </div>
-      <div className="fp-body"><Social auth={auth} onSignIn={onSignIn} compact /></div>
+      <div className="fp-body"><Social auth={auth} onSignIn={onSignIn} compact beta={beta} /></div>
     </div>
   );
 }

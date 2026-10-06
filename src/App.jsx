@@ -1226,6 +1226,7 @@ export default function App() {
           stats={stats}
           made={study}
           fullMade={made}
+          beta={beta}
           setMade={setMade}
           focus={focus}
           setFocus={setFocus}
@@ -1295,7 +1296,7 @@ export default function App() {
           <span className="msg-toast-text"><b>{pop.name}</b><span>{pop.body.length > 80 ? pop.body.slice(0, 79) + "…" : pop.body}</span></span>
         </button>
       )}
-      {studyMode && friendsOpen && <FriendsPopup auth={auth} onSignIn={() => setSignInOpen(true)} onClose={() => setFriendsOpen(false)} />}
+      {studyMode && friendsOpen && <FriendsPopup beta={beta} auth={auth} onSignIn={() => setSignInOpen(true)} onClose={() => setFriendsOpen(false)} />}
       <DwiddleChat hidden={["settings", "install", "install-all", "feedback", "tests", "notebook", "chat"].includes(page)} />
       <PermissionPrompt />
       <NarrationAsk />
