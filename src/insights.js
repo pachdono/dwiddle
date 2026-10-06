@@ -115,8 +115,11 @@ function freeSlots(winStart, winEnd, busy) {
   return slots;
 }
 
-export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Date.now() }) {
-  const len = Math.max(15, Math.min(90, prefs.sessionMin || 40)) * MIN;
+export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Date.now(), topicNames = [] }) {
+  // Kept safe by default: a session is never longer than 50 minutes, nothing is
+  // planned after 21:30, and at least one day a week is left free to rest.
+  const guard = prefs.guard !== false;
+  const len = Math.max(15, Math.min(guard ? 50 : 90, prefs.sessionMin || 40)) * MIN;
   const win = summary ? bestWindow(summary) : null;
   const wanted = prefs.prefer === "auto" ? (win ? win.hour * 60 : null) : prefs.prefer ? Number(prefs.prefer.split(":")[0]) * 60 + Number(prefs.prefer.split(":")[1] || 0) : null;
   const slotsByDay = [];
@@ -124,12 +127,20 @@ export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Dat
     const day = new Date(now); day.setDate(day.getDate() + i);
     const cfg = prefs.days?.[day.getDay()];
     if (!cfg?.on) continue;
-    const ws = Math.max(atTime(day, cfg.from), now + 10 * MIN), we = atTime(day, cfg.to);
+    const ws = Math.max(atTime(day, cfg.from), now + 10 * MIN), we = guard ? Math.min(atTime(day, cfg.to), atTime(day, "21:30")) : atTime(day, cfg.to);
     const fits = freeSlots(ws, we, busy).filter(([s, e]) => e - s >= len);
     if (fits.length) slotsByDay.push({ day, fits });
   }
   const sessions = [];
-  const topicQueue = [...(summary?.weak || []).map((t) => ({ name: t.name, why: `${t.accuracy}% right so far` })), ...(summary?.topics || []).filter((t) => !(summary.weak || []).includes(t) && t.accuracy != null && t.accuracy < 85).map((t) => ({ name: t.name, why: `${t.accuracy}% right, room to grow` }))];
+  const focus = prefs.focus || [];
+  const known = new Set((summary?.topics || []).map((t) => t.name));
+  const topicQueue = [
+    ...focus.map((n) => { const t = (summary?.topics || []).find((x) => x.name === n); return { name: n, why: t ? `Your main focus, ${t.accuracy}% right so far` : "Your main focus" }; }),
+    ...(summary?.weak || []).filter((t) => !focus.includes(t.name)).map((t) => ({ name: t.name, why: `${t.accuracy}% right so far` })),
+    ...(summary?.topics || []).filter((t) => !focus.includes(t.name) && !(summary.weak || []).includes(t) && t.accuracy != null && t.accuracy < 85).map((t) => ({ name: t.name, why: `${t.accuracy}% right, room to grow` })),
+    // topics not practised yet come in too, so a new plan covers everything
+    ...topicNames.filter((n) => !known.has(n) && !focus.includes(n)).map((n) => ({ name: n, why: "Not practised yet" })),
+  ];
   let ti = 0;
   const place = (entry) => {
     // the start nearest the preferred time, inside the longest free stretch it fits
@@ -143,9 +154,14 @@ export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Dat
     });
     return best?.start;
   };
-  for (let pass = 0; pass < 2 && sessions.length < (prefs.perWeek || 5); pass++) {
+  // one rest day: never more than six days in a seven day stretch
+  const dayCap = guard ? 6 : 7;
+  const target = Math.min(prefs.perWeek || 5, guard ? 8 : 14);
+  for (let pass = 0; pass < 2 && sessions.length < target; pass++) {
     for (const entry of slotsByDay) {
-      if (sessions.length >= (prefs.perWeek || 5)) break;
+      if (sessions.length >= target) break;
+      const usedDays = new Set(sessions.map((x) => new Date(x.start).toDateString()));
+      if (usedDays.size >= dayCap && !usedDays.has(entry.day.toDateString())) continue;
       if (pass === 0 && sessions.some((s) => new Date(s.start).toDateString() === entry.day.toDateString())) continue;
       const taken = sessions.filter((s) => new Date(s.start).toDateString() === entry.day.toDateString());
       const fits = entry.fits.flatMap(([s, e]) => freeSlots(s, e, taken.map((x) => [x.start - 10 * MIN, x.end + 10 * MIN]))).filter(([s, e]) => e - s >= len);
@@ -282,4 +298,35 @@ export function masteryOf(log, topics) {
   if (recent.length < 6) return "unknown";
   const acc = recent.filter((e) => e.ok).length / recent.length;
   return acc >= 0.8 ? "high" : acc < 0.5 ? "low" : "mid";
+}
+
+/* ---------- the setup form's estimate ---------- */
+
+export const GOALS = [
+  { id: "exam", label: "An exam or test is coming up", hint: "More sessions as it gets closer, with rest days kept." },
+  { id: "school", label: "Keep up with school", hint: "A steady few sessions every week." },
+  { id: "catchup", label: "Catch up on what I find hard", hint: "Weak topics first, a bit more often." },
+  { id: "interest", label: "Learn for interest", hint: "Light and regular." },
+];
+
+// A plan worked out from what someone says they want, kept from wearing them
+// out: never seven days, sessions that fit in one sitting, and a cap on late
+// nights. When there are answers to look at, they decide the rest.
+export function suggestPrefs({ goal = "school", exam = "", summary = null, now = Date.now() }) {
+  const days = exam ? Math.ceil((Date.parse(exam) - now) / 864e5) : null;
+  const why = [];
+  let perWeek = { exam: 5, school: 4, catchup: 5, interest: 3 }[goal] ?? 4;
+  let sessionMin = goal === "interest" ? 30 : 40;
+  if (goal === "exam" && days != null) {
+    if (days <= 7) { perWeek = 6; why.push(`${days <= 0 ? "Your exam is here" : days + " days to go"}, so up to six short sessions, with one day to rest.`); }
+    else if (days <= 21) { perWeek = 6; why.push(`${days} days to go: six sessions a week, the weak topics first.`); }
+    else if (days <= 60) { perWeek = 5; why.push(`${days} days is plenty of time. Five sessions a week is enough, and it builds up gradually.`); }
+    else { perWeek = 4; why.push(`${days} days away: four sessions a week now, more as it gets closer.`); }
+  }
+  const burn = summary && advice(summary).some((a) => a.id === "burnout");
+  if (burn) { sessionMin = 35; why.push("Your long sittings tail off, so sessions are kept to 35 minutes."); }
+  if (!summary || summary.total < 10) why.push("You have not answered many questions yet, so this is an estimate. It will adjust as you practise.");
+  else why.push(`Worked out partly from your ${summary.total} answers.`);
+  why.push("Sessions are never longer than 50 minutes, nothing is set after 21:30, and one day a week is left free so you do not burn out.");
+  return { perWeek: Math.min(perWeek, 6), sessionMin, why };
 }

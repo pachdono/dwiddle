@@ -74,3 +74,23 @@ test("calendar titles are kept short", () => {
   assert.match(ics, /SUMMARY:Study: Effect of very high tem…/);
   assert.match(ics, /DESCRIPTION:Effect of very high temperature on molecule shape/);
 });
+
+import { suggestPrefs } from "../src/insights.js";
+test("the estimate keeps rest days and shorter sessions, and says why", () => {
+  const now = Date.UTC(2026, 9, 6);
+  const near = suggestPrefs({ goal: "exam", exam: "2026-10-12", now });
+  assert.ok(near.perWeek <= 6 && near.perWeek >= 5);
+  const far = suggestPrefs({ goal: "exam", exam: "2027-03-01", now });
+  assert.equal(far.perWeek, 4);
+  assert.ok(near.why.some((w) => /estimate/.test(w)));
+  assert.ok(near.why.some((w) => /free so you do not burn out/.test(w)));
+});
+
+test("a plan leaves a rest day, stops by 21:30 and covers topics not yet practised", () => {
+  const prefs = defaultPrefs(); prefs.perWeek = 9; prefs.sessionMin = 90; prefs.prefer = "20:00";
+  Object.values(prefs.days).forEach((d) => { d.on = true; d.from = "08:00"; d.to = "23:30"; });
+  const plan = planWeek({ prefs, summary: summarise([]), now: new Date(2026, 9, 5, 7).getTime(), topicNames: ["Cells", "Osmosis"] });
+  assert.ok(new Set(plan.map((s) => new Date(s.start).toDateString())).size <= 6);
+  plan.forEach((s) => { assert.ok(s.end - s.start <= 50 * 60e3); assert.ok(new Date(s.end).getHours() * 60 + new Date(s.end).getMinutes() <= 21 * 60 + 30); });
+  assert.ok(plan.some((s) => s.topic === "Cells") && plan.some((s) => s.topic === "Osmosis"));
+});

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHead } from "./ui.jsx";
 import { load, save } from "./store.js";
 import { readLog } from "./studylog.js";
-import { summarise, advice, bestWindow, planWeek, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
+import { summarise, advice, bestWindow, planWeek, suggestPrefs, GOALS, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
 import { levelOf } from "./xp.js";
 import { gcalAvailable, connected, connect, disconnect, busyTimes, syncPlan } from "./gcal.js";
 import { isDesktop } from "./desktop.js";
@@ -309,7 +309,103 @@ function FeedCard({ user, plan }) {
   );
 }
 
-function Planner({ summary, go, setTopic, user }) {
+function FreeWeek({ prefs, setDay }) {
+  return (
+        <div className="pl-week">
+          {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+            const c = prefs.days[d] || {};
+            return (
+              <div key={d} className={"pl-day" + (c.on ? " on" : "")}>
+                <button className="pl-day-head" aria-pressed={!!c.on} onClick={() => setDay(d, { on: !c.on })}>{SHORT[d]}</button>
+                {c.on ? (<>
+                  <input type="time" value={c.from || "16:00"} onChange={(e) => setDay(d, { from: e.target.value })} aria-label={`${DAY_NAMES[d]} from`} />
+                  <input type="time" value={c.to || "20:00"} onChange={(e) => setDay(d, { to: e.target.value })} aria-label={`${DAY_NAMES[d]} until`} />
+                </>) : <span className="small muted pl-off">Not free</span>}
+              </div>
+            );
+          })}
+        </div>
+  );
+}
+
+// The first thing the planner asks: a short form about the goal, what to focus
+// on, when to study and when you are free. With answers to learn from it uses
+// them; without, it makes a careful estimate that will not wear anyone out.
+function PlanWizard({ prefs, setPrefs, setDay, applyPreset, summary, topicNames, now, onDone, onCancel, calendar }) {
+  const win = bestWindow(summary);
+  const [step, setStep] = useState(0);
+  const [d, setD] = useState(() => ({
+    goal: prefs.goal || "school", exam: prefs.exam || "", focus: prefs.focus || [],
+    prefer: prefs.setup ? prefs.prefer : (win ? "auto" : "16:30"), sessionMin: prefs.sessionMin || 40, perWeek: prefs.perWeek || 4,
+  }));
+  const [touched, setTouched] = useState(false);
+  const est = useMemo(() => suggestPrefs({ goal: d.goal, exam: d.exam, summary, now }), [d.goal, d.exam, summary, now]);
+  // the estimate follows the goal until the person sets the numbers themselves
+  useEffect(() => { if (!touched) setD((x) => ({ ...x, perWeek: est.perWeek, sessionMin: est.sessionMin })); }, [est.perWeek, est.sessionMin, touched]);
+  const draft = { ...prefs, ...d, setup: true };
+  const preview = useMemo(() => planWeek({ prefs: draft, summary, busy: [], now, topicNames }), [d, prefs.days, summary, now, topicNames.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const steps = ["Goal", "Focus", "Your time", "When you are free", "Your plan"];
+  const set = (patch) => setD((x) => ({ ...x, ...patch }));
+  const toggleFocus = (n) => set({ focus: d.focus.includes(n) ? d.focus.filter((x) => x !== n) : [...d.focus, n].slice(0, 3) });
+  const TIMES = [["07:30", "Morning", "before school or work"], ["16:30", "After school", "just after the day ends"], ["18:30", "Evening", "after dinner"], ["20:00", "Later on", "no later than 21:30"]];
+  const next = () => (step < steps.length - 1 ? setStep(step + 1) : onDone({ ...d, setup: true }));
+  return (
+    <div className="card card-pad stack pw">
+      <div className="pw-steps" aria-label="Steps">{steps.map((l, i) => <button key={l} className={i === step ? "on" : i < step ? "past" : ""} onClick={() => i <= step && setStep(i)} disabled={i > step}><i>{i + 1}</i><span>{l}</span></button>)}</div>
+
+      {step === 0 && (<>
+        <h3>What are you aiming for?</h3>
+        <div className="pw-cards">{GOALS.map((g) => <button key={g.id} className={"pw-card" + (d.goal === g.id ? " on" : "")} onClick={() => set({ goal: g.id })}><b>{g.label}</b><span className="small muted">{g.hint}</span></button>)}</div>
+        {d.goal === "exam" && <label className="pw-field">When is it? <input type="date" value={d.exam} onChange={(e) => set({ exam: e.target.value })} /><span className="small muted">If you are not sure, leave it empty.</span></label>}
+      </>)}
+
+      {step === 1 && (<>
+        <h3>What matters most?</h3>
+        <p className="small muted">{topicNames.length ? "Pick up to three topics to put first. Leave it empty to cover everything evenly, with the weak ones coming first once you have answered some questions." : "Add some material first and your topics will be listed here. The plan will cover everything evenly."}</p>
+        <div className="pw-chips">{topicNames.map((n) => <button key={n} className={"pl-chip" + (d.focus.includes(n) ? " on" : "")} onClick={() => toggleFocus(n)}>{n}</button>)}</div>
+        <p className="small muted">{summary.total >= 10 ? `Your ${summary.total} answers so far will be used to find your weak spots.` : "You have not answered many questions yet, so the plan starts from an estimate and adjusts as you practise."}</p>
+      </>)}
+
+      {step === 2 && (<>
+        <h3>When do you like to study?</h3>
+        <div className="pw-cards small">{win && <button className={"pw-card" + (d.prefer === "auto" ? " on" : "")} onClick={() => set({ prefer: "auto" })}><b>When I do best</b><span className="small muted">Around {String(win.hour).padStart(2, "0")}:00, from my answers</span></button>}
+          {TIMES.map(([t, l, h]) => <button key={t} className={"pw-card" + (d.prefer === t ? " on" : "")} onClick={() => set({ prefer: t })}><b>{l}</b><span className="small muted">{h}</span></button>)}</div>
+        <div className="pw-two">
+          <div><span className="pl-k">How long can you focus?</span>
+            <div className="seg tight">{[25, 35, 40, 50].map((m) => <button key={m} className={d.sessionMin === m ? "on" : ""} onClick={() => { setTouched(true); set({ sessionMin: m }); }}>{m} min</button>)}</div>
+            <span className="small muted">{d.sessionMin >= 50 ? "50 is the most that is worth doing in one go." : "Short sessions you finish beat long ones you do not."}</span></div>
+          <div><span className="pl-k">Sessions a week</span>
+            <div className="seg tight">{[2, 3, 4, 5, 6].map((m) => <button key={m} className={d.perWeek === m ? "on" : ""} onClick={() => { setTouched(true); set({ perWeek: m }); }}>{m}</button>)}</div>
+            <span className="small muted">Suggested: {est.perWeek}. Never seven, so there is always a rest day.</span></div>
+        </div>
+      </>)}
+
+      {step === 3 && (<>
+        <h3>When are you free?</h3>
+        <p className="small muted">Switch off the days you cannot study and set the hours you can. Sessions are only placed inside these.</p>
+        <div className="pw-chips">{PRESETS.map((pr) => <button key={pr.id} className="pl-chip" onClick={() => applyPreset(pr)}>{pr.label}</button>)}</div>
+        <FreeWeek prefs={prefs} setDay={setDay} />
+        {calendar}
+      </>)}
+
+      {step === 4 && (<>
+        <h3>Your plan</h3>
+        <div className="pw-why">{est.why.map((w, i) => <p key={i} className="small">{w}</p>)}</div>
+        {preview.length === 0
+          ? <p className="small warn-text">Nothing fits yet. Go back and give the days you are free a longer window.</p>
+          : <div className="pw-list">{preview.map((x) => <div key={x.start}><b>{new Date(x.start).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })}</b> <span className="muted">{hm(x.start)} to {hm(x.end)}</span> <span>{x.topic || "Mixed review"}</span></div>)}</div>}
+      </>)}
+
+      <div className="dl-row pw-act">
+        {onCancel && step === 0 && <button className="btn quiet" onClick={onCancel}>Cancel</button>}
+        {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
+        <button className="btn cta" onClick={next} disabled={step === 4 && preview.length === 0}>{step === steps.length - 1 ? "Make my plan" : "Next"}</button>
+      </div>
+    </div>
+  );
+}
+
+function Planner({ summary, go, setTopic, user, topicNames = [] }) {
   const [prefs, setPrefsRaw] = useState(() => ({ ...defaultPrefs(), ...load(PREFS_KEY, {}) }));
   const [fileBusy, setFileBusyRaw] = useState(() => load(BUSY_KEY, []));
   const [gBusy, setGBusy] = useState([]);
@@ -322,7 +418,7 @@ function Planner({ summary, go, setTopic, user }) {
   const busy = useMemo(() => [...fileBusy, ...gBusy].filter(([, e]) => e > now), [fileBusy, gBusy, now]);
   const [skipped, setSkipped] = useState(() => load("dwiddle-skipped", []));
   const skip = (t) => { const n = [...skipped, t].slice(-60); setSkipped(n); save("dwiddle-skipped", n); };
-  const plan = useMemo(() => planWeek({ prefs, summary, busy, now }).filter((x) => !skipped.includes(x.start)), [prefs, summary, busy, now, skipped]);
+  const plan = useMemo(() => planWeek({ prefs, summary, busy, now, topicNames }).filter((x) => !skipped.includes(x.start)), [prefs, summary, busy, now, skipped, topicNames.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const tips = advice(summary).filter((t) => ["best", "burnout", "late", "days"].includes(t.id));
   const daysToExam = prefs.exam ? Math.ceil((new Date(prefs.exam).getTime() - now) / 864e5) : null;
 
@@ -360,8 +456,38 @@ function Planner({ summary, go, setTopic, user }) {
     </div>
   );
 
+  const [editing, setEditing] = useState(false);
+  const calBlock = (
+    <div className="pl-file">
+          <b className="small">Keep clear of what is already in my calendar</b>
+          <span className="small muted">Paste your calendar's secret address and the plan avoids your lessons and other events, including ones that repeat. In Google Calendar: Settings, then your calendar, then Integrate calendar, then <i>Secret address in iCal format</i>. Keep it private. It is only used to read when you are busy and is saved on this device.</span>
+          <div className="dl-row" style={{ justifyContent: "flex-start", flexWrap: "nowrap" }}>
+            <input className="pl-addr" type="url" placeholder="https://calendar.google.com/calendar/ical/..." value={addr} onChange={(e) => setAddr(e.target.value)} aria-label="Secret calendar address" />
+            <button className="btn small" onClick={() => useAddress()} disabled={!addr.trim()}>Use it</button>
+            {addr && <button className="btn quiet small" onClick={() => { setAddr(""); save("dwiddle-ical-url", ""); setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar forgotten."); }}>Forget</button>}
+          </div>
+          <span className="small muted">Or choose a calendar file (.ics) instead, which is read on this device and not uploaded.</span>
+          <div className="dl-row" style={{ justifyContent: "flex-start" }}>
+            <button className="btn ghost small" onClick={() => file.current?.click()}>Choose a calendar file</button>
+            {fileBusy.length > 0 && <button className="btn quiet small" onClick={() => { setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar file forgotten."); }}>Forget it ({fileBusy.length} events)</button>}
+            <input ref={file} type="file" accept=".ics,text/calendar" hidden onChange={onFile} />
+          </div>
+          {note && <span className="small">{note}</span>}
+        </div>
+  );
+
+  if (!prefs.setup || editing) {
+    return (
+      <div className="rp stack pl">
+        <PlanWizard prefs={prefs} setPrefs={setPrefs} setDay={setDay} applyPreset={applyPreset} summary={summary} topicNames={topicNames} now={now}
+          onDone={(d) => { setPrefs({ ...prefs, ...d }); setEditing(false); }} onCancel={prefs.setup ? () => setEditing(false) : null} calendar={calBlock} />
+      </div>
+    );
+  }
+
   return (
     <div className="rp stack pl">
+      <div className="card card-pad spread"><div><b>Your plan is set up</b><p className="small muted" style={{ margin: "2px 0 0" }}>{(GOALS.find((g) => g.id === prefs.goal) || GOALS[1]).label}, {prefs.perWeek} sessions of {Math.min(prefs.sessionMin, 50)} minutes a week.</p></div><button className="btn ghost" onClick={() => setEditing(true)}>Change my answers</button></div>
       <FeedCard user={user} plan={plan} />
       {gcalAvailable() && (
         <details className="pl-adv">
@@ -397,36 +523,8 @@ function Planner({ summary, go, setTopic, user }) {
         <div className="spread"><h3 style={{ margin: 0 }}>When you are free</h3>
           <div className="pl-presets">{PRESETS.map((pr) => <button key={pr.id} className="pl-chip" onClick={() => applyPreset(pr)}>{pr.label}</button>)}</div>
         </div>
-        <div className="pl-week">
-          {[1, 2, 3, 4, 5, 6, 0].map((d) => {
-            const c = prefs.days[d] || {};
-            return (
-              <div key={d} className={"pl-day" + (c.on ? " on" : "")}>
-                <button className="pl-day-head" aria-pressed={!!c.on} onClick={() => setDay(d, { on: !c.on })}>{SHORT[d]}</button>
-                {c.on ? (<>
-                  <input type="time" value={c.from || "16:00"} onChange={(e) => setDay(d, { from: e.target.value })} aria-label={`${DAY_NAMES[d]} from`} />
-                  <input type="time" value={c.to || "20:00"} onChange={(e) => setDay(d, { to: e.target.value })} aria-label={`${DAY_NAMES[d]} until`} />
-                </>) : <span className="small muted pl-off">Not free</span>}
-              </div>
-            );
-          })}
-        </div>
-        <div className="pl-file">
-          <b className="small">Keep clear of what is already in my calendar</b>
-          <span className="small muted">Paste your calendar's secret address and the plan avoids your lessons and other events, including ones that repeat. In Google Calendar: Settings, then your calendar, then Integrate calendar, then <i>Secret address in iCal format</i>. Keep it private. It is only used to read when you are busy and is saved on this device.</span>
-          <div className="dl-row" style={{ justifyContent: "flex-start", flexWrap: "nowrap" }}>
-            <input className="pl-addr" type="url" placeholder="https://calendar.google.com/calendar/ical/..." value={addr} onChange={(e) => setAddr(e.target.value)} aria-label="Secret calendar address" />
-            <button className="btn small" onClick={() => useAddress()} disabled={!addr.trim()}>Use it</button>
-            {addr && <button className="btn quiet small" onClick={() => { setAddr(""); save("dwiddle-ical-url", ""); setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar forgotten."); }}>Forget</button>}
-          </div>
-          <span className="small muted">Or choose a calendar file (.ics) instead, which is read on this device and not uploaded.</span>
-          <div className="dl-row" style={{ justifyContent: "flex-start" }}>
-            <button className="btn ghost small" onClick={() => file.current?.click()}>Choose a calendar file</button>
-            {fileBusy.length > 0 && <button className="btn quiet small" onClick={() => { setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar file forgotten."); }}>Forget it ({fileBusy.length} events)</button>}
-            <input ref={file} type="file" accept=".ics,text/calendar" hidden onChange={onFile} />
-          </div>
-          {note && <span className="small">{note}</span>}
-        </div>
+        <FreeWeek prefs={prefs} setDay={setDay} />
+        {calBlock}
       </div>
 
       <div className="card card-pad stack">
@@ -461,7 +559,8 @@ function Planner({ summary, go, setTopic, user }) {
   );
 }
 
-export default function Progress({ stats, go, setTopic, page, auth }) {
+export default function Progress({ stats, go, setTopic, page, auth, topics = [] }) {
+  const topicNames = useMemo(() => [...new Set(topics.map((t) => t.name))], [topics]);
   const log = useLog();
   const summary = useMemo(() => summarise(log), [log]);
   const tab = page === "planner" ? "planner" : "report";
@@ -472,7 +571,7 @@ export default function Progress({ stats, go, setTopic, page, auth }) {
         <button role="tab" className={tab === "report" ? "on" : ""} onClick={() => go("report")}>Report</button>
         <button role="tab" className={tab === "planner" ? "on" : ""} onClick={() => go("planner")}>Planner</button>
       </div>
-      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} />}
+      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} topicNames={topicNames} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} />}
     </div>
   );
 }
