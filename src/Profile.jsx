@@ -185,6 +185,11 @@ export function HandleGate({ user }) {
       if (first.length >= 2) setV(first + Math.floor(100 + Math.random() * 900));
     } else if (p.handle) setV(p.handle);
   }, [need]); // eslint-disable-line react-hooks/exhaustive-deps
+  // tells the tour to wait while this is on screen
+  useEffect(() => {
+    document.documentElement.dataset.gate = need ? "1" : "0";
+    return () => { document.documentElement.dataset.gate = "0"; };
+  }, [need]);
   if (!need) return null;
   const clean = v.replace(/^@/, "");
   async function save() {

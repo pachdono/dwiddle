@@ -8836,14 +8836,18 @@ body.has-backdrop main .page {
 
 /* The first look round the app (Tour.jsx) */
 .tour { position: fixed; inset: 0; z-index: 400; pointer-events: none; }
-.tour-block { position: absolute; pointer-events: auto; }
-.tour-dim, .tour-card { pointer-events: auto; }
+/* only the note itself takes clicks: the rest of the page stays usable under the dimming, so the tour never traps anyone */
+.tour-block { position: absolute; pointer-events: none; }
+.tour-dim { pointer-events: none; }
+.tour-card { pointer-events: auto; }
+/* a required pop up (choosing a username) comes first; the tour waits behind it */
+html[data-gate="1"] .tour { display: none; }
 .tour-hole { animation: tour-pulse 1.6s ease-in-out infinite; }
 @keyframes tour-pulse { 50% { box-shadow: 0 0 0 9999px rgba(12, 14, 20, 0.6), 0 0 0 7px rgba(255, 216, 77, 0.55); } }
 .tour-tap { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; background: #FFF4C2; color: #5a4300; font-size: 13px; font-weight: 800; }
 .tour-tap i { width: 9px; height: 9px; border-radius: 50%; background: #F2B51C; animation: tour-dot 1s ease-in-out infinite; }
 @keyframes tour-dot { 50% { transform: scale(1.6); opacity: 0.5; } }
-.tour-dim { position: absolute; inset: 0; background: rgba(12, 14, 20, 0.6); }
+.tour-dim { position: absolute; inset: 0; background: rgba(12, 14, 20, 0.45); }
 .tour-hole { position: absolute; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(12, 14, 20, 0.6), 0 0 0 3px #FFD84D;
   transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease; pointer-events: none; }
 .tour-arrow { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
