@@ -103,6 +103,41 @@ Rules:
 - "large" is true when the notes say a lot about that topic.
 ${STYLE}`;
 
+const VERIFY = `You are a strict subject expert checking multiple choice questions for factual errors before students see them.
+
+Return ONE JSON object and nothing else:
+{ "checks": [ { "n": 1, "verdict": "ok" | "fix" | "drop", "answer": 0 } ] }
+One entry per question, in order. "answer" is the 0 based index of the correct option and is only needed for "fix".
+
+Decide using standard textbook knowledge, and the notes where they cover the point.
+- "ok": the marked answer is correct and no other option is also correct.
+- "fix": the marked answer is wrong but exactly one other listed option is correct.
+- "drop": no listed option is correct, or more than one is, or the question is ambiguous, or it cannot be answered without something the student cannot see.
+Be exact: an option that is only partly right, or true of something else, is not correct.`;
+
+async function verifyQuestions(qs, notes) {
+  if (!qs.length) return qs;
+  try {
+    const text = await ask({
+      system: VERIFY,
+      user: `Notes (may be partial):\n${String(notes).slice(0, 5000)}\n\nQuestions:\n${qs.map((q, i) => `${i + 1}. ${q.q}\n${q.choices.map((c, k) => `   ${"ABCDEF"[k]}) ${c}`).join("\n")}\n   Marked answer: ${"ABCDEF"[q.answer]}`).join("\n\n")}`,
+      maxTokens: 700,
+      json: true,
+      temperature: 0,
+    });
+    const checks = safeParse(text, "checks")?.checks;
+    if (!Array.isArray(checks)) return qs;
+    const out = [];
+    qs.forEach((q, i) => {
+      const c = checks.find((x) => Number(x?.n) === i + 1) || {};
+      if (c.verdict === "drop") return;
+      if (c.verdict === "fix" && Number.isInteger(c.answer) && c.answer >= 0 && c.answer < q.choices.length && c.answer !== q.answer) { out.push({ ...q, answer: c.answer }); return; }
+      out.push(q);
+    });
+    return out;
+  } catch { return qs; } // checking is a bonus; never let it stop questions arriving
+}
+
 const QUESTIONS = `You write exam style multiple choice questions from a student's notes.
 
 ${MATHS}
@@ -256,6 +291,10 @@ function cleanQuestions(list, allowed, prefix) {
   return (Array.isArray(list) ? list : [])
     .filter((q) => q && typeof q.q === "string" && Array.isArray(q.choices) && q.choices.length >= 2)
     .filter((q) => !allowed || allowed.includes(String(q.topic)))
+    // a question with no valid answer index used to become "A is correct", which
+    // taught wrong answers; without a clear answer it is dropped instead
+    .filter((q) => Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length)
+    .filter((q) => new Set(q.choices.map((c) => String(c).trim().toLowerCase())).size === q.choices.length)
     .map((q, i) => ({
       id: `${prefix}${i}`,
       topic: String(q.topic || allowed?.[0] || "General"),
@@ -263,7 +302,7 @@ function cleanQuestions(list, allowed, prefix) {
       q: String(q.q),
       ...(q.kind === "vocab" && q.term ? { term: String(q.term) } : {}),
       choices: q.choices.map(String),
-      answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
+      answer: q.answer,
       why: String(q.why || ""),
       ...(typeof q.picture === "string" && q.picture.trim() ? { picture: q.picture.trim().slice(0, 240) } : {}),
     }));
@@ -558,8 +597,13 @@ async function part(req, res, mode, notes) {
     // would leave almost nothing, when the check itself is probably wrong.
     const kept = all.filter((q) => fromNotes(q, notes));
     const questions = (kept.length >= Math.ceil(all.length / 2) ? kept : all).map((q) => (apply ? { ...q, level: "apply" } : q));
-    if (questions.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
-    return res.status(200).json({ questions });
+    // Every answer is checked once more by a second pass; wrong ones are
+    // corrected or dropped. If that pass dropped everything, the originals stand
+    // rather than leaving a topic with nothing.
+    const checked = await verifyQuestions(questions, notes);
+    const finalQs = checked.length ? checked : questions;
+    if (finalQs.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
+    return res.status(200).json({ questions: finalQs });
   }
 
   if (mode === "notes") {

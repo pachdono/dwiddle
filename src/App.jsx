@@ -683,7 +683,10 @@ export default function App() {
   // Study shows the focused library item only; everything else (saving,
   // syncing) works on the whole store.
   const study = focus ? viewOf(made, focus) : made;
-  const bank = practiceBank((study?.questions || []).map((q) => phraseQuestion(q)));
+  // Questions a student has flagged as having a wrong answer stay out of practice.
+  const [badQs, setBadQs] = useState(() => load("dwiddle-bad-questions", []));
+  const flagBad = (id) => setBadQs((prev) => { const next = [...new Set([...prev, id])].slice(-500); save("dwiddle-bad-questions", next); return next; });
+  const bank = practiceBank((study?.questions || []).filter((q) => !badQs.includes(q.id)).map((q) => phraseQuestion(q)));
 
   // Topics left with no questions (their batch failed while the material was
   // being made) get them written from their saved notes, once per visit.
@@ -1226,6 +1229,7 @@ export default function App() {
           stats={stats}
           made={study}
           fullMade={made}
+          flagBad={flagBad}
           beta={beta}
           setMade={setMade}
           focus={focus}
@@ -2845,11 +2849,12 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
-function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto" }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto", flagBad }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [flagged, setFlagged] = useState(null);
   // How hard this run is. Harder means indirect questions: a situation to
   // explain instead of a term to recognise. Automatic turns that up for topics
   // the last few answers show are well known, and down for ones that are not.
@@ -3065,6 +3070,9 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
               </div>
             )}
             <div className="row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
+              {!drill && flagBad && (flagged === q.id
+                ? <span className="small muted">Removed. Thanks for catching that.</span>
+                : <button className="btn quiet small" title="The marked answer is wrong or none of the options are right" onClick={() => { flagBad(q.id); setFlagged(q.id); }}>Wrong answer? Remove this</button>)}
               <AskDwiddleButton context={askContext(q, picked)} />
               <button className="btn" onClick={next}>
                 {i + 1 >= QUIZ.length ? "See results" : "Next question"} <Icon name="arrow" />
