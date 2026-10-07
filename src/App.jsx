@@ -2855,19 +2855,19 @@ function Practice(props) {
 // matching, in turn, with the drill kinds the topic has mixed in as well. Each
 // kind falls back to a plain pick where the question does not suit it. startAt
 // keeps the pattern going when more questions are added to a run under way.
-function mixRun(main, drills, startAt = 0) {
+function mixRun(main, drills, startAt = 0, spare = []) {
   const extra = [...drills];
   const used = new Set();
-  const mixed = main.map((q, k) => {
+  // matching rounds are made from questions this run would not ask anyway (the
+  // spares), so they never use up slots: a run of 20 stays 20 questions long
+  return main.map((q, k) => {
     const n = k + startAt;
     if (n % 3 === 2 && extra.length) return extra.pop();
-    if (n % 5 === 4) { const m = matchFrom(main.filter((x, j) => j >= k), used); if (m) { m.from.forEach((id) => used.add(id)); return m; } }
+    if (n % 5 === 4 && spare.length) { const m = matchFrom(spare, used); if (m) { m.from.forEach((id) => used.add(id)); return m; } }
     if (n % 4 === 1) return typedFrom(q) || trueFalseFrom(q) || q;
     if (n % 4 === 3) return trueFalseFrom(q) || typedFrom(q) || q;
     return q;
   });
-  // what a matching round already asked is not asked again on its own
-  return mixed.filter((x) => x.type === "match" || !used.has(x.id));
 }
 
 function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto", flagBad }) {
@@ -2904,7 +2904,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       const hardQs = shuffle(pool.filter((x) => x.level === "apply")).slice(0, wantHard);
       main = shuffle([...hardQs, ...shuffle(pool.filter((x) => !hardQs.includes(x)))]);
     } else main = shuffle(pool);
-    return mixRun(main.slice(0, len), shuffle(drillPool), 0);
+    return mixRun(main.slice(0, len), shuffle(drillPool), 0, main.slice(len));
   });
   useEffect(() => {
     if (!short) return;
@@ -2916,8 +2916,9 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     // Asks again for the rest rather than letting the same ones come round twice.
     async function gen(count, depth) {
       const got = [];
-      for (let tries = 0; tries < 2 && got.length < count && live; tries++) {
-        const qs = await moreQuestions(made, topics, count - got.length, got.map((x) => x.q), depth).catch((e) => { why = e?.message || ""; return []; });
+      for (let tries = 0; tries < 3 && got.length < count && live; tries++) {
+        // asks for a few more than needed, since some come back as repeats or fail the answer check
+        const qs = await moreQuestions(made, topics, Math.ceil((count - got.length) * 1.3) + 1, got.map((x) => x.q), depth).catch((e) => { why = e?.message || ""; return []; });
         if (qs.error) why = qs.error;
         const candidates = uniqueQuestions(qs.map((q) => phraseQuestion(q))).filter((x) => {
           const k = norm(x.q);
@@ -2931,7 +2932,8 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         if (!fresh.length) break; // nothing new: asking again straight away would not help
         got.push(...fresh);
         setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
-        if (live) setQUIZ((prev) => [...prev, ...mixRun(shuffle(fresh), [], prev.length)]); // each batch joins as it lands
+        // each batch joins as it lands, up to the length asked for; any extra is kept for next time
+        if (live) setQUIZ((prev) => { const room = len - prev.length; return room > 0 ? [...prev, ...mixRun(shuffle(fresh).slice(0, room), [], prev.length)] : prev; });
       }
       return got;
     }
