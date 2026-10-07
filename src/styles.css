@@ -6666,7 +6666,7 @@ mark.ann.has-note { cursor: pointer; background: #ffd43b; }
 .pz-card { --h: var(--accent); position: relative; display: grid; gap: 6px; align-content: start; padding: 20px; min-height: 196px; border-radius: 20px;
   border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
 .pz-card:hover, .pz-card:focus-visible { transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--h) 45%, var(--line)); outline: none; }
-.pz-card.c1 { --h: #0ea5e9; } .pz-card.c2 { --h: #8b5cf6; } .pz-card.c3 { --h: #f59e0b; } .pz-card.c4 { --h: #ef4444; } .pz-card.c5 { --h: #ec4899; }
+.pz-card.c1 { --h: #0ea5e9; } .pz-card.c2 { --h: #8b5cf6; } .pz-card.c3 { --h: #f59e0b; } .pz-card.c4 { --h: #ef4444; } .pz-card.c5 { --h: #ec4899; } .pz-card.c6 { --h: #14b8a6; }
 .pz-card.c0 { --h: var(--accent); }
 .pz-icon { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 6px;
   color: var(--h); background: color-mix(in srgb, var(--h) 14%, transparent); }

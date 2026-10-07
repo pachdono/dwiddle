@@ -85,10 +85,10 @@ function shuffled(list, seed) {
 // onDone(correct) is called once, when the question is settled.
 export function QuestionView({ q, onDone, big = false }) {
   const [result, setResult] = useState(null); // null | true | false
-  const settle = (ok) => {
+  const settle = (ok, extra) => {
     if (result !== null) return;
     setResult(ok);
-    onDone?.(ok);
+    onDone?.(ok, extra);
   };
   const props = { q, result, settle, big };
   return (
@@ -214,7 +214,7 @@ function Long({ q, result, settle }) {
       if (!r) throw new Error("no mark");
       setGot(r);
       setState("marked");
-      settle(r.awarded / q.marks >= 2 / 3);
+      settle(r.awarded / q.marks >= 2 / 3, { awarded: r.awarded, marks: q.marks });
     } catch { setState("self"); }
   }
   return (

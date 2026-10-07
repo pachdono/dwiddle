@@ -11,7 +11,7 @@ import { getFeed, pushSessions, replaceFeed, feedLinks } from "./calfeed.js";
 // The report and the planner, one page with two tabs. Everything here is worked
 // out on this device from the answers already given; nothing is sent anywhere.
 
-const KIND_NAME = { mc: "Multiple choice", blank: "Fill in the blank", word: "Complete the word", finish: "In your own words", written: "In your own words", tf: "True or false", match: "Matching", order: "Putting in order" };
+const KIND_NAME = { mc: "Multiple choice", blank: "Fill in the blank", word: "Complete the word", finish: "In your own words", long: "Long answer", written: "In your own words", tf: "True or false", match: "Matching", order: "Putting in order" };
 const PREFS_KEY = "dwiddle-plan-prefs";
 const BUSY_KEY = "dwiddle-busy";
 

@@ -2676,6 +2676,7 @@ const MODES = [
   { id: "review", label: "Review", icon: "timer", sub: "Questions due for another look, spaced out so they stick. Entirely optional." },
   { id: "cards", label: "Flashcards", icon: "cards", sub: "Pick a deck. Cards you know are retired and stop appearing." },
   { id: "mock", label: "Mock exam", icon: "exam", sub: "A full length paper against the clock, marked at the end." },
+  { id: "long", label: "Long answer", icon: "pen", sub: "Written questions worth 3 to 6 marks. Write your answer and it is marked against a mark scheme, like a real paper." },
   { id: "speed", label: "Speed round", icon: "bolt", sub: "Sixty seconds. Answer as many as you can." },
   { id: "missed", label: "Missed", icon: "flag", sub: "Only the questions you have got wrong." },
 ];
@@ -2685,7 +2686,7 @@ const QUIZ_LENGTHS = [5, 10, 20, 30, 50];
 function Practice(props) {
   const { pMode, setPMode, missed, topic: pickedTopic, setTopic, go, hidden, bank, topics } = props;
   const active = MODES.find((m) => m.id === pMode) || MODES[0];
-  const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, speed: SpeedRound, missed: MissedMode }[active.id];
+  const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, long: LongMode, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
   const [quizLevel, setQuizLevelRaw] = useState(() => load("dwiddle-quizlevel", "auto"));
   const setQuizLevel = (v) => { setQuizLevelRaw(v); save("dwiddle-quizlevel", v); };
@@ -2733,6 +2734,7 @@ function Practice(props) {
     review: dueCount ? `${dueCount} due now` : "Nothing due",
     cards: (() => { const n = flashDeck(pool, props.made, topic).length; return `${n} card${n === 1 ? "" : "s"}`; })(),
     mock: `${Math.min(pool.length, 20)} questions, timed`,
+    long: "3 to 6 marks each",
     speed: "60 seconds",
     missed: missed.length ? `${missed.length} to fix` : "None yet",
   };
@@ -2849,6 +2851,25 @@ function Practice(props) {
 
 /* ---------- practice: quiz ---------- */
 
+// A run is a mix, not a row of the same thing: picked, typed, true or false and
+// matching, in turn, with the drill kinds the topic has mixed in as well. Each
+// kind falls back to a plain pick where the question does not suit it. startAt
+// keeps the pattern going when more questions are added to a run under way.
+function mixRun(main, drills, startAt = 0) {
+  const extra = [...drills];
+  const used = new Set();
+  const mixed = main.map((q, k) => {
+    const n = k + startAt;
+    if (n % 3 === 2 && extra.length) return extra.pop();
+    if (n % 5 === 4) { const m = matchFrom(main.filter((x, j) => j >= k), used); if (m) { m.from.forEach((id) => used.add(id)); return m; } }
+    if (n % 4 === 1) return typedFrom(q) || trueFalseFrom(q) || q;
+    if (n % 4 === 3) return trueFalseFrom(q) || typedFrom(q) || q;
+    return q;
+  });
+  // what a matching round already asked is not asked again on its own
+  return mixed.filter((x) => x.type === "match" || !used.has(x.id));
+}
+
 function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto", flagBad }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
@@ -2867,15 +2888,24 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   const hardHave = pool.filter((x) => x.level === "apply").length;
   const needHard = Math.max(0, wantHard - hardHave);
   const needPlain = Math.max(0, len - pool.length);
-  // A run longer than the questions there are gets new ones first, written in
-  // the style of the ones it has, and they are kept for next time.
-  // Longer quizzes also get a long answer or two, worth a few marks each and
-  // marked against a scheme, like a real paper.
-  const wantLong = !ordered && !!setMade && level !== "recall" && len >= 8 && pool.length > 0 ? (len >= 15 ? 2 : 1) : 0;
-  const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0 || wantLong > 0);
-  const [more, setMore] = useState(short ? null : []);
-  const [longs, setLongs] = useState([]);
+  // A run longer than the questions there are starts straight away with the ones
+  // there are, while new ones are written in the style of those in the
+  // background, kept for next time, and added on to the end as they arrive.
+  // Only if the student gets to the end before they are ready does it wait.
+  const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0);
+  const [loadingMore, setLoadingMore] = useState(short);
+  const [hold, setHold] = useState(false);
   const [note, setNote] = useState(""); // said when fewer new questions came back than asked for
+  // A run mixes kinds: picked, typed, true or false and matching.
+  const [QUIZ, setQUIZ] = useState(() => {
+    if (ordered) return pool.slice(0, len);
+    let main;
+    if (wantHard && hardHave) {
+      const hardQs = shuffle(pool.filter((x) => x.level === "apply")).slice(0, wantHard);
+      main = shuffle([...hardQs, ...shuffle(pool.filter((x) => !hardQs.includes(x)))]);
+    } else main = shuffle(pool);
+    return mixRun(main.slice(0, len), shuffle(drillPool), 0);
+  });
   useEffect(() => {
     if (!short) return;
     let live = true;
@@ -2883,8 +2913,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     const seen = new Set(pool.map((x) => norm(x.q)));
     let why = "";
-    // Waits for as many new questions as are needed, asking again for the
-    // rest rather than letting the same ones come round twice.
+    // Asks again for the rest rather than letting the same ones come round twice.
     async function gen(count, depth) {
       const got = [];
       for (let tries = 0; tries < 2 && got.length < count && live; tries++) {
@@ -2902,59 +2931,26 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         if (!fresh.length) break; // nothing new: asking again straight away would not help
         got.push(...fresh);
         setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
+        if (live) setQUIZ((prev) => [...prev, ...mixRun(shuffle(fresh), [], prev.length)]); // each batch joins as it lands
       }
       return got;
     }
     (async () => {
-      const [lg, hard] = await Promise.all([
-        wantLong ? longQuestions(made, topics, wantLong).catch(() => []) : [],
-        needHard ? gen(needHard, "apply") : [],
-      ]);
-      const plain = needPlain ? await gen(needPlain, "") : [];
+      const [hard, plain] = await Promise.all([needHard ? gen(needHard, "apply") : [], needPlain ? gen(needPlain, "") : []]);
       if (!live) return;
-      setLongs(lg.filter((x) => x?.q && Array.isArray(x.scheme)));
-      setMore([...hard, ...plain]);
+      setLoadingMore(false);
       const missing = (needHard - hard.length) + (needPlain - plain.length);
-      if (needPlain && plain.length < needPlain) setNote(`Dwiddle wrote ${plain.length} of the ${needPlain} new questions it needed, so the quiz is ${pool.length + plain.length + hard.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."} Go back and press Start again to try for the rest.`);
+      if (needPlain && plain.length < needPlain) setNote(`Dwiddle could only write ${plain.length} of the ${needPlain} new questions, so the quiz is ${pool.length + plain.length + hard.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."}`);
       else if (missing > 0) setNote("Some of the harder questions could not be written just now, so a few easier ones are in their place.");
     })();
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // A run mixes kinds: about one question in three is another way of
-  // recalling the same material, when the topic has any.
-  const [QUIZ, setQUIZ] = useState(null);
-  if (!QUIZ && more) {
-    const build = () => {
-      if (ordered) return pool.slice(0, len);
-      const all = [...pool, ...more];
-      let main;
-      if (wantHard) {
-        const hardQs = shuffle(all.filter((x) => x.level === "apply")).slice(0, wantHard);
-        const rest = shuffle(all.filter((x) => !hardQs.includes(x)));
-        main = shuffle([...hardQs, ...rest.slice(0, Math.max(0, len - hardQs.length))]);
-      } else main = [...shuffle(pool), ...shuffle(more)];
-      main = main.slice(0, len);
-      const extra = shuffle(drillPool);
-      // A run is a mix, not a row of the same thing: picked, typed, true or
-      // false and matching, in turn, with the drill kinds the topic has mixed
-      // in as well. Each kind falls back to a plain pick where the question
-      // does not suit it.
-      const used = new Set();
-      const mixed = main.map((q, n) => {
-        if (n % 3 === 2 && extra.length) return extra.pop();
-        if (n % 5 === 4) { const m = matchFrom(main.filter((x, k) => k >= n), used); if (m) { m.from.forEach((id) => used.add(id)); return m; } }
-        if (n % 4 === 1) return typedFrom(q) || trueFalseFrom(q) || q;
-        if (n % 4 === 3) return trueFalseFrom(q) || typedFrom(q) || q;
-        return q;
-      });
-      // what a matching round already asked is not asked again on its own
-      const out = mixed.filter((x) => x.type === "match" || !used.has(x.id));
-      // long answers sit later in the run, spread out, so it builds up to them
-      longs.forEach((lq, k) => out.splice(Math.min(out.length, Math.round(out.length * (longs.length === 1 ? 0.7 : 0.55 + 0.4 * k))), 0, lq));
-      return out;
-    };
-    setQUIZ(build());
-  }
+  // reached the end while the rest was still being written: carry on when it lands
+  useEffect(() => {
+    if (!hold) return;
+    if (QUIZ.length > i + 1) { setHold(false); setI(i + 1); setPicked(null); }
+    else if (!loadingMore) { setHold(false); playCue(score / QUIZ.length >= 0.7 ? "done-great" : "done-okay"); setFinished(true); }
+  }, [hold, QUIZ.length, loadingMore]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const q = QUIZ?.[i];
   const answeredNow = picked !== null;
@@ -2970,12 +2966,12 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     return () => removeEventListener("keydown", onKey);
   });
 
-  if (!QUIZ) {
+  if (hold) {
     return (
       <div className="card card-pad quiz-more">
         <Duck size={90} outfit="wizard" />
-        <b>Writing {Math.max(1, needPlain + needHard)} more question{needPlain + needHard === 1 ? "" : "s"}{needHard ? `, ${needHard} of them harder` : ""}</b>
-        <p className="small muted">In the same style as yours, on the same topics, with different numbers and answers. It waits until there are enough, which can take a minute. They are kept for next time.</p>
+        <b>Writing the rest of your questions</b>
+        <p className="small muted">You got through the ones that were ready. The rest are on their way, in the same style as yours.</p>
         <div className="busy-bar sweep"><span /></div>
       </div>
     );
@@ -2997,6 +2993,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
 
   function next() {
     if (i + 1 >= QUIZ.length) {
+      if (loadingMore) return setHold(true);
       playCue(score / QUIZ.length >= 0.7 ? "done-great" : "done-okay");
       return setFinished(true);
     }
@@ -3028,7 +3025,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     <div className="fade">
       <div className="card card-pad">
         <div className="spread" style={{ marginBottom: 8 }}>
-          <span className="small muted">Question {i + 1} of {QUIZ.length}</span>
+          <span className="small muted">Question {i + 1} of {QUIZ.length}{loadingMore ? "+" : ""}</span>
           <span className="small muted">{score} correct</span>
         </div>
         <div className="bar" style={{ marginBottom: 22 }}>
@@ -3078,6 +3075,107 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
                 {i + 1 >= QUIZ.length ? "See results" : "Next question"} <Icon name="arrow" />
               </button>
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Only the high mark questions: a few written answers, each worth 3 to 6 marks,
+// marked against a mark scheme. They are written from the notes when this is
+// opened, the first few arriving before the rest, so there is little waiting.
+function LongMode({ grade, pool, made, topic }) {
+  const [qs, setQs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [i, setI] = useState(0);
+  const [done, setDone] = useState(false);
+  const [got, setGot] = useState({ marks: 0, of: 0, right: 0 });
+  const [answered, setAnswered] = useState(false);
+  const [hold, setHold] = useState(false);
+  const [try_, setTry] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setLoading(true); setFailed(false);
+    const all = [...new Set(pool.map((x) => x.topic))];
+    const pickTopics = () => (topic ? [topic] : shuffle(all).slice(0, 3));
+    const seen = new Set();
+    let pending = 2, total = 0;
+    const landed = (list) => {
+      const fresh = (list || []).filter((x) => x?.q && Array.isArray(x.scheme) && !seen.has(x.q));
+      fresh.forEach((x) => seen.add(x.q));
+      total += fresh.length;
+      if (live && fresh.length) setQs((prev) => [...prev, ...fresh]);
+      if (--pending === 0 && live) { setLoading(false); setHold(false); if (!total) setFailed(true); }
+    };
+    // two calls side by side, so the first three are on screen as soon as they are ready
+    longQuestions(made, pickTopics(), 3).catch(() => []).then(landed);
+    longQuestions(made, pickTopics(), 3, []).catch(() => []).then(landed);
+    return () => { live = false; };
+  }, [try_]); // eslint-disable-line react-hooks/exhaustive-deps
+  const q = qs[i];
+  // after the last one that is ready, wait if more are still being written
+  useEffect(() => {
+    if (hold && qs.length > i + 1) { setHold(false); setI(i + 1); setAnswered(false); }
+  }, [qs.length, hold]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (failed) {
+    return (
+      <div className="card card-pad quiz-more">
+        <Duck size={90} outfit="wizard" />
+        <b>Could not write long answer questions just now</b>
+        <p className="small muted">They need a bit more material to write from, or the AI service was busy. Try again in a moment.</p>
+        <button className="btn cta" onClick={() => { setQs([]); setTry((n) => n + 1); }}>Try again</button>
+      </div>
+    );
+  }
+  if (!qs.length || (hold && qs.length <= i + 1)) {
+    return (
+      <div className="card card-pad quiz-more">
+        <Duck size={90} outfit="wizard" />
+        <b>Writing your long answer questions</b>
+        <p className="small muted">Each one is worth a few marks and comes with a mark scheme. The first ones appear as soon as they are ready.</p>
+        <div className="busy-bar sweep"><span /></div>
+      </div>
+    );
+  }
+  if (done) {
+    return (
+      <div className="fade">
+        <div className="card card-pad" style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em" }}>{got.of ? `${got.marks} / ${got.of}` : `${got.right} / ${qs.length}`}</div>
+          <div className="muted" style={{ marginBottom: 20 }}>{got.of ? "marks across your long answers" : "long answers rated right"}</div>
+          <div className="row" style={{ justifyContent: "center" }}>
+            <button className="btn" onClick={() => { setQs([]); setI(0); setDone(false); setAnswered(false); setGot({ marks: 0, of: 0, right: 0 }); setTry((n) => n + 1); }}>Write more</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  function next() {
+    if (i + 1 >= qs.length) {
+      if (loading) return setHold(true);
+      return setDone(true);
+    }
+    setI(i + 1); setAnswered(false);
+  }
+  return (
+    <div className="fade">
+      <div className="card card-pad">
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <span className="small muted">Question {i + 1} of {qs.length}{loading ? "+" : ""}</span>
+          <span className="small muted">{got.of ? `${got.marks} of ${got.of} marks so far` : ""}</span>
+        </div>
+        <div className="bar" style={{ marginBottom: 22 }}><i style={{ width: `${((i + (answered ? 1 : 0)) / Math.max(qs.length, 1)) * 100}%` }} /></div>
+        <QuestionView key={q.id + ":" + i} q={q} onDone={(ok, extra) => {
+          setAnswered(true);
+          grade(q.id, ok, q.topic, "long");
+          setGot((g) => ({ marks: g.marks + (extra?.awarded || 0), of: g.of + (extra?.marks || 0), right: g.right + (ok ? 1 : 0) }));
+        }} />
+        {answered && (
+          <div className="row fade" style={{ marginTop: 14, justifyContent: "flex-end" }}>
+            <button className="btn" onClick={next}>{i + 1 >= qs.length && !loading ? "See results" : "Next question"} <Icon name="arrow" /></button>
           </div>
         )}
       </div>
