@@ -104,8 +104,76 @@ const FROM_CONTEXT = `
 - The original notes are not available, only the questions and summary written from them. Teach the topic accurately at the level those imply, and never contradict them.
 - Do not teach the other topics listed; they have lessons of their own.`;
 
+// Quick checks that cannot be answered as written, because the graph or the
+// numbers they rely on were never shown. The lesson text is used to put them
+// right: the numbers go into the wording, or a graph is added, and the
+// answer stays the same. A graph that would disagree with the answer is
+// thrown away rather than shown.
+const REPAIR = `You repair quick-check questions from a lesson that cannot be answered as written, because the graph, diagram or numbers they rely on were never shown to the student.
+
+You get the lesson text, which states the values, and the broken checks, each with its answer and explanation. For each one:
+- Keep the same kind of question and the SAME answer and options. Never change the answer.
+- Rewrite "q" so it can be answered: state every number it needs in the sentence (for example "A sledge speeds up from 0 to 4.1 m/s, ...") or, when it is about a graph, point at a figure you add.
+- A figure is a graph drawn from numbers: { "id": "g1", "title": "...", "xLabel": "Time (s)", "yLabel": "Velocity (m/s)", "points": [[x, y], ...] (corners of the line in order, at most 12, straight lines between them), "shade": true when the area under the line is what the question is about, "marks": [{ "x": 4, "y": 22, "label": "22 m/s" }] }.
+- The numbers in a figure come from the lesson text and must agree with the check's answer and explanation (if the answer is a distance from an area, the area under the line must equal it).
+- If a check cannot be made answerable from the lesson text without inventing facts, leave it out of "fixes".
+
+Return ONE JSON object and nothing else: { "figures": [ ... ], "fixes": [ { "n": the check's number, "q": "the rewritten question or sentence (keep ___ for a blank)", "figure": "g1" or null } ] }
+Write units as m/s, m/s², kg/m³. British English. Do not use em dashes or en dashes.`;
+
+// Area under a line through points, for checking a figure against an answer.
+const areaUnder = (pts) => pts.slice(1).reduce((a, p, i) => a + ((p[0] - pts[i][0]) * (p[1] + pts[i][1])) / 2, 0);
+
+async function repair(req, res) {
+  const topic = String(req.body?.topic || "").slice(0, 160);
+  const cards = (Array.isArray(req.body?.cards) ? req.body.cards : []).slice(0, 8).map((c) => `${String(c?.heading || "").slice(0, 120)}: ${String(c?.body || "").slice(0, 600)} ${(Array.isArray(c?.points) ? c.points : []).map((p) => `${p?.lead || ""} ${p?.text || ""}`).join(" ").slice(0, 500)} ${String(c?.example || "").slice(0, 300)}`);
+  const broken = (Array.isArray(req.body?.checks) ? req.body.checks : []).slice(0, 8).map((c) => ({
+    n: Number(c?.n), type: String(c?.type || "choice").slice(0, 12), q: String(c?.q || "").slice(0, 400),
+    ...(Array.isArray(c?.choices) ? { options: c.choices.map((x) => String(x).slice(0, 120)), answer: String(c.choices[c.answer] ?? "").slice(0, 120) } : { answer: String(c?.answer ?? "").slice(0, 200) }),
+    ...(Array.isArray(c?.pairs) ? { pairs: c.pairs.map((p) => `${String(p?.a || "").slice(0, 80)} = ${String(p?.b || "").slice(0, 120)}`) } : {}),
+    why: String(c?.why || "").slice(0, 300),
+  })).filter((c) => Number.isInteger(c.n) && c.q);
+  if (!broken.length || cards.length < 1) return res.status(200).json({ figures: [], fixes: [] });
+  const startId = Math.max(0, Math.min(6, Number(req.body?.nextFigure) || 1));
+  try {
+    const text = await ask({
+      system: REPAIR,
+      user: `Topic: ${topic}\n\nThe lesson text:\n${cards.join("\n")}\n\nThe broken checks:\n${JSON.stringify(broken)}\n\nNumber any new figures from g${startId}.`,
+      maxTokens: 2200, temperature: 0.1, json: true,
+    });
+    const data = safeParse(text, "fixes");
+    const num = (v) => (typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 1e7 ? v : null);
+    const figures = (Array.isArray(data?.figures) ? data.figures : []).slice(0, 3).map((f, i) => {
+      const points = (Array.isArray(f?.points) ? f.points : []).slice(0, 12).map((p) => (Array.isArray(p) ? [num(Number(p[0])), num(Number(p[1]))] : null)).filter((p) => p && p[0] !== null && p[1] !== null);
+      if (points.length < 2) return null;
+      const marks = (Array.isArray(f.marks) ? f.marks : []).slice(0, 6).map((m) => ({ x: num(Number(m?.x)), y: num(Number(m?.y)), label: String(m?.label || "").trim().slice(0, 30) })).filter((m) => m.x !== null && m.y !== null);
+      return { id: `g${startId + i}`, was: String(f.id || ""), title: String(f.title || "").trim().slice(0, 80), xLabel: String(f.xLabel || "").trim().slice(0, 40), yLabel: String(f.yLabel || "").trim().slice(0, 40), points, marks, shade: f.shade === true };
+    }).filter(Boolean);
+    const byOld = new Map(figures.map((f) => [f.was, f.id]));
+    const fixes = [];
+    for (const fx of Array.isArray(data?.fixes) ? data.fixes : []) {
+      const c = broken.find((b) => b.n === Number(fx?.n));
+      const q = String(fx?.q || "").replace(/\s*[\u2013\u2014]\s*/g, ", ").trim().slice(0, 500);
+      if (!c || q.length < 12) continue;
+      let figure = typeof fx.figure === "string" ? byOld.get(fx.figure) || null : null;
+      if (figure) {
+        // a graph whose shaded area disagrees with a numeric answer is wrong: drop the fix
+        const f = figures.find((x) => x.id === figure);
+        const want = parseFloat(String(c.answer).replace(/,/g, ""));
+        if (f?.shade && Number.isFinite(want) && want > 0 && Math.abs(areaUnder(f.points) - want) / want > 0.06) continue;
+      }
+      // with no figure the numbers must now be in the sentence itself
+      if (!figure && !/\d/.test(q.replace(/_{3,}/g, ""))) continue;
+      fixes.push({ n: c.n, q, figure });
+    }
+    const used = new Set(fixes.map((f) => f.figure).filter(Boolean));
+    return res.status(200).json({ figures: figures.filter((f) => used.has(f.id)).map(({ was, ...f }) => f), fixes });
+  } catch (err) { return fail(res, err); }
+}
+
 export default async function handler(req, res) {
   if (!allow(req, res, { limit: 12 })) return;
+  if (req.body?.mode === "repair") return repair(req, res);
 
   const topic = String(req.body?.topic || "").trim().slice(0, 160);
   const others = (Array.isArray(req.body?.others) ? req.body.others : [])

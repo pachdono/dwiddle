@@ -212,7 +212,11 @@ const NUMERIC_OPTION = /^[-−+]?\d[\d.,]*\s*[^\s\d]{0,3}\s*[A-Za-zµμ°%/ ]{0,
 // A check that points at "the graph", "the diagram" or "the table" the student
 // is never shown. Multiple choice ones get a picture made; the other kinds
 // cannot, so they are left out.
-export const unseenVisual = (q) => /\b(the|this|these|following|given) (graph|diagram|figure|chart|image|picture|table|illustration|map)\b|\b(shown|illustrated|pictured|plotted) (above|below|here)\b|\b(above|below) (graph|diagram|figure|chart|table)\b/i.test(String(q?.q || ""));
+export const unseenVisual = (q) => {
+  const t = String(q?.q || "");
+  const W = "(graph|diagram|figure|chart|table|image|picture|illustration|map)";
+  return new RegExp(`\\b(according to|from|using|use|read|reading from|refer to|look at|based on|shown in|given in|in|on) the ${W}\\b|\\bthe ${W} (shows?|above|below|here|given|represents?)\\b|\\b(this|these|following|given) ${W}\\b|\\bparts? of the ${W}\\b|\\b(shown|illustrated|pictured|plotted) (above|below|here)\\b|\\b(above|below) ${W}\\b`, "i").test(t);
+};
 export const missingData = (q) => {
   const stem = String(q?.q || "");
   // options that are all numbers, wording with none

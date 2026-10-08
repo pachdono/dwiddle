@@ -86,6 +86,9 @@ test("a check that leans on a graph the student never sees is spotted", () => {
   assert.equal(unseenVisual({ q: "Match each part of the graph to its shape and calculation." }), true);
   assert.equal(unseenVisual({ q: "Using the diagram below, name the organelle." }), true);
   assert.equal(unseenVisual({ q: "What does the area under a velocity-time graph represent?" }), false);
+  assert.equal(unseenVisual({ q: "Distance is found from the area under the graph." }), false);
+  assert.equal(unseenVisual({ q: "What distance does the car travel in the first 4 s according to the graph?" }), true);
+  assert.equal(unseenVisual({ q: "The graph shows the car slowing." }), true);
   assert.equal(unseenVisual({ q: "What does the gradient of a distance-time graph show?" }), false);
 });
 

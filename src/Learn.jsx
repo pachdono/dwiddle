@@ -9,6 +9,7 @@
 import { PictureFor } from "./QuestionPicture.jsx";
 import { LessonFigure } from "./LessonFigure.jsx";
 import { spreadAnswers, unseenVisual, missingData } from "./mathText.js";
+import { repairLesson } from "./ai.js";
 import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
@@ -171,6 +172,22 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
     load();
   }, [lesson, load]);
 
+  // A check that leans on a graph or numbers the lesson never showed is put
+  // right once, from the lesson's own text: its numbers are written in or a
+  // graph is added. Until then it waits out of sight.
+  const [fixing, setFixing] = useState(false);
+  const repairTried = useRef(false);
+  const needsFix = (c) => !c.figure && (missingData(c) || unseenVisual(c));
+  useEffect(() => {
+    if (!lesson || repairTried.current || !(lesson.checks || []).some(needsFix)) return;
+    repairTried.current = true;
+    setFixing(true);
+    repairLesson(lesson, name, needsFix)
+      .then((fixed) => { if (fixed) { setLesson(fixed); saveLesson(name, fixed); } })
+      .catch(() => {})
+      .finally(() => setFixing(false));
+  }, [lesson]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // The page underneath stops scrolling while the lesson is open.
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -253,6 +270,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
           </button>
           <span className="lp-where">
             {name}{lesson && step?.type !== "end" ? <> · {Math.min(at + 1, total)} of {total}</> : null}
+            {fixing && <em className="lp-fixing"> · adding the missing graph or numbers to a question</em>}
           </span>
         </div>
         <div className="lp-progress" aria-hidden="true">

@@ -570,6 +570,22 @@ export const generateLesson = ({ topic, others, notes, syllabus, context }) =>
       : tidyQuestion(q)),
   }));
 
+// A lesson whose checks lean on a graph or numbers it never showed is put
+// right from its own text: the numbers go into the questions, or a graph is
+// added. Returns the repaired lesson, or null if nothing could be done.
+export async function repairLesson(lesson, topic, isBroken) {
+  const broken = (lesson.checks || []).map((c, n) => ({ ...c, n })).filter((c) => !c.figure && isBroken(c));
+  if (!broken.length) return null;
+  const d = await post("/api/lesson", { mode: "repair", topic, cards: lesson.cards, checks: broken, nextFigure: (lesson.figures || []).length + 1 }, { retry: false });
+  if (!d?.fixes?.length) return null;
+  const figures = [...(lesson.figures || []), ...(d.figures || [])];
+  const checks = (lesson.checks || []).map((c, n) => {
+    const fx = d.fixes.find((f) => f.n === n);
+    return fx ? { ...c, q: tidyMath(fx.q), ...(fx.figure ? { figure: fx.figure } : {}), fixed: true } : c;
+  });
+  return { ...lesson, figures, checks };
+}
+
 // One question, worked through. Everything that comes back is prose or
 // working, so all of it goes through the maths tidier rather than a chosen
 // field or two.
