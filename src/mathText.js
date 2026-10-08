@@ -213,7 +213,16 @@ const NUMERIC_OPTION = /^[-−+]?\d[\d.,]*\s*[^\s\d]{0,3}\s*[A-Za-zµμ°%/ ]{0,
 // is never shown. Multiple choice ones get a picture made; the other kinds
 // cannot, so they are left out.
 export const unseenVisual = (q) => /\b(the|this|these|following|given) (graph|diagram|figure|chart|image|picture|table|illustration|map)\b|\b(shown|illustrated|pictured|plotted) (above|below|here)\b|\b(above|below) (graph|diagram|figure|chart|table)\b/i.test(String(q?.q || ""));
-export const missingData = (q) => Array.isArray(q?.choices) && q.choices.length >= 3 && !/\d/.test(String(q.q || "")) && q.choices.every((c) => NUMERIC_OPTION.test(String(c).trim()));
+export const missingData = (q) => {
+  const stem = String(q?.q || "");
+  // options that are all numbers, wording with none
+  if (Array.isArray(q?.choices) && q.choices.length >= 3 && !/\d/.test(stem) && q.choices.every((c) => NUMERIC_OPTION.test(String(c).trim()))) return true;
+  // a typed number as the answer, and no number anywhere in the sentence
+  if ((q?.type === "blank" || q?.type === "word") && /^[-−+]?\d[\d.,]*$/.test(String(q.answer || "").trim()) && !/\d/.test(stem.replace(/_{3,}/g, ""))) return true;
+  // "calculate ..." with nothing to calculate from
+  if ((q?.type === "written" || q?.type === "finish") && /\b(calculate|work out|determine)\b/i.test(stem) && !/\d/.test(stem)) return true;
+  return false;
+};
 export function answerable(q) {
   if (!q || typeof q.q !== "string") return false;
   if (q.passage || q.figure || q.image || q.diagram || q.picture) return true;

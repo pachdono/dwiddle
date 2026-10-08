@@ -445,6 +445,13 @@ Rules:
 - Write maths as plain symbols, units included. Never invent anything that is not in the material.
 - Use as much room as the material needs, up to about 9000 characters. British English. Do not use em dashes or en dashes. Output the digest as plain text only.`;
 
+const JUDGE = `You decide whether a student's short typed answer means the same as the expected answer to a question.
+
+Return ONE JSON object and nothing else: { "correct": true } or { "correct": false }
+
+Count it correct when it means the same: spelling mistakes, abbreviations, numbers and ordinals written differently (2nd and second), a synonym or common alternative name, singular or plural, a different word order, or the right answer with harmless extra words.
+Count it wrong when it names a different thing, is only part of the answer, is vaguer than the answer so that it would not earn the mark, or would be marked wrong on an exam. Be fair but exact.`;
+
 const MARK_PAPER =`You are an experienced examiner marking a candidate's written answers strictly against the mark scheme.
 
 Return ONE JSON object and nothing else:
@@ -723,6 +730,18 @@ export default async function handler(req, res) {
       if (questions.length < 3) return userError(res, 502, "The paper did not come back complete. Try again.");
       const total = questions.reduce((n, q) => n + q.marks, 0);
       return res.status(200).json({ title: clean(data.title) || `${subject} practice paper`, minutes: Math.max(10, Math.min(180, Math.round(Number(data.minutes) || total * 1.2))), questions });
+    } catch (err) { return fail(res, err); }
+  }
+
+  // Does a typed answer mean the same as the expected one? Only asked when the
+  // quick matching in the browser said no.
+  if (mode === "judge") {
+    try {
+      const q = String(req.body?.q || "").slice(0, 400), answer = String(req.body?.answer || "").slice(0, 200), given = String(req.body?.given || "").slice(0, 200);
+      const accept = (Array.isArray(req.body?.accept) ? req.body.accept : []).map((x) => String(x).slice(0, 120)).slice(0, 6);
+      if (!given.trim() || !answer.trim()) return res.status(200).json({ correct: false });
+      const text = await ask({ system: JUDGE, user: `Question: ${q}\nExpected answer: ${answer}${accept.length ? `\nAlso accepted: ${accept.join("; ")}` : ""}\nThe student wrote: ${given}`, maxTokens: 60, json: true, temperature: 0 });
+      return res.status(200).json({ correct: safeParse(text, "correct")?.correct === true });
     } catch (err) { return fail(res, err); }
   }
 

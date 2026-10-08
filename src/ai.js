@@ -319,6 +319,13 @@ export async function longQuestions(made, names, count = 1, avoidMore = []) {
   return Promise.race([run, timeout]);
 }
 
+// Whether a typed answer that does not match the expected one still means the
+// same thing. Quick and quiet: if it cannot be asked in a few seconds, no.
+export const judgeAnswer = ({ q, answer, accept, given }) => Promise.race([
+  post("/api/generate", { mode: "judge", q, answer, accept, given }, { retry: false }).then((d) => d?.correct === true),
+  new Promise((r) => setTimeout(() => r(false), 9000)),
+]);
+
 export const markLong = (q, answer) =>
   post("/api/generate", { mode: "markpaper", items: [{ stem: q.q, marks: q.marks, scheme: q.scheme, answer }] }).then((d) => d.results?.[0]);
 

@@ -86,7 +86,7 @@ How to write it:
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
 - After the cards, 5 or 6 checks on what the cards taught, each a different way of recalling it:
   1 or 2 of type "choice"; 1 of type "blank" or "word"; 1 of type "tf"; 1 of type "match" (3 or 4 pairs, when the lesson defines at least 3 terms) or "order" (3 to 5 steps, when it teaches a process with a fixed sequence); and 1 of type "written" or "finish".
-- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term. A check that asks for a calculated value must state every number it needs in its own wording (for example the speed and the time), because the student sees nothing but the check. Write units as m/s, m/s², kg/m³. A check may refer to "the graph" or "the diagram" the lesson describes, because the app draws it from the lesson cards, so the cards must give every value it needs.
+- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term. A check that asks for a calculated value, including a fill in the blank whose answer is a number, must state every number it needs in its own wording or point at a figure that shows them (for example the speed and the time), because the student sees nothing but the check. Write units as m/s, m/s², kg/m³. A check may refer to "the graph" or "the diagram" the lesson describes, because the app draws it from the lesson cards, so the cards must give every value it needs.
 - A "blank" removes one key word that has a single right answer. A "word" answer is one word the student can spell from the lesson.
 - A false "tf" statement contains one realistic misconception, and its "correction" puts it right.
 - Order the checks from easiest to hardest, and end on the "written" or "finish" one. Its "points" are what an examiner would look for.
@@ -208,6 +208,10 @@ export default async function handler(req, res) {
       .filter((q) => q && typeof q.q === "string" && q.q.trim())
       .map((q) => withFigure(q, (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q)))
       .filter(Boolean)
+      // a calculation with no numbers to calculate from, and no graph to read them off, cannot be answered
+      .filter((q) => q.figure || !(
+        (Array.isArray(q.choices) && q.choices.length >= 3 && !/\d/.test(q.q) && q.choices.every((c) => /^[-+]?\d[\d.,]*\s*[^\d]{0,14}$/.test(String(c).trim())))
+        || ((q.type === "blank" || q.type === "word") && /^[-+]?\d[\d.,]*$/.test(String(q.answer).trim()) && !/\d/.test(String(q.q).replace(/_{3,}/g, "")))))
       .slice(0, 7);
 
     res.status(200).json({ topic, cards, checks, figures });

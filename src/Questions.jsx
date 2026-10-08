@@ -18,7 +18,8 @@
 import { M } from "./MathText.jsx";
 import { useMemo, useState } from "react";
 import { Icon } from "./ui.jsx";
-import { markLong } from "./ai.js";
+import { markLong, judgeAnswer } from "./ai.js";
+import { sameAnswer } from "./answers.js";
 
 export const KINDS = ["blank", "word", "finish", "match", "order", "tf", "written", "long"];
 export const isDrill = (q) => q && KINDS.includes(q.type);
@@ -36,37 +37,7 @@ export const KIND_LABEL = {
 
 /* ---------- marking ---------- */
 
-const NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
-const digits = (t) => t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/gi, (w) => String(NUMBERS.indexOf(w.toLowerCase())));
-const norm = (s) => digits(String(s || ""))
-  .toLowerCase()
-  .normalize("NFKD").replace(/[̀-ͯ]/g, "")
-  .replace(/[^a-z0-9%.+\-² ]/g, " ")
-  .replace(/\s+/g, " ")
-  .trim()
-  .replace(/^(the|a|an) /, "");
-
-function distance(a, b) {
-  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    let prev = row[0];
-    row[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const keep = row[j];
-      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-      prev = keep;
-    }
-  }
-  return row[b.length];
-}
-
-// A slip of one letter in a long word is a typo, not a wrong answer.
-export function sameAnswer(given, answers) {
-  const g = norm(given);
-  if (!g) return false;
-  return answers.map(norm).filter(Boolean).some((a) =>
-    a === g || (a.length >= 6 && distance(a, g) <= 1) || (a.length >= 11 && distance(a, g) <= 2));
-}
+export { sameAnswer };
 
 // Stable shuffle, so re-rendering does not reorder what is on screen.
 function shuffled(list, seed) {
@@ -115,22 +86,35 @@ function Verdict({ ok, children }) {
 
 function Blank({ q, result, settle }) {
   const [value, setValue] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [same, setSame] = useState(false); // counted because it means the same
   const [before, after] = String(q.q).split(/_{3,}/);
   const answers = [q.answer, ...(q.accept || [])];
-  const check = () => value.trim() && settle(sameAnswer(value, answers));
+  // Quick matching first (spelling, order, "2nd" for "second"); if that says no,
+  // a short check asks whether it means the same thing before it is marked wrong.
+  const check = async () => {
+    const g = value.trim();
+    if (!g || checking || result !== null) return;
+    if (sameAnswer(g, answers)) return settle(true);
+    setChecking(true);
+    const ok = await judgeAnswer({ q: String(q.q).replace(/_{3,}/, "___"), answer: q.answer, accept: q.accept || [], given: g }).catch(() => false);
+    setChecking(false);
+    if (ok) setSame(true);
+    settle(!!ok);
+  };
   return (
     <>
       <p className="qv-sentence">
         <M t={before} />
         <input className={"qv-gap" + (result === null ? "" : result ? " right" : " wrong")}
-          value={value} onChange={(e) => setValue(e.target.value)} disabled={result !== null}
+          value={value} onChange={(e) => setValue(e.target.value)} disabled={result !== null || checking}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); check(); } }}
           style={{ width: `${Math.max(6, String(q.answer).length + 2)}ch` }} autoFocus aria-label="The missing word" />
         <M t={after} />
       </p>
       {result === null
-        ? <button className="btn cta qv-check" onClick={check} disabled={!value.trim()}>Check</button>
-        : <Verdict ok={result}>{result ? q.why : <>It is <b>{q.answer}</b>. <M t={q.why} /></>}</Verdict>}
+        ? <button className="btn cta qv-check" onClick={check} disabled={!value.trim() || checking}>{checking ? "Checking your answer..." : "Check"}</button>
+        : <Verdict ok={result}>{result ? <>{same && <>Worded differently from <b>{q.answer}</b>, but it means the same, so it counts. </>}{q.why}</> : <>It is <b>{q.answer}</b>. <M t={q.why} /></>}</Verdict>}
     </>
   );
 }

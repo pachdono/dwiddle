@@ -88,3 +88,30 @@ test("a check that leans on a graph the student never sees is spotted", () => {
   assert.equal(unseenVisual({ q: "What does the area under a velocity-time graph represent?" }), false);
   assert.equal(unseenVisual({ q: "What does the gradient of a distance-time graph show?" }), false);
 });
+
+
+import { sameAnswer as same } from "../src/answers.js";
+test("a typed answer that means the same is accepted, one that does not is not", () => {
+  const a = ["Newton's second law"];
+  assert.equal(same("2nd law", a), true);
+  assert.equal(same("second law", a), true);
+  assert.equal(same("newtons 2nd law", a), true);
+  assert.equal(same("Newton's second law of motion", a), true);
+  assert.equal(same("law", a), false);
+  assert.equal(same("first law", a), false);
+  assert.equal(same("third law", a), false);
+  assert.equal(same("Newton's 1st law", a), false);
+  assert.equal(same("five", ["5"]), true);
+  assert.equal(same("mitochondria", ["mitochondrion"]), true);
+  assert.equal(same("nucleus", ["mitochondria"]), false);
+  assert.equal(same("potential", ["kinetic"]), false);
+});
+
+import { missingData as md } from "../src/mathText.js";
+test("a number to fill in with no numbers in the sentence is missing its data", () => {
+  assert.equal(md({ type: "blank", q: "The total distance travelled by the sledge is ___ m.", answer: "36.6" }), true);
+  assert.equal(md({ type: "blank", q: "A sledge moves at 4 m/s for 9 s, so it travels ___ m.", answer: "36" }), false);
+  assert.equal(md({ type: "blank", q: "The equation F = ma is known as ___.", answer: "Newton's second law" }), false);
+  assert.equal(md({ type: "written", q: "Calculate the distance travelled.", answer: "36.6 m" }), true);
+  assert.equal(md({ type: "written", q: "Calculate the distance travelled at 4 m/s for 9 s.", answer: "36 m" }), false);
+});

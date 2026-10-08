@@ -640,7 +640,7 @@ export default function App() {
         questions: [...prev.questions, ...extra],
         drills: [
           ...(prev.drills || []).filter((d) => d.topic !== name || !String(d.id).startsWith(`ld-${slug}-`)),
-          ...(lesson.checks || []).map((c, i) => ({ id: `ld-${slug}-${i}`, topic: name, ...c })).filter(isDrill).filter((c) => !unseenVisual(c)),
+          ...(lesson.checks || []).map((c, i) => ({ id: `ld-${slug}-${i}`, topic: name, ...c })).filter(isDrill).filter((c) => c.figure ? false : !unseenVisual(c) && !missingData(c)),
         ],
         topics: prev.topics.map((t) => t.name === name ? { ...t, questions: (t.questions || 0) + extra.length } : t),
         lessons: {
