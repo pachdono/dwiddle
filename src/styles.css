@@ -9628,3 +9628,7 @@ i.good { background: var(--good, #2f9e6b); } i.mid { background: #d9a336; } i.lo
 @keyframes mt-pop { from { transform: scale(0); } to { transform: scale(1); } }
 @media (max-width: 640px) { .mt { gap: 10px; } .mt-card { padding: 12px 12px; min-height: 64px; font-size: 14px; border-radius: 14px; } }
 @media (prefers-reduced-motion: reduce) { .mt-card, .mt-card.hit, .mt-card.shake, .mt-tick { animation: none !important; } .mt-card.held { transform: none; } }
+/* a graph or diagram drawn for a check in Learn: kept small enough that the check stays on screen */
+.qd { max-width: 520px; margin: 6px auto 14px; }
+.qd svg { display: block; width: 100%; height: auto; max-height: 240px; }
+.qd figcaption { font-size: 12px; color: var(--ink-3); text-align: center; }

@@ -82,7 +82,7 @@ How to write it:
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
 - After the cards, 5 or 6 checks on what the cards taught, each a different way of recalling it:
   1 or 2 of type "choice"; 1 of type "blank" or "word"; 1 of type "tf"; 1 of type "match" (3 or 4 pairs, when the lesson defines at least 3 terms) or "order" (3 to 5 steps, when it teaches a process with a fixed sequence); and 1 of type "written" or "finish".
-- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term. A check that asks for a calculated value must state every number it needs in its own wording (for example the speed and the time), because the student sees nothing but the check. Write units as m/s, m/s², kg/m³. Never ask about "the graph", "the diagram", "the figure" or "the table" in a matching, ordering, blank, true or false or written check: the student cannot see the source's pictures, so put the facts the check needs into its own wording.
+- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term. A check that asks for a calculated value must state every number it needs in its own wording (for example the speed and the time), because the student sees nothing but the check. Write units as m/s, m/s², kg/m³. A check may refer to "the graph" or "the diagram" the lesson describes, because the app draws it from the lesson cards, so the cards must give every value it needs.
 - A "blank" removes one key word that has a single right answer. A "word" answer is one word the student can spell from the lesson.
 - A false "tf" statement contains one realistic misconception, and its "correction" puts it right.
 - Order the checks from easiest to hardest, and end on the "written" or "finish" one. Its "points" are what an examiner would look for.
@@ -187,10 +187,6 @@ export default async function handler(req, res) {
       .filter((q) => q && typeof q.q === "string" && q.q.trim())
       .map((q) => (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q))
       .filter(Boolean)
-      // only multiple choice can be given a picture; the other kinds cannot lean on a graph or diagram the student never sees
-      .filter((q) => Array.isArray(q.choices) || !/\b(the|this|these|following|given) (graph|diagram|figure|chart|image|picture|table|illustration|map)\b|\b(shown|illustrated|pictured|plotted) (above|below|here)\b|\b(above|below) (graph|diagram|figure|chart|table)\b/i.test(q.q))
-      // a calculation with numbers for options but none in its wording lacks its data
-      .filter((q) => !(Array.isArray(q.choices) && q.choices.length >= 3 && !/\d/.test(q.q) && q.choices.every((c) => /^[-+]?\d[\d.,]*\s*[^\d]{0,14}$/.test(c.trim()))))
       .slice(0, 7);
 
     res.status(200).json({ topic, cards, checks });

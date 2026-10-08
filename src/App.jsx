@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
-import { phraseQuestion, answerable, uniqueQuestions, practiceBank, unseenVisual } from "./mathText.js";
+import { phraseQuestion, answerable, uniqueQuestions, practiceBank, unseenVisual, missingData } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
@@ -632,6 +632,8 @@ export default function App() {
       const extra = (lesson.checks || [])
         .map((c, i) => ({ id: `ls-${slug}-${i}`, topic: name, kind: "concept", ...c }))
         .filter((c) => !isDrill(c))
+        // Practice has no drawn diagrams, so a check that leans on one stays in the lesson
+        .filter((c) => !unseenVisual(c) && !missingData(c))
         .filter((q) => !have.has(q.id));
       const next = {
         ...prev,

@@ -148,14 +148,14 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
     return lines;
   }
   // Highlighter strokes behind the marked words of some lines.
-  function highlight(lines, marks, x, yy, size = px) {
+  function highlight(lines, marks, x, yy, size = px, step = LH) {
     lines.forEach((l, k) => {
       for (const m of marks) {
         if (m.kind === "word" && !rich) continue;
         const a = Math.max(m.a, l.at), b = Math.min(m.b, l.at + l.t.length);
         if (b <= a) continue;
         const x1 = x + PAD + measure(l.t.slice(0, a - l.at), size) / 1.03, x2 = x + PAD + measure(l.t.slice(0, b - l.at), size) / 1.03;
-        const cy = yy + k * LH + LH * 0.58;
+        const cy = yy + k * step + LH * 0.58;
         page.items.push({ id: uid(), type: "stroke", tool: "highlighter", color: HL[m.kind], size: size * 0.85, pressure: false,
           tip: "round", stab: 1, points: [[x1 + 2, cy, 0.5], [x2 - 2, cy, 0.5]] });
       }
@@ -177,9 +177,12 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
       const take = Math.max(1, Math.min(lines.length - i, Math.floor((bottom - y) / lh)));
       const chunk = lines.slice(i, i + take);
       const x = colX() + indent;
-      const item = text(chunk.map((l) => l.t).join("\n"), x, y, COL - indent, { color, size });
+      // Spaced out leaves a free line under every line: a blank line is really
+      // written between them (the page draws lines a fixed height apart), and
+      // the highlighter follows the lines down.
+      const item = text(chunk.map((l) => l.t).join(spacing === "huge" ? "\n\n" : "\n"), x, y, COL - indent, { color, size });
       item.h = take * lh;
-      highlight(chunk, marks, x, y, size);
+      highlight(chunk, marks, x, y, size, lh);
       page.items.push(item);
       first ??= { y, col, page };
       y += take * lh;
@@ -192,13 +195,21 @@ export async function notesToNotebook(made, { fontId = "patrick", template = "gr
   newSheet();
   const titleSize = LH * 1.75;
   const title = made?.title || "Notes";
-  const tw = Math.min(PAGE_W - 2 * M - 60, measure(title, titleSize));
-  page.items.push({ id: uid(), type: "stroke", tool: "highlighter", color: TITLE_BAND[0], size: titleSize * 0.55, pressure: false, tip: "round", stab: 1,
-    points: [[M + 4, y + titleSize * 0.95, 0.5], [M + tw + 10, y + titleSize * 0.9, 0.5]] });
-  page.items.push({ ...text(title, M, y, PAGE_W - 2 * M, { size: titleSize, color: TOPIC_INKS[0] }), h: titleSize * 1.4 });
-  star(M + tw + 30, y + titleSize * 0.35, 8, { color: TOPIC_INKS[1] });
-  star(M + tw + 52, y + titleSize * 0.85, 5, { color: TOPIC_INKS[2] });
-  y = snap(y + titleSize * 1.45);
+  // A long title takes more than one line, and everything below it starts
+  // after the last of them, not under the first.
+  const tLines = wrap(unmark(title).plain, PAGE_W - 2 * M - 2 * PAD - 70, titleSize);
+  const titleLH = titleSize * 1.35;
+  const tw = Math.min(PAGE_W - 2 * M - 60, Math.max(...tLines.map((l) => measure(l.t, titleSize))));
+  tLines.forEach((l, k) => {
+    const lw = Math.min(PAGE_W - 2 * M - 60, measure(l.t, titleSize));
+    page.items.push({ id: uid(), type: "stroke", tool: "highlighter", color: TITLE_BAND[0], size: titleSize * 0.55, pressure: false, tip: "round", stab: 1,
+      points: [[M + 4, y + k * titleLH + titleSize * 0.95, 0.5], [M + lw + 10, y + k * titleLH + titleSize * 0.9, 0.5]] });
+  });
+  page.items.push({ ...text(tLines.map((l) => l.t).join("\n"), M, y, PAGE_W - 2 * M, { size: titleSize, color: TOPIC_INKS[0] }), h: tLines.length * titleLH + titleSize * 0.05 });
+  const firstW = Math.min(PAGE_W - 2 * M - 60, measure(tLines[0].t, titleSize));
+  star(M + firstW + 30, y + titleSize * 0.35, 8, { color: TOPIC_INKS[1] });
+  star(M + firstW + 52, y + titleSize * 0.85, 5, { color: TOPIC_INKS[2] });
+  y = snap(y + tLines.length * titleLH + titleSize * 0.1);
   handLine(M, y - 6, PAGE_W - M, y - 8, { color: TOPIC_INKS[0], size: 1.4 });
   top = y + 4;
   y = top;

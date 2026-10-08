@@ -6,8 +6,8 @@
 // checks. It fills the screen while it runs, because a lesson read beside a
 // sidebar and a list of other things to do is a lesson half read.
 
-import { PictureFor } from "./QuestionPicture.jsx";
-import { spreadAnswers, unseenVisual } from "./mathText.js";
+import { VisualFor } from "./QuestionPicture.jsx";
+import { spreadAnswers } from "./mathText.js";
 import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
@@ -177,9 +177,11 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // what the cards say, for drawing the graph or diagram a check refers to
+  const lessonText = lesson ? lesson.cards.map((c) => `${c.heading}. ${c.body || ""} ${(c.points || []).map((p) => `${p.lead} ${p.text}`).join(" ")} ${c.example || ""}`).join("\n").slice(0, 3500) : "";
   const steps = lesson ? [
     ...lesson.cards.map((c) => ({ type: "card", ...c })),
-    ...(lesson.checks || []).filter((q) => !(isDrill(q) && unseenVisual(q))).map((q) => (isDrill(q) ? { type: "drill", q } : { ...spreadAnswers(q), type: "check" })),
+    ...(lesson.checks || []).map((q) => (isDrill(q) ? { type: "drill", q } : { ...spreadAnswers(q), type: "check" })),
     { type: "end" },
   ] : [];
   const step = steps[at];
@@ -300,7 +302,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
           <article className="lp-card" key={at}>
             <span className="lp-kicker">Quick check</span>
             <h2><M t={step.q} /></h2>
-            <PictureFor q={step} />
+            <VisualFor q={step} context={lessonText} />
             <div className="lp-options">
               {step.choices.map((c, i) => {
                 const chosen = picked[at];
@@ -325,6 +327,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
 
         {step?.type === "drill" && (
           <article className="lp-card" key={at}>
+            <VisualFor q={step.q} context={lessonText} />
             <QuestionView big q={step.q} onDone={(ok) => setPicked((p) => ({ ...p, [at]: ok }))} />
           </article>
         )}
