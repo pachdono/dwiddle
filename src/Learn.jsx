@@ -13,7 +13,7 @@ import { repairLesson } from "./ai.js";
 import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
-import { Icon, PageHead, Portal } from "./ui.jsx";
+import { Icon, PageHead, Portal, useCover } from "./ui.jsx";
 import { Duck, DuckSitting } from "./Duck.jsx";
 import { writeLesson } from "./lessons.js";
 import { QuestionView, isDrill } from "./Questions.jsx";
@@ -148,6 +148,7 @@ function useSpeech() {
 }
 
 function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLesson, finishLesson }) {
+  useCover(true);
   const [lesson, setLesson] = useState(saved?.cards ? saved : null);
   const [error, setError] = useState("");
   const [at, setAt] = useState(0);

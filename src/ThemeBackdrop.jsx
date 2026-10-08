@@ -594,19 +594,20 @@ const SCENES = {
 
 export function hasBackdrop(theme) { return !!SCENES[theme]; }
 
-export function ThemeBackdrop({ theme, resolved }) {
+export function ThemeBackdrop({ theme, resolved, inOverlay = false }) {
   const draw = SCENES[theme];
   // A class on the body says a scene is showing, so the stylesheet need not
   // search the whole page for it (body:has(), slow in Safari) on every change.
   useEffect(() => {
     if (!draw) return;
+    if (inOverlay) return;
     document.body.classList.add("has-backdrop");
     return () => document.body.classList.remove("has-backdrop");
-  }, [draw]);
+  }, [draw, inOverlay]);
   if (!draw) return null;
   const dark = resolved === "dark";
   return (
-    <div className={`theme-backdrop tb-${theme}`} aria-hidden="true">
+    <div className={`theme-backdrop tb-${theme}${inOverlay ? " tb-over" : ""}`} aria-hidden="true">
       {draw(dark)}
       <div className="tb-scrim" />
       <Grain opacity={dark ? 0.07 : 0.05} />

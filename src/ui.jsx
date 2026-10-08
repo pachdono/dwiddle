@@ -124,6 +124,22 @@ export function Loading({ label }) {
 // full screen layer rendered inside a page only ever covers the page, with the
 // sidebar still showing beside it. Rendering it at the top of the document
 // takes it out of every page's frame at once.
+// A full screen layer that hides the page behind it says so, so the painted
+// backdrop underneath can stop animating while nobody can see it. Counted, so
+// two layers open at once do not switch it back on early.
+let covers = 0;
+export function useCover(on = true) {
+  useEffect(() => {
+    if (!on) return;
+    covers += 1;
+    document.body.classList.add("overlay-open");
+    return () => {
+      covers = Math.max(0, covers - 1);
+      if (!covers) document.body.classList.remove("overlay-open");
+    };
+  }, [on]);
+}
+
 export function Portal({ children }) {
   return createPortal(children, document.body);
 }
@@ -184,6 +200,7 @@ const TIPS = [
 // cap: how far it may creep on its own (a step that is only the start of a
 // longer job should not run ahead to the end).
 export function BusyScreen({ title, detail, progress = null, outfit = "dwiddle", count = null, eta = null, cap = 0.95 }) {
+  useCover(true);
   const [tip, setTip] = useState(() => Math.floor(Math.random() * TIPS.length));
   const [started] = useState(() => Date.now());
   const [shown, setShown] = useState(0);

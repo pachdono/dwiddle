@@ -30,7 +30,7 @@ import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./Prac
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
-import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
+import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary, useCover } from "./ui.jsx";
 import { phraseQuestion, answerable, uniqueQuestions, practiceBank, unseenVisual, missingData } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
@@ -2782,6 +2782,7 @@ function Practice(props) {
     missed: missed.length ? `${missed.length} to fix` : "None yet",
   };
   const empty = pool.length === 0;
+  useCover(playing && !empty);
 
   return (
     <div className="page fade">
@@ -2876,7 +2877,7 @@ function Practice(props) {
               </div>
               <span className="pz-where small muted">{topic || "All topics"}</span>
             </div>
-            {early && <ThemeBackdrop theme={props.look} resolved={props.resolved} />}
+            {early && <ThemeBackdrop theme={props.look} resolved={props.resolved} inOverlay />}
             <div className={"pz-body" + (early ? " pc-on" : "")}>
               {early && <PracticeSides s={session} />}
               <div className="pz-inner">

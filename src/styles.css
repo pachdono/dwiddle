@@ -9648,3 +9648,17 @@ i.good { background: var(--good, #2f9e6b); } i.mid { background: #d9a336; } i.lo
 @keyframes lf-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .lf-line { animation: none; stroke-dashoffset: 0; } }
 .lp-fixing { font-style: normal; font-size: 12.5px; opacity: .75; }
+
+/* Lag: keep every animation, but stop painting what nobody can see and cut the
+   repaints of the small movements. Stepped timing looks the same at this size
+   and amplitude but redraws the scene a fraction as often. */
+body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
+.theme-backdrop { contain: layout paint style; }
+.tb-breathe { animation-timing-function: steps(40, end); }
+.tb-rise { animation-timing-function: steps(28, end); }
+.tb-sway { animation-timing-function: steps(28, end); }
+.tb-bloom { animation-timing-function: steps(20, end); }
+.tb-bob { animation-timing-function: steps(40, end); }
+.tb-beam { animation-timing-function: steps(60, end); }
+.tb-glint { animation-timing-function: steps(24, end); }
+.tb-weed { animation-timing-function: steps(40, end); }
