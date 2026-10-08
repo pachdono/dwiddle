@@ -541,7 +541,9 @@ export const checkPage = (image, typed) => post("/api/read", { image, typed, mod
 export const generateLesson = ({ topic, others, notes, syllabus, context }) =>
   post("/api/lesson", { topic, others, notes, syllabus, context }).then((d) => ({
     ...d,
+    figures: Array.isArray(d.figures) ? d.figures : [],
     cards: (d.cards || []).map((c) => ({
+      ...(c.figure ? { figure: c.figure } : {}),
       heading: tidyMath(c.heading),
       body: tidyMath(c.body),
       example: tidyMath(c.example),

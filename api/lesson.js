@@ -33,6 +33,9 @@ Shape:
       "example": "optional: one worked example or real world case in one or two sentences, or an empty string"
     }
   ],
+  "figures": [
+    { "id": "g1", "title": "short title of the graph", "xLabel": "Time (s)", "yLabel": "Velocity (m/s)", "points": [[0, 0], [4, 22], [12, 22], [16, 0]], "shade": false, "marks": [{ "x": 4, "y": 22, "label": "22 m/s" }] }
+  ],
   "checks": [
     {
       "type": "choice",
@@ -77,6 +80,7 @@ How to write it:
 - The meaning in brackets must be accurate. Where the source defines the term, use its definition. Never invent a detail, direction, number or fact to make an explanation vivid.
 - About half the cards have "points", 2 or 3 of them, breaking the idea into its parts, types or cases, each with a concrete example where one fits. The other cards leave "points" empty.
 - When the source describes a graph, diagram or table, describe what it shows in words in a card, with the key values (for example "speed rises from 0 to 42 m/s over 25 s, stays at 42 m/s for 80 s, then falls to 0 over 15 s"), because the student is not shown the original picture.
+- When the topic is a graph (distance-time, velocity-time, supply and demand, a graph of results), add it to "figures" as a drawing: "points" are the corners of the line in order as [x, y] numbers (at most 12, straight lines between them), "xLabel" and "yLabel" name each axis with units, "marks" label the values the cards and checks talk about, and "shade" is true when the area under the line matters. Give a figure only when the topic really is a graph, otherwise leave "figures" out or empty. Every card or check that talks about the graph sets "figure" to its id (for example "figure": "g1"), and the check then needs the figure to be answerable. The values in "points" must match the values the cards state.
 - At least two cards have an "example": a real, specific case a student would recognise.
 - Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
@@ -159,6 +163,23 @@ export default async function handler(req, res) {
       return userError(res, 502, "The lesson did not come back complete. Try opening it again.");
     }
 
+    // Graphs the cards and checks refer to: a few numbers each, checked, so the
+    // app can draw them exactly. Anything that is not plain numbers is dropped.
+    const num = (v) => (typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 1e7 ? v : null);
+    const figures = (Array.isArray(data?.figures) ? data.figures : []).slice(0, 3).map((f, n) => {
+      const points = (Array.isArray(f?.points) ? f.points : []).slice(0, 12)
+        .map((p) => (Array.isArray(p) ? [num(Number(p[0])), num(Number(p[1]))] : null)).filter((p) => p && p[0] !== null && p[1] !== null);
+      if (points.length < 2) return null;
+      const marks = (Array.isArray(f.marks) ? f.marks : []).slice(0, 6)
+        .map((m) => ({ x: num(Number(m?.x)), y: num(Number(m?.y)), label: String(m?.label || "").trim().slice(0, 30) }))
+        .filter((m) => m.x !== null && m.y !== null);
+      return { id: /^g\d$/.test(String(f.id)) ? String(f.id) : `g${n + 1}`, title: String(f.title || "").trim().slice(0, 80),
+        xLabel: String(f.xLabel || "").trim().slice(0, 40), yLabel: String(f.yLabel || "").trim().slice(0, 40), points, marks, shade: f.shade === true };
+    }).filter(Boolean);
+    const figureIds = new Set(figures.map((f) => f.id));
+    const withFigure = (raw, out) => (out && typeof raw?.figure === "string" && figureIds.has(raw.figure) ? { ...out, figure: raw.figure } : out);
+    cards.forEach((c, i) => { const raw = data.cards.filter((x) => x && typeof x.heading === "string" && typeof x.body === "string" && x.body.trim())[i]; if (raw && typeof raw.figure === "string" && figureIds.has(raw.figure)) c.figure = raw.figure; });
+
     // Each kind is checked for the fields its question needs, and anything
     // malformed is dropped rather than shown half built.
     const str = (v, n = 400) => String(v ?? "").trim().slice(0, n);
@@ -185,11 +206,11 @@ export default async function handler(req, res) {
     };
     const checks = (Array.isArray(data?.checks) ? data.checks : [])
       .filter((q) => q && typeof q.q === "string" && q.q.trim())
-      .map((q) => (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q))
+      .map((q) => withFigure(q, (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q)))
       .filter(Boolean)
       .slice(0, 7);
 
-    res.status(200).json({ topic, cards, checks });
+    res.status(200).json({ topic, cards, checks, figures });
   } catch (err) {
     fail(res, err);
   }

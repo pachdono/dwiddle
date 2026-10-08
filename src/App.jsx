@@ -645,7 +645,7 @@ export default function App() {
         topics: prev.topics.map((t) => t.name === name ? { ...t, questions: (t.questions || 0) + extra.length } : t),
         lessons: {
           ...(prev.lessons || {}),
-          [name]: { cards: lesson.cards, checks: lesson.checks, done: prev.lessons?.[name]?.done || false },
+          [name]: { cards: lesson.cards, checks: lesson.checks, figures: lesson.figures || [], done: prev.lessons?.[name]?.done || false },
         },
       };
       save(KEYS.made, next && { ...next, savedAt: Date.now() });

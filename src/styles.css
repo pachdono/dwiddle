@@ -9632,3 +9632,18 @@ i.good { background: var(--good, #2f9e6b); } i.mid { background: #d9a336; } i.lo
 .qd { max-width: 520px; margin: 6px auto 14px; }
 .qd svg { display: block; width: 100%; height: auto; max-height: 240px; }
 .qd figcaption { font-size: 12px; color: var(--ink-3); text-align: center; }
+/* a graph drawn from the lesson's numbers */
+.lf { margin: 6px auto 16px; max-width: 580px; }
+.lf-title { font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: center; margin-bottom: 4px; }
+.lf-svg { display: block; width: 100%; height: auto; }
+.lf-grid { stroke: var(--line); stroke-width: 1; opacity: .7; }
+.lf-axis { stroke: var(--ink-3); stroke-width: 2; }
+.lf-line { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: lf-draw .9s ease-out .15s forwards; }
+.lf-area { fill: var(--accent); opacity: .16; }
+.lf-guide { stroke: var(--ink-3); stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .7; }
+.lf-dot { fill: var(--accent); stroke: var(--surface, #fff); stroke-width: 2; }
+.lf-t { fill: var(--ink-2); font-size: 13px; }
+.lf-label { fill: var(--ink); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--surface, var(--bg)); stroke-width: 4px; }
+.lf-axisname { fill: var(--ink-2); font-size: 14px; font-weight: 600; }
+@keyframes lf-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .lf-line { animation: none; stroke-dashoffset: 0; } }
