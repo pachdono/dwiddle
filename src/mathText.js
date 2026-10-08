@@ -125,6 +125,11 @@ export function tidyMath(input) {
   for (const [re, to] of WORDS) s = s.replace(re, to);
   for (const [re, to] of OPS) s = s.replace(re, to);
 
+  // Common units are written the way students write them: m/s², not m s⁻²
+  s = s.replace(/\b((?:[kcmµμn]?m)|km|cm|mm)\s?s⁻²/g, "$1/s²")
+    .replace(/\b((?:[kcmµμn]?m)|km|cm|mm)\s?s⁻¹/g, "$1/s")
+    .replace(/\b(kg|g)\s?((?:[kcmµμn]?m))⁻³/g, "$1/$2³");
+
   return s;
 }
 
@@ -200,9 +205,19 @@ export function visualPrompt(q) {
 }
 const LABELLED = /\b(molecules?|substances?|compounds?|structures?|parts?|labels?|tubes?|samples?|objects?|points?|solutions?|liquids?|organs?|cells?|letters?) [A-Z]\b(?![a-z'])/;
 const NUMBERED = /\b(figure|fig\.?|table|diagram|graph|chart) ?\d/i;
+// A calculation whose options are all numbers but whose wording has none, like
+// "What is the acceleration of the aeroplane?" with 4.2, 2.8, 1.5 and 0.4 under
+// it: the data it depends on is missing, so it cannot be answered.
+const NUMERIC_OPTION = /^[-−+]?\d[\d.,]*\s*[^\s\d]{0,3}\s*[A-Za-zµμ°%/ ]{0,12}[⁻⁰¹²³⁴⁵⁶⁷⁸⁹/ ]*[A-Za-z⁻⁰¹²³⁴⁵⁶⁷⁸⁹]*$/;
+// A check that points at "the graph", "the diagram" or "the table" the student
+// is never shown. Multiple choice ones get a picture made; the other kinds
+// cannot, so they are left out.
+export const unseenVisual = (q) => /\b(the|this|these|following|given) (graph|diagram|figure|chart|image|picture|table|illustration|map)\b|\b(shown|illustrated|pictured|plotted) (above|below|here)\b|\b(above|below) (graph|diagram|figure|chart|table)\b/i.test(String(q?.q || ""));
+export const missingData = (q) => Array.isArray(q?.choices) && q.choices.length >= 3 && !/\d/.test(String(q.q || "")) && q.choices.every((c) => NUMERIC_OPTION.test(String(c).trim()));
 export function answerable(q) {
   if (!q || typeof q.q !== "string") return false;
   if (q.passage || q.figure || q.image || q.diagram || q.picture) return true;
+  if (missingData(q)) return false;
   if (needsVisual(q)) return !UNSEEN.test(q.q);
   return !UNSEEN.test(q.q) && !LABELLED.test(q.q) && !NUMBERED.test(q.q);
 }

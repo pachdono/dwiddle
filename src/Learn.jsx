@@ -7,7 +7,7 @@
 // sidebar and a list of other things to do is a lesson half read.
 
 import { PictureFor } from "./QuestionPicture.jsx";
-import { spreadAnswers } from "./mathText.js";
+import { spreadAnswers, unseenVisual } from "./mathText.js";
 import { M } from "./MathText.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sayAs, stopSpeaking } from "./tts.js";
@@ -179,7 +179,7 @@ function Player({ made, name, saved, next, onClose, onNext, onPractice, saveLess
 
   const steps = lesson ? [
     ...lesson.cards.map((c) => ({ type: "card", ...c })),
-    ...(lesson.checks || []).map((q) => (isDrill(q) ? { type: "drill", q } : { ...spreadAnswers(q), type: "check" })),
+    ...(lesson.checks || []).filter((q) => !(isDrill(q) && unseenVisual(q))).map((q) => (isDrill(q) ? { type: "drill", q } : { ...spreadAnswers(q), type: "check" })),
     { type: "end" },
   ] : [];
   const step = steps[at];

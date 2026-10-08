@@ -256,47 +256,64 @@ function Long({ q, result, settle }) {
   );
 }
 
+// Matching as a set of cards. Pick a card on either side, then its partner on
+// the other side, in either order. A right pair lights up and settles; a wrong
+// one shakes and lets go, and the slip is counted. Both sides are shuffled, so
+// the cards are never lined up with their partners.
 function Match({ q, result, settle }) {
   const pairs = q.pairs || [];
-  const right = useMemo(() => shuffled(pairs.map((p, i) => ({ i, b: p.b })), q.id || q.q), [q]);
-  const [held, setHeld] = useState(null); // index of the term picked
-  const [done, setDone] = useState([]);   // matched term indexes
+  const left = useMemo(() => shuffled(pairs.map((p, i) => ({ i, t: p.a })), (q.id || q.q) + ":a"), [q]);
+  const right = useMemo(() => {
+    let r = shuffled(pairs.map((p, i) => ({ i, t: p.b })), (q.id || q.q) + ":b");
+    // never the same order as the left, where that can be avoided
+    if (r.length > 1 && r.every((x, k) => x.i === left[k].i)) r = [...r.slice(1), r[0]];
+    return r;
+  }, [q, left]);
+  const [pick, setPick] = useState(null);   // { side: "a" | "b", i }
+  const [done, setDone] = useState([]);     // pair numbers matched
+  const [hit, setHit] = useState(null);     // pair number mid celebration
+  const [shake, setShake] = useState(null); // { a, b } mid wrong
   const [miss, setMiss] = useState(0);
-  const [flash, setFlash] = useState(null);
+  const busy = hit !== null || shake !== null;
 
-  function pickRight(i) {
-    if (held === null || result !== null || done.includes(i)) return;
-    if (i === held) {
-      const next = [...done, i];
-      setDone(next);
-      setHeld(null);
-      if (next.length === pairs.length) settle(miss === 0);
+  function choose(side, i) {
+    if (result !== null || busy || done.includes(i)) return;
+    if (!pick || pick.side === side) { setPick(pick && pick.side === side && pick.i === i ? null : { side, i }); return; }
+    const a = side === "a" ? i : pick.i, b = side === "b" ? i : pick.i;
+    if (a === b) {
+      setHit(a); setPick(null);
+      setTimeout(() => {
+        const next = [...done, a];
+        setDone(next); setHit(null);
+        if (next.length === pairs.length) settle(miss === 0);
+      }, 650);
     } else {
       setMiss((m) => m + 1);
-      setFlash(i);
-      setTimeout(() => setFlash(null), 450);
+      setShake({ a, b }); setPick(null);
+      setTimeout(() => setShake(null), 520);
     }
   }
+  const state = (side, i) => (done.includes(i) ? " done" : hit === i ? " hit" : shake && (side === "a" ? shake.a === i : shake.b === i) ? " shake" : pick && pick.side === side && pick.i === i ? " held" : pick && pick.side !== side ? " ready" : "");
 
   return (
     <>
       <h3 className="qv-q">{q.q || "Match each one to its meaning"}</h3>
-      <div className="qv-match">
-        <div>
-          {pairs.map((p, i) => (
-            <button key={i} className={"qv-tile" + (done.includes(i) ? " done" : held === i ? " held" : "")}
-              onClick={() => !done.includes(i) && setHeld(i)} disabled={result !== null}><M t={p.a} /></button>
-          ))}
-        </div>
-        <div>
-          {right.map(({ i, b }) => (
-            <button key={i} className={"qv-tile def" + (done.includes(i) ? " done" : flash === i ? " miss" : "")}
-              onClick={() => pickRight(i)} disabled={result !== null || held === null && !done.includes(i)}><M t={b} /></button>
-          ))}
-        </div>
+      <div className="mt-meter" aria-hidden="true"><i style={{ width: `${(done.length / Math.max(1, pairs.length)) * 100}%` }} /></div>
+      <div className="mt" role="group" aria-label="Matching cards">
+        {[["a", left], ["b", right]].map(([side, list]) => (
+          <div key={side} className={"mt-col " + side}>
+            {list.map(({ i, t }, k) => (
+              <button key={i} type="button" style={{ "--k": k }} className={"mt-card " + side + state(side, i)}
+                onClick={() => choose(side, i)} disabled={result !== null || done.includes(i)}>
+                <span className="mt-t"><M t={t} /></span>
+                {done.includes(i) && <span className="mt-tick" aria-hidden="true"><Icon name="check" size={16} /></span>}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
       {result === null
-        ? <p className="qv-hint">{held === null ? "Tap a term, then its meaning." : "Now tap its meaning."}</p>
+        ? <p className="qv-hint">{done.length ? `${done.length} of ${pairs.length} matched. ` : ""}{!pick ? "Tap a card on either side, then its partner." : "Now tap its partner on the other side."}</p>
         : <Verdict ok={result}>{result ? (q.why || "All matched first time.") : `All matched, with ${miss} slip${miss === 1 ? "" : "s"} on the way. ${q.why || ""}`}</Verdict>}
     </>
   );

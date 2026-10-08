@@ -68,3 +68,23 @@ test("latex a model writes is shown as printed maths", () => {
   assert.match(out, /ε/);
   assert.equal(tidyMath("\\frac{a}{b} and \\frac{x+1}{y}"), "a/b and (x+1)/(y)");
 });
+
+import { answerable as ans2 } from "../src/mathText.js";
+test("units read as m/s squared, and a calculation with no numbers in it is unanswerable", () => {
+  assert.equal(tidyMath("4.2 m s^-2"), "4.2 m/s²");
+  assert.equal(tidyMath("12 m s^-1"), "12 m/s");
+  assert.equal(tidyMath("1000 kg m^-3"), "1000 kg/m³");
+  assert.equal(tidyMath("3.0 x 10^-2"), "3.0 x 10⁻²");
+  const missing = { q: "What is the acceleration of the aeroplane during takeoff?", choices: ["0.4 m/s²", "4.2 m/s²", "2.8 m/s²", "1.5 m/s²"], answer: 1, topic: "Motion" };
+  assert.equal(ans2(missing), false);
+  assert.equal(ans2({ ...missing, q: "A plane reaches 84 m/s from rest in 20 s. What is its acceleration?" }), true);
+  assert.equal(ans2({ q: "Which is a unit of force?", choices: ["newton", "joule", "watt"], answer: 0 }), true);
+});
+
+import { unseenVisual } from "../src/mathText.js";
+test("a check that leans on a graph the student never sees is spotted", () => {
+  assert.equal(unseenVisual({ q: "Match each part of the graph to its shape and calculation." }), true);
+  assert.equal(unseenVisual({ q: "Using the diagram below, name the organelle." }), true);
+  assert.equal(unseenVisual({ q: "What does the area under a velocity-time graph represent?" }), false);
+  assert.equal(unseenVisual({ q: "What does the gradient of a distance-time graph show?" }), false);
+});

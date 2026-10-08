@@ -163,6 +163,7 @@ Shape:
 Rules:
 - Use "picture" for at most one question in five, only where seeing it is needed (identify a part, read a diagram). The question must then say what to look at, for example "In the picture, which part makes protein?". Leave it out for everything else.
 - Write questions only for the topics you are given, and nothing on any other part of the notes.
+- A question that asks for a calculated value must state every number it needs in its own wording, because the student sees only the question and its options. Write units as m/s, m/s², kg/m³.
 - Every question must be answerable from the notes alone. Only ask about terms, names, facts, figures and definitions that are written in the notes; never ask about anything the notes do not mention, however closely related. The right answer must be stated in the notes. Wrong options can be other believable terms.
 - 3 questions for each topic, 4 when it is marked large.
 - 4 choices each; "answer" is the index of the correct one, and it must vary: spread it evenly across 0, 1, 2 and 3, never mostly 0. The wrong options must be believable.

@@ -31,7 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary } from "./ui.jsx";
-import { phraseQuestion, answerable, uniqueQuestions, practiceBank } from "./mathText.js";
+import { phraseQuestion, answerable, uniqueQuestions, practiceBank, unseenVisual } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
 import { Notes } from "./Notes.jsx";
 import { Learn } from "./Learn.jsx";
@@ -638,7 +638,7 @@ export default function App() {
         questions: [...prev.questions, ...extra],
         drills: [
           ...(prev.drills || []).filter((d) => d.topic !== name || !String(d.id).startsWith(`ld-${slug}-`)),
-          ...(lesson.checks || []).map((c, i) => ({ id: `ld-${slug}-${i}`, topic: name, ...c })).filter(isDrill),
+          ...(lesson.checks || []).map((c, i) => ({ id: `ld-${slug}-${i}`, topic: name, ...c })).filter(isDrill).filter((c) => !unseenVisual(c)),
         ],
         topics: prev.topics.map((t) => t.name === name ? { ...t, questions: (t.questions || 0) + extra.length } : t),
         lessons: {

@@ -76,12 +76,13 @@ How to write it:
 - Put each key term in **double asterisks** the first time it appears in the lesson, followed straight away by what it means in brackets. Define each term once in the whole lesson; after that, use it plainly.
 - The meaning in brackets must be accurate. Where the source defines the term, use its definition. Never invent a detail, direction, number or fact to make an explanation vivid.
 - About half the cards have "points", 2 or 3 of them, breaking the idea into its parts, types or cases, each with a concrete example where one fits. The other cards leave "points" empty.
+- When the source describes a graph, diagram or table, describe what it shows in words in a card, with the key values (for example "speed rises from 0 to 42 m/s over 25 s, stays at 42 m/s for 80 s, then falls to 0 over 15 s"), because the student is not shown the original picture.
 - At least two cards have an "example": a real, specific case a student would recognise.
 - Short sentences. Explain why things are the way they are, not just what they are.
 - Every definition, formula, name and figure in the source must appear somewhere in the lesson.
 - After the cards, 5 or 6 checks on what the cards taught, each a different way of recalling it:
   1 or 2 of type "choice"; 1 of type "blank" or "word"; 1 of type "tf"; 1 of type "match" (3 or 4 pairs, when the lesson defines at least 3 terms) or "order" (3 to 5 steps, when it teaches a process with a fixed sequence); and 1 of type "written" or "finish".
-- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term.
+- Every check is answerable from the cards alone, and each "q" is a full question or sentence, never a bare term. A check that asks for a calculated value must state every number it needs in its own wording (for example the speed and the time), because the student sees nothing but the check. Write units as m/s, m/s², kg/m³. Never ask about "the graph", "the diagram", "the figure" or "the table" in a matching, ordering, blank, true or false or written check: the student cannot see the source's pictures, so put the facts the check needs into its own wording.
 - A "blank" removes one key word that has a single right answer. A "word" answer is one word the student can spell from the lesson.
 - A false "tf" statement contains one realistic misconception, and its "correction" puts it right.
 - Order the checks from easiest to hardest, and end on the "written" or "finish" one. Its "points" are what an examiner would look for.
@@ -163,9 +164,10 @@ export default async function handler(req, res) {
     const str = (v, n = 400) => String(v ?? "").trim().slice(0, n);
     const list = (v, n) => (Array.isArray(v) ? v : []).map((x) => str(x, 200)).filter(Boolean).slice(0, n);
     const shape = {
-      choice: (q) => Array.isArray(q.choices) && q.choices.length >= 2 && {
+      // no valid answer index is no question: it used to become "A is correct"
+      choice: (q) => Array.isArray(q.choices) && q.choices.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length && {
         q: str(q.q), choices: q.choices.map((c) => str(c, 200)),
-        answer: Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length ? q.answer : 0,
+        answer: q.answer,
         why: str(q.why),
       },
       blank: (q) => /_{3,}/.test(q.q) && q.answer && { type: "blank", q: str(q.q), answer: str(q.answer, 80), accept: list(q.accept, 4), why: str(q.why) },
@@ -185,6 +187,10 @@ export default async function handler(req, res) {
       .filter((q) => q && typeof q.q === "string" && q.q.trim())
       .map((q) => (shape[q.type] || (Array.isArray(q.choices) ? shape.choice : null))?.(q))
       .filter(Boolean)
+      // only multiple choice can be given a picture; the other kinds cannot lean on a graph or diagram the student never sees
+      .filter((q) => Array.isArray(q.choices) || !/\b(the|this|these|following|given) (graph|diagram|figure|chart|image|picture|table|illustration|map)\b|\b(shown|illustrated|pictured|plotted) (above|below|here)\b|\b(above|below) (graph|diagram|figure|chart|table)\b/i.test(q.q))
+      // a calculation with numbers for options but none in its wording lacks its data
+      .filter((q) => !(Array.isArray(q.choices) && q.choices.length >= 3 && !/\d/.test(q.q) && q.choices.every((c) => /^[-+]?\d[\d.,]*\s*[^\d]{0,14}$/.test(c.trim()))))
       .slice(0, 7);
 
     res.status(200).json({ topic, cards, checks });
