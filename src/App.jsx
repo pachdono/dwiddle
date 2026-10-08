@@ -700,6 +700,44 @@ export default function App() {
       if (qs.length) setMade({ title: study.title, topics: [], questions: qs }, { material: "none" });
     });
   }, [bareKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Keeps a deep bank of questions. While Dwiddle is open, a topic with fewer
+  // than BANK_TARGET questions gets a few more written every so often in the
+  // background, so a quiz is made from questions that already exist and rarely
+  // has to wait for new ones. It stops by itself when nothing new can be written
+  // and tries again later.
+  const fillBusy = useRef(false);
+  const [fillTick, setFillTick] = useState(0);
+  useEffect(() => {
+    const wake = () => { if (document.visibilityState === "visible") setFillTick((n) => n + 1); };
+    document.addEventListener("visibilitychange", wake);
+    return () => document.removeEventListener("visibilitychange", wake);
+  }, []);
+  const bankCount = (study?.questions || []).length;
+  useEffect(() => {
+    if (!study?.topics?.length || fillBusy.current) return;
+    const coolKey = "dwiddle-bankfill-cool:" + study.title;
+    try { if (Date.now() - Number(localStorage.getItem(coolKey) || 0) < 30 * 60e3) return; } catch { /* fine */ }
+    const counts = {};
+    (study.questions || []).forEach((q) => { counts[q.topic] = (counts[q.topic] || 0) + 1; });
+    const need = study.topics.map((t) => t.name).filter((n) => counts[n] >= 1 && counts[n] < BANK_TARGET).sort((a, b) => counts[a] - counts[b])[0];
+    if (!need) return;
+    const timer = setTimeout(async () => {
+      if (document.visibilityState !== "visible" || fillBusy.current) return;
+      fillBusy.current = true;
+      let ok = false;
+      try {
+        const have = (study.questions || []).map((q) => phraseQuestion(q));
+        const phrased = (await moreQuestions(study, [need], 4, [], "")).map((q) => phraseQuestion(q));
+        const merged = uniqueQuestions([...have, ...phrased]);
+        const fresh = phrased.filter((x) => merged.includes(x)).filter(answerable);
+        if (fresh.length) { ok = true; setMade({ title: study.title, topics: [], questions: fresh }, { material: "none" }); }
+      } catch { /* the next try is after the cooldown */ }
+      if (!ok) { try { localStorage.setItem(coolKey, String(Date.now())); } catch { /* fine */ } }
+      fillBusy.current = false;
+      if (ok) setFillTick((n) => n + 1);
+    }, 9000);
+    return () => clearTimeout(timer);
+  }, [study?.title, bankCount, fillTick]); // eslint-disable-line react-hooks/exhaustive-deps
   // The other kinds: those written with lessons, and those built from the
   // vocabulary questions every set already has.
   const drills = study ? [...(study.drills || []), ...derivedDrills(study.questions || [])] : [];
@@ -2682,6 +2720,8 @@ const MODES = [
 ];
 
 const QUIZ_LENGTHS = [5, 10, 20, 30, 50];
+// How many questions each topic is kept topped up to in the background.
+const BANK_TARGET = 14;
 
 function Practice(props) {
   const { pMode, setPMode, missed, topic: pickedTopic, setTopic, go, hidden, bank, topics } = props;
