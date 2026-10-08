@@ -211,12 +211,30 @@ export function answerable(q) {
 // when the bank held several copies of it, or of a rewording that differs only
 // in case or punctuation.
 const key = (q) => String(q?.q || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const STOP = new Set("the a an of in on to is are was were be by for and or with what which who how why does do did that this it its as at from into than then not no".split(" "));
+const words = (q) => ({
+  w: new Set(key(q).split(" ").filter((t) => t.length > 2 && !/^\d+$/.test(t) && !STOP.has(t)).map((t) => (t.length > 3 ? t.replace(/s$/, "") : t))),
+  nums: (String(q?.q || "").match(/\d+(\.\d+)?/g) || []).sort().join(","),
+});
+// the same question reworded: nearly all the same words and the same numbers
+// (a maths question with other numbers is a different question)
+const alike = (a, b) => {
+  if (a.nums !== b.nums || a.w.size < 3 || b.w.size < 3) return false;
+  let hit = 0;
+  a.w.forEach((t) => { if (b.w.has(t)) hit++; });
+  return hit / (a.w.size + b.w.size - hit) >= 0.72;
+};
 export function uniqueQuestions(list) {
   const seen = new Set();
+  const kept = [];
   return (list || []).filter((q) => {
     const k = key(q);
     if (!k || seen.has(k)) return false;
+    const w = words(q);
+    // the same question again with a few words changed, in the same topic, is a repeat too
+    if (kept.some((o) => (o.topic || "") === (q.topic || "") && alike(o.x, w))) return false;
     seen.add(k);
+    kept.push({ topic: q.topic, x: w });
     return true;
   });
 }

@@ -18,7 +18,7 @@ import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
-import { logAnswer, readLog } from "./studylog.js";
+import { logAnswer, readLog, freshFirst } from "./studylog.js";
 import Progress from "./Progress.jsx";
 import { GuideHost, startGuide } from "./Guide.jsx";
 import { masteryOf } from "./insights.js";
@@ -2887,7 +2887,15 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
   const wantHard = Math.round(len * hardShare);
   const hardHave = pool.filter((x) => x.level === "apply").length;
   const needHard = Math.max(0, wantHard - hardHave);
-  const needPlain = Math.max(0, len - pool.length);
+  // Questions asked lately come last, so a quiz is not the same few again and
+  // again. When too many of the ones this run would use have been asked before,
+  // new ones are written to take their place as the run goes on.
+  const [fresh0] = useState(() => (ordered ? null : freshFirst(pool)));
+  const askedBefore = fresh0 ? Math.max(0, Math.min(len, pool.length) - fresh0.unseen) : 0;
+  const needFresh = askedBefore >= Math.max(2, Math.ceil(len * 0.25)) ? Math.min(askedBefore, 20) : 0;
+  const needPlain = Math.max(0, len - pool.length, needFresh);
+  const iRef = useRef(0);
+  iRef.current = i;
   // A run longer than the questions there are starts straight away with the ones
   // there are, while new ones are written in the style of those in the
   // background, kept for next time, and added on to the end as they arrive.
@@ -2901,10 +2909,11 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     if (ordered) return pool.slice(0, len);
     let main;
     if (wantHard && hardHave) {
-      const hardQs = shuffle(pool.filter((x) => x.level === "apply")).slice(0, wantHard);
-      main = shuffle([...hardQs, ...shuffle(pool.filter((x) => !hardQs.includes(x)))]);
-    } else main = shuffle(pool);
-    return mixRun(main.slice(0, len), shuffle(drillPool), 0, main.slice(len));
+      const hardQs = fresh0.ordered.filter((x) => x.level === "apply").slice(0, wantHard);
+      main = [...hardQs, ...fresh0.ordered.filter((x) => !hardQs.includes(x))];
+    } else main = fresh0.ordered;
+    // the freshest len questions, in a random order within the run
+    return mixRun(shuffle(main.slice(0, len)), shuffle(drillPool), 0, main.slice(len));
   });
   useEffect(() => {
     if (!short) return;
@@ -2933,7 +2942,17 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
         got.push(...fresh);
         setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
         // each batch joins as it lands, up to the length asked for; any extra is kept for next time
-        if (live) setQUIZ((prev) => { const room = len - prev.length; return room > 0 ? [...prev, ...mixRun(shuffle(fresh).slice(0, room), [], prev.length)] : prev; });
+        // new questions take the place of ones asked before that are still to come,
+        // then fill any room at the end
+        if (live) setQUIZ((prev) => {
+          const list = [...prev];
+          const incoming = shuffle(fresh);
+          for (let idx = iRef.current + 1; idx < list.length && incoming.length; idx++) {
+            if (fresh0?.seenIds.has(String(list[idx].id))) list[idx] = incoming.shift();
+          }
+          const room = len - list.length;
+          return room > 0 && incoming.length ? [...list, ...mixRun(incoming.slice(0, room), [], list.length)] : list;
+        });
       }
       return got;
     }
@@ -3837,7 +3856,7 @@ function MockExam({ grade, pool }) {
   }, [stage, left]);
 
   function start() {
-    setPaper(shuffle(pool).slice(0, Math.min(count, pool.length)));
+    setPaper(shuffle(freshFirst(pool).ordered.slice(0, Math.min(count + 6, pool.length))).slice(0, Math.min(count, pool.length)));
     setAnswers({});
     setI(0);
     setLeft(minutes * 60);
@@ -4072,7 +4091,9 @@ function SpeedRound({ grade, pool }) {
   const [best, setBest] = useState(0);
   const [flash, setFlash] = useState(null); // "hit" | "miss"
 
-  const q = pool[n % pool.length];
+  // a different order each round, with questions not asked lately first
+  const [order] = useState(() => freshFirst(pool).ordered);
+  const q = order[n % order.length];
 
   useEffect(() => {
     if (stage !== "running") return;

@@ -338,7 +338,8 @@ export async function moreQuestions(made, names, count, avoidMore = [], level = 
   // Four at a time finish quickly, run side by side, and a batch that fails is
   // tried once more.
   const BATCH = 4;
-  const avoid = [...have.map((q) => q.q.slice(0, 120)), ...avoidMore].slice(-24);
+  // everything already asked is passed along, so new questions are about other facts
+  const avoid = [...have.map((q) => q.q.slice(0, 90)), ...avoidMore].slice(-55);
   const calls = Math.ceil(count / BATCH);
   const stamp = Date.now() % 1e6;
   let lastError = "";
