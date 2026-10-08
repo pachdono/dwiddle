@@ -2689,6 +2689,7 @@ function Practice(props) {
   const Mode = { quiz: QuizMode, review: ReviewMode, cards: Flashcards, mock: MockExam, long: LongMode, speed: SpeedRound, missed: MissedMode }[active.id];
   const [quizLen, setQuizLenRaw] = useState(() => load(KEYS.quizLen, 5));
   const [quizLevel, setQuizLevelRaw] = useState(() => load("dwiddle-quizlevel", "auto"));
+  const [runKey, setRunKey] = useState(0); // a new number starts a fresh run of the same mode
   const setQuizLevel = (v) => { setQuizLevelRaw(v); save("dwiddle-quizlevel", v); };
 
   function setQuizLen(n) {
@@ -2838,7 +2839,7 @@ function Practice(props) {
               {early && <PracticeSides s={session} />}
               <div className="pz-inner">
                 <p className="pz-sub muted">{active.sub}</p>
-                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen + ":" + quizLevel} {...modeProps} pool={pool} drillPool={drillPool} len={quizLen} level={quizLevel} />
+                <Mode key={active.id + ":" + (topic || "all") + ":" + quizLen + ":" + quizLevel + ":" + runKey} {...modeProps} onRestart={() => setRunKey((k) => k + 1)} pool={pool} drillPool={drillPool} len={quizLen} level={quizLevel} />
               </div>
             </div>
             {early && <Cheer cheer={session.cheer} />}
@@ -2870,7 +2871,7 @@ function mixRun(main, drills, startAt = 0, spare = []) {
   });
 }
 
-function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto", flagBad }) {
+function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, made, setMade, level = "auto", flagBad, go, onRestart }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null); // the option chosen, or true/false for the other kinds
   const [score, setScore] = useState(0);
@@ -2884,22 +2885,22 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     if (level === "hard") return 0.7;
     return masteryOf(readLog(), [...new Set(pool.map((x) => x.topic))]) === "high" ? 0.4 : 0;
   });
-  const wantHard = Math.round(len * hardShare);
-  const hardHave = pool.filter((x) => x.level === "apply").length;
-  const needHard = Math.max(0, wantHard - hardHave);
-  // Questions asked lately come last, so a quiz is not the same few again and
-  // again. When too many of the ones this run would use have been asked before,
-  // new ones are written to take their place as the run goes on.
+  // Only questions never asked before go in a run. Ones already answered are
+  // left out, and new ones are written to make up the number, so a quiz is never
+  // the same questions again. (A run of the questions due for review is the
+  // exception: those are meant to come back.)
   const [fresh0] = useState(() => (ordered ? null : freshFirst(pool)));
-  const askedBefore = fresh0 ? Math.max(0, Math.min(len, pool.length) - fresh0.unseen) : 0;
-  const needFresh = askedBefore >= Math.max(2, Math.ceil(len * 0.25)) ? Math.min(askedBefore, 20) : 0;
-  const needPlain = Math.max(0, len - pool.length, needFresh);
+  const unseenPool = fresh0 ? fresh0.ordered.slice(0, fresh0.unseen) : pool;
+  const wantHard = Math.round(len * hardShare);
+  const hardHave = unseenPool.filter((x) => x.level === "apply").length;
+  const needHard = Math.max(0, wantHard - hardHave);
+  const needPlain = Math.max(0, len - unseenPool.length);
   const iRef = useRef(0);
   iRef.current = i;
-  // A run longer than the questions there are starts straight away with the ones
-  // there are, while new ones are written in the style of those in the
-  // background, kept for next time, and added on to the end as they arrive.
-  // Only if the student gets to the end before they are ready does it wait.
+  // The run starts straight away with the new questions there are, while more
+  // are written in the style of those in the background, kept for next time,
+  // and added on to the end as they arrive. If there are none at all, or the
+  // student reaches the end first, it waits for them.
   const short = !ordered && !!setMade && pool.length > 0 && (needPlain > 0 || needHard > 0);
   const [loadingMore, setLoadingMore] = useState(short);
   const [hold, setHold] = useState(false);
@@ -2909,50 +2910,41 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     if (ordered) return pool.slice(0, len);
     let main;
     if (wantHard && hardHave) {
-      const hardQs = fresh0.ordered.filter((x) => x.level === "apply").slice(0, wantHard);
-      main = [...hardQs, ...fresh0.ordered.filter((x) => !hardQs.includes(x))];
-    } else main = fresh0.ordered;
-    // the freshest len questions, in a random order within the run
-    return mixRun(shuffle(main.slice(0, len)), shuffle(drillPool), 0, main.slice(len));
+      const hardQs = unseenPool.filter((x) => x.level === "apply").slice(0, wantHard);
+      main = [...hardQs, ...unseenPool.filter((x) => !hardQs.includes(x))];
+    } else main = unseenPool;
+    // nothing new and nothing can be written: the oldest are better than an empty run
+    if (!main.length && !short) main = fresh0.ordered;
+    const drills = freshFirst(drillPool);
+    return mixRun(shuffle(main.slice(0, len)), shuffle(drills.ordered.slice(0, drills.unseen)), 0, main.slice(len));
   });
+  const [gaveUp, setGaveUp] = useState(false); // chose to go over old questions after nothing new could be written
   useEffect(() => {
     if (!short) return;
     let live = true;
     const topics = [...new Set(pool.map((x) => x.topic))];
-    const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const seen = new Set(pool.map((x) => norm(x.q)));
+    const shared = []; // everything written for this run so far, across both calls
     let why = "";
     // Asks again for the rest rather than letting the same ones come round twice.
     async function gen(count, depth) {
       const got = [];
       for (let tries = 0; tries < 3 && got.length < count && live; tries++) {
         // asks for a few more than needed, since some come back as repeats or fail the answer check
-        const qs = await moreQuestions(made, topics, Math.ceil((count - got.length) * 1.3) + 1, got.map((x) => x.q), depth).catch((e) => { why = e?.message || ""; return []; });
+        const qs = await moreQuestions(made, topics, Math.ceil((count - got.length) * 1.3) + 1, [...got, ...shared].map((x) => x.q), depth).catch((e) => { why = e?.message || ""; return []; });
         if (qs.error) why = qs.error;
-        const candidates = uniqueQuestions(qs.map((q) => phraseQuestion(q))).filter((x) => {
-          const k = norm(x.q);
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
+        // anything that is, or is a rewording of, a question already there is dropped
+        const phrased = qs.map((q) => phraseQuestion(q));
+        const merged = uniqueQuestions([...pool, ...shared, ...phrased]);
+        const candidates = phrased.filter((x) => merged.includes(x));
         // unanswerable wording is skipped, but not at the price of getting nothing
         const fresh = candidates.filter(answerable).length ? candidates.filter(answerable) : candidates;
         if (qs.length && !candidates.length) why = "the new questions were copies of ones already there";
         if (!fresh.length) break; // nothing new: asking again straight away would not help
         got.push(...fresh);
+        shared.push(...fresh);
         setMade({ title: made?.title, topics: [], questions: fresh }, { material: "none" });
         // each batch joins as it lands, up to the length asked for; any extra is kept for next time
-        // new questions take the place of ones asked before that are still to come,
-        // then fill any room at the end
-        if (live) setQUIZ((prev) => {
-          const list = [...prev];
-          const incoming = shuffle(fresh);
-          for (let idx = iRef.current + 1; idx < list.length && incoming.length; idx++) {
-            if (fresh0?.seenIds.has(String(list[idx].id))) list[idx] = incoming.shift();
-          }
-          const room = len - list.length;
-          return room > 0 && incoming.length ? [...list, ...mixRun(incoming.slice(0, room), [], list.length)] : list;
-        });
+        if (live) setQUIZ((prev) => { const room = len - prev.length; return room > 0 ? [...prev, ...mixRun(shuffle(fresh).slice(0, room), [], prev.length)] : prev; });
       }
       return got;
     }
@@ -2960,9 +2952,9 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
       const [hard, plain] = await Promise.all([needHard ? gen(needHard, "apply") : [], needPlain ? gen(needPlain, "") : []]);
       if (!live) return;
       setLoadingMore(false);
-      const missing = (needHard - hard.length) + (needPlain - plain.length);
-      if (needPlain && plain.length < needPlain) setNote(`Dwiddle could only write ${plain.length} of the ${needPlain} new questions, so the quiz is ${pool.length + plain.length + hard.length} questions long instead of ${len}. Nothing is repeated.${why ? ` Why: ${why}` : " It may be that the notes only cover that many different facts."}`);
-      else if (missing > 0) setNote("Some of the harder questions could not be written just now, so a few easier ones are in their place.");
+      const total = Math.min(len, unseenPool.length) + Math.max(hard.length, 0) + plain.length;
+      if (needPlain && plain.length < needPlain && total < len) setNote(`That is every new question there is for now, so this quiz is ${Math.min(total, len)} questions instead of ${len}, with no repeats.${why ? ` Why: ${why}` : " The notes only cover so many different facts, so adding more material gives more."}`);
+      else if (needHard && hard.length < needHard) setNote("Some of the harder questions could not be written just now, so a few easier ones are in their place.");
     })();
     return () => { live = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2986,6 +2978,27 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   });
+
+  if (QUIZ.length === 0 && !gaveUp) {
+    return loadingMore ? (
+      <div className="card card-pad quiz-more">
+        <Duck size={90} outfit="wizard" />
+        <b>Writing new questions for you</b>
+        <p className="small muted">You have answered all the ones you had, so these are new, in the same style, on the same topics. The first ones appear in a few seconds.</p>
+        <div className="busy-bar sweep"><span /></div>
+      </div>
+    ) : (
+      <div className="card card-pad quiz-more">
+        <Duck size={90} outfit="wizard" />
+        <b>You have done every question there is</b>
+        <p className="small muted">{note || "No new ones could be written from this material just now. Adding more notes gives more questions, or you can go over the ones you did longest ago."}</p>
+        <div className="row" style={{ justifyContent: "center" }}>
+          {go && <button className="btn cta" onClick={() => go("upload")}>Add material</button>}
+          <button className="btn ghost" onClick={() => { setGaveUp(true); setQUIZ(mixRun(shuffle((fresh0?.ordered || pool).slice(0, len)), [], 0)); }}>Go over the oldest ones</button>
+        </div>
+      </div>
+    );
+  }
 
   if (hold) {
     return (
@@ -3022,7 +3035,9 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
     setPicked(null);
   }
 
+  // another run, with questions not asked before, not the same ones over
   function restart() {
+    if (onRestart) return onRestart();
     setI(0); setPicked(null); setScore(0); setFinished(false);
   }
 
