@@ -160,10 +160,15 @@ const short = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
 
 export function cleanChat(m) {
   if (!m || typeof m.id !== "string" || typeof m.by !== "string") return null;
-  const kind = m.kind === "image" || m.kind === "file" ? m.kind : "text";
+  const kind = m.kind === "image" || m.kind === "file" || m.kind === "share" ? m.kind : "text";
   const out = { id: short(m.id, 40), by: short(m.by, 40), name: short(m.name, 30) || "Guest", at: Number.isFinite(m.at) ? m.at : 0, kind, body: short(m.body, CHAT_TEXT) };
   if (m.reply && typeof m.reply === "object") out.reply = { from: short(m.reply.from, 30), text: short(m.reply.text, 120) };
-  if (kind !== "text") {
+  if (kind === "share") {
+    // a link to a saved copy, so only a plain id and a title travel
+    const id = short(m.attach?.id, 64);
+    if (!/^[\w-]+$/.test(id)) return null;
+    out.attach = { id, kind: m.attach?.kind === "notebook" ? "notebook" : "material", title: short(m.attach?.title, 120) || "Shared" };
+  } else if (kind !== "text") {
     const data = typeof m.data === "string" && m.data.length <= CHAT_DATA ? m.data : ""; // never a cut off file
     if (!/^data:[\w.+-]+\/[\w.+-]+(;[\w=.+-]+)*;base64,/.test(data) || (kind === "image" && !data.startsWith("data:image/"))) return null;
     out.data = data;

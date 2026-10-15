@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./ui.jsx";
+import { SharePicker } from "./Social.jsx";
 import { shrink } from "./custom.js";
 import { CHAT_DATA, CHAT_FILE_BYTES, personColour } from "./whiteboard.js";
 
@@ -10,12 +11,13 @@ const clock = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minut
 const onlyEmoji = (t) => /^(\p{Extended_Pictographic}|‍|️|\s){1,8}$/u.test(t);
 const sizeText = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
 const readAsData = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onerror = () => rej(new Error("That file could not be read.")); r.onload = () => res(r.result); r.readAsDataURL(file); });
-const previewOf = (m) => (m.kind === "image" ? "Photo" : m.kind === "file" ? m.attach?.name || "File" : String(m.body || "").slice(0, 90));
+const previewOf = (m) => (m.kind === "image" ? "Photo" : m.kind === "file" ? m.attach?.name || "File" : m.kind === "share" ? m.attach?.title || "Shared" : String(m.body || "").slice(0, 90));
 
 export default function WhiteboardChat({ me, name, msgs, onSend, onDelete }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
   const [replyTo, setReplyTo] = useState(null);
+  const [picker, setPicker] = useState(false);
   const photoIn = useRef(null), fileIn = useRef(null), list = useRef(null), box = useRef(null);
 
   useEffect(() => { const el = list.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length]);
@@ -31,6 +33,12 @@ export default function WhiteboardChat({ me, name, msgs, onSend, onDelete }) {
     if (!t) return;
     onSend({ kind: "text", body: t, ...reply() });
     setText(""); setErr(""); setReplyTo(null);
+  }
+  // the copy is saved by the picker; only its link goes into the room
+  function share({ kind, id, title }) {
+    onSend({ kind: "share", body: `Shared ${kind === "notebook" ? "a notebook" : "a folder"}: ${title}`.slice(0, 300), attach: { id, kind, title }, ...reply() });
+    setErr(""); setReplyTo(null);
+    return true;
   }
   async function photo(file) {
     if (!file) return;
@@ -73,6 +81,14 @@ export default function WhiteboardChat({ me, name, msgs, onSend, onDelete }) {
                   {m.reply && <div className="cm-quote"><b>{m.reply.from}</b><span>{m.reply.text}</span></div>}
                   {m.kind === "image" ? (
                     <div className="cm-bubble rich image"><a className="cm-img" href={m.data} target="_blank" rel="noreferrer" aria-label="Open the photo"><img src={m.data} alt="A photo sent in the chat" loading="lazy" /></a></div>
+                  ) : m.kind === "share" ? (
+                    <div className="cm-bubble rich share">
+                      <div className="cm-share">
+                        <span className={"xp-kind " + (m.attach?.kind || "material")}>{m.attach?.kind === "notebook" ? "Notebook" : "Folder"}</span>
+                        <b>{m.attach?.title}</b>
+                        <a className="btn small" href={`${location.origin}/?share=${m.attach?.id}`} target="_blank" rel="noreferrer">Open and save a copy</a>
+                      </div>
+                    </div>
                   ) : m.kind === "file" ? (
                     <div className="cm-bubble rich file">
                       <a className="cm-file" href={m.data} download={m.attach?.name || "file"}>
@@ -96,10 +112,12 @@ export default function WhiteboardChat({ me, name, msgs, onSend, onDelete }) {
         <div className="cm-replying"><span><b>Replying to {replyTo.by === me ? "yourself" : replyTo.name}</b> {previewOf(replyTo)}</span>
           <button type="button" className="icon-btn" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><Icon name="close" size={13} /></button></div>
       )}
+      {picker && <SharePicker onClose={() => setPicker(false)} onSend={share} />}
       <form className="cm-send" onSubmit={(e) => { e.preventDefault(); say(); }}>
         <span className="cm-tools">
           <button type="button" className="icon-btn" aria-label="Send a photo" title="Photo" onClick={() => photoIn.current?.click()}><Icon name="image" size={18} /></button>
           <button type="button" className="icon-btn" aria-label="Send a file" title="File" onClick={() => fileIn.current?.click()}><Icon name="file" size={18} /></button>
+          <button type="button" className="icon-btn" aria-label="Share a notebook or folder" title="Share a notebook or folder" onClick={() => setPicker((v) => !v)}><Icon name="folder" size={18} /></button>
           <input ref={photoIn} type="file" accept="image/*" hidden onChange={(e) => { photo(e.target.files[0]); e.target.value = ""; }} />
           <input ref={fileIn} type="file" hidden onChange={(e) => { attach(e.target.files[0]); e.target.value = ""; }} />
         </span>

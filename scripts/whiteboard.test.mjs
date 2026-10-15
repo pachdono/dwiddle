@@ -154,3 +154,12 @@ test("chat: history is split so no piece is too big to send", () => {
   assert.ok(parts.length > 1);
   assert.equal(parts.flat().length, 10);
 });
+
+test("chat: a shared notebook or folder is only a safe id and a title", () => {
+  const ok = cleanChat(say("s", { kind: "share", body: "Shared a notebook: Maths", attach: { id: "ab12-CD", kind: "notebook", title: "Maths" } }));
+  assert.deepEqual(ok.attach, { id: "ab12-CD", kind: "notebook", title: "Maths" });
+  assert.equal(cleanChat(say("s", { kind: "share", attach: { id: "x/../y", title: "t" } })), null);
+  assert.equal(cleanChat(say("s", { kind: "share", attach: { id: "javascript:1" } })), null);
+  assert.equal(cleanChat(say("s", { kind: "share" })), null);
+  assert.equal(cleanChat(say("s", { kind: "share", attach: { id: "ok", kind: "weird", title: "t" } })).attach.kind, "material");
+});

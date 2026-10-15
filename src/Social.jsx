@@ -263,7 +263,7 @@ function Attachment({ m }) {
 
 // Pick one of your own folders or notebooks to send. It is shared by link only,
 // as a copy, so nothing of yours changes and nothing about your progress goes.
-function SharePicker({ onSend, onClose }) {
+export function SharePicker({ onSend, onClose }) {
   const [kind, setKind] = useState("material");
   const [books, setBooks] = useState([]);
   const [busy, setBusy] = useState(false);
