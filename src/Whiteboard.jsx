@@ -3,7 +3,7 @@ import { supabase } from "./supabase.js";
 import { Icon, PageHead } from "./ui.jsx";
 import { useMyProfile } from "./Profile.jsx";
 import { newCode, cleanCode } from "./duel.js";
-import { W, H, COLOURS, SIZES, apply, thin, touching, newStrokeId, personColour } from "./whiteboard.js";
+import { W, H, COLOURS, SIZES, apply, thin, cutOut, baseId, newStrokeId, personColour } from "./whiteboard.js";
 
 // A whiteboard two or more people draw on at once. Like Duel, nothing is
 // stored: the screens talk over a realtime channel named after the room code,
@@ -13,6 +13,7 @@ const FLUSH_MS = 70; // how often new points are sent
 const CURSOR_MS = 80;
 const SYNC_POINTS = 6000; // points per sync message, to stay well under the message limit
 const ERASE_REACH = 18;
+const ERASE_STEP = 9; // the eraser is tested this often along its path, so a fast swipe leaves no gaps
 
 function paint(ctx, strokes, cursors) {
   ctx.fillStyle = "#ffffff";
@@ -82,6 +83,7 @@ export default function Whiteboard({ auth }) {
     ch.on("presence", { event: "sync" }, () => setHere(Object.values(ch.presenceState()).flat().map((p) => ({ id: p.id, name: p.name }))))
       .on("broadcast", { event: "seg" }, ({ payload }) => change("seg", payload, true))
       .on("broadcast", { event: "del" }, ({ payload }) => change("del", payload, true))
+      .on("broadcast", { event: "cut" }, ({ payload }) => change("cut", payload, true))
       .on("broadcast", { event: "clear" }, () => change("clear", null, true))
       .on("broadcast", { event: "sync" }, ({ payload }) => change("sync", payload, true))
       .on("broadcast", { event: "hello" }, () => {
@@ -155,7 +157,7 @@ export default function Whiteboard({ auth }) {
   }
   function flushErase() {
     if (!erased.current.length) return;
-    send("del", { ids: erased.current });
+    send("cut", { cuts: erased.current });
     erased.current = [];
   }
 
@@ -163,19 +165,31 @@ export default function Whiteboard({ auth }) {
     const r = canvas.current.getBoundingClientRect();
     return [Math.round(((e.clientX - r.left) / r.width) * W), Math.round(((e.clientY - r.top) / r.height) * H)];
   }
+  // Rub the eraser from where it last was to (x, y), cutting out only the part
+  // of each line it passes over.
   function rub(x, y) {
-    const ids = touching(strokes.current, x, y, ERASE_REACH);
-    if (!ids.length) return;
-    const next = apply(strokes.current, "del", { ids });
-    strokes.current = next; dirty.current = true; setCount(next.length);
-    erased.current.push(...ids);
+    const from = draw.current?.at || [x, y];
+    const n = Math.max(1, Math.ceil(Math.hypot(x - from[0], y - from[1]) / ERASE_STEP));
+    for (let k = 1; k <= n; k++) {
+      const px = from[0] + ((x - from[0]) * k) / n, py = from[1] + ((y - from[1]) * k) / n;
+      const cuts = [];
+      for (const s of strokes.current) {
+        const pieces = cutOut(s, px, py, ERASE_REACH);
+        if (pieces) cuts.push({ id: s.id, pieces });
+      }
+      if (!cuts.length) continue;
+      const next = apply(strokes.current, "cut", { cuts });
+      strokes.current = next; dirty.current = true; setCount(next.length);
+      erased.current.push(...cuts);
+    }
+    if (draw.current) draw.current.at = [x, y];
   }
   function down(e) {
     if (e.button > 0) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const [x, y] = at(e);
     const t = toolRef.current;
-    if (t.tool === "eraser") { draw.current = { eraser: true }; rub(x, y); return; }
+    if (t.tool === "eraser") { draw.current = { eraser: true, at: [x, y] }; rub(x, y); return; }
     const id = newStrokeId(myId);
     draw.current = { id, sent: 0 };
     const s = { id, by: myId, c: t.colour, w: t.size, pts: [x, y, x, y] };
@@ -215,8 +229,10 @@ export default function Whiteboard({ auth }) {
   }
 
   function undo() {
-    const mine = [...strokes.current].reverse().find((s) => s.by === myId);
-    if (mine) change("del", { ids: [mine.id] });
+    const last = [...strokes.current].reverse().find((s) => s.by === myId);
+    if (!last) return;
+    const base = baseId(last.id);
+    change("del", { ids: strokes.current.filter((s) => baseId(s.id) === base).map((s) => s.id) });
   }
   function wipe() {
     if (!sure) { setSure(true); setTimeout(() => setSure(false), 3000); return; }
@@ -269,7 +285,7 @@ export default function Whiteboard({ auth }) {
       <div className="wb-bar card">
         <div className="wb-group" role="group" aria-label="Tool">
           <button className={"wb-btn" + (tool === "pen" ? " on" : "")} onClick={() => setTool("pen")} title="Pen" aria-label="Pen"><Icon name="pen" size={18} /></button>
-          <button className={"wb-btn" + (tool === "eraser" ? " on" : "")} onClick={() => setTool("eraser")} title="Rub out a whole line" aria-label="Eraser"><Icon name="close" size={18} /></button>
+          <button className={"wb-btn" + (tool === "eraser" ? " on" : "")} onClick={() => setTool("eraser")} title="Rub out" aria-label="Eraser"><Icon name="close" size={18} /></button>
         </div>
         <div className="wb-group" role="group" aria-label="Colour">
           {COLOURS.map((c) => (

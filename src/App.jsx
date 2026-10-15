@@ -928,7 +928,7 @@ export default function App() {
     upload: AddMaterial,
     library: preview ? FoldersBridge : Library,
     duel: preview ? Duel : Dashboard,
-    whiteboard: Whiteboard,
+    whiteboard: beta ? Whiteboard : Dashboard,
     leaderboard: preview ? LeaderboardPage : Dashboard,
     social: preview ? Social : Dashboard,
     explore: preview ? ExploreBridge : Dashboard,
@@ -1245,7 +1245,7 @@ export default function App() {
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
               <button data-tour="duel" className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
-              <button className="top-chip" title="Draw on a board with a friend, live" onClick={() => go("whiteboard")}><NavIcon id="whiteboard" size={24} />Whiteboard</button>
+              {beta && <button className="top-chip" title="Draw on a board with a friend, live" onClick={() => go("whiteboard")}><NavIcon id="whiteboard" size={24} />Whiteboard</button>}
               <button className="top-chip" title="Leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}

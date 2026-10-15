@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apply, cleanStroke, thin, hits, touching, personColour, MAX_STROKES, W, H } from "../src/whiteboard.js";
+import { apply, cleanStroke, thin, hits, touching, personColour, cutOut, baseId, W, H } from "../src/whiteboard.js";
 
 const s = (id, pts, extra = {}) => ({ id, by: "a", c: "#d93a3a", w: 10, pts, ...extra });
 
@@ -57,11 +57,43 @@ test("junk from the wire is dropped or bounded", () => {
   assert.deepEqual(apply([], "wat", {}), []);
 });
 
-test("the oldest strokes go when the board is full", () => {
+test("a board can hold as many strokes as people draw", () => {
   let l = [];
-  for (let i = 0; i < MAX_STROKES + 5; i++) l = apply(l, "seg", s("s" + i, [1, 1, 2, 2]));
-  assert.equal(l.length, MAX_STROKES);
-  assert.equal(l[0].id, "s5");
+  for (let i = 0; i < 3000; i++) l = apply(l, "seg", s("s" + i, [1, 1, 2, 2]));
+  assert.equal(l.length, 3000);
+  assert.equal(l[0].id, "s0");
+});
+
+test("the eraser only takes the part it touches", () => {
+  const line = s("l", [0, 100, 400, 100], { w: 4 });
+  const pieces = cutOut(line, 200, 100, 10);
+  assert.equal(pieces.length, 2);
+  assert.ok(pieces[0][pieces[0].length - 2] < 200 && pieces[0][pieces[0].length - 2] > 150);
+  assert.ok(pieces[1][0] > 200 && pieces[1][0] < 250);
+  assert.equal(cutOut(line, 200, 300, 10), null);
+  // rubbing the end leaves one piece, rubbing all of a dot leaves none
+  assert.equal(cutOut(line, 0, 100, 10).length, 1);
+  assert.deepEqual(cutOut(s("d", [50, 50]), 50, 50, 10), []);
+});
+
+test("a cut replaces only that stroke, with the pieces that are left", () => {
+  const l = [s("a", [0, 0, 100, 0]), s("b", [0, 50, 100, 50])];
+  const next = apply(l, "cut", { cuts: [{ id: "a", pieces: [[0, 0, 30, 0], [70, 0, 100, 0]] }] });
+  assert.deepEqual(next.map((x) => x.id), ["a~0", "a~1", "b"]);
+  assert.equal(next[0].c, "#d93a3a");
+  assert.equal(apply(next, "cut", { cuts: [{ id: "a", pieces: [] }] }), next); // already gone
+  assert.deepEqual(apply(l, "cut", { cuts: [{ id: "a", pieces: [] }] }).map((x) => x.id), ["b"]);
+});
+
+test("two cuts in one message, the second on a piece of the first, both land", () => {
+  const l = [s("a", [0, 0, 100, 0])];
+  const next = apply(l, "cut", { cuts: [{ id: "a", pieces: [[0, 0, 30, 0], [70, 0, 100, 0]] }, { id: "a~1", pieces: [[90, 0, 100, 0]] }] });
+  assert.deepEqual(next.map((x) => x.id), ["a~0", "a~1~0"]);
+});
+
+test("undo can name the whole drawing after it has been cut up", () => {
+  assert.equal(baseId("k3-abc"), "k3-abc");
+  assert.equal(baseId("k3-abc~1~0"), "k3-abc");
 });
 
 test("thinning keeps both ends and drops the tiny moves", () => {

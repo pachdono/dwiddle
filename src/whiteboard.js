@@ -7,7 +7,6 @@ export const W = 1600; // the board is a fixed 1600 by 1000 page, scaled to fit
 export const H = 1000;
 export const COLOURS = ["#16161a", "#d93a3a", "#e8863a", "#2f9e6b", "#2f6fe0", "#8a4fd8"];
 export const SIZES = [4, 10, 22];
-export const MAX_STROKES = 600; // the oldest go first, so a long session stays quick
 const MIN_STEP = 3; // points closer than this add nothing the eye can see
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -43,12 +42,12 @@ export function cleanStroke(s) {
   };
 }
 
-const trim = (list) => (list.length > MAX_STROKES ? list.slice(list.length - MAX_STROKES) : list);
-
 // One message in, the new list of strokes out. The list is never changed in
 // place, so a screen can hand it straight to its state.
 //   seg   more points on a stroke (the first one starts it)
-//   del   rub out these strokes, by id
+//   del   remove these strokes, by id (undo)
+//   cut   the eraser went through these strokes: each is replaced by the
+//         pieces that are left, so only the part rubbed out disappears
 //   clear wipe the board
 //   sync  a whole board for someone who has just arrived
 export function apply(strokes, kind, p) {
@@ -56,7 +55,7 @@ export function apply(strokes, kind, p) {
     const add = cleanStroke(p);
     if (!add) return strokes;
     const i = strokes.findIndex((s) => s.id === add.id);
-    if (i < 0) return trim([...strokes, add]);
+    if (i < 0) return [...strokes, add];
     const next = strokes.slice();
     next[i] = { ...next[i], pts: [...next[i].pts, ...add.pts].slice(0, 20000) };
     return next;
@@ -66,12 +65,29 @@ export function apply(strokes, kind, p) {
     const kept = strokes.filter((s) => !gone.has(s.id));
     return kept.length === strokes.length ? strokes : kept;
   }
+  if (kind === "cut") {
+    // in order, because a later cut can name a piece an earlier one made
+    let list = strokes;
+    for (const c of (Array.isArray(p?.cuts) ? p.cuts : []).slice(0, 500)) {
+      if (!c || typeof c.id !== "string" || !Array.isArray(c.pieces) || !list.some((s) => s.id === c.id)) continue;
+      const next = [];
+      for (const s of list) {
+        if (s.id !== c.id) { next.push(s); continue; }
+        c.pieces.slice(0, 200).forEach((pts, k) => {
+          const piece = cleanStroke({ ...s, id: s.id + "~" + k, pts });
+          if (piece) next.push(piece);
+        });
+      }
+      list = next;
+    }
+    return list;
+  }
   if (kind === "clear") return strokes.length ? [] : strokes;
   if (kind === "sync") {
     // Keep what we already drew, add what we are missing, in their order.
     const have = new Set(strokes.map((s) => s.id));
     const theirs = (Array.isArray(p?.strokes) ? p.strokes : []).map(cleanStroke).filter((s) => s && !have.has(s.id));
-    return theirs.length ? trim([...theirs, ...strokes]) : strokes;
+    return theirs.length ? [...theirs, ...strokes] : strokes;
   }
   return strokes;
 }
@@ -90,6 +106,36 @@ export function hits(stroke, x, y, reach = 16) {
     if (Math.hypot(ax + t * dx - x, ay + t * dy - y) <= r) return true;
   }
   return false;
+}
+
+// The drawing a stroke belongs to, so undo takes back a whole line even after
+// the eraser has cut it into pieces.
+export const baseId = (id) => String(id).split("~")[0];
+
+// Rub a round eraser at (x, y) through a stroke. Returns null if it missed,
+// otherwise the pieces left (each a flat list of points, possibly none).
+export function cutOut(stroke, x, y, reach = 16) {
+  const r = reach + stroke.w / 2;
+  const p = stroke.pts;
+  // fill in long gaps so the eraser cannot slip between two far apart points
+  const dense = [];
+  for (let i = 0; i < p.length; i += 2) {
+    if (i) {
+      const [ax, ay] = [p[i - 2], p[i - 1]];
+      const n = Math.floor(Math.hypot(p[i] - ax, p[i + 1] - ay) / 4);
+      for (let k = 1; k <= n; k++) dense.push(ax + ((p[i] - ax) * k) / (n + 1), ay + ((p[i + 1] - ay) * k) / (n + 1));
+    }
+    dense.push(p[i], p[i + 1]);
+  }
+  const pieces = [];
+  let run = [], touched = false;
+  const close = () => { if (run.length) pieces.push(run.length === 2 ? [run[0], run[1], run[0], run[1]] : run); run = []; };
+  for (let i = 0; i < dense.length; i += 2) {
+    if (Math.hypot(dense[i] - x, dense[i + 1] - y) <= r) { touched = true; close(); }
+    else run.push(Math.round(dense[i]), Math.round(dense[i + 1]));
+  }
+  close();
+  return touched ? pieces : null;
 }
 
 export const touching = (strokes, x, y, reach) => strokes.filter((s) => hits(s, x, y, reach)).map((s) => s.id);
