@@ -67,7 +67,7 @@ export async function enabledProviders() {
 }
 
 export const supabase = configured
-  ? createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true } })
+  ? createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true }, realtime: { params: { eventsPerSecond: 40 } } })
   : null;
 
 // The keys that follow you between devices. Leaving material, stats and the
