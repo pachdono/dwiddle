@@ -369,6 +369,11 @@ export async function moreQuestions(made, names, count, avoidMore = [], level = 
   return out;
 }
 
+// One batch of vocabulary words for a deck: a tier of difficulty and half of the
+// alphabet, so batches written at the same time never repeat each other.
+export const vocabWords = ({ tier, half, count, exam }) =>
+  post("/api/generate", { mode: "vocab", tier, half, count, exam }).then((d) => d.words || []);
+
 // A skill check: one topic, tested skill by skill. The writer works out the
 // skills in the topic and decides how many questions it takes to cover them all,
 // so nothing here says how many. Throws an error with something to show.

@@ -60,3 +60,15 @@ test("too little back is an error to show, not an empty quiz", async () => {
   const none = await run({ mode: "skillcheck", notes: NOTES, topics: [] });
   assert.equal(none.status, 400);
 });
+
+test("vocabulary batches keep only single words in the asked for half of the alphabet", async () => {
+  replies = [{ words: [{ word: "Ardent", meaning: "(adj) passionate" }, { word: "zealous", meaning: "(adj) eager" }, { word: "two words", meaning: "(n) no" }, { word: "benign", meaning: "(adj) harmless; gentle" },
+    ...Array.from({ length: 12 }, (_, i) => ({ word: "c" + "o".repeat(i + 2), meaning: "(n) a thing" }))] }];
+  const r = await run({ mode: "vocab", tier: 2, half: 1, count: 20, exam: "SSAT" });
+  assert.equal(r.status, 200);
+  assert.ok(r.body.words.every((w) => /^[a-l]/.test(w.word)));
+  assert.equal(r.body.words.some((w) => w.word === "zealous"), false);
+  assert.equal(r.body.words.find((w) => w.word === "benign").meaning, "(adj) harmless, gentle");
+  replies = [{ words: [{ word: "ardent", meaning: "(adj) keen" }] }];
+  assert.equal((await run({ mode: "vocab", tier: 1, half: 1 })).status, 502);
+});

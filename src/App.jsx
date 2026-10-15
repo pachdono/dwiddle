@@ -19,6 +19,7 @@ import Duel from "./Duel.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
 import { logAnswer, readLog, freshFirst } from "./studylog.js";
+import { skillMeta } from "./weakspots.js";
 import Progress from "./Progress.jsx";
 import { GuideHost, startGuide } from "./Guide.jsx";
 import { masteryOf } from "./insights.js";
@@ -26,7 +27,7 @@ import { reportXp } from "./social.js";
 import { startSocial, stopSocial, useSocial, onIncoming, peopleNow, activeNow } from "./socialState.js";
 import { StudyBanner, StudyTimerCard } from "./StudyTimer.jsx";
 import { flatMarks, parseMarks, blockTexts } from "./marks.js";
-import { usePracticeSession, useCheerSounds, PracticeSides, Cheer } from "./PracticeCheer.jsx";
+import { usePracticeSession, useCheerSounds, PracticeSides, Cheer, AnswerFlash } from "./PracticeCheer.jsx";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES, HL_KINDS } from "./mock.js";
 import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
@@ -396,8 +397,8 @@ export default function App() {
   }
 
   // A question joins the list when you get it wrong and leaves when you get it right.
-  function grade(id, correct, topicName, kind) {
-    logAnswer({ id, topic: topicName, ok: correct, kind: kind || "mc" });
+  function grade(id, correct, topicName, kind, meta) {
+    logAnswer({ id, topic: topicName, ok: correct, kind: kind || "mc", ...(meta || {}) });
     setSrs(recordReview(id, correct));
     setMissed((prev) => {
       const next = correct ? prev.filter((x) => x !== id) : prev.includes(id) ? prev : [...prev, id];
@@ -2770,7 +2771,7 @@ function Practice(props) {
   const [session, record] = usePracticeSession();
   useCheerSounds(session);
   const modeProps = early
-    ? { ...props, topic, grade: (id, ok, t, kind) => { props.grade(id, ok, t, kind); record(ok, { quiet: active.id === "mock" }); } }
+    ? { ...props, topic, grade: (id, ok, t, kind, meta) => { props.grade(id, ok, t, kind, meta); record(ok, { quiet: active.id === "mock" }); } }
     : { ...props, topic };
   useEffect(() => {
     if (!playing) return;
@@ -2893,6 +2894,7 @@ function Practice(props) {
               </div>
             </div>
             {early && <Cheer cheer={session.cheer} />}
+            {early && active.id !== "mock" && <AnswerFlash ok={session.last} seq={session.seq} />}
           </div>
         </Portal>
       )}
@@ -3066,7 +3068,7 @@ function QuizMode({ grade, pool, len, drillPool = [], ordered = false, early, ma
 
   function settle(ok) {
     if (ok) setScore((s) => s + 1);
-    grade(q.id, ok, q.topic, q.type || "mc");
+    grade(q.id, ok, q.topic, q.type || "mc", skillMeta(q));
   }
 
   function pick(n) {
@@ -3929,7 +3931,7 @@ function MockExam({ grade, pool }) {
   }
 
   function submit() {
-    paper.forEach((q, n) => grade(q.id, answers[n] === q.answer, q.topic));
+    paper.forEach((q, n) => grade(q.id, answers[n] === q.answer, q.topic, "mc", skillMeta(q)));
     setStage("marked");
   }
 
@@ -4086,7 +4088,7 @@ function MissedMode({ missed, setMissed, grade, setPMode, bank }) {
   function pick(n) {
     if (picked !== null) return;
     setPicked(n);
-    grade(q.id, n === q.answer, q.topic);
+    grade(q.id, n === q.answer, q.topic, "mc", skillMeta(q));
   }
 
   function next() {
@@ -4169,7 +4171,7 @@ function SpeedRound({ grade, pool }) {
 
   function answer(pick) {
     const ok = pick === q.answer;
-    grade(q.id, ok, q.topic);
+    grade(q.id, ok, q.topic, "mc", skillMeta(q));
     setFlash(ok ? "hit" : "miss");
     setTimeout(() => setFlash(null), 180);
     if (ok) {
@@ -4485,6 +4487,30 @@ function TestPrep({ grade }) {
   const [openId, setOpenId] = useState(null);
   const [paper, setPaper] = useState(null);
   const [building, setBuilding] = useState(null); // { sec, have, wanted }
+  const [askClear, setAskClear] = useState(false); // sure you want to forget what you have seen?
+
+  // A drill asked for from the report: ten questions on the one skill that keeps
+  // going wrong, written fresh if the saved ones run out.
+  useEffect(() => {
+    if (!ready) return;
+    let req = null;
+    try { req = JSON.parse(sessionStorage.getItem("dwiddle-drill") || "null"); sessionStorage.removeItem("dwiddle-drill"); } catch { /* storage blocked */ }
+    if (!req?.test) return;
+    const tst = H().TESTS.find((x) => x.id === req.test);
+    if (!tst) return;
+    const all = H().SECTIONS[tst.id] || [];
+    const sec = all.find((x) => x.name === req.section && !x.kind) || all.find((x) => !x.essay && !x.soon && !x.kind);
+    if (!sec) return;
+    (async () => {
+      setBuilding({ sec, have: 0, wanted: 10 });
+      const authored = tst.questions.filter((q) => q.section === sec.pool && q.skill === req.skill);
+      try {
+        const { qs } = await buildFresh({ test: tst, sec, authored, wanted: 10, passage: Boolean(sec.pool) && authored.some((q) => q.passage), audio: false, skills: [req.skill], onProgress: ({ have, wanted }) => setBuilding({ sec, have, wanted }) });
+        setBuilding(null);
+        if (qs.length) { setOpenId(tst.id); setPaper({ drill: true, sec, qs }); }
+      } catch { setBuilding(null); }
+    })();
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sitting a section assembles a paper you have not seen. Authored questions
   // come first, then anything written for you previously, then new ones.
@@ -4697,11 +4723,26 @@ function TestPrep({ grade }) {
                 history.
               </div>
             </div>
-            <button className="btn ghost" onClick={() => { clearSeen(); setOpenId(openId); }}>
+            <button className="btn ghost" onClick={() => setAskClear(true)}>
               Clear history
             </button>
           </div>
         </div>
+        {askClear && (
+          <Portal>
+            <div className="cf-scrim" onPointerDown={() => setAskClear(false)}>
+              <div className="cf card" role="alertdialog" aria-labelledby="cf-t" aria-describedby="cf-d" onPointerDown={(e) => e.stopPropagation()}>
+                <DuckMark size={46} />
+                <h3 id="cf-t">Clear your {test.name} history?</h3>
+                <p id="cf-d" className="small muted">Dwiddle will forget which {test.name} questions you have already been given, so papers can show you ones you have seen before. Your scores and progress are not touched.</p>
+                <div className="cf-row">
+                  <button className="btn ghost" autoFocus onClick={() => setAskClear(false)}>Keep it</button>
+                  <button className="btn danger" onClick={() => { clearSeen(); setAskClear(false); setOpenId(openId); }}>Yes, clear it</button>
+                </div>
+              </div>
+            </div>
+          </Portal>
+        )}
       </div>
     );
   }
@@ -4756,7 +4797,7 @@ function TestRun({ test, sec, qs, full, wrote = 0, grade, onExit, onDrill }) {
   }, [left, done]);
 
   function finish() {
-    qs.forEach((q, n) => grade(q.id, isRight(q, answers[n])));
+    qs.forEach((q, n) => grade(q.id, isRight(q, answers[n]), `${test.name}: ${q.section || sec.name}`, "mc", { skill: q.skill, section: q.section || sec.name, test: test.id }));
     setDone(true);
   }
 
@@ -5349,6 +5390,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
   const [locked, setLocked] = useState(false);
   const [right, setRight] = useState(0);
   const [done, setDone] = useState(false);
+  const [flash, setFlash] = useState({ ok: null, seq: 0 });
 
   const q = qs[i];
   // Enter checks the answer, then moves on, as the buttons do.
@@ -5378,7 +5420,8 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
     const ok = isRight(q, given);
     if (ok) setRight((v) => v + 1);
     setPicks((p) => ({ ...p, [i]: given }));
-    grade(q.id, ok);
+    grade(q.id, ok, `${test.name}: ${q.section || sec.name}`, "mc", { skill: q.skill, section: q.section || sec.name, test: test.id });
+    setFlash((f) => ({ ok, seq: f.seq + 1 }));
     setLocked(true);
   }
 
@@ -5417,6 +5460,7 @@ function TestDrill({ test, sec, qs, grade, onExit }) {
 
   return (
     <div className="page fade">
+      <AnswerFlash ok={flash.ok} seq={flash.seq} />
       <div className="page-head">
         <button className="btn quiet" style={{ marginBottom: 8 }} onClick={onExit}>Leave the drill</button>
         <div className="spread">

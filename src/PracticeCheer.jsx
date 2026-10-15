@@ -139,3 +139,29 @@ export function Cheer({ cheer }) {
     </div>
   );
 }
+
+// A flash on every answer, so a quick right or wrong cannot be missed: a wash
+// of green with a tick drawing itself, or of red with a cross. It is over in
+// well under a second, never takes a click, and is said aloud to screen readers.
+export function AnswerFlash({ ok, seq }) {
+  const [shown, setShown] = useState(null);
+  useEffect(() => {
+    if (ok === null || ok === undefined || !seq) return;
+    setShown({ ok, seq });
+    const t = setTimeout(() => setShown(null), 750);
+    return () => clearTimeout(t);
+  }, [seq]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!shown) return null;
+  return (
+    <div className={"af " + (shown.ok ? "right" : "wrong")} key={shown.seq}>
+      <i className="af-wash" aria-hidden="true" />
+      <svg className="af-badge" viewBox="0 0 80 80" aria-hidden="true">
+        <circle cx="40" cy="40" r="34" className="af-disc" />
+        {shown.ok
+          ? <path d="M24 41 L35 52 L57 28" className="af-mark" />
+          : <path d="M27 27 L53 53 M53 27 L27 53" className="af-mark" />}
+      </svg>
+      <span className="af-say" role="status">{shown.ok ? "Correct" : "Not quite"}</span>
+    </div>
+  );
+}

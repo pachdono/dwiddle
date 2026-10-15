@@ -172,6 +172,19 @@ Rules:
 - "why" must teach something, not restate the answer. Two sentences, no more.
 ${STYLE}`;
 
+const VOCAB = `You write vocabulary flashcards for a student preparing for a standardised test.
+
+Return ONE JSON object and nothing else:
+{ "words": [ { "word": "a single word, lower case", "meaning": "(part of speech) a short plain meaning" } ] }
+
+Rules:
+- Write exactly the number of words asked for, all different, each a single word (no phrases, no proper nouns, no abbreviations).
+- Only words whose first letter is in the range asked for.
+- The meaning is short and plain, in words easier than the word itself, and starts with the part of speech in brackets, like "(adj) lasting a very short time" or "(verb) to make something less severe".
+- Choose words real tests use: words that appear in reading passages, synonym questions and sentence completions, with more than one useful meaning where there is one.
+- Spread the words across different subjects and parts of speech instead of listing similar words together.
+- Never use semicolons in a meaning. Write in British English. Do not use em dashes or en dashes.`;
+
 const SKILLCHECK = `You build a skill check: a short test that finds out, skill by skill, how well a student knows ONE topic, using their notes.
 
 ${MATHS}
@@ -645,6 +658,29 @@ async function part(req, res, mode, notes) {
     return res.status(200).json({ questions: finalQs });
   }
 
+  if (mode === "vocab") {
+    const tier = Math.max(1, Math.min(4, Number(req.body?.tier) || 1));
+    const half = Number(req.body?.half) === 2 ? 2 : 1;
+    const count = Math.max(10, Math.min(110, Number(req.body?.count) || 90));
+    const exam = String(req.body?.exam || "a standardised test").replace(/[^\w .&-]/g, "").slice(0, 40);
+    const level = ["common words students meet constantly in reading passages", "core words that standardised tests rely on", "harder words that separate a good score from a great one", "advanced and rare words, for the top of the range"][tier - 1];
+    const range = half === 1 ? "A to L" : "M to Z";
+    const text = await ask({
+      system: VOCAB,
+      user: `Write exactly ${count} words for ${exam}.\nDifficulty: ${level}.\nOnly words that begin with the letters ${range}.`,
+      maxTokens: 4200,
+      json: true,
+      temperature: 0.7,
+    });
+    const data = safeParse(text, "vocab");
+    const inRange = half === 1 ? /^[a-l]/ : /^[m-z]/;
+    const seen = new Set();
+    const words = (Array.isArray(data?.words) ? data.words : []).map((w) => ({ word: String(w?.word || "").trim().toLowerCase(), meaning: String(w?.meaning || "").trim().replace(/\s*[–—]\s*/g, ", ").replace(/\s*;\s*/g, ", ") }))
+      .filter((w) => /^[a-z][a-z'-]{1,23}$/.test(w.word) && inRange.test(w.word) && w.meaning.length >= 3 && w.meaning.length <= 160 && !seen.has(w.word) && seen.add(w.word));
+    if (words.length < 10) return userError(res, 502, "The word list did not come back complete. Try again.");
+    return res.status(200).json({ words: words.slice(0, count) });
+  }
+
   if (mode === "skillcheck") {
     const topic = String(req.body?.topics?.[0]?.name || req.body?.topic || "").slice(0, 160);
     if (!topic) return userError(res, 400, "Which topic should the skill check cover?");
@@ -752,7 +788,7 @@ export default async function handler(req, res) {
   const notes = String(req.body?.notes || "").trim();
   const mode = req.body?.mode;
 
-  if (mode === "syllabus") {
+  if (mode === "syllabus" || mode === "vocab") {
     try { return await part(req, res, mode, ""); } catch (err) { return fail(res, err); }
   }
 

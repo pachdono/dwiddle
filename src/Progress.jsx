@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PageHead } from "./ui.jsx";
+import { PageHead, BusyScreen } from "./ui.jsx";
 import { load, save } from "./store.js";
 import { readLog } from "./studylog.js";
 import { summarise, advice, bestWindow, topicMastery, predictGrade, STATUS_LABEL, planWeek, suggestPrefs, GOALS, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
@@ -8,6 +8,9 @@ import { gcalAvailable, connected, connect, disconnect, busyTimes, syncPlan } fr
 import { isDesktop } from "./desktop.js";
 import { getFeed, pushSessions, replaceFeed, feedLinks } from "./calfeed.js";
 import SkillCheck from "./SkillCheck.jsx";
+import { findWeakSpots, termCards } from "./weakspots.js";
+import { BATCHES, cleanWords, buildDecks, addDecks } from "./vocabdecks.js";
+import { parseCards } from "./Decks.jsx";
 import { CHECKS_KEY } from "./skillcheck.js";
 
 // The report and the planner, one page with two tabs. Everything here is worked
@@ -149,7 +152,90 @@ function SkillCheckCard({ topics, onStart }) {
   );
 }
 
-function Report({ stats, go, setTopic, log, summary, topicNames = [], onCheck }) {
+// Patterns in how you answer, and something to do about each. A skill that
+// keeps going wrong shows up here even when no single topic looks bad: weak
+// vocabulary gets a 700 word set of decks, a weak reading skill gets a drill.
+function WeakSpotsCard({ log, made, go }) {
+  const spots = useMemo(() => findWeakSpots(log), [log]);
+  const [building, setBuilding] = useState(null); // { title, detail, p }
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+
+  async function buildVocab(exam) {
+    setErr(""); setNote("");
+    setBuilding({ title: "Writing your vocabulary set", detail: "About 700 words, in four decks that get harder", p: 0 });
+    try {
+      const { vocabWords } = await import("./ai.js");
+      let done = 0;
+      // four at a time, so the free models are not asked for eight lists at once
+      const lane = async (list, one) => { const out = []; let i = 0; await Promise.all(Array.from({ length: 4 }, async () => { while (i < list.length) { const n = i++; out[n] = await one(list[n]); } })); return out; };
+      const results = await lane(BATCHES, async (b) => {
+        // a batch that fails is tried once more
+        for (let tries = 0; tries < 2; tries++) {
+          try {
+            const words = cleanWords(await vocabWords({ tier: b.tier, half: b.half, count: b.count, exam }), b.half);
+            if (words.length) { setBuilding((s) => s && { ...s, p: ++done / BATCHES.length }); return { tier: b.tier, half: b.half, words }; }
+          } catch { /* try again, then give up on this batch */ }
+        }
+        setBuilding((s) => s && { ...s, p: ++done / BATCHES.length });
+        return { tier: b.tier, half: b.half, words: [] };
+      });
+      const decks = buildDecks(results);
+      if (!decks.length) throw new Error("The words did not come back. Try again in a moment.");
+      const made = addDecks(decks, (text) => parseCards(text));
+      const n = made.reduce((s, d) => s + d.cards.length, 0);
+      setNote(`${made.length} deck${made.length === 1 ? "" : "s"} added to My decks, ${n} words in all.`);
+    } catch (e) { setErr(e?.message || "Could not write the decks."); }
+    setBuilding(null);
+  }
+  function termsDeck() {
+    const cards = termCards(made);
+    if (cards.length < 4) { setErr("There are not enough key term questions in this material to make a deck."); return; }
+    setErr("");
+    const chunks = Math.ceil(cards.length / 100);
+    const size = Math.ceil(cards.length / chunks);
+    const decks = Array.from({ length: chunks }, (_, i) => ({ name: `${made?.title || "Key terms"}: key terms${chunks > 1 ? ` ${i + 1}` : ""}`, color: "theme", cards: cards.slice(i * size, (i + 1) * size) }));
+    const got = addDecks(decks, (text) => parseCards(text));
+    setNote(`${got.length} deck${got.length === 1 ? "" : "s"} added to My decks, ${cards.length} key terms.`);
+  }
+  function drill(s) {
+    try { sessionStorage.setItem("dwiddle-drill", JSON.stringify({ test: s.test, section: s.section, skill: s.skill })); } catch { /* storage blocked */ }
+    go("tests");
+  }
+
+  const why = (s) => `${s.right} of ${s.total} right (${s.pct}%)${s.overall != null ? `, against ${s.overall}% overall` : ""}`;
+  return (
+    <div className="card card-pad ws-card">
+      <div className="spread"><h3 style={{ margin: 0 }}>Patterns and what to do</h3><span className="small muted">From your last 90 days</span></div>
+      {spots.length === 0 ? (
+        <p className="small muted">No weak pattern yet. Once you have answered about six questions of one kind, like vocabulary, inference or main idea, and found it harder than the rest, Dwiddle shows it here and builds something to fix it.</p>
+      ) : (
+        <div className="ws-list">
+          {spots.map((s) => (
+            <div key={[s.test, s.section, s.skill].join("|")} className="ws-row">
+              <div className="ws-main">
+                <b>{s.skill}</b>
+                <span className="small muted">{[s.test && s.test.toUpperCase(), s.section].filter(Boolean).join(" ")}{s.test || s.section ? " · " : ""}{why(s)}</span>
+                <span className="rp-track"><i className="low" style={{ width: `${s.pct}%` }} /></span>
+              </div>
+              <div className="ws-act">
+                {s.type === "vocab" && <button className="btn cta small" disabled={!!building} onClick={() => buildVocab(s.test ? s.test.toUpperCase() : "")}>Build a 700 word set</button>}
+                {s.type === "terms" && <button className="btn cta small" onClick={termsDeck}>Make a key terms deck</button>}
+                {s.type !== "vocab" && s.type !== "terms" && s.test && <button className="btn cta small" onClick={() => drill(s)}>Drill {s.skill}</button>}
+                {s.type === "vocab" && s.test && <button className="btn quiet small" onClick={() => drill(s)}>Or drill it</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {note && <p className="small ws-note">{note} <button className="btn quiet small" onClick={() => go("decks")}>Open My decks</button></p>}
+      {err && <p className="small" style={{ color: "#d93a3a" }}>{err}</p>}
+      {building && <BusyScreen title={building.title} detail={building.detail} progress={building.p} />}
+    </div>
+  );
+}
+
+function Report({ stats, go, setTopic, log, summary, topicNames = [], onCheck, made }) {
   const lv = levelOf(stats?.xp || 0);
   const rows = useMemo(() => topicMastery(log), [log]);
   const fallback = !rows.length && stats?.byTopic ? Object.entries(stats.byTopic).filter(([, v]) => v.total).map(([name, v]) => { const a = Math.round((v.right / v.total) * 100); return { name, total: v.total, skill: a, memory: a, days: 0, last: 0, trend: null, status: v.total < 4 ? "early" : a >= 80 ? "strong" : a >= 60 ? "solid" : "weak" }; }).sort((a, b) => a.memory - b.memory) : [];
@@ -184,6 +270,8 @@ function Report({ stats, go, setTopic, log, summary, topicNames = [], onCheck })
       {predicted && <p className="small muted rp-foot" style={{ margin: "-6px 4px 0" }}>The grade is a rough guide worked out from your practice answers, weighted towards recent ones, and it drops for topics you have not practised in a while. Real papers differ, so treat it as a direction, not a promise.</p>}
 
       <SkillCheckCard topics={topicNames} onStart={onCheck} />
+
+      <WeakSpotsCard log={log} made={made} go={go} />
 
       <div className="card card-pad">
         <div className="spread"><h3 style={{ margin: 0 }}>Skill and memory by topic</h3><span className="small muted">Weakest first</span></div>
@@ -667,7 +755,7 @@ export default function Progress({ stats, go, setTopic, page, auth, topics = [],
           <button role="tab" className={tab === "planner" ? "on" : ""} onClick={() => go("planner")}>Planner</button>
         </div>
       )}
-      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} topicNames={topicNames} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} topicNames={topicNames} onCheck={setChecking} />}
+      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} topicNames={topicNames} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} topicNames={topicNames} onCheck={setChecking} made={made} />}
       {checking && <SkillCheck topic={checking} made={made} grade={grade} onClose={() => setChecking(null)} onPractise={(name) => { setChecking(null); setTopic?.(name); go("quiz"); }} />}
     </div>
   );

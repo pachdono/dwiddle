@@ -12,9 +12,11 @@ export const readLog = () => {
   return Array.isArray(l) ? l : [];
 };
 
-export function logAnswer({ id, topic, ok, kind = "mc", t = Date.now() }) {
+// skill, section and test say what a question tested, so the report can spot a
+// pattern across topics (for instance, inference questions in a reading section).
+export function logAnswer({ id, topic, ok, kind = "mc", t = Date.now(), skill, section, test }) {
   const log = readLog();
-  log.push({ t, id: String(id), topic: topic || "", ok: !!ok, kind });
+  log.push({ t, id: String(id), topic: topic || "", ok: !!ok, kind, ...(skill ? { skill: String(skill).slice(0, 60) } : {}), ...(section ? { section: String(section).slice(0, 60) } : {}), ...(test ? { test: String(test).slice(0, 30) } : {}) });
   save(LOG_KEY, log.length > MAX ? log.slice(-MAX) : log);
   try { dispatchEvent(new Event("dwiddle:log")); } catch { /* not in a browser */ }
 }
