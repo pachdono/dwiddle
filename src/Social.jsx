@@ -220,7 +220,7 @@ const onlyEmoji = (t) => /^(\p{Extended_Pictographic}|\u200d|\ufe0f|\s){1,8}$/u.
 const FILE_MAX = 700 * 1024;
 const sizeText = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
 const readAsData = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onerror = () => rej(new Error("That file could not be read.")); r.onload = () => res(r.result); r.readAsDataURL(file); });
-const previewOf = (m) => (m.kind === "image" ? "Photo" : m.kind === "file" ? (m.attach?.name || "File") : m.kind === "share" ? (m.attach?.title || "Shared") : String(m.body || "").slice(0, 90));
+const previewOf = (m) => (m.kind === "image" ? "Photo" : m.kind === "file" ? (m.attach?.name || "File") : m.kind === "share" ? (m.attach?.title || "Shared") : m.kind === "live" ? (m.attach?.title || "Notebook") : String(m.body || "").slice(0, 90));
 
 // A photo or file is fetched when it comes into view, not with the message list.
 function useMessageData(m) {
@@ -247,6 +247,15 @@ function Attachment({ m }) {
         <span className="cm-file-ico"><Icon name="file" size={20} /></span>
         <span className="cm-file-t"><b>{m.attach?.name || "File"}</b><span className="small">{m.attach?.size ? sizeText(m.attach.size) : ""}{data ? " · Download" : " · Loading"}</span></span>
       </a>
+    );
+  }
+  if (m.kind === "live") {
+    return (
+      <div className="cm-share">
+        <span className="xp-kind notebook">Collaborate</span>
+        <b>{m.attach?.title}</b>
+        <button className="btn small" onClick={() => { location.assign(`${location.origin}/notebook?live=${encodeURIComponent(m.attach?.code || "")}`); }}>Join now</button>
+      </div>
     );
   }
   if (m.kind === "share") {

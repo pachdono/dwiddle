@@ -30,6 +30,7 @@ import { StickerPicker } from "./NotebookStickers.jsx";
 import { useLiveNotebook } from "./useLiveNotebook.js";
 import { useMyProfile } from "./Profile.jsx";
 import { newCode, cleanCode } from "./duel.js";
+import { myFriends, sendMessage } from "./social.js";
 import { GraphView, GraphHelper, graphItems } from "./NotebookGraph.jsx";
 
 /* ---------- paper ---------- */
@@ -950,7 +951,7 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
     <div className="page wide fade nb-home" onClick={() => setMenu(null)}>
       {beta && joining && (
         <div className="card card-pad nb-joinbox">
-          <b>Join a live notebook</b>
+          <b>Join a friend's notebook</b>
           <div className="row" style={{ gap: 8 }}>
             <input className="dl-code-in" value={joinCode} maxLength={5} placeholder="ABC12" autoFocus onChange={(e) => setJoinCode(cleanCode(e.target.value))} onKeyDown={(e) => e.key === "Enter" && joinLive(joinCode)} />
             <button className="btn cta" onClick={() => joinLive(joinCode)}>Join</button>
@@ -965,7 +966,7 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
             <input type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importPdf(f); }} />
             <Icon name="file" size={15} /> Import a PDF
           </label>
-          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Join live</button>}
+          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Collaborate</button>}
           <button className="btn cta" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> New notebook</button>
         </div>
       </div>
@@ -2612,6 +2613,44 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
+// Send the invite straight to a friend in Friends messages, so they can join
+// from there without typing a code.
+function InviteFriends({ auth, code, title }) {
+  const [friends, setFriends] = useState(null);
+  const [done, setDone] = useState({}); // user id -> "sent" | error text
+  useEffect(() => {
+    if (!auth?.user) { setFriends([]); return; }
+    myFriends().then((r) => setFriends(r.ok ? (r.data || []).filter((f) => f.status === "accepted") : []));
+  }, [auth?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function invite(f) {
+    setDone((d) => ({ ...d, [f.user_id]: "sending" }));
+    const name = String(title || "a notebook").slice(0, 80);
+    let r = await sendMessage(f.user_id, `Collaborate on my notebook: ${name}`, { kind: "live", attach: { code, title: name } });
+    // before the messages table knows this kind, say it in plain words instead
+    if (!r.ok && /check|constraint|not switched on/i.test(r.error || "")) r = await sendMessage(f.user_id, `Collaborate on my notebook "${name}": open Notebooks, tap Collaborate, and enter ${code}`.slice(0, 300));
+    setDone((d) => ({ ...d, [f.user_id]: r.ok ? "sent" : r.error || "Could not send." }));
+  }
+  if (!auth?.user) return <p className="small muted">Sign in to send this to a friend. You can still share the code below.</p>;
+  if (friends === null) return <p className="small muted">Loading your friends...</p>;
+  if (!friends.length) return <p className="small muted">Add a friend in Friends to send them this directly. You can still share the code below.</p>;
+  return (
+    <div className="nb-invite">
+      <b className="small">Invite a friend</b>
+      <div className="nb-invite-list">
+        {friends.map((f) => (
+          <div key={f.user_id} className="nb-invite-row">
+            <span className="nb-invite-name">{f.name}{f.handle ? <span className="small muted"> @{f.handle}</span> : null}</span>
+            <button className="btn small" disabled={done[f.user_id] === "sending" || done[f.user_id] === "sent"} onClick={() => invite(f)}>
+              {done[f.user_id] === "sent" ? "Sent" : done[f.user_id] === "sending" ? "Sending..." : "Send"}
+            </button>
+            {done[f.user_id] && !["sent", "sending"].includes(done[f.user_id]) && <span className="small nb-invite-err">{done[f.user_id]}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Editor({ id, go, onClose, early = false, access, beta = false, auth }) {
   const canUseNewNotebookTools = early || !access?.banned && (access?.tester === true || ["admin", "moderator"].includes(access?.role));
   const [book, setBook] = useState(null);
@@ -4039,11 +4078,6 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
           <button role="tab" aria-selected="false" onClick={() => go?.("quiz")}>Practice</button>
         </div>
         <div className="nb-spacer" />
-        {beta && (
-          <button className={"nb-pill nb-live" + (liveNb.status === "live" ? " on" : "")} onClick={() => setLivePop((v) => !v)} aria-expanded={livePop} title="Work on this notebook with someone, live">
-            {liveNb.status === "live" ? `Live · ${Math.max(1, liveNb.people.length)}` : "Live"}
-          </button>
-        )}
         <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
           {current + 1} / {book.pages.length}
         </button>
@@ -4054,6 +4088,11 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
           <FullscreenButton />
         </div>
         <div className="nb-group nb-asks">
+          {beta && (
+            <button className={"btn small ghost nb-ask nb-collab" + (liveNb.status === "live" ? " on" : "")} onClick={() => setLivePop((v) => !v)} aria-expanded={livePop} title="Write in this notebook together with a friend, live">
+              <Icon name="chat" size={14} /> <span className="nb-lbl">{liveNb.status === "live" ? `Collaborate · ${Math.max(1, liveNb.people.length)}` : "Collaborate"}</span>
+            </button>
+          )}
           {early && <button className="btn small ghost nb-ask nb-checkbtn" onClick={() => checkWork()} disabled={!!busy} title="Dwiddle checks this page for mistakes"><Icon name="check" size={14} /> <span className="nb-lbl">Check</span></button>}
           {early && <button className={"btn small ghost nb-ask nb-autobtn" + (autoMins ? " on" : "") + (autoChecking ? " checking" : "")}
             onClick={() => setAutoMins(AUTO_STEPS[(AUTO_STEPS.indexOf(autoMins) + 1) % AUTO_STEPS.length])}
@@ -4354,15 +4393,16 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
       {beta && livePop && (
         <>
           <div className="nb-pop-scrim" onPointerDown={() => setLivePop(false)} />
-          <div className="nb-pop nb-livepop" role="dialog" aria-label="Live notebook">
-            <div className="nb-pop-head"><b>Work on it together</b><button className="icon-btn" onClick={() => setLivePop(false)} aria-label="Close"><Icon name="close" size={15} /></button></div>
+          <div className="nb-pop nb-livepop" role="dialog" aria-label="Collaborate">
+            <div className="nb-pop-head"><b>Collaborate</b><button className="icon-btn" onClick={() => setLivePop(false)} aria-label="Close"><Icon name="close" size={15} /></button></div>
             {!liveRoom ? (
               <>
-                <p className="small muted">Start a live session and send the code. Anyone who joins gets their own copy that updates as you both write, draw and add things.</p>
-                <button className="btn cta" onClick={() => setLiveRoom({ code: newCode(), host: true })}>Start a live session</button>
+                <p className="small muted">Write, draw and add things in this notebook together with a friend, at the same time. They get their own copy that stays in sync while you are both in it.</p>
+                <button className="btn cta" onClick={() => setLiveRoom({ code: newCode(), host: true })}>Start collaborating</button>
               </>
             ) : (
               <>
+                {liveRoom.host && <InviteFriends auth={auth} code={liveRoom.code} title={book.title} />}
                 <div className="nb-livecode">{liveRoom.code}</div>
                 <div className="row" style={{ justifyContent: "center", gap: 8 }}>
                   <button className="btn quiet small" onClick={() => navigator.clipboard?.writeText(liveRoom.code)}>Copy code</button>
@@ -4374,7 +4414,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
                 </div>
                 {liveNb.error && <div className="dl-err">{liveNb.error}</div>}
                 <p className="small muted">{liveRoom.host ? "Everyone who joins keeps their own copy afterwards. Undo only takes back your own changes, never what someone else did." : "This is your own copy. It stays in your notebooks when you leave."}</p>
-                <button className="btn ghost" onClick={() => { setLiveRoom(null); setLivePop(false); }}>{liveRoom.host ? "Stop sharing" : "Leave"}</button>
+                <button className="btn ghost" onClick={() => { setLiveRoom(null); setLivePop(false); }}>{liveRoom.host ? "Stop collaborating" : "Leave"}</button>
               </>
             )}
           </div>

@@ -9665,8 +9665,15 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 
 
 /* ---------- Live notebook ---------- */
-.nb-live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .nb-livecode { font-size: 40px; font-weight: 900; letter-spacing: .25em; text-align: center; padding-left: .25em; }
 .nb-livewho { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 24px; }
 .nb-joinbox { display: grid; gap: 8px; max-width: 380px; margin-bottom: 12px; }
 .nb-joinbox .dl-code-in { width: 150px; }
+.nb-asks { gap: 8px; }
+.nb-collab.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.nb-invite { display: grid; gap: 6px; }
+.nb-invite-list { display: grid; gap: 4px; max-height: 160px; overflow: auto; }
+.nb-invite-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; }
+.nb-invite-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.nb-invite-err { color: #d93a3a; flex-basis: 100%; }
+@media (max-width: 1320px) { .nb-asks .nb-ask:not(.nb-collab) .nb-lbl { display: none; } .nb-asks .nb-ask:not(.nb-collab) { padding: 6px 9px; } }

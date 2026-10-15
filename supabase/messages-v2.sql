@@ -9,7 +9,7 @@ alter table public.messages add column if not exists reply_to bigint;
 alter table public.messages add column if not exists reply_preview jsonb;   -- { from, text } as it was when replied to, so it survives a delete
 
 alter table public.messages drop constraint if exists messages_kind_check;
-alter table public.messages add constraint messages_kind_check check (kind in ('text', 'image', 'file', 'share'));
+alter table public.messages add constraint messages_kind_check check (kind in ('text', 'image', 'file', 'share', 'live'));
 
 alter table public.messages drop constraint if exists messages_body_check;
 alter table public.messages add constraint messages_body_check
