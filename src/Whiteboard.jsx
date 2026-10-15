@@ -3,7 +3,8 @@ import { supabase } from "./supabase.js";
 import { Icon, PageHead } from "./ui.jsx";
 import { useMyProfile } from "./Profile.jsx";
 import { newCode, cleanCode } from "./duel.js";
-import { W, H, COLOURS, SIZES, apply, thin, cutOut, baseId, newStrokeId, personColour } from "./whiteboard.js";
+import WhiteboardChat from "./WhiteboardChat.jsx";
+import { W, H, COLOURS, SIZES, apply, applyChat, chatBatches, thin, cutOut, baseId, newStrokeId, personColour } from "./whiteboard.js";
 
 // A whiteboard two or more people draw on at once. Like Duel, nothing is
 // stored: the screens talk over a realtime channel named after the room code,
@@ -53,6 +54,12 @@ export default function Whiteboard({ auth }) {
   const [size, setSize] = useState(SIZES[1]);
   const [count, setCount] = useState(0); // strokes on the board, for the buttons
   const [sure, setSure] = useState(false);
+  const [chat, setChat] = useState([]);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [unread, setUnread] = useState(0);
+  const chatRef = useRef([]);
+  const chatOpenRef = useRef(true);
+  chatOpenRef.current = chatOpen;
 
   const canvas = useRef(null);
   const chan = useRef(null);
@@ -72,6 +79,23 @@ export default function Whiteboard({ auth }) {
     if (!remote) send(kind, p);
   }
 
+  // chat, kept like the strokes: one list, changed only by these messages
+  function talk(kind, p, remote) {
+    const next = applyChat(chatRef.current, kind, p);
+    if (next === chatRef.current) return;
+    if (remote && kind === "msg" && !chatOpenRef.current) setUnread((n) => n + 1);
+    chatRef.current = next; setChat(next);
+  }
+  function say(m) {
+    const full = { id: newStrokeId(myId), by: myId, name: myName, at: Date.now(), ...m };
+    talk("msg", full, false);
+    send("chat", full);
+  }
+  function unsay(m) {
+    talk("del", { id: m.id, by: m.by }, false);
+    send("chatdel", { id: m.id, by: m.by });
+  }
+
   useEffect(() => () => { chan.current && supabase?.removeChannel(chan.current); }, []);
 
   function open(room) {
@@ -79,6 +103,7 @@ export default function Whiteboard({ auth }) {
     setErr("");
     chan.current && supabase.removeChannel(chan.current);
     strokes.current = []; setCount(0); cursors.current.clear(); dirty.current = true;
+    chatRef.current = []; setChat([]); setUnread(0);
     const ch = supabase.channel("board:" + room, { config: { broadcast: { self: false }, presence: { key: myId } } });
     ch.on("presence", { event: "sync" }, () => setHere(Object.values(ch.presenceState()).flat().map((p) => ({ id: p.id, name: p.name }))))
       .on("broadcast", { event: "seg" }, ({ payload }) => change("seg", payload, true))
@@ -95,7 +120,11 @@ export default function Whiteboard({ auth }) {
           batch.push(s); points += s.pts.length;
         }
         flush();
+        for (const msgs of chatBatches(chatRef.current)) ch.send({ type: "broadcast", event: "chatsync", payload: { msgs } });
       })
+      .on("broadcast", { event: "chat" }, ({ payload }) => talk("msg", payload, true))
+      .on("broadcast", { event: "chatdel" }, ({ payload }) => talk("del", payload, true))
+      .on("broadcast", { event: "chatsync" }, ({ payload }) => talk("sync", payload, true))
       .on("broadcast", { event: "cur" }, ({ payload }) => {
         if (!payload || typeof payload.id !== "string") return;
         cursors.current.set(payload.id, { x: +payload.x || 0, y: +payload.y || 0, name: String(payload.name || "").slice(0, 20), at: Date.now() });
@@ -303,6 +332,7 @@ export default function Whiteboard({ auth }) {
           <button className="btn quiet small" onClick={undo} disabled={!strokes.current.some((s) => s.by === myId)}>Undo</button>
           <button className={"btn quiet small" + (sure ? " warn" : "")} onClick={wipe} disabled={!count}>{sure ? "Sure?" : "Clear"}</button>
           <button className="btn quiet small" onClick={save}>Save image</button>
+          <button className={"btn quiet small" + (chatOpen ? " on" : "")} onClick={() => { setChatOpen((v) => !v); setUnread(0); }}>Chat{unread > 0 && !chatOpen ? ` (${unread})` : ""}</button>
         </div>
         <div className="wb-group wb-end">
           <button className="wb-code" title="Copy the code" onClick={() => navigator.clipboard?.writeText(code)}>{code}</button>
@@ -314,11 +344,14 @@ export default function Whiteboard({ auth }) {
         {others.map((p) => <span key={p.id} className="pill" style={{ borderColor: personColour(p.id) }}>{p.name}</span>)}
         {!others.length && <span>Waiting for someone to join with the code {code}.</span>}
       </div>
+      <div className={"wb-main" + (chatOpen ? " with-chat" : "")}>
       <canvas
         ref={canvas} className={"wb-canvas" + (tool === "eraser" ? " erase" : "")} width={W} height={H}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={(e) => e.buttons === 0 && up()}
         aria-label="Shared whiteboard"
       />
+      {chatOpen && <WhiteboardChat me={myId} name={myName} msgs={chat} onSend={say} onDelete={unsay} />}
+      </div>
     </div>
   );
 }

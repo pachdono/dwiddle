@@ -147,3 +147,60 @@ export function personColour(id) {
   for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return HUES[h % HUES.length];
 }
+
+/* ---------- the chat beside the board ---------- */
+
+// Messages ride the same room channel as the strokes and are kept the same way:
+// nothing is stored, and someone arriving late is sent what was said. A photo or
+// file travels inside its message, so both are kept small.
+export const CHAT_TEXT = 1000;
+export const CHAT_DATA = 200000; // characters of data URL, about 150 KB of file
+export const CHAT_FILE_BYTES = 140 * 1024;
+const short = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+
+export function cleanChat(m) {
+  if (!m || typeof m.id !== "string" || typeof m.by !== "string") return null;
+  const kind = m.kind === "image" || m.kind === "file" ? m.kind : "text";
+  const out = { id: short(m.id, 40), by: short(m.by, 40), name: short(m.name, 30) || "Guest", at: Number.isFinite(m.at) ? m.at : 0, kind, body: short(m.body, CHAT_TEXT) };
+  if (m.reply && typeof m.reply === "object") out.reply = { from: short(m.reply.from, 30), text: short(m.reply.text, 120) };
+  if (kind !== "text") {
+    const data = typeof m.data === "string" && m.data.length <= CHAT_DATA ? m.data : ""; // never a cut off file
+    if (!/^data:[\w.+-]+\/[\w.+-]+(;[\w=.+-]+)*;base64,/.test(data) || (kind === "image" && !data.startsWith("data:image/"))) return null;
+    out.data = data;
+    out.attach = { name: short(m.attach?.name, 120) || (kind === "image" ? "photo" : "file"), size: Number(m.attach?.size) || 0 };
+  } else if (!out.body.trim()) return null;
+  return out;
+}
+
+// msg: someone said something. del: the person who said it took it back.
+// sync: the history, for someone who has just arrived.
+export function applyChat(list, kind, p) {
+  if (kind === "msg") {
+    const m = cleanChat(p);
+    return m && !list.some((x) => x.id === m.id) ? [...list, m] : list;
+  }
+  if (kind === "del") {
+    // only the author can take a message back
+    const next = list.filter((x) => !(x.id === p?.id && x.by === p?.by));
+    return next.length === list.length ? list : next;
+  }
+  if (kind === "sync") {
+    const have = new Set(list.map((x) => x.id));
+    const theirs = (Array.isArray(p?.msgs) ? p.msgs : []).map(cleanChat).filter((m) => m && !have.has(m.id));
+    return theirs.length ? [...list, ...theirs].sort((a, b) => a.at - b.at) : list;
+  }
+  return list;
+}
+
+// The history in pieces small enough to send, newest kept if it must be cut.
+export function chatBatches(list, limit = 220000) {
+  const out = [];
+  let cur = [], size = 0;
+  for (const m of list) {
+    const n = JSON.stringify(m).length;
+    if (cur.length && size + n > limit) { out.push(cur); cur = []; size = 0; }
+    cur.push(m); size += n;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}

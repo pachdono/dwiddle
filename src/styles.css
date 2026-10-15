@@ -9680,3 +9680,11 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .wb-canvas { display: block; width: 100%; aspect-ratio: 16 / 10; background: #fff; border-radius: 14px; border: 1px solid var(--line); touch-action: none; cursor: crosshair; }
 .wb-canvas.erase { cursor: cell; }
 @media (max-width: 640px) { .wb-end { margin-left: 0; } .wb-btn { width: 42px; height: 42px; } }
+.wb { max-width: 1400px; }
+.wb-main { display: grid; gap: 12px; align-items: start; }
+.wb-main.with-chat { grid-template-columns: minmax(0, 1fr) 320px; }
+.wb-chat { display: flex; flex-direction: column; overflow: hidden; }
+.wb-chat-msgs { max-height: 520px; min-height: 260px; padding: 12px; }
+.wb-chat .cm-col { max-width: 92%; }
+.wb .btn.on { color: var(--accent); }
+@media (max-width: 900px) { .wb-main.with-chat { grid-template-columns: 1fr; } }

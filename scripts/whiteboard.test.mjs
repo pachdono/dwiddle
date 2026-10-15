@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apply, cleanStroke, thin, hits, touching, personColour, cutOut, baseId, W, H } from "../src/whiteboard.js";
+import { apply, cleanStroke, thin, hits, touching, personColour, cutOut, baseId, W, H, cleanChat, applyChat, chatBatches, CHAT_DATA } from "../src/whiteboard.js";
 
 const s = (id, pts, extra = {}) => ({ id, by: "a", c: "#d93a3a", w: 10, pts, ...extra });
 
@@ -117,4 +117,40 @@ test("the eraser reaches a stroke along its length, not just its points", () => 
 
 test("a person keeps the same colour on every screen", () => {
   assert.equal(personColour("abc"), personColour("abc"));
+});
+
+const say = (id, extra = {}) => ({ id, by: "u1", name: "Sam", at: 1, kind: "text", body: "hi", ...extra });
+
+test("chat: messages are added once, in order, and only the author can delete", () => {
+  let l = applyChat([], "msg", say("a"));
+  l = applyChat(l, "msg", say("a"));
+  l = applyChat(l, "msg", say("b", { body: "yo", reply: { from: "Sam", text: "hi" } }));
+  assert.equal(l.length, 2);
+  assert.deepEqual(l[1].reply, { from: "Sam", text: "hi" });
+  assert.equal(applyChat(l, "del", { id: "a", by: "someone-else" }), l);
+  assert.deepEqual(applyChat(l, "del", { id: "a", by: "u1" }).map((m) => m.id), ["b"]);
+});
+
+test("chat: junk is refused", () => {
+  assert.equal(cleanChat(null), null);
+  assert.equal(cleanChat(say("a", { body: "   " })), null);
+  assert.equal(cleanChat(say("a", { kind: "image", data: "javascript:alert(1)" })), null);
+  assert.equal(cleanChat(say("a", { kind: "image", data: "data:text/html;base64,AAAA" })), null);
+  assert.equal(cleanChat(say("a", { kind: "file", data: "data:text/html;base64,AAAA" })).kind, "file");
+  assert.equal(cleanChat(say("a", { kind: "image", data: "data:image/jpeg;base64," + "A".repeat(CHAT_DATA) })), null);
+  assert.equal(cleanChat(say("a", { body: "x".repeat(5000) })).body.length, 1000);
+  assert.equal(cleanChat(say("a", { kind: "image", data: "data:image/jpeg;base64,AAAA", attach: { name: "p.jpg" } })).attach.name, "p.jpg");
+});
+
+test("chat: a late joiner gets the history merged in time order, without doubles", () => {
+  const mine = [say("c", { at: 3 })];
+  const got = applyChat(mine, "sync", { msgs: [say("a", { at: 1 }), say("b", { at: 2 }), say("c", { at: 3 })] });
+  assert.deepEqual(got.map((m) => m.id), ["a", "b", "c"]);
+});
+
+test("chat: history is split so no piece is too big to send", () => {
+  const msgs = Array.from({ length: 10 }, (_, i) => say("m" + i, { body: "x".repeat(900) }));
+  const parts = chatBatches(msgs, 3000);
+  assert.ok(parts.length > 1);
+  assert.equal(parts.flat().length, 10);
 });
