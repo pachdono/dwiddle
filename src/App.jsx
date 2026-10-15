@@ -16,7 +16,6 @@ import Decks from "./Decks.jsx";
 import { HomeFolders } from "./HomeFolders.jsx";
 import Social, { LeaderboardPage, FriendsPopup } from "./Social.jsx";
 import Duel from "./Duel.jsx";
-import Whiteboard from "./Whiteboard.jsx";
 import { NavIcon, Flame } from "./NavIcons.jsx";
 import { useClean, setClean } from "./clean.js";
 import { logAnswer, readLog, freshFirst } from "./studylog.js";
@@ -95,7 +94,6 @@ const PAGE_PATH = {
   tests: "/test-prep",
   courses: "/courses",
   notebook: "/notebook",
-  whiteboard: "/whiteboard",
   report: "/report",
   planner: "/planner",
   upload: "/add-material",
@@ -316,7 +314,7 @@ const groupOf = (page) => GROUPS.find((g) => g.pages.includes(page)) || null;
 const ALL_NAV = [
   { id: "home", label: "Home" }, { id: "chat", label: "Chat with Dwiddle" }, { id: "sheet", label: "Notes" }, { id: "learn", label: "Learn" },
   { id: "quiz", label: "Practice" }, { id: "topics", label: "Topics" }, { id: "videos", label: "Videos" }, { id: "solve", label: "Chat with Dwiddle" }, { id: "decks", label: "My decks" },
-  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "whiteboard", label: "Whiteboard" }, { id: "leaderboard", label: "Leaderboard" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
+  { id: "notebook", label: "Notebooks" }, { id: "duel", label: "Duel" }, { id: "leaderboard", label: "Leaderboard" }, { id: "social", label: "Friends" }, { id: "explore", label: "Explore" },
   { id: "tests", label: "Test prep" }, { id: "courses", label: "Courses" }, { id: "report", label: "Report" }, { id: "planner", label: "Planner" },
   { id: "upload", label: "New material" }, { id: "library", label: "Library" },
   { id: "feedback", label: "Feedback" }, { id: "settings", label: "Settings" },
@@ -928,7 +926,6 @@ export default function App() {
     upload: AddMaterial,
     library: preview ? FoldersBridge : Library,
     duel: preview ? Duel : Dashboard,
-    whiteboard: beta ? Whiteboard : Dashboard,
     leaderboard: preview ? LeaderboardPage : Dashboard,
     social: preview ? Social : Dashboard,
     explore: preview ? ExploreBridge : Dashboard,
@@ -1245,7 +1242,6 @@ export default function App() {
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
               <button data-tour="duel" className="top-chip" title="Race a friend on the same questions" onClick={() => go("duel")}><NavIcon id="duel" size={24} />Duel</button>
-              {beta && <button className="top-chip" title="Draw on a board with a friend, live" onClick={() => go("whiteboard")}><NavIcon id="whiteboard" size={24} />Whiteboard</button>}
               <button className="top-chip" title="Leaderboard" onClick={() => go("leaderboard")}><NavIcon id="trophy" size={24} />Leaderboard</button>
             </span>
           )}

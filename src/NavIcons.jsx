@@ -14,7 +14,6 @@ const LINE = {
   planner: "M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M9 3v4M15 3v4",
   home: "M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z",
   exams: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
-  whiteboard: "M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM8 21l4-4 4 4M7 12c2-3 3 2 5-1s3 1 5-1",
   duel: "M13 3 5 13h6l-1 8 8-10h-6z",
   explore: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z",
   trophy: "M8 4h8v6a4 4 0 0 1-8 0zM8 6H4c0 3 1.5 4.5 4 5M16 6h4c0 3-1.500 4.500-4 5M12 14v4M8 20h8",
@@ -74,12 +73,6 @@ export function NavIcon({ id, size = 34, rail = false }) {
       <defs>{grad(k + "a", "#ffd25e", "#f08a24")}</defs>
       <path d="M23 3 8 22h9l-3 15 18-22h-10z" fill={f("a")} />
       <path d="M22 5 12 19" stroke="#fff" strokeOpacity=".6" strokeWidth="2" strokeLinecap="round" />
-    </>),
-    whiteboard: (<>
-      <defs>{grad(k + "a", "#8fb4ff", "#3b5bfd")}</defs>
-      <rect x="4" y="6" width="32" height="22" rx="3.500" fill="#fff" stroke={f("a")} strokeWidth="2.400" />
-      <path d="M10 21c3-8 5 3 9-3s5 2 11-4" stroke="#e0457f" strokeWidth="2.600" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M14 34l6-6 6 6" stroke="#c9ced6" strokeWidth="2.400" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </>),
     social: (<>
       <defs>{grad(k + "a", "#ff9bc0", "#e0457f")}{grad(k + "b", "#8fc2ff", "#3b7dfd")}</defs>

@@ -9663,31 +9663,6 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .tb-glint { animation-timing-function: steps(24, end); }
 .tb-weed { animation-timing-function: steps(40, end); }
 
-/* ---------- Whiteboard ---------- */
-.wb { max-width: 1100px; }
-.wb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 8px 12px; margin-bottom: 8px; }
-.wb-group { display: flex; align-items: center; gap: 6px; }
-.wb-end { margin-left: auto; }
-.wb-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
-.wb-btn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.wb-nib { display: block; border-radius: 50%; background: currentColor; }
-.wb-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
-.wb-dot.on { border-color: var(--surface); box-shadow: 0 0 0 2.5px var(--accent); }
-.wb-code { font: inherit; font-weight: 800; letter-spacing: .2em; padding: 6px 10px; border-radius: 10px; border: 1px dashed var(--line); background: transparent; color: var(--ink); cursor: copy; }
-.wb .btn.warn { color: #d93a3a; }
-.wb-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; min-height: 26px; }
-.wb-who .pill { border: 2px solid; }
-.wb-canvas { display: block; width: 100%; aspect-ratio: 16 / 10; background: #fff; border-radius: 14px; border: 1px solid var(--line); touch-action: none; cursor: crosshair; }
-.wb-canvas.erase { cursor: cell; }
-@media (max-width: 640px) { .wb-end { margin-left: 0; } .wb-btn { width: 42px; height: 42px; } }
-.wb { max-width: 1400px; }
-.wb-main { display: grid; gap: 12px; align-items: start; }
-.wb-main.with-chat { grid-template-columns: minmax(0, 1fr) 320px; }
-.wb-chat { display: flex; flex-direction: column; overflow: hidden; }
-.wb-chat-msgs { max-height: 520px; min-height: 260px; padding: 12px; }
-.wb-chat .cm-col { max-width: 92%; }
-.wb .btn.on { color: var(--accent); }
-@media (max-width: 900px) { .wb-main.with-chat { grid-template-columns: 1fr; } }
 
 /* ---------- Live notebook ---------- */
 .nb-live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
@@ -9695,4 +9670,3 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .nb-livewho { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 24px; }
 .nb-joinbox { display: grid; gap: 8px; max-width: 380px; margin-bottom: 12px; }
 .nb-joinbox .dl-code-in { width: 150px; }
-.wb-chat .cm-bubble a.wb-link { color: inherit; text-decoration: underline; word-break: break-all; }
