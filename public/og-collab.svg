@@ -34,6 +34,8 @@
 
   <g transform="translate(1040 440) scale(1.25)">
     
+    
+    
           <ellipse cx="61" cy="126" rx="38" ry="6" fill="#000" opacity="0.055" />
 
       
@@ -72,6 +74,8 @@
       <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill="#E2CB93" />
       <path d="M52 17c4-3.5 21-3.5 25 0" stroke="#CDB076" strokeWidth="1.5" fill="none" strokeLinecap="round" />
 
+  
+  
   
   </g>
 </svg>

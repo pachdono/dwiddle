@@ -9,7 +9,7 @@ import sharp from "sharp";
 
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
 const main = readFileSync(new URL("../public/og.svg", import.meta.url), "utf8");
-const start = main.indexOf('<g transform="translate(880 130) scale(2.4)">');
+const start = Math.max(main.indexOf('<g id="duck"'), main.indexOf('<g transform="translate(880 130) scale(2.4)">'));
 const duck = main.slice(main.indexOf(">", start) + 1, main.lastIndexOf("</g>"));
 
 // The card for a collaboration link: the notebook page with two people writing
