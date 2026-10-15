@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./ui.jsx";
 import { SharePicker } from "./Social.jsx";
 import { shrink } from "./custom.js";
-import { CHAT_DATA, CHAT_FILE_BYTES, personColour } from "./whiteboard.js";
+import { CHAT_DATA, CHAT_FILE_BYTES, personColour, linkify } from "./whiteboard.js";
 
 // The chat beside the board: reply, delete your own, photos and files. It only
 // shows and collects; the board screen owns the messages and the channel.
@@ -96,7 +96,11 @@ export default function WhiteboardChat({ me, name, msgs, onSend, onDelete }) {
                         <span className="cm-file-t"><b>{m.attach?.name || "File"}</b><span className="small">{m.attach?.size ? sizeText(m.attach.size) : ""} · Download</span></span>
                       </a>
                     </div>
-                  ) : <div className={"cm-bubble" + (onlyEmoji(m.body) ? " big" : "")}>{m.body}</div>}
+                  ) : <div className={"cm-bubble" + (onlyEmoji(m.body) ? " big" : "")}>
+                      {linkify(m.body).map((part, i) => part.href
+                        ? <a key={i} className="wb-link" href={part.href} target="_blank" rel="noopener noreferrer">{part.text}</a>
+                        : <span key={i}>{part.text}</span>)}
+                    </div>}
                   <span className="cm-acts">
                     <button type="button" onClick={() => { setReplyTo(m); box.current?.focus({ preventScroll: true }); }}>Reply</button>
                     {mine && <button type="button" onClick={() => onDelete(m)}>Delete</button>}

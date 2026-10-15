@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase.js";
-import { diffBooks, applyOps, fullOps, mergeOps, split, Joiner } from "./liveNotebook.js";
+import { diffBooks, applyOps, fullOps, mergeOps, invertDiff, split, Joiner } from "./liveNotebook.js";
 
 // Joins a notebook to a live room and keeps the two ends in step. The rules for
 // what a change looks like are in liveNotebook.js; this is the plumbing.
@@ -12,7 +12,8 @@ import { diffBooks, applyOps, fullOps, mergeOps, split, Joiner } from "./liveNot
 //   save    saves the notebook on this device (a joiner keeps their copy)
 
 const FLUSH_MS = 120; // changes made in this time go out together
-const SPACING_MS = 30; // gap between messages, under the room's rate limit
+const SPACING_MS = 30;
+const UNDO_DEPTH = 60; // gap between messages, under the room's rate limit
 let n = 0;
 
 export function useLiveNotebook({ code: wanted, host, book, setBook, save, myId, myName }) {
@@ -29,6 +30,13 @@ export function useLiveNotebook({ code: wanted, host, book, setBook, save, myId,
   const outbox = useRef([]);
   const timers = useRef({ flush: 0, drain: 0, save: 0 });
   const joiner = useRef(new Joiner());
+  // Undo while live takes back only what I did. Each change of mine is kept with
+  // the ops that undo exactly it, so a friend's work in between is never touched.
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const replay = useRef(null); // "undo" | "redo" while an undo or redo is being applied
+  const [depth, setDepth] = useState({ undo: 0, redo: 0 });
+  const sync = () => setDepth({ undo: undoStack.current.length, redo: redoStack.current.length });
   const saveRef = useRef(save);
   bookRef.current = book;
   saveRef.current = save;
@@ -55,6 +63,7 @@ export function useLiveNotebook({ code: wanted, host, book, setBook, save, myId,
     ready.current = !!host;
     base.current = bookRef.current;
     pending.current = []; outbox.current = [];
+    undoStack.current = []; redoStack.current = []; replay.current = null; sync();
     joiner.current = new Joiner();
 
     const ch = supabase.channel("nb:" + code, { config: { broadcast: { self: false }, presence: { key: myId } } });
@@ -100,12 +109,35 @@ export function useLiveNotebook({ code: wanted, host, book, setBook, save, myId,
   useEffect(() => {
     if (!code || !ready.current || !book || !base.current || book === base.current) return;
     const ops = diffBooks(base.current, book);
+    const inverse = ops.length ? invertDiff(base.current, book) : [];
     base.current = book;
-    if (!ops.length) return;
+    if (!ops.length) { replay.current = null; return; }
+    if (replay.current === "undo") redoStack.current.push(inverse);
+    else if (replay.current === "redo") undoStack.current.push(inverse);
+    else { undoStack.current.push(inverse); redoStack.current = []; }
+    replay.current = null;
+    if (undoStack.current.length > UNDO_DEPTH) undoStack.current.shift();
+    sync();
     pending.current.push(...ops);
     clearTimeout(timers.current.flush);
     timers.current.flush = setTimeout(() => { const list = mergeOps(pending.current); pending.current = []; sendOps(list); }, FLUSH_MS);
   }, [book, code, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { status, people, error };
+  function step(from, mode) {
+    const inverse = from.current.pop();
+    if (!inverse) return;
+    replay.current = mode;
+    setBook((prev) => {
+      const next = prev ? applyOps(prev, inverse) : prev;
+      if (next === prev) replay.current = null; // nothing changed, so nothing to record
+      return next;
+    });
+    clearTimeout(timers.current.save);
+    timers.current.save = setTimeout(() => saveRef.current?.(bookRef.current), 700);
+    sync();
+  }
+  const undo = () => step(undoStack, "undo");
+  const redo = () => step(redoStack, "redo");
+
+  return { status, people, error, undo, redo, canUndo: depth.undo > 0, canRedo: depth.redo > 0 };
 }

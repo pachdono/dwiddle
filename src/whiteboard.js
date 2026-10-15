@@ -209,3 +209,21 @@ export function chatBatches(list, limit = 220000) {
   if (cur.length) out.push(cur);
   return out;
 }
+
+// Chat text as plain pieces and links, so a pasted link can be clicked without
+// the text ever being treated as markup. Only http and https are links.
+export function linkify(text) {
+  const out = [];
+  let last = 0;
+  for (const m of String(text).matchAll(/https?:\/\/[^\s<>"']+/g)) {
+    const url = m[0].replace(/[.,;:!?)\]}]+$/, ""); // punctuation after a link is not part of it
+    let ok = false;
+    try { ok = /^https?:$/.test(new URL(url).protocol); } catch { /* not a link */ }
+    if (!ok) continue;
+    if (m.index > last) out.push({ text: text.slice(last, m.index) });
+    out.push({ text: url, href: url });
+    last = m.index + url.length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}

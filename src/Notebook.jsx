@@ -3147,8 +3147,11 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     saveT.current = setTimeout(() => saveBook(next), 500);
     return next;
   });
-  function undo() { const prev = past.current.pop(); if (!prev) return; future.current.push(book); setBook(prev); saveBook(prev); }
-  function redo() { const next = future.current.pop(); if (!next) return; past.current.push(book); setBook(next); saveBook(next); }
+  // While live, undo and redo are the live ones, which take back only my own changes.
+  const nbLiveOn = useRef(false);
+  const nbLiveUndo = useRef(null);
+  function undo() { if (nbLiveOn.current) return nbLiveUndo.current.undo(); const prev = past.current.pop(); if (!prev) return; future.current.push(book); setBook(prev); saveBook(prev); }
+  function redo() { if (nbLiveOn.current) return nbLiveUndo.current.redo(); const next = future.current.pop(); if (!next) return; past.current.push(book); setBook(next); saveBook(next); }
 
   // Working on this notebook with someone else, live (testers for now). Joining
   // comes from the notebook list, which leaves the room to enter in session
@@ -3168,6 +3171,10 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     myId: auth?.user?.id || guestId.current,
     myName: me?.handle || me?.display_name?.trim().split(/\s+/)[0] || "Guest",
   });
+  nbLiveOn.current = liveNb.status === "live";
+  nbLiveUndo.current = liveNb;
+  const canUndo = nbLiveOn.current ? liveNb.canUndo : !!past.current.length;
+  const canRedo = nbLiveOn.current ? liveNb.canRedo : !!future.current.length;
 
   useEffect(() => {
     const onKey = (e) => {
@@ -4018,8 +4025,8 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
       <div className="nb-bar nb-top">
         <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
         <div className="nb-group nb-undo">
-          <button className="icon-btn" onClick={undo} disabled={!past.current.length} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
-          <button className="icon-btn" onClick={redo} disabled={!future.current.length} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
+          <button className="icon-btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
+          <button className="icon-btn" onClick={redo} disabled={!canRedo} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
         </div>
         <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
         <button className={"nb-paperbtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Paper, pages and printing">
@@ -4165,8 +4172,8 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
         <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
         <input className="nb-title" value={book.title} onChange={(e) => commit({ ...book, title: e.target.value }, { record: false })} aria-label="Notebook name" />
         <div className="nb-group">
-          <button className="icon-btn" onClick={undo} disabled={!past.current.length} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
-          <button className="icon-btn" onClick={redo} disabled={!future.current.length} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
+          <button className="icon-btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
+          <button className="icon-btn" onClick={redo} disabled={!canRedo} title="Redo" aria-label="Redo"><Icon name="redo" size={17} /></button>
         </div>
         <div className="nb-toolrow">
         <div className="nb-group nb-tools" role="toolbar" aria-label="Tools">
@@ -4366,7 +4373,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
                   {liveNb.status === "connecting" && <span className="small muted">Joining...</span>}
                 </div>
                 {liveNb.error && <div className="dl-err">{liveNb.error}</div>}
-                <p className="small muted">{liveRoom.host ? "Everyone who joins keeps their own copy afterwards. Careful with undo: it can also take back what someone else added since your last change." : "This is your own copy. It stays in your notebooks when you leave."}</p>
+                <p className="small muted">{liveRoom.host ? "Everyone who joins keeps their own copy afterwards. Undo only takes back your own changes, never what someone else did." : "This is your own copy. It stays in your notebooks when you leave."}</p>
                 <button className="btn ghost" onClick={() => { setLiveRoom(null); setLivePop(false); }}>{liveRoom.host ? "Stop sharing" : "Leave"}</button>
               </>
             )}

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { diffBooks, applyOps, fullOps, mergeOps, cleanItem, split, Joiner, MAX_PIECE } from "../src/liveNotebook.js";
+import { diffBooks, applyOps, fullOps, mergeOps, invertDiff, cleanItem, split, Joiner, MAX_PIECE } from "../src/liveNotebook.js";
 
 const st = (id, extra = {}) => ({ id, type: "stroke", tool: "pen", color: "#000", size: 3, points: [[1, 1], [2, 2]], ...extra });
 const book = (pages, extra = {}) => ({ id: "b", title: "Maths", cover: "#3B5BFD", template: "lined", paper: "white", created: 1, pages, ...extra });
@@ -116,4 +116,52 @@ test("a photo much bigger than one message still arrives intact", () => {
   for (const p of parts.reverse()) whole = j.add(p) ?? whole;
   const got = applyOps(a, JSON.parse(whole));
   assert.equal(got.pages[0].items[0].src, src);
+});
+
+const ids = (b, n = 0) => b.pages[n].items.map((i) => i.id);
+
+test("undo takes back my stroke and leaves a friend's alone", () => {
+  const s0 = book([page("p1", [st("a")])]);
+  const mine = book([page("p1", [st("a"), st("m")])]); // I drew m
+  const inv = invertDiff(s0, mine);
+  // meanwhile they drew t
+  const now = applyOps(mine, [{ t: "item", p: "p1", item: st("t") }]);
+  assert.deepEqual(ids(applyOps(now, inv)).sort(), ["a", "t"]);
+});
+
+test("undo puts back what I deleted, and what I changed, but not what they changed elsewhere", () => {
+  const s0 = book([page("p1", [st("a"), st("b", { color: "#111" }), st("c")])]);
+  const mine = book([page("p1", [st("a"), st("b", { color: "#f00" })])]); // I changed b, deleted c
+  const inv = invertDiff(s0, mine);
+  const now = applyOps(mine, [{ t: "item", p: "p1", item: st("a", { color: "#0f0" }) }]); // they recoloured a
+  const back = applyOps(now, inv);
+  assert.equal(back.pages[0].items.find((i) => i.id === "b").color, "#111");
+  assert.ok(back.pages[0].items.some((i) => i.id === "c"));
+  assert.equal(back.pages[0].items.find((i) => i.id === "a").color, "#0f0");
+});
+
+test("undo of adding a page drops it, undo of deleting a page brings it back where it was", () => {
+  const s0 = book([page("p1", [st("a")]), page("p2", [st("b")])]);
+  const added = book([page("p1", [st("a")]), page("p2", [st("b")]), page("p3")]);
+  assert.deepEqual(applyOps(added, invertDiff(s0, added)).pages.map((p) => p.id), ["p1", "p2"]);
+  const removed = book([page("p2", [st("b")])]);
+  const back = applyOps(removed, invertDiff(s0, removed));
+  assert.deepEqual(back.pages.map((p) => p.id), ["p1", "p2"]);
+  assert.deepEqual(ids(back, 0), ["a"]);
+});
+
+test("undo of a rename, and the last page cannot be dropped", () => {
+  const s0 = book([page("p1")]);
+  const renamed = { ...s0, title: "New" };
+  assert.equal(applyOps(renamed, invertDiff(s0, renamed)).title, "Maths");
+  assert.equal(applyOps(s0, [{ t: "dropPage", id: "p1" }]).pages.length, 1);
+});
+
+test("undoing then redoing round trips", () => {
+  const s0 = book([page("p1", [st("a")])]);
+  const s1 = book([page("p1", [st("a"), st("m")])]);
+  const undone = applyOps(s1, invertDiff(s0, s1));
+  assert.deepEqual(ids(undone), ["a"]);
+  const redone = applyOps(undone, invertDiff(s1, undone));
+  assert.deepEqual(ids(redone), ["a", "m"]);
 });

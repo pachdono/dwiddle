@@ -9695,3 +9695,4 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .nb-livewho { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 24px; }
 .nb-joinbox { display: grid; gap: 8px; max-width: 380px; margin-bottom: 12px; }
 .nb-joinbox .dl-code-in { width: 150px; }
+.wb-chat .cm-bubble a.wb-link { color: inherit; text-decoration: underline; word-break: break-all; }

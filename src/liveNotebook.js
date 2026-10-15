@@ -112,12 +112,22 @@ export function applyOps(book, ops) {
       const pg = cleanPage(op.page);
       if (!pg) continue;
       const has = out.pages.some((x) => x.id === pg.id);
-      out = { ...out, pages: has ? out.pages.map((x) => (x.id === pg.id ? { ...x, ...pg } : x)) : [...out.pages, { ...pg, items: [] }] };
+      if (has) { out = { ...out, pages: out.pages.map((x) => (x.id === pg.id ? { ...x, ...pg } : x)) }; continue; }
+      // a page that comes back (undo) goes after the one it followed, else first
+      const at = typeof op.after === "string" ? out.pages.findIndex((x) => x.id === op.after) + 1 : op.after === null ? 0 : out.pages.length;
+      const pages = out.pages.slice();
+      pages.splice(at, 0, { ...pg, items: [] });
+      out = { ...out, pages };
+    } else if (op.t === "dropPage" && typeof op.id === "string") {
+      if (out.pages.length > 1 && out.pages.some((x) => x.id === op.id)) out = { ...out, pages: out.pages.filter((x) => x.id !== op.id) };
     } else if (op.t === "pages" && Array.isArray(op.order)) {
       const byId = new Map(out.pages.map((x) => [x.id, x]));
       // the new order, and anything that is not in it goes when the sender removed it
       const next = op.order.map((id) => byId.get(id)).filter(Boolean);
-      if (next.length) out = { ...out, pages: next };
+      // pages the order does not name stay, after the named ones
+      const named = new Set(op.order);
+      const rest = op.keep ? out.pages.filter((x) => !named.has(x.id)) : [];
+      if (next.length) out = { ...out, pages: [...next, ...rest] };
     } else if (op.t === "item") {
       const it = cleanItem(op.item);
       if (!it || !out.pages.some((x) => x.id === op.p)) continue;
@@ -139,6 +149,49 @@ export function applyOps(book, ops) {
     }
   }
   return out;
+}
+
+// The ops that take back one change, and only that change: what changed going
+// from `before` to `after`, restored to how it was. They are meant to be
+// applied to a notebook that has moved on since, so they name exactly the
+// things that change touched and leave everything else (other people's work)
+// alone. Used for undo, so each person undoes only their own changes.
+export function invertDiff(before, after) {
+  const ops = [];
+  const meta = {};
+  for (const k of META) if (before?.[k] !== after?.[k]) meta[k] = before?.[k];
+  if (Object.keys(meta).length) ops.push({ t: "meta", meta });
+
+  const was = new Map((before?.pages || []).map((p) => [p.id, p]));
+  const is = new Map((after?.pages || []).map((p) => [p.id, p]));
+  const wasIds = (before?.pages || []).map((p) => p.id);
+  for (const [id, p] of is) {
+    if (!was.has(id)) ops.push({ t: "dropPage", id });
+    else if (!samePage(was.get(id), p)) ops.push({ t: "page", page: pageRest(was.get(id)) });
+  }
+  for (const [id, p] of was) {
+    if (is.has(id)) continue;
+    const i = wasIds.indexOf(id);
+    ops.push({ t: "page", page: pageRest(p), after: i > 0 ? wasIds[i - 1] : null });
+    for (const it of p.items || []) ops.push({ t: "item", p: id, item: it });
+    ops.push({ t: "order", p: id, ids: (p.items || []).map((i2) => i2.id) });
+  }
+  const sameSet = wasIds.length === is.size && wasIds.every((id) => is.has(id));
+  if (sameSet && wasIds.join() !== (after?.pages || []).map((p) => p.id).join()) ops.push({ t: "pages", order: wasIds, keep: true });
+
+  for (const [id, p] of is) {
+    const old = was.get(id);
+    if (!old) continue;
+    const oldItems = new Map((old.items || []).map((i) => [i.id, i]));
+    const nowItems = new Map((p.items || []).map((i) => [i.id, i]));
+    const added = [...nowItems.keys()].filter((k) => !oldItems.has(k));
+    if (added.length) ops.push({ t: "rm", p: id, ids: added });
+    for (const [k, o] of oldItems) if (!nowItems.has(k) || !sameItem(o, nowItems.get(k))) ops.push({ t: "item", p: id, item: o });
+    const order = (old.items || []).map((i) => i.id);
+    const nowOrder = (p.items || []).map((i) => i.id).filter((k) => oldItems.has(k));
+    if (order.some((k) => !nowItems.has(k)) || order.filter((k) => nowItems.has(k)).join() !== nowOrder.join()) ops.push({ t: "order", p: id, ids: order });
+  }
+  return ops;
 }
 
 // Merge ops waiting to go: a later change to the same thing replaces the

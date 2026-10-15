@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apply, cleanStroke, thin, hits, touching, personColour, cutOut, baseId, W, H, cleanChat, applyChat, chatBatches, CHAT_DATA } from "../src/whiteboard.js";
+import { apply, cleanStroke, thin, hits, touching, personColour, cutOut, baseId, W, H, cleanChat, applyChat, chatBatches, CHAT_DATA, linkify } from "../src/whiteboard.js";
 
 const s = (id, pts, extra = {}) => ({ id, by: "a", c: "#d93a3a", w: 10, pts, ...extra });
 
@@ -162,4 +162,12 @@ test("chat: a shared notebook or folder is only a safe id and a title", () => {
   assert.equal(cleanChat(say("s", { kind: "share", attach: { id: "javascript:1" } })), null);
   assert.equal(cleanChat(say("s", { kind: "share" })), null);
   assert.equal(cleanChat(say("s", { kind: "share", attach: { id: "ok", kind: "weird", title: "t" } })).attach.kind, "material");
+});
+
+test("chat: links are clickable, punctuation is not part of them, nothing else is", () => {
+  assert.deepEqual(linkify("join https://dwiddle.app/notebook?live=AB12C, now"), [{ text: "join " }, { text: "https://dwiddle.app/notebook?live=AB12C", href: "https://dwiddle.app/notebook?live=AB12C" }, { text: ", now" }]);
+  assert.deepEqual(linkify("no links <b>here</b>"), [{ text: "no links <b>here</b>" }]);
+  assert.deepEqual(linkify("javascript:alert(1) and ftp://x.y"), [{ text: "javascript:alert(1) and ftp://x.y" }]);
+  assert.equal(linkify("(see https://a.co/x).").find((p) => p.href).href, "https://a.co/x");
+  assert.deepEqual(linkify(""), []);
 });
