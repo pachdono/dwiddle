@@ -9688,3 +9688,10 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .wb-chat .cm-col { max-width: 92%; }
 .wb .btn.on { color: var(--accent); }
 @media (max-width: 900px) { .wb-main.with-chat { grid-template-columns: 1fr; } }
+
+/* ---------- Live notebook ---------- */
+.nb-live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.nb-livecode { font-size: 40px; font-weight: 900; letter-spacing: .25em; text-align: center; padding-left: .25em; }
+.nb-livewho { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 24px; }
+.nb-joinbox { display: grid; gap: 8px; max-width: 380px; margin-bottom: 12px; }
+.nb-joinbox .dl-code-in { width: 150px; }

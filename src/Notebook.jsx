@@ -27,6 +27,9 @@ import { shrink } from "./custom.js";
 import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDrop.js";
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 import { StickerPicker } from "./NotebookStickers.jsx";
+import { useLiveNotebook } from "./useLiveNotebook.js";
+import { useMyProfile } from "./Profile.jsx";
+import { newCode, cleanCode } from "./duel.js";
 import { GraphView, GraphHelper, graphItems } from "./NotebookGraph.jsx";
 
 /* ---------- paper ---------- */
@@ -812,8 +815,11 @@ export function PagePreview({ page, className = "" }) {
   );
 }
 
-export default function NotebookPage({ go, early = false, access }) {
+export default function NotebookPage({ go, early = false, access, beta = false, auth }) {
   const [books, setBooks] = useState(null);
+  const [joining, setJoining] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinErr, setJoinErr] = useState("");
   // a notebook just made from notes opens straight away
   const [openId, setOpenId] = useState(() => {
     try { const id = sessionStorage.getItem("dwiddle-open-notebook"); sessionStorage.removeItem("dwiddle-open-notebook"); return id || null; } catch { return null; }
@@ -920,10 +926,38 @@ export default function NotebookPage({ go, early = false, access }) {
     }
   }
 
-  if (openId) return <Portal><Editor id={openId} go={go} early={early} access={access} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
+  // Joining someone's live notebook makes an empty copy here, which fills as the
+  // host's notebook arrives. The code goes to the editor through session storage.
+  async function joinLive(raw) {
+    const code = cleanCode(raw);
+    if (code.length !== 5) { setJoinErr("A code is five letters or numbers."); return; }
+    const b = newBook({ title: "Live notebook", template: "blank" });
+    await putBook(b);
+    try { sessionStorage.setItem("dwiddle-nb-join", JSON.stringify({ id: b.id, code })); } catch { /* storage blocked */ }
+    setJoining(false); setJoinCode(""); setJoinErr("");
+    setOpenId(b.id);
+  }
+  // a link with ?live=CODE (from Copy link, or a chat) joins straight away
+  useEffect(() => {
+    if (!beta) return;
+    const code = new URLSearchParams(window.location.search).get("live");
+    if (code) { window.history.replaceState(null, "", window.location.pathname); joinLive(code); }
+  }, [beta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (openId) return <Portal><Editor id={openId} go={go} early={early} access={access} beta={beta} auth={auth} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
 
   return (
     <div className="page wide fade nb-home" onClick={() => setMenu(null)}>
+      {beta && joining && (
+        <div className="card card-pad nb-joinbox">
+          <b>Join a live notebook</b>
+          <div className="row" style={{ gap: 8 }}>
+            <input className="dl-code-in" value={joinCode} maxLength={5} placeholder="ABC12" autoFocus onChange={(e) => setJoinCode(cleanCode(e.target.value))} onKeyDown={(e) => e.key === "Enter" && joinLive(joinCode)} />
+            <button className="btn cta" onClick={() => joinLive(joinCode)}>Join</button>
+          </div>
+          {joinErr && <span className="small" style={{ color: "#d93a3a" }}>{joinErr}</span>}
+        </div>
+      )}
       <div className="dash-top">
         <PageHead title="Notebooks" sub="Write by hand, type, add pictures and PDFs, then let Dwiddle turn any page into notes and questions." />
         <div className="row" style={{ marginTop: 6 }}>
@@ -931,6 +965,7 @@ export default function NotebookPage({ go, early = false, access }) {
             <input type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importPdf(f); }} />
             <Icon name="file" size={15} /> Import a PDF
           </label>
+          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Join live</button>}
           <button className="btn cta" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> New notebook</button>
         </div>
       </div>
@@ -2577,7 +2612,7 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
-function Editor({ id, go, onClose, early = false, access }) {
+function Editor({ id, go, onClose, early = false, access, beta = false, auth }) {
   const canUseNewNotebookTools = early || !access?.banned && (access?.tester === true || ["admin", "moderator"].includes(access?.role));
   const [book, setBook] = useState(null);
   const [tool, setTool] = useState("pen");
@@ -3114,6 +3149,25 @@ function Editor({ id, go, onClose, early = false, access }) {
   });
   function undo() { const prev = past.current.pop(); if (!prev) return; future.current.push(book); setBook(prev); saveBook(prev); }
   function redo() { const next = future.current.pop(); if (!next) return; past.current.push(book); setBook(next); saveBook(next); }
+
+  // Working on this notebook with someone else, live (testers for now). Joining
+  // comes from the notebook list, which leaves the room to enter in session
+  // storage; starting is from the Live button here.
+  const me = useMyProfile(auth?.user);
+  const guestId = useRef("g" + Math.random().toString(36).slice(2, 8));
+  const [liveRoom, setLiveRoom] = useState(() => {
+    try {
+      const j = JSON.parse(sessionStorage.getItem("dwiddle-nb-join") || "null");
+      if (j && j.id === id && beta) { sessionStorage.removeItem("dwiddle-nb-join"); return { code: j.code, host: false }; }
+    } catch { /* storage blocked */ }
+    return null;
+  });
+  const [livePop, setLivePop] = useState(false);
+  const liveNb = useLiveNotebook({
+    code: liveRoom?.code || "", host: !!liveRoom?.host, book, setBook, save: saveBook,
+    myId: auth?.user?.id || guestId.current,
+    myName: me?.handle || me?.display_name?.trim().split(/\s+/)[0] || "Guest",
+  });
 
   useEffect(() => {
     const onKey = (e) => {
@@ -3978,6 +4032,11 @@ function Editor({ id, go, onClose, early = false, access }) {
           <button role="tab" aria-selected="false" onClick={() => go?.("quiz")}>Practice</button>
         </div>
         <div className="nb-spacer" />
+        {beta && (
+          <button className={"nb-pill nb-live" + (liveNb.status === "live" ? " on" : "")} onClick={() => setLivePop((v) => !v)} aria-expanded={livePop} title="Work on this notebook with someone, live">
+            {liveNb.status === "live" ? `Live · ${Math.max(1, liveNb.people.length)}` : "Live"}
+          </button>
+        )}
         <button className={"nb-pill nb-pagebtn" + (pageMenu ? " on" : "")} onClick={() => setPageMenu((v) => !v)} aria-expanded={pageMenu} title="Page: paper, add, remove, print">
           {current + 1} / {book.pages.length}
         </button>
@@ -4282,6 +4341,35 @@ function Editor({ id, go, onClose, early = false, access }) {
             <button disabled={thumbMenu.i === book.pages.length - 1} onClick={() => { movePage(thumbMenu.i, 1); setThumbMenu(null); }}>Move down</button>
             <button onClick={() => { setThumbMenu(null); setPageMenu(true); }}>Paper and colour</button>
             <button className="danger" disabled={book.pages.length === 1} onClick={() => { if (window.confirm(`Delete page ${thumbMenu.i + 1}?`)) removePage(thumbMenu.i); setThumbMenu(null); }}>Delete page</button>
+          </div>
+        </>
+      )}
+      {beta && livePop && (
+        <>
+          <div className="nb-pop-scrim" onPointerDown={() => setLivePop(false)} />
+          <div className="nb-pop nb-livepop" role="dialog" aria-label="Live notebook">
+            <div className="nb-pop-head"><b>Work on it together</b><button className="icon-btn" onClick={() => setLivePop(false)} aria-label="Close"><Icon name="close" size={15} /></button></div>
+            {!liveRoom ? (
+              <>
+                <p className="small muted">Start a live session and send the code. Anyone who joins gets their own copy that updates as you both write, draw and add things.</p>
+                <button className="btn cta" onClick={() => setLiveRoom({ code: newCode(), host: true })}>Start a live session</button>
+              </>
+            ) : (
+              <>
+                <div className="nb-livecode">{liveRoom.code}</div>
+                <div className="row" style={{ justifyContent: "center", gap: 8 }}>
+                  <button className="btn quiet small" onClick={() => navigator.clipboard?.writeText(liveRoom.code)}>Copy code</button>
+                  <button className="btn quiet small" onClick={() => navigator.clipboard?.writeText(`${location.origin}/notebook?live=${liveRoom.code}`)}>Copy link</button>
+                </div>
+                <div className="nb-livewho">
+                  {liveNb.people.map((p) => <span key={p.id} className="pill">{p.name}{p.host ? " (host)" : ""}</span>)}
+                  {liveNb.status === "connecting" && <span className="small muted">Joining...</span>}
+                </div>
+                {liveNb.error && <div className="dl-err">{liveNb.error}</div>}
+                <p className="small muted">{liveRoom.host ? "Everyone who joins keeps their own copy afterwards. Careful with undo: it can also take back what someone else added since your last change." : "This is your own copy. It stays in your notebooks when you leave."}</p>
+                <button className="btn ghost" onClick={() => { setLiveRoom(null); setLivePop(false); }}>{liveRoom.host ? "Stop sharing" : "Leave"}</button>
+              </>
+            )}
           </div>
         </>
       )}
