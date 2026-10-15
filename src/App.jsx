@@ -114,6 +114,13 @@ const PATH_PAGE = Object.fromEntries(
 // URL.
 // A copy hosted as a preview (VITE_STATIC) lives at an address of its own
 // and keeps the pages without changing it, like the desktop app.
+// A collaboration link (/notebook?live=CODE) is read the moment the app loads,
+// before anything rewrites the address, and kept for the notebook page to use.
+try {
+  const invite = typeof location !== "undefined" ? new URLSearchParams(location.search).get("live") : null;
+  if (invite) sessionStorage.setItem("dwiddle-live-invite", invite);
+} catch { /* storage blocked */ }
+
 const ROUTABLE = typeof location !== "undefined" && location.protocol.startsWith("http") && import.meta.env.VITE_STATIC !== "1";
 
 const REAL_PATHS = new Set([

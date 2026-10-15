@@ -933,33 +933,26 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
   async function joinLive(raw) {
     const code = cleanCode(raw);
     if (code.length !== 5) { setJoinErr("A code is five letters or numbers."); return; }
-    const b = newBook({ title: "Live notebook", template: "blank" });
+    const b = newBook({ title: "Collaboration", template: "blank" });
     await putBook(b);
     try { sessionStorage.setItem("dwiddle-nb-join", JSON.stringify({ id: b.id, code })); } catch { /* storage blocked */ }
     setJoining(false); setJoinCode(""); setJoinErr("");
     setOpenId(b.id);
   }
-  // a link with ?live=CODE (from Copy link, or a chat) joins straight away
+  // a collaboration link: the app keeps its code when it loads (see App.jsx), as
+  // the address is rewritten before this page is ready
   useEffect(() => {
     if (!beta) return;
-    const code = new URLSearchParams(window.location.search).get("live");
-    if (code) { window.history.replaceState(null, "", window.location.pathname); joinLive(code); }
+    let code = null;
+    try { code = sessionStorage.getItem("dwiddle-live-invite") || new URLSearchParams(window.location.search).get("live"); sessionStorage.removeItem("dwiddle-live-invite"); } catch { /* storage blocked */ }
+    if (code) { try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ignore */ } joinLive(code); }
   }, [beta]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (openId) return <Portal><Editor id={openId} go={go} early={early} access={access} beta={beta} auth={auth} onClose={() => { setOpenId(null); refresh(); }} /></Portal>;
 
   return (
     <div className="page wide fade nb-home" onClick={() => setMenu(null)}>
-      {beta && joining && (
-        <div className="card card-pad nb-joinbox">
-          <b>Join a friend's notebook</b>
-          <div className="row" style={{ gap: 8 }}>
-            <input className="dl-code-in" value={joinCode} maxLength={5} placeholder="ABC12" autoFocus onChange={(e) => setJoinCode(cleanCode(e.target.value))} onKeyDown={(e) => e.key === "Enter" && joinLive(joinCode)} />
-            <button className="btn cta" onClick={() => joinLive(joinCode)}>Join</button>
-          </div>
-          {joinErr && <span className="small" style={{ color: "#d93a3a" }}>{joinErr}</span>}
-        </div>
-      )}
+      {beta && joining && <CodeJoin err={joinErr} onJoin={joinLive} onClose={() => { setJoining(false); setJoinErr(""); }} />}
       <div className="dash-top">
         <PageHead title="Notebooks" sub="Write by hand, type, add pictures and PDFs, then let Dwiddle turn any page into notes and questions." />
         <div className="row" style={{ marginTop: 6 }}>
@@ -2614,6 +2607,51 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
+// Five boxes for the code. It joins by itself the moment the fifth character
+// is in, and a pasted code fills all five at once.
+function CodeJoin({ onJoin, onClose, err }) {
+  const [chars, setChars] = useState(["", "", "", "", ""]);
+  const [busy, setBusy] = useState(false);
+  const refs = useRef([]);
+  useEffect(() => { refs.current[0]?.focus(); }, []);
+  useEffect(() => { const k = (e) => e.key === "Escape" && onClose(); addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [onClose]);
+  function put(next) {
+    setChars(next);
+    const code = next.join("");
+    if (code.length === 5 && !busy) { setBusy(true); Promise.resolve(onJoin(code)).finally(() => setBusy(false)); }
+  }
+  function type(i, raw) {
+    const clean = cleanCode(raw);
+    if (!clean) { const n = [...chars]; n[i] = ""; setChars(n); return; }
+    // several characters at once (paste, or autofill) spread over the boxes
+    const n = [...chars];
+    clean.split("").slice(0, 5 - i).forEach((c, k) => { n[i + k] = c; });
+    put(n);
+    refs.current[Math.min(4, i + clean.length)]?.focus();
+  }
+  return (
+    <Portal>
+      <div className="nb-cj-scrim" onPointerDown={onClose}>
+        <div className="nb-cj card" role="dialog" aria-label="Join a collaboration" onPointerDown={(e) => e.stopPropagation()}>
+          <button className="icon-btn nb-cj-x" onClick={onClose} aria-label="Close"><Icon name="close" size={16} /></button>
+          <h3>Join a collaboration</h3>
+          <p className="small muted">Type the five letter code your friend sent. You join the moment it is complete.</p>
+          <div className="nb-cj-boxes" onPaste={(e) => { e.preventDefault(); type(0, e.clipboardData.getData("text")); }}>
+            {chars.map((c, i) => (
+              <input key={i} ref={(el) => (refs.current[i] = el)} className={"nb-cj-box" + (c ? " on" : "")} value={c} inputMode="text" autoCapitalize="characters" autoComplete="off" maxLength={5}
+                aria-label={`Character ${i + 1} of 5`} disabled={busy}
+                onChange={(e) => type(i, e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Backspace" && !chars[i] && i > 0) { const n = [...chars]; n[i - 1] = ""; setChars(n); refs.current[i - 1]?.focus(); } if (e.key === "ArrowLeft" && i > 0) refs.current[i - 1]?.focus(); if (e.key === "ArrowRight" && i < 4) refs.current[i + 1]?.focus(); }} />
+            ))}
+          </div>
+          <div className="nb-cj-status small">{busy ? "Joining..." : err ? <span className="nb-cj-err">{err}</span> : " "}</div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
+
 // Who is in this notebook, as a row of circles like a shared doc. Tap one to
 // jump to the page they are on.
 function Collaborators({ people, me, pages, onJump, onOpen }) {
@@ -4083,7 +4121,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
       {/* Two rows, like a good note taking app: the page and its controls
           along the top, and a tray of pens and tools under it. Colours and
           sizes live in each pen's settings, opened by tapping it again. */}
-      <div className="nb-bar nb-top">
+      <div className={"nb-bar nb-top" + (liveRoom ? " collabing" : "")}>
         <button className="icon-btn" onClick={onClose} aria-label="Back to notebooks" title="Back to notebooks"><Icon name="back" size={18} /></button>
         <div className="nb-group nb-undo">
           <button className="icon-btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
