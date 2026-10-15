@@ -28,6 +28,7 @@ import { imageDropCandidates, readDroppedImage, blobOf } from "./notebookImageDr
 import { attachNotebookDropTarget } from "./notebookDropTarget.js";
 import { StickerPicker } from "./NotebookStickers.jsx";
 import { useLiveNotebook } from "./useLiveNotebook.js";
+import { personColour, initials } from "./liveNotebook.js";
 import { useMyProfile } from "./Profile.jsx";
 import { newCode, cleanCode } from "./duel.js";
 import { myFriends, sendMessage } from "./social.js";
@@ -966,7 +967,7 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
             <input type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importPdf(f); }} />
             <Icon name="file" size={15} /> Import a PDF
           </label>
-          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Collaborate</button>}
+          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Join with a code</button>}
           <button className="btn cta" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> New notebook</button>
         </div>
       </div>
@@ -2613,6 +2614,24 @@ const COVERS_INK = ["#b9a7f5", "#8fb6f7", "#f5a7c4", "#9ad9b5", "#f7c98f"];
 // Saved on this device, and to the account when signed in.
 const saveBook = (b) => putBook(b).then(() => queueUpload(b.id)).catch(() => {});
 
+// Who is in this notebook, as a row of circles like a shared doc. Tap one to
+// jump to the page they are on.
+function Collaborators({ people, me, pages, onJump, onOpen }) {
+  const list = [...people].sort((a, b) => (a.id === me ? -1 : b.id === me ? 1 : 0));
+  const shown = list.slice(0, 4), more = list.length - shown.length;
+  const pageNo = (pid) => pages.findIndex((x) => x.id === pid) + 1;
+  return (
+    <div className="nb-people" role="group" aria-label="Who is in this notebook">
+      {shown.map((p) => (
+        <button key={p.id} className={"nb-avatar" + (p.id === me ? " me" : "")} style={{ background: personColour(p.id) }}
+          title={p.id === me ? "You" : `${p.name}${pageNo(p.page) ? `, on page ${pageNo(p.page)}. Tap to go there` : ""}`}
+          onClick={() => (p.id === me || !pageNo(p.page) ? onOpen() : onJump(p.page))}>{initials(p.name)}</button>
+      ))}
+      {more > 0 && <button className="nb-avatar more" onClick={onOpen} title="Everyone here">+{more}</button>}
+    </div>
+  );
+}
+
 // Send the invite straight to a friend in Friends messages, so they can join
 // from there without typing a code.
 function InviteFriends({ auth, code, title }) {
@@ -3206,7 +3225,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
   });
   const [livePop, setLivePop] = useState(false);
   const liveNb = useLiveNotebook({
-    code: liveRoom?.code || "", host: !!liveRoom?.host, book, setBook, save: saveBook,
+    code: liveRoom?.code || "", host: !!liveRoom?.host, book, setBook, save: saveBook, pageId: book?.pages?.[current]?.id,
     myId: auth?.user?.id || guestId.current,
     myName: me?.handle || me?.display_name?.trim().split(/\s+/)[0] || "Guest",
   });
@@ -3214,6 +3233,9 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
   nbLiveUndo.current = liveNb;
   const canUndo = nbLiveOn.current ? liveNb.canUndo : !!past.current.length;
   const canRedo = nbLiveOn.current ? liveNb.canRedo : !!future.current.length;
+  const myLiveId = auth?.user?.id || guestId.current;
+  // jump to the page someone else is on, like following them in a doc
+  const jumpToPage = (pid) => { const i = book?.pages.findIndex((x) => x.id === pid); if (i >= 0) pagesRef.current?.querySelectorAll(".nb-page")[i]?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
   useEffect(() => {
     const onKey = (e) => {
@@ -4088,6 +4110,12 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
           <FullscreenButton />
         </div>
         <div className="nb-group nb-asks">
+          {beta && liveRoom && liveNb.status !== "off" && (
+            <>
+              <Collaborators people={liveNb.people} me={myLiveId} pages={book.pages} onJump={jumpToPage} onOpen={() => setLivePop(true)} />
+              <button className="nb-codechip" onClick={() => setLivePop(true)} title="Collaboration code. Tap for options and to invite someone" aria-label={"Collaboration code " + liveRoom.code}>{liveRoom.code}</button>
+            </>
+          )}
           {beta && (
             <button className={"btn small ghost nb-ask nb-collab" + (liveNb.status === "live" ? " on" : "")} onClick={() => setLivePop((v) => !v)} aria-expanded={livePop} title="Write in this notebook together with a friend, live">
               <Icon name="chat" size={14} /> <span className="nb-lbl">{liveNb.status === "live" ? `Collaborate · ${Math.max(1, liveNb.people.length)}` : "Collaborate"}</span>
@@ -4408,9 +4436,18 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
                   <button className="btn quiet small" onClick={() => navigator.clipboard?.writeText(liveRoom.code)}>Copy code</button>
                   <button className="btn quiet small" onClick={() => navigator.clipboard?.writeText(`${location.origin}/notebook?live=${liveRoom.code}`)}>Copy link</button>
                 </div>
-                <div className="nb-livewho">
-                  {liveNb.people.map((p) => <span key={p.id} className="pill">{p.name}{p.host ? " (host)" : ""}</span>)}
+                <div className="nb-wholist">
+                  <b className="small">In this notebook</b>
                   {liveNb.status === "connecting" && <span className="small muted">Joining...</span>}
+                  {liveNb.people.map((p) => (
+                    <div key={p.id} className="nb-whorow">
+                      <span className="nb-avatar sm" style={{ background: personColour(p.id) }}>{initials(p.name)}</span>
+                      <span className="nb-whoname">{p.id === myLiveId ? "You" : p.name}{p.host ? <span className="small muted"> host</span> : null}</span>
+                      {p.id !== myLiveId && book.pages.findIndex((x) => x.id === p.page) >= 0 && (
+                        <button className="btn quiet small" onClick={() => { jumpToPage(p.page); setLivePop(false); }}>Page {book.pages.findIndex((x) => x.id === p.page) + 1}</button>
+                      )}
+                    </div>
+                  ))}
                 </div>
                 {liveNb.error && <div className="dl-err">{liveNb.error}</div>}
                 <p className="small muted">{liveRoom.host ? "Everyone who joins keeps their own copy afterwards. Undo only takes back your own changes, never what someone else did." : "This is your own copy. It stays in your notebooks when you leave."}</p>
@@ -4500,7 +4537,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
             <div key={page.id} className={"nb-page" + (editingText && page.items.some((it) => it.id === editingText) ? " typing" : "")} data-index={i} style={{ width: page.w * zoom, height: page.h * zoom }}>
               <svg viewBox={`0 0 ${page.w} ${page.h}`} width={page.w * zoom} height={page.h * zoom}
                 className={"nb-svg tool-" + tool}
-                onPointerDown={(e) => down(e, page)} onPointerMove={(e) => move(e, page)}
+                onPointerDown={(e) => down(e, page)} onPointerMove={(e) => { if (liveNb.status === "live") { const [cx, cy] = toPage(e, e.currentTarget, page); liveNb.moveCursor(page.id, cx, cy); } move(e, page); }}
                 onPointerUp={up} onPointerCancel={up} onPointerLeave={(e) => {
                   if (ring.current) ring.current.style.display = "none";
                   // Only a mouse can leave mid stroke; a finger or Pencil is held by the page
@@ -4513,6 +4550,13 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
                   <Item key={it.id} it={it} editing={editingText === it.id} shown={shown.has(it.id)} />
                 ))}
                 {live?.pageId === page.id && <Item it={live.item} />}
+                {liveNb.cursors.filter((c) => c.p === page.id).map((c) => (
+                  <g key={c.id} transform={`translate(${c.x} ${c.y}) scale(${1 / zoom})`} pointerEvents="none" className="nb-remote-cursor">
+                    <path d="M0 0 L0 17 L4.5 13 L7.5 20 L10 19 L7 12 L13 12 Z" fill={personColour(c.id)} stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
+                    <rect x="12" y="16" rx="5" width={Math.max(24, c.name.length * 7 + 12)} height="18" fill={personColour(c.id)} />
+                    <text x="18" y="29" fontSize="11" fontWeight="700" fill="#fff" fontFamily="system-ui, sans-serif">{c.name}</text>
+                  </g>
+                ))}
                 {liveOn?.asIs && liveOn.pageId === page.id && <path ref={livePath} pointerEvents="none" />}
                 {ruler?.pageId === page.id && <Ruler r={ruler} />}
                 {prot?.pageId === page.id && <Protractor p={prot} />}

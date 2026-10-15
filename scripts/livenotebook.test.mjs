@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { diffBooks, applyOps, fullOps, mergeOps, invertDiff, cleanItem, split, Joiner, MAX_PIECE } from "../src/liveNotebook.js";
+import { diffBooks, applyOps, fullOps, mergeOps, invertDiff, personColour, initials, cleanCursor, cleanItem, split, Joiner, MAX_PIECE } from "../src/liveNotebook.js";
 
 const st = (id, extra = {}) => ({ id, type: "stroke", tool: "pen", color: "#000", size: 3, points: [[1, 1], [2, 2]], ...extra });
 const book = (pages, extra = {}) => ({ id: "b", title: "Maths", cover: "#3B5BFD", template: "lined", paper: "white", created: 1, pages, ...extra });
@@ -164,4 +164,22 @@ test("undoing then redoing round trips", () => {
   assert.deepEqual(ids(undone), ["a"]);
   const redone = applyOps(undone, invertDiff(s1, undone));
   assert.deepEqual(ids(redone), ["a", "m"]);
+});
+
+test("people: the same colour everywhere, and sensible initials", () => {
+  assert.equal(personColour("abc"), personColour("abc"));
+  assert.match(personColour("x"), /^#[0-9a-f]{6}$/);
+  assert.equal(initials("Sam Lee"), "SL");
+  assert.equal(initials("sam"), "S");
+  assert.equal(initials(""), "?");
+  assert.equal(initials(null), "?");
+});
+
+test("people: a cursor from the wire is bounded, junk is refused", () => {
+  assert.deepEqual(cleanCursor({ id: "u", name: "Sam", p: "p1", x: 10, y: 20 }), { id: "u", name: "Sam", p: "p1", x: 10, y: 20 });
+  assert.equal(cleanCursor({ id: "u", p: "p1", x: "NaN", y: 1 }), null);
+  assert.equal(cleanCursor({ id: 3, p: "p1", x: 1, y: 1 }), null);
+  assert.equal(cleanCursor(null), null);
+  assert.equal(cleanCursor({ id: "u", p: "p1", x: 99999, y: -5 }).x, 5000);
+  assert.equal(cleanCursor({ id: "u", p: "p1", x: 1, y: -5 }).y, 0);
 });

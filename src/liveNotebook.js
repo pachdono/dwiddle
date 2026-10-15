@@ -237,3 +237,27 @@ export class Joiner {
     return Array.from({ length: e.n }, (_, i) => e.got.get(i)).join("");
   }
 }
+
+/* ---------- who is here ---------- */
+
+// A colour for each person, the same on every screen, so a cursor and the
+// circle for the same person always match.
+const HUES = ["#d93a3a", "#2f6fe0", "#2f9e6b", "#e8863a", "#8a4fd8", "#c2528f", "#0e9aa7", "#b8860b"];
+export function personColour(id) {
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return HUES[h % HUES.length];
+}
+export const initials = (name) => {
+  const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
+  return ((w[0]?.[0] || "?") + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase();
+};
+
+// A pointer position from another person. Numbers are clamped so a bad message
+// cannot put a cursor off the page or break the drawing.
+export function cleanCursor(c) {
+  if (!c || typeof c !== "object" || typeof c.id !== "string" || typeof c.p !== "string") return null;
+  const x = Number(c.x), y = Number(c.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { id: c.id.slice(0, 40), name: String(c.name || "Guest").slice(0, 30), p: c.p.slice(0, 40), x: Math.max(0, Math.min(5000, x)), y: Math.max(0, Math.min(8000, y)) };
+}

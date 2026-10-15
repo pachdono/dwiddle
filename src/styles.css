@@ -9677,3 +9677,16 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .nb-invite-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
 .nb-invite-err { color: #d93a3a; flex-basis: 100%; }
 @media (max-width: 1320px) { .nb-asks .nb-ask:not(.nb-collab) .nb-lbl { display: none; } .nb-asks .nb-ask:not(.nb-collab) { padding: 6px 9px; } }
+
+/* people in a shared notebook */
+.nb-people { display: flex; align-items: center; padding-left: 8px; }
+.nb-avatar { width: 28px; height: 28px; margin-left: -8px; border-radius: 50%; border: 2px solid var(--surface); color: #fff; font: inherit; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; cursor: pointer; padding: 0; flex: 0 0 auto; }
+.nb-avatar.me { box-shadow: 0 0 0 2px var(--accent); position: relative; z-index: 1; }
+.nb-avatar.more { background: var(--sunken); color: var(--ink-2); }
+.nb-avatar.sm { width: 26px; height: 26px; margin: 0; cursor: default; }
+.nb-codechip { font: inherit; font-weight: 800; font-size: 12.5px; letter-spacing: .16em; padding: 6px 9px 6px 11px; border-radius: 8px; border: 1px dashed var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.nb-codechip:hover { background: var(--hover); }
+.nb-wholist { display: grid; gap: 6px; }
+.nb-whorow { display: flex; align-items: center; gap: 8px; }
+.nb-whoname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+@media (max-width: 1320px) { .nb-codechip { display: none; } }
