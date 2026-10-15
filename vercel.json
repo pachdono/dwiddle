@@ -10,6 +10,16 @@
   },
   "rewrites": [
     {
+      "source": "/notebook",
+      "has": [
+        {
+          "type": "query",
+          "key": "live"
+        }
+      ],
+      "destination": "/api/models?preview=live"
+    },
+    {
       "source": "/((?!api/|assets/).*)",
       "destination": "/index.html"
     }
