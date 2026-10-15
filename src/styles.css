@@ -9706,3 +9706,49 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 /* while collaborating the other buttons give up their words, so nothing is cut off */
 @media (max-width: 1700px) { .nb-top.collabing .nb-asks .nb-ask:not(.nb-collab) .nb-lbl { display: none; } .nb-top.collabing .nb-asks .nb-ask:not(.nb-collab) { padding: 6px 9px; } }
 @media (max-width: 1500px) { .nb-codechip { display: none; } }
+
+/* skill check */
+.sk-pick { display: flex; gap: 10px; flex-wrap: wrap; }
+.sk-pick select { flex: 1; min-width: 200px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; }
+.sk-last { display: grid; gap: 6px; margin-top: 4px; }
+.sk-last-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; }
+.sk-last-grade { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 900; font-size: 18px; flex: 0 0 auto; }
+.sk-last-t { flex: 1; min-width: 0; display: grid; }
+.sk-scrim { position: fixed; inset: 0; z-index: 90; background: var(--bg); overflow-y: auto; display: flex; justify-content: center; padding: 20px 16px 40px; }
+.sk { width: min(760px, 100%); display: grid; align-content: start; gap: 16px; }
+.sk-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sk-top > div { display: grid; }
+.sk-kicker { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.sk-top b { font-size: 20px; }
+.sk-center { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 90px 10px; }
+.sk-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: sk-spin .9s linear infinite; }
+@keyframes sk-spin { to { transform: rotate(360deg); } }
+.sk-body { display: grid; gap: 16px; }
+.sk-prog { display: grid; gap: 6px; }
+.sk-prog small { color: var(--ink-3); }
+.sk-q { margin: 6px 0 0; font-size: 22px; line-height: 1.35; }
+.sk-choices { display: grid; gap: 10px; }
+.sk-choice { display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: inherit; font: inherit; font-size: 16px; cursor: pointer; }
+.sk-choice:hover:not(:disabled) { border-color: var(--ink-3); }
+.sk-choice.on { border-color: var(--accent); background: var(--accent-soft); }
+.sk-choice:disabled { cursor: default; }
+.sk-key { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--sunken); font-weight: 800; font-size: 13px; flex: 0 0 auto; }
+.sk-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sk-hero { display: flex; gap: 16px; flex-wrap: wrap; padding: 20px; border-radius: 18px; background: var(--accent-soft); }
+.sk-grade { display: grid; flex: 1; min-width: 200px; }
+.sk-grade span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.sk-grade b { font-size: 64px; line-height: 1.05; color: var(--accent); }
+.sk-grade small { color: var(--ink-2); }
+.sk-score { display: grid; align-content: center; justify-items: center; }
+.sk-score b { font-size: 34px; } .sk-score b small { font-size: 18px; color: var(--ink-3); }
+.sk-score span { font-size: 13px; color: var(--ink-2); }
+.sk-result h3 { margin: 4px 0 0; }
+.sk-skills { display: grid; gap: 10px; }
+.sk-skill { display: grid; grid-template-columns: minmax(120px, 1.2fr) 1.6fr 48px auto auto; align-items: center; gap: 10px; }
+.sk-skill-name { font-weight: 600; font-size: 14.5px; }
+.sk-pct { text-align: right; }
+.sk-next { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--sunken); }
+.sk-review summary { cursor: pointer; font-weight: 700; }
+.sk-miss { padding: 12px 0; border-bottom: 1px solid var(--line-soft); display: grid; gap: 2px; }
+.sk-miss p { margin: 2px 0; }
+@media (max-width: 640px) { .sk-skill { grid-template-columns: 1fr 48px; } .sk-skill .rp-track { grid-column: 1 / -1; order: 3; } .sk-q { font-size: 19px; } }

@@ -172,6 +172,36 @@ Rules:
 - "why" must teach something, not restate the answer. Two sentences, no more.
 ${STYLE}`;
 
+const SKILLCHECK = `You build a skill check: a short test that finds out, skill by skill, how well a student knows ONE topic, using their notes.
+
+${MATHS}
+
+Return ONE JSON object and nothing else. No prose, no code fences.
+
+Shape:
+{
+  "skills": ["short name of a skill", "..."],
+  "questions": [
+    {
+      "skill": "must be one of the skills listed, exactly",
+      "q": "the complete question, exactly as it would be printed on an exam paper",
+      "choices": ["four options"],
+      "answer": 0,
+      "why": "two sentences: why the right answer is right, and why the most tempting wrong one is wrong"
+    }
+  ]
+}
+
+Rules:
+- First decide the skills. A skill is one thing a student must be able to do or recall to have mastered the topic: define a key term, explain a process, apply a rule, calculate a value, read a graph or table, compare two ideas, spot a common mistake. List every distinct skill the notes really contain, as many as there are (usually 4 to 10), and never pad the list or leave a real one out.
+- Then write the questions. You decide how many it takes: at least one for every skill, two for a skill that is large or has several steps, so that together they test every skill. Usually 6 to 18 questions in all, never more than 20.
+- Each question tests only its own skill, and the skill must be one a student could fail on its own. Mix easy and harder questions; for the bigger skills include one that applies the idea to a situation instead of asking for the term.
+- Every question must be answerable from the notes alone. Only ask about terms, names, facts, figures and definitions that are written in the notes. The right answer must be stated in the notes. Wrong options are believable misunderstandings.
+- A question that asks for a calculated value must state every number it needs in its own wording. Write units as m/s, m/s², kg/m³.
+- 4 choices each; "answer" is the index of the correct one, and it must vary: spread it evenly across 0, 1, 2 and 3.
+- Every question must stand alone. Never refer to a label or figure the student has not been given, and never write "in the notes". Never repeat or reword another question.
+${STYLE}`;
+
 const SHEET = `You condense a student's notes onto one page, with the important parts marked.
 
 Return ONE JSON object and nothing else. No prose, no code fences.
@@ -302,6 +332,7 @@ function cleanQuestions(list, allowed, prefix) {
       kind: ["vocab", "concept", "process"].includes(q.kind) ? q.kind : "concept",
       q: String(q.q),
       ...(q.kind === "vocab" && q.term ? { term: String(q.term) } : {}),
+      ...(typeof q.skill === "string" && q.skill ? { skill: q.skill } : {}),
       choices: q.choices.map(String),
       answer: q.answer,
       why: String(q.why || ""),
@@ -612,6 +643,34 @@ async function part(req, res, mode, notes) {
     const finalQs = checked.length ? checked : questions;
     if (finalQs.length === 0) return userError(res, 502, "The model returned no usable questions. Try again.");
     return res.status(200).json({ questions: finalQs });
+  }
+
+  if (mode === "skillcheck") {
+    const topic = String(req.body?.topics?.[0]?.name || req.body?.topic || "").slice(0, 160);
+    if (!topic) return userError(res, 400, "Which topic should the skill check cover?");
+    const text = await ask({
+      system: SKILLCHECK,
+      user: `Build the skill check for this topic only: ${topic}\n\nThe notes:\n\n${notes}`,
+      maxTokens: 5200,
+      json: true,
+      temperature: 0.3,
+    });
+    const data = safeParse(text, "skillcheck");
+    const skills = [...new Set((Array.isArray(data?.skills) ? data.skills : []).map((s) => String(s?.name || s || "").trim().slice(0, 90)).filter(Boolean))].slice(0, 14);
+    const key = (s) => s.toLowerCase();
+    const raw = (Array.isArray(data?.questions) ? data.questions : []).slice(0, 24).map((q) => {
+      const skill = skills.find((s) => key(s) === key(String(q?.skill || "").trim()));
+      return skill ? { ...q, skill, topic } : null;
+    }).filter(Boolean);
+    const prefix = `sk${String(req.body?.batch ?? 0).replace(/[^0-9a-z]/gi, "").slice(0, 10)}q`;
+    const matched = cleanQuestions(raw, [topic], prefix).filter((q) => q.skill);
+    const kept = matched.filter((q) => fromNotes(q, notes));
+    const pool = (kept.length >= Math.ceil(matched.length / 2) ? kept : matched);
+    const checked = await verifyQuestions(pool, notes);
+    const questions = (checked.length ? checked : pool).slice(0, 20);
+    const covered = skills.filter((s) => questions.some((q) => q.skill === s));
+    if (questions.length < 3 || covered.length < 2) return userError(res, 502, "The skill check did not come back complete. Try again.");
+    return res.status(200).json({ topic, skills: covered, questions });
   }
 
   if (mode === "notes") {

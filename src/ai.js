@@ -369,6 +369,21 @@ export async function moreQuestions(made, names, count, avoidMore = [], level = 
   return out;
 }
 
+// A skill check: one topic, tested skill by skill. The writer works out the
+// skills in the topic and decides how many questions it takes to cover them all,
+// so nothing here says how many. Throws an error with something to show.
+export async function skillCheck(made, topic) {
+  let notes = notesText(made, [topic]).slice(0, 20000);
+  const have = (made?.questions || []).filter((q) => q.topic === topic);
+  if (notes.length < 220) {
+    const facts = have.map((q) => `${q.q} The answer is ${q.choices?.[q.answer] ?? ""}. ${q.why || ""}`.trim()).join("\n");
+    notes = `${notes}\n\nFacts already established about this topic:\n${facts}`.slice(0, 20000);
+  }
+  if (notes.length < 220) throw new Error("There are not enough notes on that topic to check it yet. Open it in Learn first.");
+  const d = await post("/api/generate", { notes, mode: "skillcheck", topics: [{ name: topic }], batch: Date.now() % 1e6 });
+  return { topic: d.topic || topic, skills: Array.isArray(d.skills) ? d.skills : [], questions: (d.questions || []).map(tidyQuestion) };
+}
+
 // ---------- more than fits in one go ----------
 
 // The most one call is given, a little under the server's own limit so a part

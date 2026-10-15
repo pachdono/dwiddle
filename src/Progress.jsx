@@ -7,6 +7,8 @@ import { levelOf } from "./xp.js";
 import { gcalAvailable, connected, connect, disconnect, busyTimes, syncPlan } from "./gcal.js";
 import { isDesktop } from "./desktop.js";
 import { getFeed, pushSessions, replaceFeed, feedLinks } from "./calfeed.js";
+import SkillCheck from "./SkillCheck.jsx";
+import { CHECKS_KEY } from "./skillcheck.js";
 
 // The report and the planner, one page with two tabs. Everything here is worked
 // out on this device from the answers already given; nothing is sent anywhere.
@@ -110,7 +112,44 @@ function TopicTable({ rows, go, setTopic }) {
   );
 }
 
-function Report({ stats, go, setTopic, log, summary }) {
+// Test one topic skill by skill. The writer decides how many questions that
+// takes, and the result is a predicted grade for the topic and each skill.
+function SkillCheckCard({ topics, onStart }) {
+  const [pick, setPick] = useState(topics[0] || "");
+  const [checks, setChecks] = useState(() => load(CHECKS_KEY, []));
+  useEffect(() => { const f = () => setChecks(load(CHECKS_KEY, [])); addEventListener("dwiddle:skillcheck", f); return () => removeEventListener("dwiddle:skillcheck", f); }, []);
+  useEffect(() => { if (!topics.includes(pick)) setPick(topics[0] || ""); }, [topics]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the latest result for each topic
+  const latest = [];
+  for (const c of Array.isArray(checks) ? checks : []) if (!latest.some((x) => x.topic === c.topic)) latest.push(c);
+  const days = (t) => Math.max(0, Math.floor((Date.now() - t) / 864e5));
+  return (
+    <div className="card card-pad sk-card">
+      <div className="spread"><h3 style={{ margin: 0 }}>Skill check</h3><span className="small muted">Any topic, every skill</span></div>
+      <p className="small muted">A custom quiz on one topic. Dwiddle works out every skill the topic needs and decides how many questions it takes to test them all, then shows you where you stand on each skill and a predicted grade for the topic.</p>
+      {topics.length === 0 ? <p className="small muted">Add some material first, then you can check a topic from it.</p> : (
+        <div className="sk-pick">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Topic to check">{topics.map((n) => <option key={n} value={n}>{n}</option>)}</select>
+          <button className="btn cta" disabled={!pick} onClick={() => onStart(pick)}>Start skill check</button>
+        </div>
+      )}
+      {latest.length > 0 && (
+        <div className="sk-last">
+          <b className="small">Your latest checks</b>
+          {latest.slice(0, 4).map((c) => (
+            <div key={c.topic} className="sk-last-row">
+              <span className="sk-last-grade">{c.grade}</span>
+              <span className="sk-last-t"><b>{c.topic}</b><small className="muted">{c.gradeLo === c.gradeHi ? c.gradeLo : `${c.gradeLo} to ${c.gradeHi}`} possible · {c.right} of {c.total} right · {ago(days(c.t))}</small></span>
+              {topics.includes(c.topic) && <button className="btn quiet small" onClick={() => onStart(c.topic)}>Check again</button>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Report({ stats, go, setTopic, log, summary, topicNames = [], onCheck }) {
   const lv = levelOf(stats?.xp || 0);
   const rows = useMemo(() => topicMastery(log), [log]);
   const fallback = !rows.length && stats?.byTopic ? Object.entries(stats.byTopic).filter(([, v]) => v.total).map(([name, v]) => { const a = Math.round((v.right / v.total) * 100); return { name, total: v.total, skill: a, memory: a, days: 0, last: 0, trend: null, status: v.total < 4 ? "early" : a >= 80 ? "strong" : a >= 60 ? "solid" : "weak" }; }).sort((a, b) => a.memory - b.memory) : [];
@@ -143,6 +182,8 @@ function Report({ stats, go, setTopic, log, summary }) {
         </div>
       </div>
       {predicted && <p className="small muted rp-foot" style={{ margin: "-6px 4px 0" }}>The grade is a rough guide worked out from your practice answers, weighted towards recent ones, and it drops for topics you have not practised in a while. Real papers differ, so treat it as a direction, not a promise.</p>}
+
+      <SkillCheckCard topics={topicNames} onStart={onCheck} />
 
       <div className="card card-pad">
         <div className="spread"><h3 style={{ margin: 0 }}>Skill and memory by topic</h3><span className="small muted">Weakest first</span></div>
@@ -610,19 +651,24 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
   );
 }
 
-export default function Progress({ stats, go, setTopic, page, auth, topics = [] }) {
+export default function Progress({ stats, go, setTopic, page, auth, topics = [], beta = false, made, grade }) {
   const topicNames = useMemo(() => [...new Set(topics.map((t) => t.name))], [topics]);
   const log = useLog();
   const summary = useMemo(() => summarise(log), [log]);
-  const tab = page === "planner" ? "planner" : "report";
+  // the planner is still being tried by staff and testers
+  const tab = page === "planner" && beta ? "planner" : "report";
+  const [checking, setChecking] = useState(null);
   return (
     <div className="page fade rp-page">
       <PageHead title={tab === "planner" ? "Study planner" : "Your report"} sub={tab === "planner" ? "A week of study sessions, placed in the time you are free, with the weak topics first." : "What you have been doing, where you are strong and where to spend your time."} />
-      <div className="hf-switch" role="tablist">
-        <button role="tab" className={tab === "report" ? "on" : ""} onClick={() => go("report")}>Report</button>
-        <button role="tab" className={tab === "planner" ? "on" : ""} onClick={() => go("planner")}>Planner</button>
-      </div>
-      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} topicNames={topicNames} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} />}
+      {beta && (
+        <div className="hf-switch" role="tablist">
+          <button role="tab" className={tab === "report" ? "on" : ""} onClick={() => go("report")}>Report</button>
+          <button role="tab" className={tab === "planner" ? "on" : ""} onClick={() => go("planner")}>Planner</button>
+        </div>
+      )}
+      {tab === "planner" ? <Planner summary={summary} go={go} setTopic={setTopic} user={auth?.user} topicNames={topicNames} /> : <Report stats={stats} go={go} setTopic={setTopic} log={log} summary={summary} topicNames={topicNames} onCheck={setChecking} />}
+      {checking && <SkillCheck topic={checking} made={made} grade={grade} onClose={() => setChecking(null)} onPractise={(name) => { setChecking(null); setTopic?.(name); go("quiz"); }} />}
     </div>
   );
 }

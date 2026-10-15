@@ -305,7 +305,7 @@ const GROUPS = [
   },
   { id: "folders", label: "Library", icon: "folder", pic: "folders", pages: ["library", "reader", "explore"], fresh: true },
   { id: "notebook", label: "Notebooks", icon: "pen", pic: "notebook", pages: ["notebook"] },
-  { id: "progress", label: "Progress", icon: "target", pic: "report", pages: ["report", "planner"], fresh: true, beta: true },
+  { id: "progress", label: "Progress", icon: "target", pic: "report", pages: ["report", "planner"], fresh: true },
   { id: "social", label: "Friends", icon: "chat", pic: "social", pages: ["social"], fresh: true },
   { id: "decks", label: "My decks", icon: "deck", pages: ["decks"], early: true, old: true },
   {
@@ -485,7 +485,7 @@ export default function App() {
   // Everything testers were trying out is now out for everyone. For the next
   // feature to be tried by staff and testers first, gate it on
   // staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1" again.
-  // Progress (the report and the planner) is still being tried by staff and testers.
+  // The report is out for everyone; the planner is still being tried by staff and testers.
   const beta = staff || !!access.tester || import.meta.env.VITE_EARLY_ALL === "1";
   const early = true;
   useEffect(() => { setEarlyAccess(early); }, [early]);
@@ -941,7 +941,7 @@ export default function App() {
     tests: TestPrep,
     courses: Courses,
     notebook: NotebookLoader,
-    report: beta ? Progress : Dashboard,
+    report: Progress,
     planner: beta ? Progress : Dashboard,
     chat: ChatRoom,
     feedback: FeedbackPage,
