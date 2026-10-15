@@ -55,7 +55,7 @@ export async function preview(req, res) {
   const description = "Write, draw and add things in the same notebook at the same time. Open the link to join live.";
   return res.status(200).send(retag(html, {
     title, description,
-    image: `${origin}/og-collab.png`,
+    image: `${origin}/og-collab.png?v=2`,
     url: `${origin}/notebook?live=${code}`,
     alt: "Dwiddle: write in a notebook together, live",
   }));
