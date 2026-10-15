@@ -9751,7 +9751,7 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .sk-review summary { cursor: pointer; font-weight: 700; }
 .sk-miss { padding: 12px 0; border-bottom: 1px solid var(--line-soft); display: grid; gap: 2px; }
 .sk-miss p { margin: 2px 0; }
-@media (max-width: 640px) { .sk-skill { grid-template-columns: 1fr 48px; } .sk-skill .rp-track { grid-column: 1 / -1; order: 3; } .sk-q { font-size: 19px; } }
+@media (max-width: 640px) { .sk-skill { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; } .sk-skill-name { flex: 1 1 0; min-width: 0; } .sk-pct { text-align: right; } .sk-skill .rp-track { order: 3; flex: 1 0 100%; } .sk-skill .rp-badge, .sk-skill > small { order: 4; } .sk-q { font-size: 19px; } }
 
 /* a flash on every answer */
 .af { position: fixed; inset: 0; z-index: 95; pointer-events: none; display: grid; place-items: center; }
