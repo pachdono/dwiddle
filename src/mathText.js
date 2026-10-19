@@ -74,13 +74,29 @@ const TEX = { times: "×", cdot: "·", div: "÷", approx: "≈", pm: "±", leq: 
   omega: "ω", Omega: "Ω", rho: "ρ", degree: "°", circ: "°", rightarrow: "→", to: "→", leftarrow: "←", propto: "∝", sum: "Σ",
   varepsilon: "ε", epsilon: "ε", forall: "∀", exists: "∃", iff: "⇔", implies: "⇒", Rightarrow: "⇒", Longrightarrow: "⇒", Leftrightarrow: "⇔", Longleftrightarrow: "⇔",
   in: "∈", notin: "∉", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩", int: "∫", partial: "∂", nabla: "∇", ldots: "…", cdots: "…", dots: "…", mid: "|", lvert: "|", rvert: "|",
-  lim: "lim", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", max: "max", min: "min", prod: "∏", angle: "∠", perp: "⊥", parallel: "∥", therefore: "∴", ne: "≠" };
+  lim: "lim", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", max: "max", min: "min", prod: "∏", angle: "∠", perp: "⊥", parallel: "∥", therefore: "∴", ne: "≠",
+  land: "∧", wedge: "∧", lor: "∨", vee: "∨", lnot: "¬", neg: "¬", oplus: "⊕", otimes: "⊗", equiv: "≡", sim: "∼", cong: "≅",
+  quad: " ", qquad: "  ", ast: "*", star: "*", prime: "′", hbar: "ħ", nu: "ν", tau: "τ", phi: "φ", psi: "ψ", eta: "η", kappa: "κ", xi: "ξ", zeta: "ζ", chi: "χ",
+  Sigma: "Σ", Pi: "Π", Phi: "Φ", Lambda: "Λ", Gamma: "Γ", Theta: "Θ", geqslant: "≥", leqslant: "≤", ll: "≪", gg: "≫", emptyset: "∅", varnothing: "∅",
+  uparrow: "↑", downarrow: "↓", leftrightarrow: "↔", mapsto: "↦" };
+// A line drawn over each character, for \overline{A} (NOT A) and \bar{x}.
+const over = (t) => [...t].map((c) => (c === " " ? c : c + "\u0305")).join("");
 function untex(s) {
+  // Cases, written as a sentence: "1 if A = 1 and B = 1; 0 otherwise".
+  s = s.replace(/\s*\\begin\{cases\}([\s\S]*?)\\end\{cases\}/g, (m, body) =>
+    " " + body.split(/\\\\(?:\[[^\]]*\])?/).map((row) => untexInner(row.replace(/\s*&\s*/g, " ")).replace(/\s+/g, " ").trim()).filter(Boolean).join("; "));
+  // Other layouts (aligned, array, matrix): one row a line, no column marks.
+  s = s.replace(/\\begin\{[a-z*]+\}(?:\{[^{}]*\})?([\s\S]*?)\\end\{[a-z*]+\}/g, (m, body) =>
+    body.replace(/\s*&(=)?\s*/g, (a, eq) => (eq ? " = " : " ")))
+    .replace(/\\\\(?:\[[^\]]*\])?/g, "\n");
+  // A boxed answer keeps its words, and an overlined letter keeps its bar.
+  for (let k = 0; k < 2; k++) s = s.replace(/\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g, "$1");
+  s = s.replace(/\\(?:overline|bar)\{([^{}]{1,24})\}/g, (m, t) => over(untexInner(t).replace(/\s+/g, ""))).replace(/\\bar ([A-Za-z])/g, (m, t) => over(t));
   // The brackets a model wraps maths in, on a line of their own or not, are not part of it.
   s = s.replace(/\s*\\[()[\]]\s*/g, (m) => (/\n/.test(m) ? "\n" : " ")).replace(/\\[;,:! ]/g, " ");
   s = s.replace(/\\lim_\{([^{}]*)\}/g, (m, a) => `lim(${untexInner(a)})`);
   for (let k = 0; k < 3; k++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`));
-  return untexInner(s);
+  return untexInner(s).replace(/([^\s]) {2,}(?=[^\s])/g, "$1 ");
 }
 function untexInner(s) {
   return s
