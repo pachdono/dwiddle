@@ -820,6 +820,7 @@ export function PagePreview({ page, className = "" }) {
 export default function NotebookPage({ go, early = false, access, beta = false, auth }) {
   const [books, setBooks] = useState(null);
   const [joining, setJoining] = useState(false);
+  const joinKick = useRef(null);
   const [joinCode, setJoinCode] = useState("");
   const [joinErr, setJoinErr] = useState("");
   // a notebook just made from notes opens straight away
@@ -960,7 +961,11 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
             <input type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importPdf(f); }} />
             <Icon name="file" size={15} /> Import a PDF
           </label>
-          {beta && <button className="btn ghost" onClick={() => setJoining((v) => !v)}><Icon name="chat" size={15} /> Join with a code</button>}
+          {beta && <>
+            {/* iPad and iPhone only raise the keyboard for a focus made inside the tap itself. The code boxes mount a moment later, so this stand in takes focus first and hands the keyboard on to them. */}
+            <input ref={joinKick} className="nb-cj-kick" aria-hidden="true" tabIndex={-1} autoComplete="off" inputMode="text" />
+            <button className="btn ghost" onClick={() => { if (!joining) joinKick.current?.focus({ preventScroll: true }); setJoining((v) => !v); }}><Icon name="chat" size={15} /> Join with a code</button>
+          </>}
           <button className="btn cta" onClick={() => setCreating(true)}><Icon name="plus" size={15} /> New notebook</button>
         </div>
       </div>
@@ -2613,7 +2618,7 @@ function CodeJoin({ onJoin, onClose, err }) {
   const [chars, setChars] = useState(["", "", "", "", ""]);
   const [busy, setBusy] = useState(false);
   const refs = useRef([]);
-  useEffect(() => { refs.current[0]?.focus(); }, []);
+  useEffect(() => { refs.current[0]?.focus(); const t = setTimeout(() => refs.current[0]?.focus(), 60); return () => clearTimeout(t); }, []);
   useEffect(() => { const k = (e) => e.key === "Escape" && onClose(); addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [onClose]);
   function put(next) {
     setChars(next);

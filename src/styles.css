@@ -9696,6 +9696,7 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .nb-cj h3 { margin: 0; font-size: 22px; }
 .nb-cj p { margin: 0; max-width: 32ch; }
 .nb-cj-x { position: absolute; top: 12px; right: 12px; }
+.nb-cj-kick { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; pointer-events: none; }
 .nb-cj-boxes { display: flex; gap: 10px; margin: 12px 0 4px; }
 .nb-cj-box { width: 54px; height: 66px; text-align: center; font: inherit; font-size: 30px; font-weight: 800; text-transform: uppercase; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); outline: none; padding: 0; transition: border-color .12s, box-shadow .12s, transform .12s; }
 .nb-cj-box.on { border-color: var(--ink-3); }

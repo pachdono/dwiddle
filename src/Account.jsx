@@ -157,7 +157,9 @@ export function SignInPanel({ onDone }) {
     });
     if (error) {
       setState("error");
-      setMessage(error.message);
+      setMessage(/rate limit|too many|seconds/i.test(error.message)
+        ? "Too many sign in emails were just sent. Wait a minute, then try again, or continue with Google."
+        : /invalid/i.test(error.message) && /email/i.test(error.message) ? "That email address does not look right. Check it and try again." : error.message);
     } else {
       setState("sent");
       setMessage(`Check ${email.trim()} for a sign in link. It expires in an hour.`);
@@ -197,6 +199,10 @@ export function SignInPanel({ onDone }) {
             value={email}
             placeholder="you@example.com"
             autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(e) => setEmail(e.target.value)}
           />
         </label>
@@ -265,9 +271,21 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
   const handleOk = /^[a-z0-9_]{3,20}$/.test(String(f.handle || "").replace(/^@/, ""));
   const ok = f.first_name.trim() && f.last_name.trim() && String(f.display_name || "").trim() && handleOk && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young && level;
 
+  // Say what is missing instead of leaving a dead button, which is what
+  // someone on a tablet sees when a field is off screen.
+  function why() {
+    if (!f.first_name.trim()) return "Add your first name.";
+    if (!f.last_name.trim()) return "Add your last name.";
+    if (!String(f.display_name || "").trim()) return "Add a display name.";
+    if (!handleOk) return "Pick a username of 3 to 20 letters, numbers or underscores.";
+    if (!f.birth_date || f.birth_date >= today || f.birth_date <= "1900-01-01") return "Add your date of birth.";
+    if (young) return "";
+    if (!level) return "Pick what you are studying for.";
+    return "";
+  }
   async function submit(e) {
     e.preventDefault();
-    if (!ok) return;
+    if (!ok) { setErr(why()); return; }
     setState("saving"); setErr("");
     setMyLevel(level);
     const r = await saveProfile(user.id, f);
@@ -279,7 +297,7 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
   }
 
   return (
-    <form className="profile-form" onSubmit={submit}>
+    <form className="profile-form" onSubmit={submit} noValidate>
       <div className="profile-row">
         <label className="field"><span>First name</span>
           <input type="text" required autoComplete="given-name" maxLength={60} value={f.first_name} onChange={set("first_name")} /></label>
@@ -290,8 +308,8 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
         <input type="text" required maxLength={40} value={f.display_name || ""} onChange={set("display_name")} placeholder="How you show up, e.g. Maya" />
         <em className="hint">Shown to friends and on the leaderboard. It can be anything.</em></label>
       <label className="field"><span>Username</span>
-        <input type="text" required maxLength={21} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={f.handle || ""}
-          onChange={(e) => setF((o) => ({ ...o, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_@]/g, "") }))} placeholder="e.g. maya_studies" />
+        <input type="text" required maxLength={20} autoCapitalize="none" autoCorrect="off" spellCheck={false} value={f.handle || ""}
+          onChange={(e) => setF((o) => ({ ...o, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="e.g. maya_studies" />
         <em className="hint">How friends find you. 3 to 20 letters, numbers or underscores, and different from your display name.</em></label>
       <label className="field"><span>Date of birth</span>
         <input required type="date" autoComplete="bday" min="1900-01-02" max={today} value={f.birth_date} onChange={set("birth_date")} /></label>
@@ -304,7 +322,7 @@ export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "S
       {err && <p className="small" style={{ color: "var(--warn)", margin: 0 }}>{err}</p>}
       <div className="profile-actions">
         {onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>}
-        <button className="btn cta" type="submit" disabled={!ok || state === "saving"}>{state === "saving" ? "Saving" : submitLabel}</button>
+        <button className="btn cta" type="submit" disabled={state === "saving"}>{state === "saving" ? "Saving" : submitLabel}</button>
       </div>
     </form>
   );
