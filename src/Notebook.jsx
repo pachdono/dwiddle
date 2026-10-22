@@ -251,9 +251,14 @@ function Textures() {
   return (
     <defs>
       <filter id="nb-tex-pencil" x="-5%" y="-5%" width="110%" height="110%">
-        <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" result="grain" />
-        <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.5" result="mask" />
-        <feComposite in="SourceGraphic" in2="mask" operator="in" />
+        {/* graphite on paper: a fine tooth that skips little specks, a slow wander in how hard it presses, and a slightly soft edge */}
+        <feTurbulence type="fractalNoise" baseFrequency="1.15" numOctaves="3" seed="3" result="tooth" />
+        <feColorMatrix in="tooth" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.7 2.15" result="toothMask" />
+        <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="8" result="press" />
+        <feColorMatrix in="press" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.3 1.45" result="pressMask" />
+        <feComposite in="toothMask" in2="pressMask" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="mask" />
+        <feGaussianBlur in="SourceGraphic" stdDeviation="0.3" result="soft" />
+        <feComposite in="soft" in2="mask" operator="in" />
       </filter>
       <filter id="nb-tex-felt" x="-5%" y="-5%" width="110%" height="110%">
         <feTurbulence type="fractalNoise" baseFrequency="0.02 0.9" numOctaves="2" seed="5" result="grain" />
@@ -309,7 +314,7 @@ function pathFrom(stroke) {
 const PEN_STYLES = [
   { id: "ball", name: "Ballpoint", thinning: 0.12, taper: 0 },
   { id: "fountain", name: "Fountain", thinning: 0.35, taper: 0 },
-  { id: "pencil", name: "Pencil", thinning: 0.3, taper: 4, texture: "pencil", scale: 0.9, alpha: 0.88 },
+  { id: "pencil", name: "Pencil", thinning: 0.45, taper: 6, texture: "pencil", scale: 0.95, alpha: 0.82 },
   { id: "crayon", name: "Crayon", thinning: 0.05, taper: 1, texture: "crayon", scale: 2.3, alpha: 0.92 },
   { id: "marker", name: "Fineliner", thinning: 0, taper: 0, scale: 1.1 },
   { id: "brush", name: "Brush", thinning: 0.6, taper: 5 },
@@ -1689,6 +1694,7 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
       <div className="nb-pop-scrim" onPointerDown={onClose} />
       <div className="nb-pop nb-penpop" role="dialog" aria-label={names[tool] + " settings"}>
         <div className="nb-pop-head"><b>{names[tool]}</b><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" size={15} /></button></div>
+        {(tool === "pen" || tool === "highlighter") && <StrokeSample big tool={tool} size={size} color={color} style={prefs.style} tip={prefs.tip} />}
         {tool === "pen" && (
           <div className="nb-pengrid" role="radiogroup" aria-label="Pen">
             {PEN_STYLES.map((p) => (
@@ -1827,14 +1833,15 @@ function ToolTip({ tool, color }) {
 
 // A sample stroke, drawn with the tool's real settings, so the size and style
 // can be seen before writing.
-function StrokeSample({ tool, size, color, style, tip }) {
+function StrokeSample({ tool, size, color, style, tip, big }) {
+  const pen = tool === "pen" ? PEN_STYLES.find((p) => p.id === style) : null;
   const pts = Array.from({ length: 40 }, (_, i) => [14 + i * 5.4, 30 + Math.sin(i / 5.5) * 12, 0.3 + 0.5 * Math.sin((i / 39) * Math.PI)]);
   const it = { tool, size: widthOf(tool, size), points: tool === "pen" ? pts : pts.map(([x, , p]) => [x, 30, p]), style, tip, pressure: tool === "pen" };
   return (
-    <svg className="nb-sample" viewBox="0 0 240 60" aria-hidden="true">
+    <svg className={"nb-sample" + (big ? " big" : "")} viewBox="0 0 240 60" aria-hidden="true">
       {tool === "eraser"
         ? <circle cx="120" cy="30" r={Math.min(28, widthOf("eraser", size) / 2.2)} fill="var(--surface)" stroke="var(--ink-3)" strokeWidth="1.5" />
-        : <path d={inkPath(it)} fill={color} opacity={tool === "highlighter" ? 0.55 : 1} />}
+        : <path d={inkPath(it)} fill={color} opacity={tool === "highlighter" ? 0.55 : pen?.alpha || 1} filter={pen?.texture ? `url(#nb-tex-${pen.texture})` : undefined} />}
     </svg>
   );
 }

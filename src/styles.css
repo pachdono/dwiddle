@@ -9790,3 +9790,6 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .mt-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.18em; line-height: 1.15; text-align: center; }
 .mt-num { padding: 0 0.25em 0.08em; border-bottom: 1.5px solid currentColor; }
 .mt-den { padding: 0.08em 0.25em 0; }
+
+/* the live stroke at the top of a pen's settings */
+.nb-sample.big { height: 104px; padding: 4px 0; }
