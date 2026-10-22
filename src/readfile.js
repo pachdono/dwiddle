@@ -17,7 +17,7 @@ export const IMAGE = /\.(png|jpe?g|webp|heic|heif|gif|bmp)$/i;
 
 // onPage(page, of) is told each page of a PDF as it is read, so a long one
 // can say how far it has got.
-export async function readFile(file, { onPage } = {}) {
+export async function readFile(file, { onPage, photo } = {}) {
   if (file.size > MAX_FILE) {
     throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the 20 MB limit. Split it and add a chapter at a time.`);
   }
@@ -39,7 +39,7 @@ export async function readFile(file, { onPage } = {}) {
     }
     // Resized before sending: a phone photo is several megabytes and the
     // server rejects a body that size, while the text stays legible at 1600px.
-    const data = await shrink(file, 1600, 0.85);
+    const data = await shrink(file, photo?.maxSide || 1600, photo?.quality || 0.85);
     const { text } = await readImage(data);
     return text;
   }

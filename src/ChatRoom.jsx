@@ -89,28 +89,43 @@ export default function ChatRoom({ go, setMade, auth, made }) {
   async function attach(list) {
     for (const file of [...(list || [])].slice(0, 5)) {
       const id = Date.now() + Math.random().toString(36).slice(2, 6);
-      const thumb = IMAGE.test(file.name) ? await shrink(file, 160, 0.7).catch(() => "") : "";
-      setFiles((f) => [...f, { id, name: file.name, thumb, state: "reading" }]);
-      setSay(thumb ? "Ooh, a picture! Let me look..." : "Reading your file...");
+      const pic = IMAGE.test(file.name);
+      setFiles((f) => [...f, { id, name: file.name, thumb: "", state: "reading" }]);
+      // the little preview fills in on its own, so the picture is on its way to be read straight away
+      if (pic) shrink(file, 160, 0.7).then((thumb) => setFiles((f) => f.map((x) => (x.id === id ? { ...x, thumb } : x)))).catch(() => {});
+      setSay(pic ? "Ooh, a picture! Let me look..." : "Reading your file...");
       moodFor("thinking", 1500);
-      readFile(file)
+      // a smaller picture reads just as well for a chat question and gets there much faster
+      const job = readFile(file, { photo: { maxSide: 1280, quality: 0.72 } })
         .then((t) => setFiles((f) => f.map((x) => (x.id === id ? { ...x, state: "ready", text: String(t || "").trim().slice(0, 12000) } : x))))
         .catch((err) => setFiles((f) => f.map((x) => (x.id === id ? { ...x, state: "failed", error: err.message || "That file could not be read." } : x))));
+      reads.current.push(job);
     }
   }
   const reading = files.some((f) => f.state === "reading");
+  const reads = useRef([]);
+  const filesRef = useRef([]);
+  filesRef.current = files;
 
   async function send(raw) {
-    const ready = files.filter((f) => f.state === "ready" && f.text);
+    if (busy) return;
+    // Sending while a photo is still being read waits for it, rather than refusing.
+    if (reading) {
+      setSay("Reading your photo first...");
+      await Promise.allSettled(reads.current);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    reads.current = [];
+    const ready = filesRef.current.filter((f) => f.state === "ready" && f.text);
     const q = String(raw ?? text).trim() || (ready.length ? "Help me understand this." : "");
-    if (!q || busy || reading) return;
+    if (!q || busy) return;
     import("./notify.js").then((m) => m.askOnce());
     dict.stop();
     stopSpeaking();
     setText("");
     setFiles([]);
     if (input.current) input.current.style.height = "";
-    const sent = ready.map((f) => `\n\n[Attached ${f.thumb ? "photo" : "file"}: ${f.name}]\n${f.text}`).join("");
+    const sent = ready.map((f) => `\n\n[Attached ${IMAGE.test(f.name) ? "photo" : "file"}: ${f.name}]\n${f.text}`).join("");
     const mine = { id: Date.now() + "u", role: "user", content: (q + sent).slice(0, 20000), display: q, files: ready.map(({ name, thumb }) => ({ name, thumb })) };
     const history = [...msgs, mine];
     setMsgs(history);
@@ -287,7 +302,7 @@ export default function ChatRoom({ go, setMade, auth, made }) {
           }}
           onPaste={(e) => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); attach(fs); } }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-        <button type="submit" className="cr-send" disabled={(!text.trim() && !files.some((f) => f.state === "ready")) || busy || reading} aria-label="Send"><Icon name="arrow" size={18} /></button>
+        <button type="submit" className="cr-send" disabled={(!text.trim() && !files.some((f) => f.state === "ready" || f.state === "reading")) || busy} aria-label="Send"><Icon name="arrow" size={18} /></button>
       </form>
 
       {watching && Player && <Player video={watching} onClose={() => setWatching(null)} />}

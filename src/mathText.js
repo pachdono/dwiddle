@@ -79,6 +79,39 @@ const TEX = { times: "×", cdot: "·", div: "÷", approx: "≈", pm: "±", leq: 
   quad: " ", qquad: "  ", ast: "*", star: "*", prime: "′", hbar: "ħ", nu: "ν", tau: "τ", phi: "φ", psi: "ψ", eta: "η", kappa: "κ", xi: "ξ", zeta: "ζ", chi: "χ",
   Sigma: "Σ", Pi: "Π", Phi: "Φ", Lambda: "Λ", Gamma: "Γ", Theta: "Θ", geqslant: "≥", leqslant: "≤", ll: "≪", gg: "≫", emptyset: "∅", varnothing: "∅",
   uparrow: "↑", downarrow: "↓", leftrightarrow: "↔", mapsto: "↦" };
+
+// \frac{a}{b} with the braces matched properly, so a numerator like S_{n-1}
+// or a nested fraction is not skipped. In the app a fraction is drawn stacked
+// (see MathText.jsx); as plain text (print, copy) it is "a/b" for simple
+// numbers and "(a) ÷ (b)" for anything longer, never a bare slash.
+let STACK = false;
+const FRA = "\u2045", FRB = "\u2223", FRC = "\u2046";
+function group(s, i) {
+  while (s[i] === " ") i++;
+  if (s[i] !== "{") return null;
+  let d = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "{") d++;
+    else if (s[j] === "}" && --d === 0) return { text: s.slice(i + 1, j), end: j + 1 };
+  }
+  return null;
+}
+function fracs(s) {
+  for (let guard = 0; guard < 40; guard++) {
+    const m = /\\[dt]?frac(?![A-Za-z])/.exec(s);
+    if (!m) break;
+    const a = group(s, m.index + m[0].length);
+    const b = a && group(s, a.end);
+    if (!b) { s = s.slice(0, m.index) + s.slice(m.index + m[0].length); continue; }
+    const top = fracs(untexInner(a.text)).trim(), bot = fracs(untexInner(b.text)).trim();
+    const nested = top.includes(FRA) || bot.includes(FRA);
+    const out = STACK && !nested ? `${FRA}${top}${FRB}${bot}${FRC}`
+      : /^[\d.]+$/.test(top) && /^[\d.]+$/.test(bot) ? `${top}/${bot}`
+      : `${/^[\w.]+$/.test(top) ? top : `(${top})`} ÷ ${/^[\w.]+$/.test(bot) ? bot : `(${bot})`}`;
+    s = s.slice(0, m.index) + out + s.slice(b.end);
+  }
+  return s;
+}
 // A line drawn over each character, for \overline{A} (NOT A) and \bar{x}.
 const over = (t) => [...t].map((c) => (c === " " ? c : c + "\u0305")).join("");
 function untex(s) {
@@ -95,24 +128,31 @@ function untex(s) {
   // The brackets a model wraps maths in, on a line of their own or not, are not part of it.
   s = s.replace(/\s*\\[()[\]]\s*/g, (m) => (/\n/.test(m) ? "\n" : " ")).replace(/\\[;,:! ]/g, " ");
   s = s.replace(/\\lim_\{([^{}]*)\}/g, (m, a) => `lim(${untexInner(a)})`);
-  for (let k = 0; k < 3; k++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`));
+  s = fracs(s);
   return untexInner(s).replace(/([^\s]) {2,}(?=[^\s])/g, "$1 ");
 }
 function untexInner(s) {
   return s
     .replace(/\\(?:text|mathrm|mathbf|operatorname)\{([^{}]*)\}/g, "$1")
-    .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) && /^[\w.]+$/.test(b) ? `${a}/${b}` : `(${a})/(${b})`))
     .replace(/\\sqrt\{([^{}]*)\}/g, "√($1)")
-    .replace(/\\(left|right)([()[\]|])/g, "$2")
+    .replace(/\\(?:[Bb]ig{1,2}[lrm]?|left|right)\s*(?=[()[\]|.]|\\[{}|])/g, "")
+    .replace(/\\([{}])/g, "$1")
+    .replace(/\\(?:left|right)\./g, "")
     .replace(/\\([A-Za-z]+)/g, (m, w) => TEX[w] ?? m)
     .replace(/\$([^$]{1,80})\$/g, "$1")
     .replace(/µ (?=[mgsLlM]\b|m[³²]?)/g, "µ")
     .replace(/(\S)([⇒⇔])/g, "$1 $2");
 }
 
-export function tidyMath(input) {
+export function tidyMath(input, { stack = false } = {}) {
   if (typeof input !== "string" || !input) return input;
-  let s = untex(input);
+  STACK = stack;
+  let s;
+  try { s = untex(input); } finally { STACK = false; }
+  // a letter then a space then its subscript or power is one thing: "S _{n-1}"
+  s = s.replace(/([A-Za-z0-9)\]]) +(?=[_^]\{)/g, "$1");
+  // a slash between two bracketed groups is a division, so it says so
+  s = s.replace(/\)\s*\/\s*\(/g, ") ÷ (");
 
   // x^2, x^{n+1}, x^(2) and 10^-4
   s = s.replace(/\^\{([^{}]{1,12})\}|\^\(([^()]{1,12})\)|\^(-?[0-9a-zA-Z]{1,4})/g,

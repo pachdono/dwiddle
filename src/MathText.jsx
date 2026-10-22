@@ -8,8 +8,27 @@ import { tidyMath } from "./mathText.js";
 // No lookbehind: older iPhones cannot read it, and the whole app would fail.
 const PART = /([_^]\{[^{}]{1,30}\}|\^\([^()]{1,20}\)|\^-?[0-9a-zA-Z.]{1,6}|_[0-9a-zA-Z]{1,6})/g;
 
+const FRAC = /\u2045([^\u2045\u2046\u2223]*)\u2223([^\u2045\u2046\u2223]*)\u2046/;
+
 export function mathParts(text) {
-  const s = tidyMath(String(text ?? ""));
+  return withFractions(tidyMath(String(text ?? ""), { stack: true }));
+}
+
+// A fraction is set stacked, numerator over denominator, as in a textbook.
+function withFractions(s) {
+  if (!s.includes("\u2045")) return scripts(s);
+  const out = [];
+  let rest = s, k = 0, m;
+  while ((m = FRAC.exec(rest))) {
+    if (m.index) out.push(<span key={k++}>{scripts(rest.slice(0, m.index))}</span>);
+    out.push(<span key={k++} className="mt-frac"><span className="mt-num">{scripts(m[1])}</span><span className="mt-den">{scripts(m[2])}</span></span>);
+    rest = rest.slice(m.index + m[0].length);
+  }
+  if (rest) out.push(<span key={k++}>{scripts(rest)}</span>);
+  return out;
+}
+
+function scripts(s) {
   if (!/[_^]/.test(s)) return [s];
   return s.split(PART).map((p, i) => {
     if (!p) return null;

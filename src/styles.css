@@ -9785,3 +9785,8 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 .ws-main { flex: 1; min-width: 220px; display: grid; gap: 4px; }
 .ws-act { display: flex; gap: 8px; flex-wrap: wrap; }
 .ws-note { padding: 10px 12px; border-radius: 12px; background: var(--good-soft, #e6f6ee); }
+
+/* a fraction set stacked */
+.mt-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.18em; line-height: 1.15; text-align: center; }
+.mt-num { padding: 0 0.25em 0.08em; border-bottom: 1.5px solid currentColor; }
+.mt-den { padding: 0.08em 0.25em 0; }

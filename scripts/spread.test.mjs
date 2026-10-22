@@ -66,7 +66,7 @@ test("latex a model writes is shown as printed maths", () => {
   assert.match(out, /lim\(x → c\) f\(x\)=L/);
   assert.match(out, /∀/);
   assert.match(out, /ε/);
-  assert.equal(tidyMath("\\frac{a}{b} and \\frac{x+1}{y}"), "a/b and (x+1)/(y)");
+  assert.equal(tidyMath("\\frac{a}{b} and \\frac{x+1}{y}"), "a ÷ b and (x+1) ÷ y");
 });
 
 import { answerable as ans2 } from "../src/mathText.js";

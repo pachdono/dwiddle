@@ -25,7 +25,7 @@ How to answer:
 - If they think the app got something wrong, check it properly against what you know. If it was wrong, say so plainly and give the correct version. If it was right, explain kindly why, and what probably made it look wrong.
 - If they ask to be quizzed, ask one question at a time and wait for their answer before the next.
 - Never invent facts, figures, dates or quotations. If you are not sure, say so.
-- Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °. Never LaTeX: no \\begin, \\frac, \\boxed, \\text or dollar signs; a case split is a short sentence (\"1 if A and B are both 1, otherwise 0\").
+- Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °. Division is written with ÷ or as a fraction \\frac{a}{b}, never a slash between expressions. Otherwise no LaTeX: no \\begin, \\boxed, \\bigl, \\text or dollar signs; a case split is a short sentence (\"1 if A and B are both 1, otherwise 0\").
 - Plain text. You may use **bold** for a key term and lines starting "- " for a list. No headings, no tables.
 - British English. Do not use em dashes or en dashes.`;
 
@@ -84,7 +84,7 @@ How to answer:
 - If they ask to be quizzed, ask one question at a time and wait for their answer.
 - Stay on what they asked. Never wander into extra topics they did not ask about.
 - Never invent facts, figures, dates or quotations. If you are not sure, say so.
-- Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °. Work maths step by step, one step per line. Never LaTeX: no \\begin, \\frac, \\boxed, \\text or dollar signs; a case split is a short sentence (\"1 if A and B are both 1, otherwise 0\").
+- Write mathematics with real symbols: x², H₂O, √, π, ×, ÷, ≤, ≥, °. Work maths step by step, one step per line. Division is written with ÷ or as a fraction \\frac{a}{b}, never a slash between expressions. Otherwise no LaTeX: no \\begin, \\boxed, \\bigl, \\text or dollar signs; a case split is a short sentence (\"1 if A and B are both 1, otherwise 0\").
 - Plain text only: no headings, no tables, no code blocks.
 - British English. Do not use em dashes or en dashes.`;
 
