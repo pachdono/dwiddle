@@ -20,7 +20,7 @@ export const STEPS = [
   { page: "report", title: "Your report", text: "How you are doing: a predicted grade, skill and memory for each topic, your last two weeks, and the hours you do best. Run a skill check on any topic to see where you stand on every skill. It ends with what to do next.", where: "Progress, Report" },
   { beta: true, page: "planner", title: "Study planner", text: "Say when you are free and how you like to study, and it plans your week with the weak topics first. Add the sessions to Google Calendar, or load your calendar file so it keeps clear of what is already booked.", where: "Progress, Planner" },
   { page: "social", title: "Friends, Duel and the leaderboard", text: "Add friends by username, message them, and race them on the same questions in Duel. The leaderboard shows everyone overall and your friends this month.", where: "Friends, and the top bar" },
-  { page: "tests", title: "Exams", text: "Sit full test papers and work through courses, with a mark and feedback at the end.", where: "Exams" },
+  { page: "tests", title: "Exams", text: "Work through courses with a mark and feedback at the end. Test prep for the SAT, ACT, SSAT, IELTS and TOEFL is on Testiddle.", where: "Exams" },
   { page: "settings", title: "Settings", text: "Your account, how you are called, the Layout (Classic, or the plainer New one), themes, notifications and this guide. The gear at the bottom of the left menu opens it.", where: "The gear, bottom left" },
 ];
 

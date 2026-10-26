@@ -12,7 +12,7 @@ import { DuckTalk } from "./Chat.jsx";
 import shotNotes from "./assets/shots/desktop-notes.webp";
 import shotLesson from "./assets/shots/phone-lesson.webp";
 
-const TESTS = ["SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
+const TESTS = ["IGCSE", "IB", "A Level", "SAT", "ACT", "SSAT", "IELTS", "TOEFL", "Your own notes"];
 
 // A visitor counter reading "join 4 people" argues against the product. Below
 // this it is left out entirely and the page says something true instead.
@@ -386,13 +386,6 @@ const SERIES = [
     note: "Every topic on the specification, taken from the board's own syllabus.",
     bars: [["Cambridge IGCSE", 64], ["Edexcel IGCSE", 46], ["IB Diploma", 45], ["A Levels", 70]],
   },
-  {
-    id: "sections",
-    tab: "Sections per exam",
-    unit: "sections",
-    note: "The parts of each paper you can sit here, timed and marked to its own scale.",
-    bars: [["SAT", 2], ["ACT", 5], ["SSAT", 4], ["IELTS", 4], ["TOEFL", 4]],
-  },
 ];
 
 function Chart() {
@@ -561,9 +554,9 @@ function Features() {
 
         <article className="fc" style={{ "--i": 7 }}>
           <span className="fc-tag">Exams</span>
-          <h3>Full length test prep</h3>
-          <p>Full length, timed SAT, ACT, SSAT, IELTS and TOEFL papers, marked and converted to each test's own score scale, with feedback on what to fix.</p>
-          <ul className="fc-list"><li>IGCSE, IB and A Level courses</li><li>Writing marked against the real criteria</li><li>Fresh questions each sitting</li></ul>
+          <h3>Courses, and test prep on Testiddle</h3>
+          <p>Work through IGCSE, IB and A Level courses here. Timed SAT, ACT, SSAT, IELTS and TOEFL papers have their own site, Testiddle, and your Dwiddle account works there.</p>
+          <ul className="fc-list"><li>IGCSE, IB and A Level courses</li><li>Syllabus topics with questions</li><li>Testiddle for the big tests</li></ul>
         </article>
 
         <article className="fc fc-themes" style={{ "--i": 8 }}>
@@ -782,11 +775,8 @@ export function Landing({ onSignIn, onSkip, people, onLegal, onInstall, signedIn
           {[
             ...(people !== null && people >= CROWD
               ? [[people.toLocaleString(), "people studying", "Live from the database."]]
-              : [["40", "reading passages", "Full length, written for the app, not extracts."]]),
-            ["5", "exams", "SAT, ACT, SSAT, IELTS and TOEFL, across 19 sections."],
-            ["213", "written questions", "Authored for this app, not scraped from a past paper."],
-            ["225", "syllabus topics", "Across 18 subjects and four exam boards."],
-            ["6", "question generators", "Fresh numbers each sitting, so no two papers match."],
+              : [["18", "subjects", "Across four exam boards, topic by topic."]]),
+            ["225", "syllabus topics", "Every one with its own questions."],
             ["∞", "from your own notes", "Paste anything and it writes questions about it."],
           ].map(([n, label, note], i) => (
             <Tile key={label} value={n} label={label} note={note} i={i} />

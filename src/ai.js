@@ -536,12 +536,7 @@ export async function writeNotes(text, topics, { onTopics } = {}) {
 export const generateFromSyllabus = ({ course, subject, topic }) =>
   post("/api/generate", { syllabus: { course, subject, topic } }).then(tidyMaterial);
 
-export const gradeWriting = ({ answer, prompt, rubric, criteria, scale }) =>
-  post("/api/grade", { answer, prompt, rubric, criteria, scale });
 
-// Fresh questions for a test section, written to that section's style.
-export const generateTestQuestions = ({ test, section, skills, count, passage, audio, avoid }) =>
-  post("/api/testgen", { test, section, skills, count, passage, audio, avoid });
 
 // Emails a copy of feedback. Storing it is the client's job; this only notifies.
 // Sent with the sign in token, so the server can check who it is from.
