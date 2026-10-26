@@ -939,7 +939,7 @@ export default function App() {
     explore: preview ? ExploreBridge : Dashboard,
     reader: Library,
     settings: Settings,
-    tests: TestPrep,
+    tests: TestsMoved,
     courses: Courses,
     notebook: NotebookLoader,
     report: Progress,
@@ -4480,6 +4480,26 @@ function buildPaper(test, sec) {
   // form should only ever be possible on a very long paper. If one appears
   // below that, the pool is missing questions and the row should say so.
   return { qs, full: qs.length >= sec.real, short: qs.length < sec.real };
+}
+
+// Test prep now lives on its own site. Opening it here sends you there, with a
+// button in case the browser holds the redirect back.
+const TESTIDDLE = "https://testiddle.vercel.app";
+function TestsMoved() {
+  useEffect(() => {
+    const t = setTimeout(() => { window.location.href = TESTIDDLE; }, 1200);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div className="page fade">
+      <PageHead title="Test prep" sub="SAT, ACT, SSAT, IELTS and TOEFL now have their own site." />
+      <div className="card card-pad" style={{ display: "grid", gap: 12, justifyItems: "start" }}>
+        <b>Taking you to Testiddle...</b>
+        <p className="small muted" style={{ margin: 0 }}>Timed papers, drills and marking, the same as before. Your Dwiddle account works there too.</p>
+        <a className="btn cta" href={TESTIDDLE}>Open Testiddle</a>
+      </div>
+    </div>
+  );
 }
 
 function TestPrep({ grade }) {
