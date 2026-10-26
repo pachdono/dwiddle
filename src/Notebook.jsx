@@ -927,8 +927,8 @@ export default function NotebookPage({ go, early = false, access, beta = false, 
       await putBook(b);
       queueUpload(b.id);
       setOpenId(b.id);
-    } catch {
-      alert("That PDF could not be opened.");
+    } catch (err) {
+      alert("That PDF could not be opened." + (err?.message ? `\n\n${String(err.message).slice(0, 160)}` : ""));
     } finally {
       setImporting("");
     }
@@ -2571,8 +2571,9 @@ function WebView({ onClose, onImageDrag }) {
 
 // Every page of a PDF, as pictures to write on.
 async function pdfPages(file, progress) {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+  // the legacy build: the current one needs very new browser features, and an iPad a version or two behind simply fails to open a PDF with it
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
   const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   const pages = [];
   const n = Math.min(doc.numPages, 60);
@@ -2585,6 +2586,8 @@ async function pdfPages(file, progress) {
     c.width = view.width; c.height = view.height;
     await pg.render({ canvasContext: c.getContext("2d"), viewport: view }).promise;
     pages.push({ ...newPage("blank"), w: PAGE_W, h: Math.round(PAGE_W * (vp.height / vp.width)), bg: c.toDataURL("image/jpeg", 0.85) });
+    c.width = c.height = 0; // an iPad runs out of canvas memory long before a big PDF is done if each page keeps its own
+    pg.cleanup?.();
   }
   return pages;
 }
