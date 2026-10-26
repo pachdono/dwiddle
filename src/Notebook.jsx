@@ -1764,10 +1764,15 @@ function ToolPop({ tool, prefs, setPrefs, size, setSize, savePen, removePen, col
             {(tool === "pen" || tool === "highlighter") && <Switch label="Shape recognition: draw a shape and hold" on={prefs.shapes !== false} onChange={(v) => setPrefs((o) => ({ ...o, shapes: v }))} />}
             {tool === "pen" && <Switch label="Scribble over something to erase it" on={prefs.scribble !== false} onChange={(v) => setPrefs((o) => ({ ...o, scribble: v }))} />}
             {tool === "highlighter" && <Switch label="Always straight lines" on={!!prefs.hlStraight} onChange={(v) => setPrefs((o) => ({ ...o, hlStraight: v }))} />}
-            <Stepper label="Writing stability" min={1} max={10} value={prefs.stab?.[tool] ?? 4}
-              onChange={(v) => setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: v } }))}
-              low="Follows your hand" high="Smooth curves"
-              hint="Try 2 for writing, 8 for graphs and curves." />
+            <div className="nb-stab">
+              <div className="nb-stab-head"><span>Stroke stabilisation</span><b>{Math.round((((prefs.stab?.[tool] ?? 4) - 1) / 9) * 100)}%</b></div>
+              <input type="range" min="0" max="100" step="1" value={Math.round((((prefs.stab?.[tool] ?? 4) - 1) / 9) * 100)}
+                style={{ "--fill": `${Math.round((((prefs.stab?.[tool] ?? 4) - 1) / 9) * 100)}%` }} aria-label="Stroke stabilisation"
+                onChange={(e) => { const v = 1 + (Number(e.target.value) / 100) * 9; setPrefs((o) => ({ ...o, stab: { ...o.stab, [tool]: Math.round(v * 100) / 100 } })); }} />
+              <div className="nb-stab-ends small muted"><span>Follows your hand</span><span>Smooth curves</span></div>
+              <p className="nb-pop-hint">About 10% for writing, 70% for graphs and curves.</p>
+            </div>
+            <Switch label="Reduce latency: draw a little ahead of the pen" on={prefs.latency !== false} onChange={(v) => setPrefs((o) => ({ ...o, latency: v }))} />
           </div>
         )}
         {tool === "revealer" && (
@@ -2730,7 +2735,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
   // Each tool keeps its own size and style, remembered between visits.
   const [prefs, setPrefs] = useState(() => {
     const base = { size: { pen: 3, highlighter: 3, revealer: 3, eraser: 3, shape: 3 }, style: "fountain", tip: "round", hlStraight: false,
-      stab: { pen: 1, highlighter: 4, revealer: 4 }, refine: false, finger: true,
+      stab: { pen: 1, highlighter: 4, revealer: 4 }, latency: true, refine: false, finger: true,
       // The pencil case: favourite pens, one tap away.
       // Testers get a set of different instruments; everyone else the
       // original pens.
@@ -2907,7 +2912,8 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     if (frame.current) return;
     frame.current = requestAnimationFrame(() => {
       frame.current = 0;
-      const ls = liveStroke.current, w = wet.current, ctx = w.ctx;
+      const real = liveStroke.current, w = wet.current, ctx = w.ctx;
+      const ls = real && real.ahead ? { ...real, points: [...real.points, ...real.ahead] } : real;
       if (ls && livesAsIs(ls)) {
         // Textured pens are drawn as the finished ink itself, texture and all.
         const el = livePath.current;
@@ -3719,6 +3725,10 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
         const st = ls.stab ?? 1, keep = st <= 2 ? 0 : Math.min(0.6, (st - 2) * 0.08);
         ls.points.push([last[0] * keep + px * (1 - keep), last[1] * keep + py * (1 - keep), pr]);
       }
+      // Reduce latency: where the pen is about to be, drawn ahead of it for
+      // painting only, so the ink keeps up with a fast Pencil. Never kept.
+      const ahead = prefs.latency !== false && !ls.locked && !ls.straight ? e.nativeEvent?.getPredictedEvents?.() : null;
+      ls.ahead = ahead && ahead.length ? ahead.slice(0, 4).map((ev) => { const [qx, qy] = toPage(ev, svg, page); return [qx, qy, ls.points[ls.points.length - 1][2]]; }) : null;
       drawLive();
       // Draw and hold still for a moment: the line snaps straight, then
       // follows the pen from its start, as in GoodNotes.
@@ -3814,6 +3824,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     }
     clearTimeout(holdT.current);
     const ls = liveStroke.current;
+    if (ls) ls.ahead = null; // the guess ahead of the pen is never part of the stroke
     if (ls && e?.type === "pointerup" && !ls.straight && !ls.arc && e.currentTarget?.getBoundingClientRect) {
       // where the pen left the glass is the true end of the stroke
       const pg = pageOf(ls.pageId);

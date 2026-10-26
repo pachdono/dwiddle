@@ -9793,3 +9793,10 @@ body.overlay-open .theme-backdrop:not(.tb-over) { display: none; }
 
 /* the live stroke at the top of a pen's settings */
 .nb-sample.big { height: 104px; padding: 4px 0; }
+
+/* stroke stabilisation as a percentage */
+.nb-stab { display: grid; gap: 6px; }
+.nb-stab-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.nb-stab-head b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.nb-stab input[type="range"] { width: 100%; min-height: 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--accent); }
+.nb-stab-ends { display: flex; justify-content: space-between; }
