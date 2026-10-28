@@ -3023,7 +3023,6 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
   // Zooming keeps the spot under (x, y), in window coordinates, where it is, or the middle of the
   // page area when no spot is given. The scroll is set after React has laid the new size out, so
   // it is never clamped to the old, smaller page.
-  const laidOutZoom = useRef(zoom);
   const zoomAnchor = useRef(null);
   const zoomTo = useCallback((z, x, y) => {
     const el = pagesRef.current;
@@ -3031,19 +3030,29 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     z = Math.max(0.4, Math.min(3, z));
     if (Math.abs(z - zoomRef.current) < 0.002) return;
     const r = el.getBoundingClientRect();
-    const vx = (x ?? r.left + r.width / 2) - r.left, vy = (y ?? r.top + r.height / 2) - r.top;
-    const k = laidOutZoom.current || 1;
-    zoomAnchor.current = { ux: (el.scrollLeft + vx) / k, uy: (el.scrollTop + vy) / k, vx, vy };
+    const px = x ?? r.left + r.width / 2, py = y ?? r.top + r.height / 2;
+    // The spot is remembered as a place on a page (a fraction across and down it), which holds
+    // whatever the margins and gaps do as the pages grow, and put back under the pointer once the
+    // new size is laid out.
+    let best = null, near = Infinity;
+    el.querySelectorAll(".nb-page").forEach((pg, i) => {
+      const q = pg.getBoundingClientRect();
+      const d = py < q.top ? q.top - py : py > q.bottom ? py - q.bottom : 0;
+      if (d < near) { near = d; best = { i, fx: (px - q.left) / q.width, fy: (py - q.top) / q.height }; }
+    });
+    zoomAnchor.current = best && { ...best, vx: px - r.left, vy: py - r.top };
     zoomRef.current = z;
     setZoom(+z.toFixed(3));
   }, []);
   useLayoutEffect(() => {
-    laidOutZoom.current = zoom;
     const a = zoomAnchor.current, el = pagesRef.current;
     if (!a || !el) return;
     zoomAnchor.current = null;
-    el.scrollLeft = a.ux * zoom - a.vx;
-    el.scrollTop = a.uy * zoom - a.vy;
+    const pg = el.querySelectorAll(".nb-page")[a.i];
+    if (!pg) return;
+    const q = pg.getBoundingClientRect(), r = el.getBoundingClientRect();
+    el.scrollLeft += q.left + a.fx * q.width - (r.left + a.vx);
+    el.scrollTop += q.top + a.fy * q.height - (r.top + a.vy);
   }, [zoom]);
   // With the iPad keyboard up, the notebook fits the space above it, so the
   // text being typed is never hidden behind the keys.
