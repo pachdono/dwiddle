@@ -129,7 +129,23 @@ export function MindMap({ made, onClose }) {
 
   useEffect(() => {
     const el = box.current;
-    const onWheel = (e) => { e.preventDefault(); setView((v) => ({ ...v, k: Math.max(0.35, Math.min(2.5, v.k * (e.deltaY < 0 ? 1.1 : 0.9))) })); };
+    // Zoom about the spot under the pointer, not the middle of the map: the point under the
+    // pointer, in map units, stays where it is while the scale changes.
+    const onWheel = (e) => {
+      e.preventDefault();
+      const m = svg.current?.getScreenCTM();
+      const p = m && svg.current.createSVGPoint();
+      if (p) { p.x = e.clientX; p.y = e.clientY; }
+      const at = p ? p.matrixTransform(m.inverse()) : null;
+      const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)) || 1;
+      setView((v) => {
+        const k = Math.max(0.35, Math.min(2.5, v.k * f));
+        if (!at) return { ...v, k };
+        // the group is drawn as translate(x y) scale(k), so a map point m sits at (x, y) + k * m
+        const mx = (at.x - v.x) / v.k, my = (at.y - v.y) / v.k;
+        return { k, x: at.x - mx * k, y: at.y - my * k };
+      });
+    };
     el?.addEventListener("wheel", onWheel, { passive: false });
     return () => el?.removeEventListener("wheel", onWheel);
   }, []);

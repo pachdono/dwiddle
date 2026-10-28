@@ -3020,6 +3020,31 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
   fingerRef.current = prefs.finger !== false;
   const twoFinger = useRef(null); // { x, y, d, z } while two fingers pinch or scroll
   const zoomRef = useRef(zoom);
+  // Zooming keeps the spot under (x, y), in window coordinates, where it is, or the middle of the
+  // page area when no spot is given. The scroll is set after React has laid the new size out, so
+  // it is never clamped to the old, smaller page.
+  const laidOutZoom = useRef(zoom);
+  const zoomAnchor = useRef(null);
+  const zoomTo = useCallback((z, x, y) => {
+    const el = pagesRef.current;
+    if (!el) return;
+    z = Math.max(0.4, Math.min(3, z));
+    if (Math.abs(z - zoomRef.current) < 0.002) return;
+    const r = el.getBoundingClientRect();
+    const vx = (x ?? r.left + r.width / 2) - r.left, vy = (y ?? r.top + r.height / 2) - r.top;
+    const k = laidOutZoom.current || 1;
+    zoomAnchor.current = { ux: (el.scrollLeft + vx) / k, uy: (el.scrollTop + vy) / k, vx, vy };
+    zoomRef.current = z;
+    setZoom(+z.toFixed(3));
+  }, []);
+  useLayoutEffect(() => {
+    laidOutZoom.current = zoom;
+    const a = zoomAnchor.current, el = pagesRef.current;
+    if (!a || !el) return;
+    zoomAnchor.current = null;
+    el.scrollLeft = a.ux * zoom - a.vx;
+    el.scrollTop = a.uy * zoom - a.vy;
+  }, [zoom]);
   // With the iPad keyboard up, the notebook fits the space above it, so the
   // text being typed is never hidden behind the keys.
   const nbRef = useRef(null);
@@ -3109,14 +3134,8 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
       const f = fingers(e), m = mid(f), t = twoFinger.current;
       const r = el.getBoundingClientRect();
       const z = Math.max(0.4, Math.min(3, t.z * (span(f) / t.d)));
-      const old = zoomRef.current;
-      if (Math.abs(z - old) > 0.004) {
-        // keep the spot between the fingers where it is
-        const cx = el.scrollLeft + (m.x - r.left), cy = el.scrollTop + (m.y - r.top);
-        zoomRef.current = z;
-        setZoom(z);
-        requestAnimationFrame(() => { el.scrollLeft = cx * (z / old) - (m.x - r.left); el.scrollTop = cy * (z / old) - (m.y - r.top); });
-      }
+      // keep the spot between the fingers where it is
+      if (Math.abs(z - zoomRef.current) > 0.004) zoomTo(z, m.x, m.y);
       const now = performance.now(), dt = Math.max(1, now - (t.t || now - 16));
       el.scrollBy(t.x - m.x, t.y - m.y);
       t.vx = (t.vx || 0) * 0.6 + ((t.x - m.x) / dt) * 0.4; t.vy = (t.vy || 0) * 0.6 + ((t.y - m.y) / dt) * 0.4; t.t = now;
@@ -3214,15 +3233,7 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     // ctrl held, Safari as gesture events. Either way the notebook zooms
     // itself, about the spot under the pointer, instead of the browser
     // magnifying the whole page, which left the pen landing off its mark.
-    const zoomAbout = (z, x, y) => {
-      const old = zoomRef.current, r = el.getBoundingClientRect();
-      z = Math.max(0.4, Math.min(3, z));
-      if (Math.abs(z - old) < 0.002) return;
-      const cx = el.scrollLeft + (x - r.left), cy = el.scrollTop + (y - r.top);
-      zoomRef.current = z;
-      setZoom(+z.toFixed(3));
-      requestAnimationFrame(() => { el.scrollLeft = cx * (z / old) - (x - r.left); el.scrollTop = cy * (z / old) - (y - r.top); });
-    };
+    const zoomAbout = (z, x, y) => zoomTo(z, x, y);
     const onWheel = (e) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
@@ -4168,9 +4179,9 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
           {current + 1} / {book.pages.length}
         </button>
         <div className="nb-group nb-zoom">
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
+          <button className="icon-btn" onClick={() => zoomTo(zoomRef.current - 0.15)} aria-label="Zoom out">−</button>
           <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
+          <button className="icon-btn" onClick={() => zoomTo(Math.min(2.5, zoomRef.current + 0.15))} aria-label="Zoom in">+</button>
           <FullscreenButton />
         </div>
         <div className="nb-group nb-asks">
@@ -4420,9 +4431,9 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
           <Icon name="pagesadd" size={15} /> {current + 1} / {book.pages.length}
         </button>
         <div className="nb-group nb-zoom">
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))} aria-label="Zoom out">−</button>
+          <button className="icon-btn" onClick={() => zoomTo(zoomRef.current - 0.15)} aria-label="Zoom out">−</button>
           <button className="nb-pill" onClick={fit} title="Fit to width">{Math.round(zoom * 100)}%</button>
-          <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))} aria-label="Zoom in">+</button>
+          <button className="icon-btn" onClick={() => zoomTo(Math.min(2.5, zoomRef.current + 0.15))} aria-label="Zoom in">+</button>
           <FullscreenButton />
         </div>
         <div className="nb-group">
