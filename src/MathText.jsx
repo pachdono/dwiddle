@@ -10,7 +10,7 @@ const PART = /([_^]\{[^{}]{1,30}\}|\^\([^()]{1,20}\)|\^-?[0-9a-zA-Z.]{1,6}|_[0-9
 
 const FRAC = /\u2045([^\u2045\u2046\u2223]*)\u2223([^\u2045\u2046\u2223]*)\u2046/;
 
-export function mathParts(text) {
+function mathParts(text) {
   return withFractions(tidyMath(String(text ?? ""), { stack: true }));
 }
 

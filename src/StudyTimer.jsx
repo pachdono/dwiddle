@@ -24,7 +24,7 @@ const listeners = new Set();
 function set(next) { timer = next; write(KEY, next); listeners.forEach((f) => f(next)); }
 
 const today = () => new Date().toISOString().slice(0, 10);
-export const minutesToday = () => read(LOG, {})[today()] || 0;
+const minutesToday = () => read(LOG, {})[today()] || 0;
 function logMinutes(m) { const log = read(LOG, {}); log[today()] = (log[today()] || 0) + m; save(LOG, log); }
 
 const spent = (t, now = Date.now()) => (t.paused || now) - t.start - (t.away || 0);
@@ -41,17 +41,17 @@ const say = (sec) => {
   return [part(h, "hour"), part(m, "minute"), h ? "" : part(s, "second")].filter(Boolean).join(" ") || "0 seconds";
 };
 
-export function startTimer(seconds, kind = "study") { if (seconds > 0) set({ kind, start: Date.now(), seconds, paused: 0, away: 0, hidden: false, done: false }); }
-export function pauseTimer() { if (timer && !timer.paused) set({ ...timer, paused: Date.now() }); }
-export function resumeTimer() { if (timer?.paused) set({ ...timer, away: (timer.away || 0) + Date.now() - timer.paused, paused: 0 }); }
-export function stopTimer() {
+function startTimer(seconds, kind = "study") { if (seconds > 0) set({ kind, start: Date.now(), seconds, paused: 0, away: 0, hidden: false, done: false }); }
+function pauseTimer() { if (timer && !timer.paused) set({ ...timer, paused: Date.now() }); }
+function resumeTimer() { if (timer?.paused) set({ ...timer, away: (timer.away || 0) + Date.now() - timer.paused, paused: 0 }); }
+function stopTimer() {
   // Stopping early still counts what was studied.
   if (timer?.kind === "study" && !timer.done) { const m = Math.floor(spent(timer) / 60000); if (m > 0) logMinutes(m); }
   set(null);
 }
 const hideTimer = (hidden) => timer && set({ ...timer, hidden });
 
-export function useStudyTimer() {
+function useStudyTimer() {
   const [t, setT] = useState(timer);
   const [, tick] = useState(0);
   useEffect(() => { listeners.add(setT); return () => { listeners.delete(setT); }; }, []);

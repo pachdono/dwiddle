@@ -137,23 +137,3 @@ export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
   );
 }
 
-// Ducks scattered round a page: small, in different hats, each moving in its
-// own way. They sit behind the content and never take a click.
-const SPOTS = [
-  { v: "grad", x: "17.4%", y: "40%", s: 74, a: "sway", d: "0s" },
-  { v: "party", x: "94.2%", y: "36%", s: 70, a: "hop", d: "1.2s" },
-  { v: "phones", x: "93.8%", y: "70%", s: 80, a: "float", d: ".6s" },
-  { v: "beanie", x: "17.4%", y: "80%", s: 66, a: "hop", d: "2s" },
-  { v: "hat", x: "48%", y: "96%", s: 60, a: "peek", d: "0s" },
-];
-export function DuckScatter() {
-  return (
-    <div className="dscat" aria-hidden="true">
-      {SPOTS.map((p, n) => (
-        <span key={n} className={"dscat-i " + p.a} style={{ left: p.x, top: p.y, animationDelay: p.d }}>
-          <HeroDuck size={p.s} variant={p.v} />
-        </span>
-      ))}
-    </div>
-  );
-}

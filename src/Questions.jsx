@@ -24,7 +24,7 @@ import { sameAnswer } from "./answers.js";
 export const KINDS = ["blank", "word", "finish", "match", "order", "tf", "written", "long"];
 export const isDrill = (q) => q && KINDS.includes(q.type);
 
-export const KIND_LABEL = {
+const KIND_LABEL = {
   blank: "Fill in the blank",
   word: "Complete the word",
   finish: "Finish the sentence",

@@ -26,7 +26,7 @@ import { browse } from "./ai.js";
 /* ---------- reaching the panel from anywhere ---------- */
 
 let pageContext = "";
-export function setPageContext(text) { pageContext = String(text || ""); }
+function setPageContext(text) { pageContext = String(text || ""); }
 export function usePageContext(text) {
   useEffect(() => { setPageContext(text); return () => setPageContext(""); }, [text]);
 }
@@ -80,7 +80,7 @@ export function DuckTalk({ mood = "idle", size = 64, who = "dwiddle" }) {
 async function micState() {
   try { return (await navigator.permissions.query({ name: "microphone" })).state; } catch { return "prompt"; }
 }
-export function requestMic(reason) {
+function requestMic(reason) {
   return new Promise(async (resolve) => {
     const state = await micState();
     if (state === "granted") return resolve(true);

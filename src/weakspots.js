@@ -3,7 +3,7 @@
 // tests (vocabulary, inference, main idea, algebra), so a pattern shows up that
 // a list of topics would hide. Kept apart from the screen so it can be tested.
 
-export const KIND_SKILL = { vocab: "Key terms", concept: "Concepts", process: "Processes" };
+const KIND_SKILL = { vocab: "Key terms", concept: "Concepts", process: "Processes" };
 // what a question of the material adds to the log, beside its topic
 export const skillMeta = (q) => (q?.kind && KIND_SKILL[q.kind] ? { skill: KIND_SKILL[q.kind] } : undefined);
 

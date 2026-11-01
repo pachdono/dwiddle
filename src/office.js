@@ -84,7 +84,7 @@ function textOf(xml) {
     .trim();
 }
 
-export async function readDocx(file) {
+async function readDocx(file) {
   const buf = await file.arrayBuffer();
   const list = entries(buf);
 
@@ -115,7 +115,7 @@ export async function readDocx(file) {
 // slide10 must not sort between slide1 and slide2.
 const slideNo = (name) => Number((name.match(/(\d+)\.xml$/) || [])[1] || 0);
 
-export async function readPptx(file) {
+async function readPptx(file) {
   const buf = await file.arrayBuffer();
   const list = entries(buf);
 

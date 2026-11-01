@@ -13,13 +13,13 @@ import { DuckParts } from "./Duck.jsx";
 
 /* ---------- full screen ---------- */
 
-export const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-export function toggleFullscreen() {
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function toggleFullscreen() {
   const el = document.documentElement;
   if (isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
   else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el).catch?.(() => {});
 }
-export function useFullscreen() {
+function useFullscreen() {
   const [on, setOn] = useState(isFullscreen());
   useEffect(() => {
     const sync = () => setOn(isFullscreen());

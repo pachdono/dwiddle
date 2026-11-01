@@ -14,7 +14,7 @@ export const LEVELS = [
   { id: "basics", label: "Just the basics", hint: "Learning for interest" },
 ];
 
-export const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
+const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
 export const myLevel = () => levelById(load(KEYS.level, null));
 export const setMyLevel = (id) => save(KEYS.level, levelById(id) ? id : null);
 

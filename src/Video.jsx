@@ -113,7 +113,7 @@ export const narrated = () => { try { return localStorage.getItem(VOICE_KEY) !==
 // the narration is spoken by a voice running on the device, line by line, and
 // takes several times longer, plus about a minute to load the voice the first
 // time. Shown before a narrated video starts, so nobody is surprised.
-export function videoEstimate(chapters = 1) {
+function videoEstimate(chapters = 1) {
   const n = Math.max(1, chapters);
   return { silent: Math.max(1, Math.ceil(n * 0.5)), voiced: Math.ceil(n * 2 + 1) };
 }
@@ -191,12 +191,12 @@ export function voice(video, onProgress) {
   return once().then((ok) => ok || once());
 }
 
-export function useVideoJob() {
+function useVideoJob() {
   const [now, setNow] = useState(() => job && { ...job });
   useEffect(() => { jobListeners.add(setNow); return () => { jobListeners.delete(setNow); }; }, []);
   return now;
 }
-export const clearVideoJob = () => { if (job?.state !== "making" && job?.state !== "voicing") { job = null; tellJob(); } };
+const clearVideoJob = () => { if (job?.state !== "making" && job?.state !== "voicing") { job = null; tellJob(); } };
 
 // A small chip in the corner while a video is being made, anywhere in the
 // app, and once when it is ready. Tapping it goes to the video.
@@ -392,13 +392,13 @@ function chapterTimes(video) {
   const starts = sceneTimes(video);
   return (video.chapters || []).map((c) => starts[c.scene] || 0);
 }
-export const minutesOf = (video) => Math.max(1, Math.round(video.scenes.reduce((n, sc) => n + sceneSeconds(sc), 0) / 60));
+const minutesOf = (video) => Math.max(1, Math.round(video.scenes.reduce((n, sc) => n + sceneSeconds(sc), 0) / 60));
 
 /* ---------- saving a video as a file ---------- */
 
 // Saves a video as an MP4 with the Dwiddle watermark, showing progress.
 // Returns [save, overlay]: call save(), render the overlay.
-export function useSaveVideo(video) {
+function useSaveVideo(video) {
   const [st, setSt] = useState(null); // { phase, done, total } | { error }
   const abort = useRef(null);
   const save = async () => {
@@ -708,7 +708,7 @@ function PlayIcon({ size }) {
 /* ---------- the watermark, and the frames saved videos are made of ---------- */
 
 // Top right of every video, on screen and in a saved file.
-export function Watermark() {
+function Watermark() {
   return (
     <div className="vd-watermark" aria-hidden="true">
       <svg width="22" height="22" viewBox="20 3 88 88"><DuckParts /></svg>

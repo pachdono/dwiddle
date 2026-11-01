@@ -5,7 +5,7 @@
 
 import { load, save } from "./store.js";
 
-export const DECKS_KEY = "dwiddle-decks";
+const DECKS_KEY = "dwiddle-decks";
 
 export const TIERS = [
   { tier: 1, name: "Vocabulary 1: Everyday strong words", color: "#16a34a", about: "Words that turn up in almost every reading passage" },
@@ -16,7 +16,7 @@ export const TIERS = [
 // each tier is two batches, one for words A to L and one for M to Z, so batches
 // written side by side cannot hand back the same words
 export const BATCHES = TIERS.flatMap((t) => [1, 2].map((half) => ({ tier: t.tier, half, count: 92 })));
-export const HALF_RANGE = { 1: /^[a-l]/i, 2: /^[m-z]/i };
+const HALF_RANGE = { 1: /^[a-l]/i, 2: /^[m-z]/i };
 
 // Words from the server are checked before they are kept.
 export function cleanWords(list, half, avoid = new Set()) {

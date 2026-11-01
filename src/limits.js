@@ -9,7 +9,7 @@
 
 import { load, save, KEYS } from "./store.js";
 
-export const FREE_GENERATIONS = 1;
+const FREE_GENERATIONS = 1;
 
 export function generationsLeft(user) {
   if (user) return Infinity;

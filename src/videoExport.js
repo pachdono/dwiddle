@@ -27,7 +27,7 @@ const INTRO = 2.5, OUTRO = 3, FADE = 0.45, FADE_SAME = 0.3;
 const LOOP_FRAMES = 8; // moments a moving line is drawn at, spread over up to five seconds of it
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export const canSaveVideo = () => typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined";
+const canSaveVideo = () => typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined";
 
 const wordsOf = (s) => String(s).split(/\s+/).filter(Boolean).length;
 const lineSeconds = (text) => wordsOf(text) / 2.5 + 0.45;

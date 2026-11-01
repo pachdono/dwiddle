@@ -76,7 +76,7 @@ export function setActiveThread(friendId) {
   if (friendId) markRead(friendId);
   else recount();
 }
-export function markRead(friendId) {
+function markRead(friendId) {
   const top = incoming.filter((m) => m.from_id === friendId).reduce((a, m) => Math.max(a, m.id), 0);
   if (top > (seen[friendId] || 0)) { seen[friendId] = top; writeSeen(seen); }
   recount();

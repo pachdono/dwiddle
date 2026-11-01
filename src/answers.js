@@ -37,7 +37,7 @@ const tokens = (t) => norm(String(t || "").replace(/[’']s\b/gi, "")).split(" "
 
 // "2nd law" for "Newton's second law": the same words, or the main ones of
 // them, in any order, with a little extra on either side.
-export function looseMatch(given, answer) {
+function looseMatch(given, answer) {
   const g = tokens(given), a = tokens(answer);
   if (!g.length || !a.length) return false;
   const gs = new Set(g), as = new Set(a);

@@ -10,7 +10,7 @@ import { avatarUrl } from "./Account.jsx";
 import { CHARACTERS, DuckAvatar } from "./DuckAvatars.jsx";
 
 // Dwiddle's own pictures: Dwiddle, Puddle and Dwiddle dressed up.
-export const DUCKS = CHARACTERS.map((c) => [c.id, c.name]);
+const DUCKS = CHARACTERS.map((c) => [c.id, c.name]);
 // Older picks from before the characters: the theme ducks.
 const SCENE_IDS = ["sakura", "cottage", "matcha", "violet", "ocean", "prismarine", "sunset", "autumn", "midnight"];
 
@@ -43,14 +43,14 @@ export function setMyProfile(change) {
 /* ---------- the picture ---------- */
 
 // What to draw for an avatar value: a Dwiddle duck, a picture, or nothing.
-export function iconSource(avatar, user) {
+function iconSource(avatar, user) {
   if (avatar?.startsWith("duck:")) return { duck: avatar.slice(5) };
   if (avatar?.startsWith("data:image/") || /^https:\/\//.test(avatar || "")) return { src: avatar };
   const g = avatarUrl(user);
   return g ? { src: g } : { duck: "dwiddle" };
 }
 
-export function DuckIcon({ theme = "dwiddle", size = 32, dark = false }) {
+function DuckIcon({ theme = "dwiddle", size = 32, dark = false }) {
   if (SCENE_IDS.includes(theme)) {
     return <span className="uicon" style={{ width: size, height: size }}><ThemeMark theme={theme} dark={dark} size={size} /></span>;
   }

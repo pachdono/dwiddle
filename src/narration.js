@@ -42,7 +42,7 @@ const putLine = (key, v) => idb("readwrite", (s) => s.put(v, key)).catch(() => {
 
 // The same words always give the same key, so a video made again with the
 // same script reuses its narration.
-export function narrationKey(video) {
+function narrationKey(video) {
   const text = video.scenes.flatMap((s) => s.lines).join("\n");
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }

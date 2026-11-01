@@ -74,7 +74,7 @@ const TEX = { times: "×", cdot: "·", div: "÷", approx: "≈", pm: "±", leq: 
   omega: "ω", Omega: "Ω", rho: "ρ", degree: "°", circ: "°", rightarrow: "→", to: "→", leftarrow: "←", propto: "∝", sum: "Σ",
   varepsilon: "ε", epsilon: "ε", forall: "∀", exists: "∃", iff: "⇔", implies: "⇒", Rightarrow: "⇒", Longrightarrow: "⇒", Leftrightarrow: "⇔", Longleftrightarrow: "⇔",
   in: "∈", notin: "∉", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩", int: "∫", partial: "∂", nabla: "∇", ldots: "…", cdots: "…", dots: "…", mid: "|", lvert: "|", rvert: "|",
-  lim: "lim", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", max: "max", min: "min", prod: "∏", angle: "∠", perp: "⊥", parallel: "∥", therefore: "∴", ne: "≠",
+  lim: "lim", sin: "sin", cos: "cos", tan: "tan", log: "log", ln: "ln", max: "max", min: "min", prod: "∏", angle: "∠", perp: "⊥", parallel: "∥", therefore: "∴",
   land: "∧", wedge: "∧", lor: "∨", vee: "∨", lnot: "¬", neg: "¬", oplus: "⊕", otimes: "⊗", equiv: "≡", sim: "∼", cong: "≅",
   quad: " ", qquad: "  ", ast: "*", star: "*", prime: "′", hbar: "ħ", nu: "ν", tau: "τ", phi: "φ", psi: "ψ", eta: "η", kappa: "κ", xi: "ξ", zeta: "ζ", chi: "χ",
   Sigma: "Σ", Pi: "Π", Phi: "Φ", Lambda: "Λ", Gamma: "Γ", Theta: "Θ", geqslant: "≥", leqslant: "≤", ll: "≪", gg: "≫", emptyset: "∅", varnothing: "∅",

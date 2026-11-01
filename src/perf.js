@@ -6,14 +6,12 @@
 // "auto" works it out: a small machine, someone who asked their system for less
 // motion, or a quick measure of how fast frames are really being drawn.
 
-import { load, save } from "./store.js";
+import { load } from "./store.js";
 
 const KEY = "dwiddle-fx";        // "auto" | "lite" | "full", the person's choice
 const MEASURED = "dwiddle-fx-slow"; // set when the measure found frames being dropped
 
-export const getFx = () => load(KEY, "auto");
-export function setFx(v) { save(KEY, v); applyFx(); }
-
+const getFx = () => load(KEY, "auto");
 function small() {
   const nav = typeof navigator === "undefined" ? {} : navigator;
   if (nav.deviceMemory && nav.deviceMemory <= 4) return true;

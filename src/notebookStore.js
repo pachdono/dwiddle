@@ -45,8 +45,6 @@ export const deleteBook = (id) => run("readwrite", (s) => s.delete(id));
 
 export const listFonts = () => run("readonly", (s) => s.getAll(), "fonts").then((f) => f || []);
 export const putFont = (font) => run("readwrite", (s) => s.put(font), "fonts");
-export const deleteFont = (name) => run("readwrite", (s) => s.delete(name), "fonts");
-
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 // A4 at 96 dots per inch, the size a page is laid out in. Imported PDF pages

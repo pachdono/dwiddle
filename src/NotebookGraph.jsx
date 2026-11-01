@@ -13,7 +13,7 @@ import { useMemo, useState } from "react";
 import { compile, sample, autoRange, niceStep } from "./graphMath.js";
 import { Portal } from "./ui.jsx";
 
-export const GRAPH_COLORS = ["#3B5BFD", "#e5484d", "#16a34a", "#9333ea", "#f97316"];
+const GRAPH_COLORS = ["#3B5BFD", "#e5484d", "#16a34a", "#9333ea", "#f97316"];
 const HAND = "Caveat, 'Patrick Hand', cursive";
 const INK = "#2b2d38";
 
@@ -40,7 +40,7 @@ function smooth(pts) {
 const fmt = (v) => (Math.abs(v) < 1e-9 ? "0" : Math.abs(v) >= 1000 || Math.abs(v) < 0.01 ? v.toExponential(0) : String(+v.toFixed(2)));
 
 // Sketch curves: points across 0 to 10, heights 0 to 10.
-export const SKETCHES = {
+const SKETCHES = {
   enzyme: { title: "Enzyme activity and temperature", x: "Temperature", y: "Rate of reaction", series: [{ pts: [[0, 0.4], [2, 1.4], [4, 3.2], [5.5, 5.6], [6.6, 8.4], [7.1, 9], [7.6, 7.6], [8.2, 3.6], [8.8, 0.6], [9.2, 0.1]], label: "optimum", mark: 5 }] },
   light: { title: "Rate of photosynthesis and light", x: "Light intensity", y: "Rate of photosynthesis", series: [{ pts: [[0, 0.2], [1.5, 3], [3, 5.6], [4.5, 7.4], [6, 8.3], [7.5, 8.6], [10, 8.7]], label: "another factor limits it here", mark: 5 }] },
   population: { title: "Population growth", x: "Time", y: "Population", series: [{ pts: [[0, 0.4], [2, 0.8], [3.5, 2], [5, 5], [6.5, 7.8], [8, 8.8], [10, 9]], label: "carrying capacity", mark: 6 }] },

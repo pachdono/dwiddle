@@ -6,7 +6,7 @@
 // wiggle, a wavy line or a letter is just ink; it takes about four hard
 // strokes back and forth to rub something out.
 
-export const MIN_SWEEPS = 8;     // sweeps, so four times back and forth
+const MIN_SWEEPS = 8;     // sweeps, so four times back and forth
 const MIN_SPAN = 0.55;           // each sweep covers at least this much of the width
 const MIN_LENGTH = 5;            // times the diagonal, so it is dense, not a wave
 const MIN_SIZE = 36;             // on screen pixels: a small squiggle is not a scribble

@@ -409,9 +409,9 @@ export function schedule(srs, id, missed, { cram = false } = {}) {
   const box = missed ? 1 : cram ? Math.max(1, s.box) : Math.min(STEPS.length - 1, s.box + 1);
   return { ...srs, [id]: { box, due: Date.now() + STEPS[box] * DAY, seen: Date.now() } };
 }
-export const dueCards = (deck, now = Date.now()) => deck.cards.filter((c) => deck.srs?.[c.id] && deck.srs[c.id].due <= now);
-export const newCards = (deck) => deck.cards.filter((c) => !deck.srs?.[c.id]);
-export const knownCards = (deck) => deck.cards.filter((c) => (deck.srs?.[c.id]?.box || 0) >= 2 || (!deck.srs?.[c.id] && (deck.known || []).includes(c.id)));
+const dueCards = (deck, now = Date.now()) => deck.cards.filter((c) => deck.srs?.[c.id] && deck.srs[c.id].due <= now);
+const newCards = (deck) => deck.cards.filter((c) => !deck.srs?.[c.id]);
+const knownCards = (deck) => deck.cards.filter((c) => (deck.srs?.[c.id]?.box || 0) >= 2 || (!deck.srs?.[c.id] && (deck.known || []).includes(c.id)));
 function nextDue(deck) {
   const t = Math.min(...deck.cards.map((c) => deck.srs?.[c.id]?.due ?? Infinity));
   if (!isFinite(t)) return "";

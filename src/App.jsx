@@ -41,7 +41,7 @@ import { generationsLeft, countGeneration } from "./limits.js";
 import { useAuth, Account, SignInPage, ProfileGate } from "./Account.jsx";
 import { useMyProfile, UserIcon, HandleGate } from "./Profile.jsx";
 import { syncNow, configured, userCount, submitFeedback, myAccess } from "./supabase.js";
-import { setEarlyAccess, browse, moreQuestions, longQuestions, questionsFor, generateFromNotes, generateInParts, splitSource, condenseSource, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
+import { setEarlyAccess, moreQuestions, longQuestions, questionsFor, generateFromNotes, generateInParts, splitSource, condenseSource, notifyFeedback, clarify, writeBrief, readYouTube, writeSyllabusNotes } from "./ai.js";
 import { Clarify } from "./Clarify.jsx";
 import { QuestionView, isDrill, derivedDrills, typedFrom, trueFalseFrom, matchFrom } from "./Questions.jsx";
 import { setAgentHandlers } from "./agent.js";

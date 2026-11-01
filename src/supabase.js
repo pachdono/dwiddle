@@ -101,7 +101,7 @@ const LATEST = new Set([KEYS.topic, KEYS.quizLen, KEYS.level, KEYS.srsOn, KEYS.f
 // the only thing that can approach it.
 const MAX_PAYLOAD = 600 * 1024;
 
-export function localSnapshot() {
+function localSnapshot() {
   const out = {};
   SYNCED.forEach((k) => { out[k] = load(k, null); });
   const times = changedAt();
@@ -109,7 +109,7 @@ export function localSnapshot() {
   return out;
 }
 
-export function applySnapshot(data) {
+function applySnapshot(data) {
   if (!data) return;
   SYNCED.forEach((k) => {
     // Written without a new time: this is the account's copy arriving, not a
@@ -257,7 +257,7 @@ export function merge(localData, remoteData) {
   return out;
 }
 
-export async function pullProgress(userId) {
+async function pullProgress(userId) {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("progress").select("data").eq("user_id", userId).maybeSingle();
@@ -268,7 +268,7 @@ export async function pullProgress(userId) {
   return data?.data ?? null;
 }
 
-export async function pushProgress(userId, data) {
+async function pushProgress(userId, data) {
   if (!supabase) return false;
 
   // The bank is the only thing that can grow without bound. If a row gets too
@@ -287,34 +287,6 @@ export async function pushProgress(userId, data) {
     return false;
   }
   return true;
-}
-
-export async function saveMaterial(userId, title, payload) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("materials")
-    .insert({ user_id: userId, title, payload })
-    .select("id")
-    .single();
-  if (error) {
-    console.warn("[materials] save failed", error.message);
-    return null;
-  }
-  return data.id;
-}
-
-export async function listMaterials(userId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("materials")
-    .select("id, title, created_at, payload")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.warn("[materials] list failed", error.message);
-    return [];
-  }
-  return data || [];
 }
 
 // The headcount shown on the dashboard. Returns null rather than a guess when
@@ -362,7 +334,7 @@ export async function submitFeedback({ kind, rating, message, contact, title }) 
 }
 
 // Only ever returns approved reviews: the policy enforces it, this just asks.
-export async function approvedReviews(limit = 6) {
+async function approvedReviews(limit = 6) {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("feedback")

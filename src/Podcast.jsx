@@ -10,7 +10,7 @@ import { blockPlain } from "./marks.js";
 import { Icon, Portal, Loading } from "./ui.jsx";
 import { DuckTalk } from "./Chat.jsx";
 import { writePodcast } from "./ai.js";
-import { say, sayAs, onVoices, characterVoices, stopSpeaking, prepareNatural, naturalOn, naturalSupported, naturalState, onNaturalProgress } from "./tts.js";
+import { say, onVoices, characterVoices, stopSpeaking } from "./tts.js";
 
 const KEY = "dwiddle-podcasts";
 const loadAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };

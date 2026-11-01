@@ -424,5 +424,3 @@ export const COURSES = [
   },
 ];
 
-export const allSubjects = () =>
-  COURSES.flatMap((c) => c.subjects.map((s) => ({ ...s, course: c })));

@@ -13,7 +13,7 @@
 //
 // A single syllabus topic is small, and still goes through in one call.
 
-import { ask, safeParse, guard, fail, userError, MAX_INPUT } from "./_llm.js";
+import { ask, safeParse, fail, userError, MAX_INPUT } from "./_llm.js";
 import { allow } from "./_guard.js";
 
 // Generating takes real time on a 70B model, and the platform default cuts a

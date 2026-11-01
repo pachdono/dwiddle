@@ -5,8 +5,6 @@ import { tidyQuestion, tidyMath } from "./mathText.js";
 import { levelForAI } from "./level.js";
 import { cleanSketch } from "./sketch.js";
 
-const TRANSIENT = new Set([429, 502, 503, 504]);
-
 // The free models fail intermittently: busy, slow, occasionally malformed. One
 // quiet retry turns most of those into a success rather than an error the
 // person has to act on.
@@ -166,11 +164,6 @@ export async function readYouTube(url) {
   // A retry may spend another transcript credit. Leave retries to the user.
   return post("/api/youtube", { url, lang }, { retry: false });
 }
-
-// A narrated explainer video, as scenes the app animates: from a worked
-// solution ({ solution, problem }) or one topic of notes ({ topic, notes }).
-// The question's own diagram, drawn once: { figure, diagram } or { figure: null }.
-export const drawQuestion = (source) => post("/api/video", { ...source, mode: "figure" }, { retry: false }).catch(() => ({ figure: null }));
 
 export const writeVideo = (source) => post("/api/video", source).then((v) => ({
   ...v,
@@ -532,10 +525,6 @@ export async function writeNotes(text, topics, { onTopics } = {}) {
   return toNotes(await pool(notesTasks(text, topics, onTopics), AT_ONCE));
 }
 
-// No notes needed: the course, subject and syllabus topic are the brief.
-export const generateFromSyllabus = ({ course, subject, topic }) =>
-  post("/api/generate", { syllabus: { course, subject, topic } }).then(tidyMaterial);
-
 
 
 // Emails a copy of feedback. Storing it is the client's job; this only notifies.
@@ -601,27 +590,3 @@ export async function repairLesson(lesson, topic, isBroken) {
   return { ...lesson, figures, checks };
 }
 
-// One question, worked through. Everything that comes back is prose or
-// working, so all of it goes through the maths tidier rather than a chosen
-// field or two.
-export const solveProblem = (problem) =>
-  post("/api/solve", { problem }).then((d) => ({
-    ...d,
-    title: tidyMath(d.title),
-    asked: tidyMath(d.asked),
-    answer: tidyMath(d.answer),
-    idea: tidyMath(d.idea),
-    check: tidyMath(d.check),
-    watch: (d.watch || []).map(tidyMath),
-    steps: (d.steps || []).map((st) => ({
-      do: tidyMath(st.do),
-      say: tidyMath(st.say || ""),
-      rule: tidyMath(st.rule || ""),
-      lines: (st.lines || []).map(tidyMath),
-      work: tidyMath(st.work),
-      why: tidyMath(st.why),
-    })),
-    similar: d.similar
-      ? { q: tidyQuestion(d.similar.q), answer: tidyMath(d.similar.answer) }
-      : null,
-  }));

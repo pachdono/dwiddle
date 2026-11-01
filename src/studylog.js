@@ -4,7 +4,7 @@
 // of the student. Only the last 3000 answers are kept.
 import { load, save } from "./store.js";
 
-export const LOG_KEY = "dwiddle-log";
+const LOG_KEY = "dwiddle-log";
 const MAX = 3000;
 
 export const readLog = () => {

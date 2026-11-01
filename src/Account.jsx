@@ -257,7 +257,7 @@ export function SignInPage({ onClose }) {
 
 // First name, last name, date of birth and country. Asked once, straight
 // after signing up, and changeable in Settings.
-export function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" }) {
+function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" }) {
   const [f, setF] = useState({ first_name: "", last_name: "", birth_date: "", country: "", display_name: "", handle: "", ...(initial || {}) });
   const [level, setLevel] = useState(() => myLevel()?.id || null);
   const [state, setState] = useState("idle");
@@ -426,7 +426,7 @@ export function Account({ user, syncedAt, signOut }) {
 // The circle beside a name: a real picture when the provider gave us one,
 // otherwise initials. A broken image URL falls back rather than showing a
 // broken image icon.
-export function Avatar({ user, size = 26, initials }) {
+function Avatar({ user, size = 26, initials }) {
   const [failed, setFailed] = useState(false);
   const src = failed ? null : avatarUrl(user);
 

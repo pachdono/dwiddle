@@ -11,7 +11,7 @@ const cut = (inner, view = "0 0 100 100") => `<svg xmlns="http://www.w3.org/2000
 <g filter="url(#s)">${inner}</g></svg>`;
 
 
-export const DOODLES = [
+const DOODLES = [
   ["Star", cut('<path d="M50 8l11 26 28 2-21 18 7 28-25-15-25 15 7-28-21-18 28-2z" fill="#FFD36B"/>')],
   ["Heart", cut('<path d="M50 86C20 64 8 46 12 30c4-15 25-20 38-4 13-16 34-11 38 4 4 16-8 34-38 56z" fill="#F6A5B6"/>')],
   ["Flower", cut(`${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="50" cy="28" rx="16" ry="22" fill="#D7CCF2" transform="rotate(${a} 50 50)"/>`).join("")}<circle cx="50" cy="50" r="13" fill="#FFD36B"/>`)],

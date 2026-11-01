@@ -12,9 +12,9 @@
 // Nothing here stores anything. A notebook that is joined is saved on the
 // joiner's device like any other, so it stays theirs afterwards.
 
-export const ITEM_TYPES = ["stroke", "shape", "graph", "image", "text"];
+const ITEM_TYPES = ["stroke", "shape", "graph", "image", "text"];
 export const MAX_PIECE = 150000; // characters per message, well under the room's message limit
-export const MAX_ITEM = 12000000; // an item bigger than this is not accepted
+const MAX_ITEM = 12000000; // an item bigger than this is not accepted
 const META = ["title", "cover", "template", "paper"];
 const str = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
 

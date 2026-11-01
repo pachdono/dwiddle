@@ -5,8 +5,8 @@ import { spreadAnswers } from "./mathText.js";
 // being fast only pays if you are also right. A wrong answer is worth nothing
 // and costs nothing, which stops the game rewarding guessing at random.
 
-export const BONUS_SECS = 12;
-export const MAX_BONUS = 50;
+const BONUS_SECS = 12;
+const MAX_BONUS = 50;
 
 export function points(right, ms) {
   if (!right) return 0;

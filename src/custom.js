@@ -4,8 +4,8 @@
 
 import { load, save } from "./store.js";
 
-export const CUSTOM_KEY = "dwiddle-custom";
-export const CUSTOM_BG_KEY = "dwiddle-custom-bg";
+const CUSTOM_KEY = "dwiddle-custom";
+const CUSTOM_BG_KEY = "dwiddle-custom-bg";
 
 const hex = (h) => {
   const s = String(h).replace("#", "");
@@ -125,7 +125,7 @@ export const GRADIENTS = [
   { id: "steel", name: "Steel", a: "#EEF2F7", b: "#CBD6E4", angle: 165 },
 ];
 
-export const DEFAULT_CUSTOM = {
+const DEFAULT_CUSTOM = {
   on: false,
   palette: "default",
   radius: "soft",
@@ -239,47 +239,3 @@ export async function acceptImage(file) {
   return url;
 }
 
-const VARS = Object.keys(scheme("#ffffff", "#000000", "#000000"));
-const EXTRA = ["--bg-grad", "--radius", "--font", "--card"];
-
-export function applyCustom(cfg, resolvedTheme) {
-  const root = document.documentElement;
-  [...VARS, ...EXTRA].forEach((v) => root.style.removeProperty(v));
-  if (!cfg || !cfg.on) return;
-
-  const pal = PALETTES.find((p) => p.id === cfg.palette) || PALETTES[0];
-  const seeds = resolvedTheme === "dark" ? pal.dark : pal.light;
-  const c = cfg.colors || {};
-
-  const bg = c.bg1 || seeds[0];
-  const ink = c.ink || (c.bg1 ? (isDark(c.bg1) ? "#F2F2F6" : "#16161A") : seeds[1]);
-  const accent = c.accent || seeds[2];
-
-  const vars = scheme(bg, ink, accent);
-
-  // Cards are their own surface, so a gradient page can still carry solid,
-  // readable panels on top of it.
-  if (c.card) {
-    vars["--surface"] = c.card;
-    vars["--panel"] = c.card;
-    vars["--sunken"] = mix(c.card, ink, 0.02);
-    vars["--hover"] = mix(c.card, ink, 0.05);
-    vars["--active"] = mix(c.card, ink, 0.09);
-  }
-  if (c.line) {
-    vars["--line"] = c.line;
-    vars["--line-soft"] = mix(bg, c.line, 0.55);
-  }
-
-  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
-
-  if (c.mode === "gradient" && c.bg1 && c.bg2) {
-    root.style.setProperty("--bg-grad", `linear-gradient(${c.angle ?? 160}deg, ${c.bg1}, ${c.bg2})`);
-  }
-
-  const r = RADII.find((x) => x.id === cfg.radius);
-  if (r) root.style.setProperty("--radius", r.v);
-
-  const f = FONTS.find((x) => x.id === cfg.font);
-  if (f && f.stack) root.style.setProperty("--font", f.stack);
-}

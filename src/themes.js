@@ -8,7 +8,7 @@
 import { load, save } from "./store.js";
 import { scheme, mix, ensure, inkOn } from "./custom.js";
 
-export const LOOK_KEY = "dwiddle-look";
+const LOOK_KEY = "dwiddle-look";
 
 const SERIF = 'Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif';
 // No web font is named here: the notebook loads its fonts (Nunito among them)
@@ -72,13 +72,13 @@ export const THEMES = [
 
 // The New layout's only look: warm cream by day, soft charcoal at night, with
 // one calm purple. It is not in the list; the layout switches to it.
-export const CALM = {
+const CALM = {
   id: "calm", name: "Calm", radius: "14px",
   light: { grad: ["#F7F2E8", "#F0E9DB"], card: "#FCFAF5", ink: "#2A2722", accent: "#6A4FE0" },
   dark: { grad: ["#1A1A1B", "#161617"], card: "#202022", ink: "#ECE9E2", accent: "#A38BF5" },
 };
 
-export const themeOf = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
+const themeOf = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
 export const loadLook = () => load(LOOK_KEY, "classic");
 export const saveLook = (id) => save(LOOK_KEY, id);
 

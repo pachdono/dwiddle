@@ -8,7 +8,7 @@
 // switches touch to scrolling, so a resting palm does not draw.
 
 import { isScribble } from "./scribble.js";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getStroke } from "perfect-freehand";
 import { FONTS } from "./nbFonts.js";
 import "@fontsource/caveat/400.css";
@@ -18,7 +18,7 @@ import "@fontsource/kalam/400.css";
 import "@fontsource/shadows-into-light/400.css";
 import { Icon, PageHead, Loading, Portal, BusyScreen } from "./ui.jsx";
 import { DuckMark } from "./Duck.jsx";
-import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, PAGE_H, listFonts, putFont } from "./notebookStore.js";
+import { listBooks, getBook, putBook, deleteBook, newBook, newPage, uid, PAGE_W, listFonts, putFont } from "./notebookStore.js";
 import { syncNotebooks, queueUpload, queueDelete } from "./notebookSync.js";
 import { readImage, checkPage, earlyAccess } from "./ai.js";
 import { openDwiddle } from "./Chat.jsx";
@@ -36,7 +36,7 @@ import { GraphView, GraphHelper, graphItems } from "./NotebookGraph.jsx";
 
 /* ---------- paper ---------- */
 
-export const TEMPLATES = [
+const TEMPLATES = [
   { id: "blank", name: "Blank" },
   { id: "lined", name: "Lined" },
   { id: "wide", name: "Wide lined" },
@@ -53,7 +53,7 @@ export const TEMPLATES = [
   { id: "revision", name: "Revision card" },
   { id: "dwiddle", name: "Dwiddle page" },
 ];
-export const PAPERS = [
+const PAPERS = [
   { id: "white", name: "White", bg: "#ffffff", line: "#dfe3ea", ink: "#1b1d26" },
   { id: "cream", name: "Cream", bg: "#fbf6e9", line: "#e6dcc4", ink: "#2b2519" },
   { id: "mint", name: "Mint", bg: "#f1faf5", line: "#cfe7da", ink: "#1b2a22" },
@@ -813,7 +813,7 @@ function MacFolder({ color = FOLDER_COLORS[0], peek = [] }) {
 }
 
 // A small picture of a page, for choosing paper and for covers.
-export function PagePreview({ page, className = "" }) {
+function PagePreview({ page, className = "" }) {
   return (
     <svg className={className} viewBox={`0 0 ${page.w} ${page.h}`} aria-hidden="true">
       <Paper page={page} />
@@ -1114,7 +1114,7 @@ const STICKER_SETS = [
 
 // A notebook's cover: its first page on the cover colour, a plain or
 // patterned cover, or a photo, with the name on a label and an optional sticker.
-export function CoverArt({ book, page, label = true }) {
+function CoverArt({ book, page, label = true }) {
   const style = book.coverStyle || "page";
   const photo = style === "photo" && book.coverImg;
   return (
@@ -1657,23 +1657,6 @@ function Switch({ on, onChange, label }) {
     <button type="button" role="switch" aria-checked={!!on} className={"nb-switch" + (on ? " on" : "")} onClick={() => onChange(!on)}>
       <span>{label}</span><i aria-hidden="true" />
     </button>
-  );
-}
-
-// A slider that moves in steps, with a dot for each one along its track.
-function Stepper({ label, hint, min, max, value, onChange, low, high }) {
-  const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-  const pct = ((value - min) / (max - min)) * 100;
-  return (
-    <div className="nb-stepper">
-      <div className="nb-stepper-head"><span>{label}</span><b>{value}</b></div>
-      <div className="nb-stepper-track" style={{ "--p": `${pct}%` }}>
-        {steps.map((n) => <i key={n} className={n <= value ? "on" : ""} style={{ left: `${((n - min) / (max - min)) * 100}%` }} />)}
-        <input type="range" min={min} max={max} step="1" value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
-      </div>
-      <div className="nb-stepper-ends"><span>{low}</span><span>{high}</span></div>
-      {hint && <p className="nb-pop-hint">{hint}</p>}
-    </div>
   );
 }
 
@@ -3141,7 +3124,6 @@ function Editor({ id, go, onClose, early = false, access, beta = false, auth }) 
     };
     const pinchMove = (e) => {
       const f = fingers(e), m = mid(f), t = twoFinger.current;
-      const r = el.getBoundingClientRect();
       const z = Math.max(0.4, Math.min(3, t.z * (span(f) / t.d)));
       // keep the spot between the fingers where it is
       if (Math.abs(z - zoomRef.current) > 0.004) zoomTo(z, m.x, m.y);

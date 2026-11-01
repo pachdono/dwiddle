@@ -27,7 +27,7 @@ export function useUpdate() {
 }
 
 // The duck with the new version in a parcel, which waddles on a loop.
-export function DuckDelivery({ size = 120 }) {
+function DuckDelivery({ size = 120 }) {
   return (
     <svg className="uw-duck" width={size} height={size * (140 / 120)} viewBox="0 0 120 140" fill="none" aria-hidden="true">
       <g className="uw-body">
@@ -44,7 +44,7 @@ export function DuckDelivery({ size = 120 }) {
   );
 }
 
-export function UpdateScreen({ info, onClose }) {
+function UpdateScreen({ info, onClose }) {
   const pct = Math.max(0, Math.min(100, info.percent || 0));
   const failed = info.state === "error";
   const done = !failed && pct >= 100;

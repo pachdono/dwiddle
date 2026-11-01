@@ -52,7 +52,7 @@ export function learn(note) {
   save(MEMORY_KEY, [{ note: text, at: Date.now() }, ...all].slice(0, 20));
 }
 
-export function appState() {
+function appState() {
   const st = handlers?.state?.() || {};
   const out = [`Page: ${st.page || "unknown"}.`, `Colour mode: ${st.theme || "system"}. Looks: ${THEMES.map((t) => t.id).join(", ")}. Current look: ${st.look || "classic"}.`];
   const made = st.made;
@@ -147,7 +147,7 @@ async function run(a, opts = {}) {
   }
 }
 
-export async function runActions(actions, opts = {}) {
+async function runActions(actions, opts = {}) {
   const results = [];
   for (const a of (Array.isArray(actions) ? actions : []).slice(0, 4)) {
     try { results.push(await run(a, opts)); } catch { results.push({ ok: false, text: "That did not work" }); }

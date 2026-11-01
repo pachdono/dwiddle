@@ -592,8 +592,6 @@ const SCENES = {
   },
 };
 
-export function hasBackdrop(theme) { return !!SCENES[theme]; }
-
 export function ThemeBackdrop({ theme, resolved, inOverlay = false }) {
   const draw = SCENES[theme];
   // A class on the body says a scene is showing, so the stylesheet need not
