@@ -603,7 +603,7 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
   const daysToExam = prefs.exam ? Math.ceil((new Date(prefs.exam).getTime() - now) / 864e5) : null;
 
   const [addr, setAddr] = useState(() => load("dwiddle-ical-url", ""));
-  async function useAddress(url = addr, quiet = false) {
+  async function readCalendarAddress(url = addr, quiet = false) {
     if (!url.trim()) return;
     try {
       const r = await fetch("/api/models?ics=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
@@ -615,7 +615,7 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
     } catch (e) { if (!quiet) setNote(e.message); }
   }
   // the saved address is read again each visit, so the plan follows the calendar
-  useEffect(() => { if (addr) useAddress(addr, true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (addr) readCalendarAddress(addr, true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function onFile(e) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -643,7 +643,7 @@ function Planner({ summary, go, setTopic, user, topicNames = [] }) {
           <span className="small muted">Paste your calendar's secret address and the plan avoids your lessons and other events, including ones that repeat. In Google Calendar: Settings, then your calendar, then Integrate calendar, then <i>Secret address in iCal format</i>. Keep it private. It is only used to read when you are busy and is saved on this device.</span>
           <div className="dl-row" style={{ justifyContent: "flex-start", flexWrap: "nowrap" }}>
             <input className="pl-addr" type="url" placeholder="https://calendar.google.com/calendar/ical/..." value={addr} onChange={(e) => setAddr(e.target.value)} aria-label="Secret calendar address" />
-            <button className="btn small" onClick={() => useAddress()} disabled={!addr.trim()}>Use it</button>
+            <button className="btn small" onClick={() => readCalendarAddress()} disabled={!addr.trim()}>Use it</button>
             {addr && <button className="btn quiet small" onClick={() => { setAddr(""); save("dwiddle-ical-url", ""); setFileBusyRaw([]); save(BUSY_KEY, []); setNote("Calendar forgotten."); }}>Forget</button>}
           </div>
           <span className="small muted">Or choose a calendar file (.ics) instead, which is read on this device and not uploaded.</span>

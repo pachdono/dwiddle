@@ -11,7 +11,8 @@
     "desktop": "DWIDDLE_TARGET=desktop electron .",
     "dist:mac": "npm run build:desktop && electron-builder --mac",
     "dist:win": "npm run build:desktop && electron-builder --win",
-    "dist:all": "npm run build:desktop && electron-builder --mac --win"
+    "dist:all": "npm run build:desktop && electron-builder --mac --win",
+    "test": "node --experimental-test-module-mocks --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

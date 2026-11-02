@@ -80,10 +80,10 @@ export function DuckTalk({ mood = "idle", size = 64, who = "dwiddle" }) {
 async function micState() {
   try { return (await navigator.permissions.query({ name: "microphone" })).state; } catch { return "prompt"; }
 }
-function requestMic(reason) {
-  return new Promise(async (resolve) => {
-    const state = await micState();
-    if (state === "granted") return resolve(true);
+async function requestMic(reason) {
+  const state = await micState();
+  if (state === "granted") return true;
+  return new Promise((resolve) => {
     window.dispatchEvent(new CustomEvent("dwiddle:perm", { detail: { reason, blocked: state === "denied", resolve } }));
   });
 }
