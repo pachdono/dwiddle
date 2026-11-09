@@ -78,7 +78,10 @@ export function allow(req, res, { limit = 12 } = {}) {
     req.socket?.remoteAddress ||
     "unknown";
 
-  if (tooMany(ip, limit)) {
+  // Counted per endpoint as well as per address, so five question generations do not use up the
+  // allowance of the first video request from the same school.
+  const route = String(req.url || "").split("?")[0];
+  if (tooMany(`${route}|${ip}`, limit)) {
     res.setHeader("Retry-After", "60");
     res.status(429).json({ error: "That is a lot of requests. Wait a minute and try again." });
     return false;

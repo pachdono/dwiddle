@@ -15,10 +15,16 @@ function videoId(input) {
   return m ? m[1] : null;
 }
 
-const decode = (t) => t
-  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-  .replace(/<[^>]+>/g, "");
+// Tags go first, entities last and in one pass, so "if x &lt; 5 and y &gt; 2" keeps its signs and
+// "&amp;lt;" stays the five characters it was written as, instead of being decoded twice.
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const decode = (t) => String(t).replace(/<[^>]+>/g, "").replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+  if (e[0] === "#") {
+    const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+    return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+  }
+  return ENTITIES[e.toLowerCase()] ?? m;
+});
 
 const CLIENTS = [
   { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30,
@@ -84,4 +90,4 @@ async function read(url, lang = "en") {
   };
 }
 
-module.exports = { read };
+module.exports = { read, decode };

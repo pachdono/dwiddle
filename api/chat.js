@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       // asked for again once; the model's first go is often a paragraph.
       let best = null;
       for (let attempt = 0; attempt < 3 && !best?.good; attempt++) {
-        const raw = await ask({ system: FOUR.replace("__CONTEXT__", context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 14 words, a different emoji on each, a real teenage example, and never the proper term in a card." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
+        const raw = await ask({ system: FOUR.replace("__CONTEXT__", () => context), user: attempt ? "Make the cards. Each card ONE short sentence, at most 14 words, a different emoji on each, a real teenage example, and never the proper term in a card." : "Make the cards.", maxTokens: 500, temperature: attempt ? 0.2 : 0.4, json: true });
         let d = null;
         try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { continue; }
         const cards = (Array.isArray(d?.cards) ? d.cards : []).map((c) => ({ pic: emoji(c?.pic) || "🦆", text: clean(c?.text) }))
@@ -172,7 +172,7 @@ export default async function handler(req, res) {
     }
     if (req.body?.mode === "agent") {
       const state = String(req.body?.state || "Nothing open.").slice(0, 9000);
-      const raw = await ask({ system: AGENT.replace("__CONTEXT__", context).replace("__STATE__", state), messages: turns, maxTokens: 2200, temperature: 0.3, json: true });
+      const raw = await ask({ system: AGENT.replace("__CONTEXT__", () => context).replace("__STATE__", () => state), messages: turns, maxTokens: 2200, temperature: 0.3, json: true });
       let d = null;
       try { d = JSON.parse(String(raw).slice(String(raw).indexOf("{"), String(raw).lastIndexOf("}") + 1)); } catch { /* plain text answer */ }
       const clean = (t) => String(t || "").replace(/\s*[–—]\s*/g, ", ").trim();
@@ -184,8 +184,8 @@ export default async function handler(req, res) {
     const learn = req.body?.mode === "learn";
     const text = await ask({
       system: learn
-        ? LEARN.replace("__CONTEXT__", req.body?.context ? `What the student is studying or has open:\n"""\n${context}\n"""` : "")
-        : SYSTEM.replace("__CONTEXT__", context),
+        ? LEARN.replace("__CONTEXT__", () => (req.body?.context ? `What the student is studying or has open:\n"""\n${context}\n"""` : ""))
+        : SYSTEM.replace("__CONTEXT__", () => context),
       messages: turns,
       maxTokens: learn ? 1400 : 800,
       temperature: 0.4,

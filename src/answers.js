@@ -4,10 +4,10 @@
 
 const NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 const digits = (t) => t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/gi, (w) => String(NUMBERS.indexOf(w.toLowerCase())));
-const norm = (s) => digits(String(s || ""))
+const norm = (s) => digits(String(s || "").replace(/[\u2212\u2012-\u2015]/g, "-").replace(/[\u00d7\u22c5\u00b7]/g, "*").replace(/\u00a0/g, " "))
   .toLowerCase()
   .normalize("NFKD").replace(/[̀-ͯ]/g, "")
-  .replace(/[^a-z0-9%.+\-² ]/g, " ")
+  .replace(/[^a-z0-9%.+\-*/²= ]/g, " ")
   .replace(/\s+/g, " ")
   .trim()
   .replace(/^(the|a|an) /, "");

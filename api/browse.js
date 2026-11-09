@@ -12,7 +12,7 @@
 // every redirect, with time and size limits.
 
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { BlockList, isIP } from "node:net";
 import { userError, fail } from "./_llm.js";
 import { allow, allowFrame } from "./_guard.js";
 import { randomBytes } from "node:crypto";
@@ -23,19 +23,20 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15
 const MAX_PAGE = 2_500_000;
 const MAX_IMAGE = 4_000_000;
 
-function privateAddress(ip) {
-  if (isIP(ip) === 6) {
-    const v = ip.toLowerCase();
-    if (v === "::1" || v === "::" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80")) return true;
-    const mapped = v.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    return mapped ? privateAddress(mapped[1]) : false;
-  }
-  const [a, b] = ip.split(".").map(Number);
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+// Every address range that is not the public internet: private networks, loopback, link-local,
+// carrier-grade NAT, multicast, and the IPv6 forms that carry an IPv4 address inside them
+// (IPv4-mapped, NAT64, 6to4), which would otherwise slip past a check written for dotted addresses.
+const BLOCKED = new BlockList();
+for (const [net, bits] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12],
+  ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4]]) BLOCKED.addSubnet(net, bits, "ipv4");
+for (const [net, bits] of [["::", 96], ["::1", 128], ["64:ff9b::", 96], ["2002::", 16], ["fc00::", 7], ["fe80::", 10], ["fec0::", 10], ["ff00::", 8]]) BLOCKED.addSubnet(net, bits, "ipv6");
+
+export function privateAddress(ip) {
+  const family = isIP(ip);
+  return !family || BLOCKED.check(ip, family === 6 ? "ipv6" : "ipv4");
 }
 
-async function safeUrl(raw) {
+export async function safeUrl(raw) {
   let url;
   try { url = new URL(String(raw)); } catch { return null; }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;

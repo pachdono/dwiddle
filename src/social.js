@@ -131,12 +131,33 @@ export function packMaterial(view) {
 }
 
 // Anything that came from outside is checked before it is kept.
+// Topic names key plain objects all over the app, so these three would poison or crash them.
+const UNSAFE_NAMES = new Set(["__proto__", "constructor", "prototype"]);
+const QUESTION_TYPES = new Set(["mc", "blank", "word", "finish", "written", "long", "match", "order", "tf"]);
+
+// One shared question, checked field by field, because anyone signed in can publish a pack and the
+// quiz screens assume a multiple choice question has a list of choices and an answer inside it.
+function cleanQuestion(q, str, names) {
+  if (!q || typeof q !== "object" || typeof q.q !== "string" || !names.has(q.topic)) return null;
+  const type = q.type === undefined ? (Array.isArray(q.choices) ? "mc" : "written") : q.type;
+  if (!QUESTION_TYPES.has(type)) return null;
+  const out = { ...q, q: str(q.q, 1500) };
+  if (!out.q) return null;
+  if (q.why !== undefined) out.why = str(q.why, 1500);
+  if (Array.isArray(q.choices)) out.choices = q.choices.slice(0, 8).map((c) => str(c, 400));
+  else delete out.choices;
+  if (type === "mc") {
+    if (!out.choices || out.choices.length < 2 || !Number.isInteger(out.answer) || out.answer < 0 || out.answer >= out.choices.length) return null;
+  }
+  return out;
+}
+
 export function unpackMaterial(p) {
   if (!p || typeof p !== "object" || !Array.isArray(p.topics) || !Array.isArray(p.questions)) return null;
   const str = (s, n) => (typeof s === "string" ? s.slice(0, n) : "");
-  const topics = p.topics.filter((t) => t && typeof t.name === "string").slice(0, 80).map((t, i) => ({ id: str(t.id, 40) || "s" + i, name: str(t.name, 120), reason: str(t.reason, 300), questions: Number(t.questions) || 0 }));
+  const topics = p.topics.filter((t) => t && typeof t.name === "string" && !UNSAFE_NAMES.has(t.name)).slice(0, 80).map((t, i) => ({ id: str(t.id, 40) || "s" + i, name: str(t.name, 120), reason: str(t.reason, 300), questions: Number(t.questions) || 0 }));
   const names = new Set(topics.map((t) => t.name));
-  const questions = p.questions.filter((q) => q && names.has(q.topic) && typeof q.q === "string").slice(0, 600);
+  const questions = p.questions.map((q) => cleanQuestion(q, str, names)).filter(Boolean).slice(0, 600);
   return {
     title: str(p.title, 120) || "Shared material",
     topics, questions,

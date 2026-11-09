@@ -150,8 +150,19 @@ let cachedModel = null; // { provider, model }
 const spent = new Map(); // "provider" or "provider/model" -> time it resets
 const nextMidnightUTC = () => { const d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
 const isSpent = (key) => { const until = spent.get(key); if (until && Date.now() < until) return true; spent.delete(key); return false; };
-let paidBlocked = false;
-const rejected = new Set();
+// A refusal is remembered for a while, not for ever: one oversized request must not take a model
+// away from everyone else on this server instance until it restarts.
+const REJECT_FOR = 10 * 60 * 1000;
+let paidBlockedUntil = 0;
+const rejectedUntil = new Map(); // model -> time the refusal lapses
+const paidIsBlocked = () => Date.now() < paidBlockedUntil;
+const rejected = {
+  add: (model) => rejectedUntil.set(model, Date.now() + REJECT_FOR),
+  has: (model) => { const t = rejectedUntil.get(model); if (t && Date.now() < t) return true; rejectedUntil.delete(model); return false; },
+};
+// Providers use 400 for "this prompt is too long" as well as for "no such model", so only a
+// refusal that says the model itself is the problem counts against the model.
+const modelIsTheProblem = (body) => /model/i.test(body) && /not found|does not exist|not exist|decommission|deprecat|not supported|no access|unknown model|invalid model/i.test(body) && !/context|too long|maximum|max_tokens|token/i.test(body);
 
 const modelCache = new Map(); // provider id -> { at, info: [{ id, vision }] }
 const MODEL_TTL = 10 * 60 * 1000;
@@ -160,7 +171,7 @@ export async function listModels(p = provider()) {
   const hit = modelCache.get(p.id);
   if (hit && Date.now() - hit.at < MODEL_TTL) return hit.info.map((m) => m.id);
 
-  const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p) });
+  const reply = await fetch(`${p.base}/models`, { headers: authHeaders(p), signal: AbortSignal.timeout(8000) });
   if (!reply.ok) {
     throw Object.assign(
       new Error(reply.status === 401 ? "The API key was rejected" : `Listing models returned ${reply.status}`),
@@ -206,7 +217,7 @@ export async function candidates({ includeRejected = false, vision = false, p = 
       (!seeing || seeing.has(id)) &&
       (includeRejected || !rejected.has(id)) &&
       // Once a paid model has refused for want of credit, the rest will too.
-      (includeRejected || !paidBlocked || id.endsWith(":free")),
+      (includeRejected || !paidIsBlocked() || id.endsWith(":free")),
   );
   const ordered = [];
 
@@ -219,16 +230,6 @@ export async function candidates({ includeRejected = false, vision = false, p = 
   for (const id of all) if (!ordered.includes(id)) ordered.push(id);
 
   return ordered;
-}
-
-export async function resolveModel(p = provider()) {
-  if (process.env[p.modelEnv]) return process.env[p.modelEnv];
-  if (cachedModel) return cachedModel;
-  const list = await candidates({ p });
-  if (list.length === 0) {
-    throw Object.assign(new Error("No usable models for this key"), { status: 502 });
-  }
-  return list[0];
 }
 
 export const MAX_INPUT = 24000; // characters of user text we will accept
@@ -516,7 +517,7 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
 
       if (reply.status === 402) {
         console.warn(`[api] ${p.id}/${model} needs credit, falling back to free models`);
-        paidBlocked = true;
+        paidBlockedUntil = Date.now() + REJECT_FOR;
         rejected.add(model);
         lastError = Object.assign(new Error("No credit for paid models on this key."), { status: 503 });
         continue;
@@ -556,10 +557,15 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
 
       if (reply.status === 400 || reply.status === 403 || reply.status === 404) {
         console.warn(`[api] ${p.id}/${model} unusable (${reply.status})`);
-        // Refusing a picture says nothing about text, so only text refusals stick.
-        if (!vision) rejected.add(model);
-        if (cachedModel?.model === model) cachedModel = null;
-        lastError = Object.assign(new Error("No model this key can use accepted the request"), { status: 502 });
+        // Refusing a picture says nothing about text, and a long prompt says nothing about the model.
+        const tooLong = reply.status === 400 && /context|too long|maximum|max_tokens/i.test(body) && !modelIsTheProblem(body);
+        if (tooLong) {
+          lastError = Object.assign(new Error("That was too long for the AI service. Try a shorter piece."), { status: 413 });
+          continue;
+        }
+        if (!vision && (reply.status === 404 || modelIsTheProblem(body))) rejected.add(model);
+        if (cachedModel?.model === model && reply.status !== 400) cachedModel = null;
+        lastError = Object.assign(new Error(vision ? "No model this key can use accepted the picture" : "No model this key can use accepted the request"), { status: 502 });
         continue;
       }
 
@@ -584,17 +590,6 @@ async function askVia(all, { system, user, messages, maxTokens = 4000, temperatu
     throw Object.assign(new Error("The AI service is busy at the moment. Wait a minute and try again."), { status: 503 });
   }
   throw lastError || Object.assign(new Error("No usable model found"), { status: 502 });
-}
-
-// Every endpoint shares the same shape: check the method, read and cap the
-// input, ask the model, parse, respond.
-export function guard(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    userError(res, 405, "Use POST");
-    return false;
-  }
-  return true;
 }
 
 export function fail(res, err) {

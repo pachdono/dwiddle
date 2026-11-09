@@ -5,10 +5,13 @@
 // not a losing streak. Each level asks a little more than the last, so early
 // levels come quickly and later ones mean something.
 
+export const MAX_XP = 2_000_000_000;
 export const XP = { right: 10, tried: 3, lesson: 50, firstToday: 20 };
 
 export function levelOf(xp = 0) {
-  let level = 1, need = 100, left = Math.max(0, Math.floor(xp));
+  // A corrupt or crafted saved value (Infinity, NaN, a huge number) must not freeze the tab.
+  const safe = Number.isFinite(Number(xp)) ? Math.min(Number(xp), MAX_XP) : 0;
+  let level = 1, need = 100, left = Math.max(0, Math.floor(safe));
   while (left >= need) { left -= need; level += 1; need += 50; }
   return { level, into: left, need };
 }

@@ -200,7 +200,7 @@ export function planWeek({ prefs = defaultPrefs(), summary, busy = [], now = Dat
 
 const pad = (n) => String(n).padStart(2, "0");
 const stamp = (t) => { const d = new Date(t); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`; };
-const esc = (s) => String(s).replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+const esc = (s) => String(s).replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
 // short enough to read on a calendar bar; the whole topic is in the description
 const clip = (t, n = 24) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "…" : t);
 const title = (s) => (s.topic ? `Study: ${clip(s.topic)}` : "Study session");
