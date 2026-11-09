@@ -165,21 +165,21 @@ function mergeMade(a, b) {
       // the copy saved last decides the name, so a rename on one device sticks
       const i = items.findIndex((x) => x.id === m.id);
       const title = (a.savedAt || 0) >= (b.savedAt || 0) ? items[i].title : m.title;
-      items[i] = { ...items[i], title, topics: [...new Set([...items[i].topics, ...m.topics])] };
+      items[i] = { ...items[i], title, topics: [...new Set([...(items[i].topics || []), ...(m.topics || [])])] };
     }
   });
   items = items.filter((m) => !removed[m.id]).sort((x, y) => (x.at || 0) - (y.at || 0));
   // A topic that was deleted is only kept if an item still left has it.
-  const kept = new Set(items.flatMap((m) => m.topics));
+  const kept = new Set(items.flatMap((m) => m.topics || []));
   const goneNow = (name) => !!gone[name] && !kept.has(name);
 
-  const questions = [...a.questions];
+  const questions = [...(a.questions || [])];
   const ids = new Set(questions.map((q) => q.id));
-  b.questions.forEach((q) => { if (!ids.has(q.id)) questions.push(q); });
+  (b.questions || []).forEach((q) => { if (!ids.has(q.id)) questions.push(q); });
 
-  const topics = [...a.topics];
+  const topics = [...(a.topics || [])];
   const names = new Set(topics.map((t) => t.name));
-  b.topics.forEach((t) => { if (!names.has(t.name)) topics.push(t); });
+  (b.topics || []).forEach((t) => { if (!names.has(t.name)) topics.push(t); });
 
   const drills = [...(a.drills || [])];
   const drillIds = new Set(drills.map((d) => d.id));
@@ -257,13 +257,16 @@ export function merge(localData, remoteData) {
   return out;
 }
 
+// null means there is no row yet. A failed request is a different answer, so a device whose pull
+// failed can never go on to overwrite the account's copy with its own near-empty one.
+const PULL_FAILED = Symbol("pull failed");
 async function pullProgress(userId) {
-  if (!supabase) return null;
+  if (!supabase) return PULL_FAILED;
   const { data, error } = await supabase
     .from("progress").select("data").eq("user_id", userId).maybeSingle();
   if (error) {
     console.warn("[sync] pull failed", error.message);
-    return null;
+    return PULL_FAILED;
   }
   return data?.data ?? null;
 }
@@ -271,12 +274,12 @@ async function pullProgress(userId) {
 async function pushProgress(userId, data) {
   if (!supabase) return false;
 
-  // The bank is the only thing that can grow without bound. If a row gets too
-  // big, send everything else rather than failing the whole sync.
-  let payload = data;
+  // Leaving the bank out of an upsert would delete it from the account, so a row that is too big
+  // is not sent at all and the copy already in the cloud stays whole.
+  const payload = data;
   if (JSON.stringify(data).length > MAX_PAYLOAD) {
-    console.warn("[sync] payload over limit, syncing without the question bank");
-    payload = { ...data, [KEYS.testBank]: undefined };
+    console.warn("[sync] payload over limit, not pushing so the cloud copy is not cut down");
+    return false;
   }
 
   const { error } = await supabase
@@ -429,6 +432,7 @@ export function syncNow(userId) {
   syncing = (async () => {
     try {
       const remote = await pullProgress(userId);
+      if (remote === PULL_FAILED) return false;
       const before = JSON.stringify(localSnapshot());
       const merged = merge(localSnapshot(), remote || {});
       applySnapshot(merged);
