@@ -30,7 +30,7 @@ import { flatMarks, parseMarks, blockTexts } from "./marks.js";
 import { usePracticeSession, useCheerSounds, PracticeSides, Cheer, AnswerFlash } from "./PracticeCheer.jsx";
 import { useEffect, useRef, useState } from "react";
 import { DECKS, EXAM_SIZES, EXAM_TIMES, SAMPLE_NOTES } from "./mock.js";
-import { load, save, loadSession, saveSession, clearSession, KEYS } from "./store.js";
+import { load, save, loadSession, saveSession, clearSession, KEYS, localDay } from "./store.js";
 import { Icon, PageHead, Loading, Marked, toSegments, HighlightFilters, Portal, BusyScreen, Boundary, useCover } from "./ui.jsx";
 import { phraseQuestion, answerable, uniqueQuestions, practiceBank, unseenVisual, missingData } from "./mathText.js";
 import { rememberSource, sourcesFor } from "./lessons.js";
@@ -406,9 +406,9 @@ export default function App() {
     // The dashboard numbers come from here, so they are yours rather than a
     // decorative placeholder.
     setStats((prev) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDay();
       const days = prev.days.includes(today) ? prev.days : [...prev.days, today].slice(-400);
-      const byTopic = { ...(prev.byTopic || {}) };
+      const byTopic = Object.assign(Object.create(null), prev.byTopic);
       if (topicName) {
         const t = byTopic[topicName] || { right: 0, total: 0 };
         byTopic[topicName] = { right: t.right + (correct ? 1 : 0), total: t.total + 1 };
@@ -425,7 +425,7 @@ export default function App() {
       save(KEYS.stats, next);
       return next;
     });
-    const firstToday = !stats.days.includes(new Date().toISOString().slice(0, 10));
+    const firstToday = !stats.days.includes(localDay());
     const gainedNow = (correct ? XP.right : XP.tried) + (firstToday ? XP.firstToday : 0);
     announceXp(gainedNow, firstToday ? "first study today" : "");
     if (levelOf((stats.xp || 0) + gainedNow).level > levelOf(stats.xp || 0).level) playCue("levelup");
@@ -1434,7 +1434,7 @@ function streakOf(days) {
   if (!days || days.length === 0) return 0;
   const set = new Set(days);
   const day = new Date();
-  const iso = (d) => d.toISOString().slice(0, 10);
+  const iso = (d) => localDay(d);
   if (!set.has(iso(day))) {
     day.setDate(day.getDate() - 1);
     if (!set.has(iso(day))) return 0;
@@ -1520,7 +1520,7 @@ function lastWeek(days) {
     out.push({
       label: d.toLocaleDateString("en-GB", { weekday: "narrow" }),
       name: d.toLocaleDateString("en-GB", { weekday: "long" }),
-      on: set.has(d.toISOString().slice(0, 10)),
+      on: set.has(localDay(d)),
       today: i === 0,
     });
   }

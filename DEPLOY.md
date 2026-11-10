@@ -49,6 +49,37 @@ Gives you sign in and progress that follows you between devices.
    and click **Run**. It should say Success.
    This creates the two tables and, importantly, the row level security
    policies that stop anyone reading anyone else's data.
+
+   The other files in `supabase/` add the rest. Run each as a new query, in
+   this order, once only. A few are not safe to run twice (see the note at the
+   top of each file):
+
+   1. `schema.sql`
+   2. `staff.sql`
+   3. `staff-v2.sql`
+   4. `roles.sql`
+   5. `replies.sql`
+   6. `profile.sql`
+   7. `social.sql`
+   8. `messages-v2.sql`
+   9. `staff-identity.sql`
+   10. `staff-tools.sql`
+   11. `calfeed.sql`
+   12. `push.sql`, `push-v2.sql`, `push-v3.sql`
+   13. `updates.sql`, `update-1.1.11.sql`
+   14. `fixes-1.1.13.sql` last. It closes the holes found in the November 2026
+       review, creates the private `notebooks` storage bucket and its rules,
+       and is safe to run again.
+
+   This order follows the "after ..." line at the top of each file. Re-running
+   `roles.sql` or `staff.sql` on a project that already has the later files
+   can undo their newer rules, so run `fixes-1.1.13.sql` again afterwards.
+
+   For reminders, add the secret by hand once, after `push.sql` (the file never
+   writes it): `insert into public.push_secret (id, secret) values (1, '<your
+   CRON_SECRET>') on conflict (id) do update set secret = excluded.secret;`
+   Use a long random value, 32 characters or more. If `push.sql` was ever run
+   twice on an older copy, change `CRON_SECRET` in Vercel and here.
 5. Go to **Project Settings**, then **API**. Copy two values:
    - **Project URL**, which looks like `https://abcdefghijklmnop.supabase.co`
    - **anon public** key

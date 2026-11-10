@@ -66,13 +66,24 @@ export async function setDaily(on, user) {
         throw new Error("This browser cannot get reminders while Dwiddle is closed. On an iPhone, add Dwiddle to your Home Screen first.");
       }
       const reg = await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(VAPID) });
-      const j = sub.toJSON();
-      const { error } = await supabase.from("push_subs").upsert({
-        endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", hour: prefs().hour,
-      });
-      if (error) throw new Error(/push_subs/.test(error.message) ? "Reminders are not switched on for Dwiddle yet (run supabase/push.sql)." : error.message);
+      const subscribe = () => reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(VAPID) });
+      const row = (sub) => {
+        const j = sub.toJSON();
+        return {
+          endpoint: j.endpoint, user_id: user.id, p256dh: j.keys.p256dh, auth: j.keys.auth,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", hour: prefs().hour,
+        };
+      };
+      let sub = (await reg.pushManager.getSubscription()) || await subscribe();
+      let { error } = await supabase.from("push_subs").upsert(row(sub));
+      // On a shared computer the browser's subscription can still belong to the last person to use it, and
+      // the database refuses to hand it over. A fresh subscription is this person's own.
+      if (error && /row-level security|42501/i.test(`${error.code} ${error.message}`)) {
+        await sub.unsubscribe().catch(() => {});
+        sub = await subscribe();
+        ({ error } = await supabase.from("push_subs").upsert(row(sub)));
+      }
+      if (error) throw new Error(/push_subs/.test(error.message) ? "Reminders cannot be switched on just now. Try again later." : error.message);
     }
   } else if (!desktop && "serviceWorker" in navigator) {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -83,6 +94,22 @@ export async function setDaily(on, user) {
     }
   }
   setPrefs({ daily: on });
+}
+
+// Turns this browser's reminders off for whoever is signed in, so the next person to use a shared
+// computer does not get the last one's "your streak is waiting". Never throws: signing out comes first.
+export async function stopReminders() {
+  try {
+    if (desktop || !supabase || !("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager?.getSubscription();
+    if (!sub) return;
+    await supabase.from("push_subs").delete().eq("endpoint", sub.endpoint);
+    await sub.unsubscribe().catch(() => {});
+    setPrefs({ daily: false });
+  } catch {
+    // nothing more to do
+  }
 }
 
 // A new time for the reminder: kept here, and sent to the server too when

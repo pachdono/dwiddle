@@ -6,6 +6,8 @@
 import { LevelPicker } from "./LevelPicker.jsx";
 import { myLevel, setMyLevel } from "./level.js";
 import { useEffect, useState } from "react";
+import { localDay } from "./store.js";
+import { stopReminders } from "./notify.js";
 import { supabase, configured, enabledProviders, syncNow, getProfile, saveProfile } from "./supabase.js";
 import { Duck } from "./Duck.jsx";
 import { setHandle } from "./social.js";
@@ -26,22 +28,45 @@ function useDesktopCallback() {
     if (!window.DWIDDLE_AUTH || !supabase) return;
     return window.DWIDDLE_AUTH.onCallback(async (url) => {
       try {
-        const hash = new URL(url).hash.replace(/^#/, "");
-        const params = new URLSearchParams(hash);
-        const access_token = params.get("access_token");
-        const refresh_token = params.get("refresh_token");
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token });
-          return;
-        }
-        // The newer flow returns a single use code instead of tokens.
-        const code = params.get("code") || new URL(url).searchParams.get("code");
+        // Only a single use code is accepted, and exchangeCodeForSession only works
+        // with the verifier this app stored when it started the sign in. A link
+        // carrying tokens, from a web page or an email, is ignored, so nobody can
+        // sign the app in to an account of their own choosing.
+        const parsed = new URL(url);
+        const code = new URLSearchParams(parsed.hash.replace(/^#/, "")).get("code") || parsed.searchParams.get("code");
         if (code) await supabase.auth.exchangeCodeForSession(code);
       } catch (err) {
         console.warn("[auth] could not complete the desktop sign in", err);
       }
     });
   }, []);
+}
+
+// Everything one person leaves on a shared device: their progress and settings
+// (every dwiddle- key except the look of the app) and the notebooks and
+// narration kept in IndexedDB. Without this, the next person to sign in had the
+// last one's progress merged into their account.
+async function clearLocalData() {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("dwiddle-") && k !== "dwiddle-theme")
+      .forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // private browsing, nothing to clear
+  }
+  try {
+    sessionStorage.clear();
+  } catch {
+    // nothing to clear
+  }
+  await Promise.all(["dwiddle-notebooks", "dwiddle-narration"].map((name) => new Promise((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase(name);
+      req.onsuccess = req.onerror = req.onblocked = () => resolve();
+    } catch {
+      resolve();
+    }
+  })));
 }
 
 export function useAuth(onSignedOut) {
@@ -56,6 +81,13 @@ export function useAuth(onSignedOut) {
   // the call, falls back to a local sign out, and clears the stored session by
   // hand if both are refused. The local state is cleared either way.
   async function signOut() {
+    // Save this device's work to the account first (it is cleared below, so the
+    // next person on a shared computer does not inherit it), but never let a
+    // slow network stop the sign out.
+    if (user?.id) {
+      await Promise.race([stopReminders(), new Promise((r) => setTimeout(r, 3000))]).catch(() => {});
+      await Promise.race([syncNow(user.id), new Promise((r) => setTimeout(r, 4000))]).catch(() => {});
+    }
     setSyncedAt(null);
     setUser(null);
     onSignedOut?.();
@@ -76,6 +108,7 @@ export function useAuth(onSignedOut) {
     } catch {
       // private browsing, nothing to clear
     }
+    await clearLocalData();
 
     // Then reload. Clearing state in place left too many ways to end up half
     // signed out: a listener that fires afterwards and restores the session, a
@@ -262,12 +295,12 @@ function ProfileForm({ user, initial, onSaved, onCancel, submitLabel = "Save" })
   const [level, setLevel] = useState(() => myLevel()?.id || null);
   const [state, setState] = useState("idle");
   const [err, setErr] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDay();
   const set = (k) => (e) => setF((o) => ({ ...o, [k]: e.target.value }));
   // Dwiddle is for 8 and over (see the privacy policy), so a younger date
   // of birth cannot complete an account.
   const minAge = new Date(); minAge.setFullYear(minAge.getFullYear() - 8);
-  const young = !!f.birth_date && f.birth_date > minAge.toISOString().slice(0, 10);
+  const young = !!f.birth_date && f.birth_date > localDay(minAge);
   const handleOk = /^[a-z0-9_]{3,20}$/.test(String(f.handle || "").replace(/^@/, ""));
   const ok = f.first_name.trim() && f.last_name.trim() && String(f.display_name || "").trim() && handleOk && f.birth_date && f.birth_date < today && f.birth_date > "1900-01-01" && !young && level;
 

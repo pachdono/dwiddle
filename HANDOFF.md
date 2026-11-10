@@ -13,7 +13,7 @@ Study app: React 19 + Vite web, Supabase, Electron desktop. Vercel `/api` is cap
 - Do not open a PR unless asked.
 
 ## Verify loop
-- Tests: `node --test --experimental-test-module-mocks scripts/*.test.mjs` (123 passing at last run)
+- Tests: `node --test --experimental-test-module-mocks scripts/*.test.mjs` (196 passing at last run)
 - Build: `npx vite build`
 - Preview: `npx vite preview --port 4173` (start with `setsid nohup ... &` or it can kill the shell)
 - Playwright scripts live in the session scratchpad `pw/` folder; chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. `perf2.mjs` measures animation count and main thread time per screen.

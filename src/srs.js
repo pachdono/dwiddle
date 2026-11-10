@@ -10,11 +10,11 @@
 // Nothing here stops anyone doing anything. The home page mentions what is
 // due, Practice has a Review mode, and both can be ignored entirely.
 
-import { load, save, KEYS } from "./store.js";
+import { load, save, KEYS, localDay } from "./store.js";
 
 const GAPS = [1, 2, 4, 7, 14, 30]; // days until the next look, by box
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDay();
 function addDays(iso, n) {
   const d = new Date(iso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);

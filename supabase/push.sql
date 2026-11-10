@@ -1,6 +1,7 @@
 -- Daily study reminders by push notification.
 -- Run once in the Supabase SQL editor, as a new query. Safe to run again.
--- Put the same value as CRON_SECRET in Vercel where it says PUT-THE-CRON-SECRET-HERE.
+-- After running it, add the secret by hand, once (see step 2 below). Use the
+-- same value as CRON_SECRET in Vercel. This file never writes the secret.
 
 -- 1. Each device that turned reminders on.
 create table if not exists public.push_subs (
@@ -23,7 +24,13 @@ create policy "own push subs" on public.push_subs
 --    through the API: it has no policies at all.
 create table if not exists public.push_secret (id int primary key default 1, secret text not null);
 alter table public.push_secret enable row level security;
-insert into public.push_secret (id, secret) values (1, 'PUT-THE-CRON-SECRET-HERE') on conflict (id) do update set secret = excluded.secret;
+alter table public.push_secret drop constraint if exists push_secret_strong;
+alter table public.push_secret add constraint push_secret_strong
+  check (secret <> 'PUT-THE-CRON-SECRET-HERE' and length(secret) >= 32) not valid;
+-- Add the secret once, by hand, with a long random value (32 or more characters):
+--   insert into public.push_secret (id, secret) values (1, '<your CRON_SECRET>')
+--   on conflict (id) do update set secret = excluded.secret;
+-- Do not paste a real secret into this file.
 
 -- 3. Who to remind today: reminders on, not reminded yet today, and not
 --    studied yet today in their own time zone. Only for the daily job.

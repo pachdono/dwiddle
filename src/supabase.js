@@ -67,7 +67,13 @@ export async function enabledProviders() {
 }
 
 export const supabase = configured
-  ? createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true }, realtime: { params: { eventsPerSecond: 40 } } })
+  ? createClient(url, anon, {
+      // The desktop app uses PKCE, so a sign in can only be finished by the app
+      // that started it. The website keeps the default flow, because a magic
+      // link is often opened in a different browser from the one that asked.
+      auth: { persistSession: true, autoRefreshToken: true, flowType: typeof window !== "undefined" && window.DWIDDLE_AUTH ? "pkce" : "implicit" },
+      realtime: { params: { eventsPerSecond: 40 } },
+    })
   : null;
 
 // The keys that follow you between devices. Leaving material, stats and the
@@ -126,7 +132,7 @@ function applySnapshot(data) {
 function mergeStats(a, b) {
   const x = a || {};
   const y = b || {};
-  const byTopic = { ...(x.byTopic || {}) };
+  const byTopic = Object.assign(Object.create(null), x.byTopic);
 
   for (const [name, v] of Object.entries(y.byTopic || {})) {
     const mine = byTopic[name];
@@ -336,20 +342,6 @@ export async function submitFeedback({ kind, rating, message, contact, title }) 
   return { stored: true, id, from: user?.email ?? null };
 }
 
-// Only ever returns approved reviews: the policy enforces it, this just asks.
-async function approvedReviews(limit = 6) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("feedback")
-    .select("id, rating, message, created_at")
-    .eq("kind", "review")
-    .eq("approved", true)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) return [];
-  return data || [];
-}
-
 // ---------- profile, announcements, update logs ----------
 
 // The person's profile, or null if they have not filled it in yet. Returns
@@ -415,9 +407,10 @@ export async function myAccess() {
 // Approved reviews with the reviewer's first name and picture.
 export async function publicReviews(n = 3) {
   if (!supabase) return [];
+  // Reviews are served only through this function. The feedback table holds
+  // the reviewer's email, so it is not readable by the public.
   const { data, error } = await supabase.rpc("public_reviews", { n });
-  if (!error) return data || [];
-  return approvedReviews(n);
+  return error ? [] : data || [];
 }
 
 

@@ -1,5 +1,6 @@
 // What the answer log says about how someone studies, and a plan built from it.
 // Pure functions, so they are tested without a screen.
+import { localDay } from "./store.js";
 
 const HOUR = 3600e3, MIN = 60e3;
 const pct = (r, n) => (n ? Math.round((r / n) * 100) : null);
@@ -19,8 +20,9 @@ export function sittings(log, gap = 20 * MIN) {
 export function summarise(log, now = Date.now()) {
   const total = log.length;
   const right = log.filter((e) => e.ok).length;
-  const byTopic = {}, byKind = {}, byHour = Array.from({ length: 24 }, () => ({ r: 0, n: 0 }));
-  const byDay = {};
+  // null-prototype maps: a topic called __proto__ or constructor is only a name here
+  const byTopic = Object.create(null), byKind = Object.create(null), byHour = Array.from({ length: 24 }, () => ({ r: 0, n: 0 }));
+  const byDay = Object.create(null);
   log.forEach((e) => {
     const t = (byTopic[e.topic || "General"] ||= { r: 0, n: 0, recent: [] });
     t.n++; if (e.ok) t.r++; t.recent.push(e.ok);
@@ -28,7 +30,7 @@ export function summarise(log, now = Date.now()) {
     k.n++; if (e.ok) k.r++;
     const h = new Date(e.t).getHours();
     byHour[h].n++; if (e.ok) byHour[h].r++;
-    const d = new Date(e.t).toISOString().slice(0, 10);
+    const d = localDay(e.t);
     const day = (byDay[d] ||= { r: 0, n: 0 });
     day.n++; if (e.ok) day.r++;
   });
@@ -42,8 +44,8 @@ export function summarise(log, now = Date.now()) {
   const sits = sittings(log);
   const week = now - 7 * 24 * HOUR;
   const minutesThisWeek = sits.filter((s) => s.start >= week).reduce((n, s) => n + s.minutes, 0);
-  const since = new Date(now - 6 * 24 * HOUR).toISOString().slice(0, 10);
-  const daysThisWeek = new Set(log.map((e) => new Date(e.t).toISOString().slice(0, 10)).filter((d) => d >= since)).size;
+  const since = localDay(now - 6 * 24 * HOUR);
+  const daysThisWeek = new Set(log.map((e) => localDay(e.t)).filter((d) => d >= since)).size;
   // accuracy now against before, over the last and the previous 25 answers
   const last = log.slice(-25), before = log.slice(-50, -25);
   const trend = last.length >= 15 && before.length >= 15

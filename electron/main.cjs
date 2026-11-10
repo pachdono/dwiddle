@@ -12,6 +12,41 @@ const uninstall = require("./uninstall.cjs");
 const path = require("node:path");
 
 const SITE = process.env.DWIDDLE_SITE || "https://dwiddle.vercel.app";
+
+// Only web and mail links ever leave the app. A file:, smb: or custom scheme
+// handed to the system could open or run something.
+const safeExternal = (url) => {
+  try { return ["http:", "https:", "mailto:"].includes(new URL(String(url)).protocol); } catch { return false; }
+};
+const openSafe = (url) => { if (safeExternal(url)) shell.openExternal(String(url)); };
+
+// The same page again, or another page of the same site. In the packaged app
+// every file: address has the origin "null", so origins alone would let the
+// window be sent to any file or share, so full paths are compared there.
+const sameApp = (target, here) => {
+  try {
+    const t = new URL(target), h = new URL(here);
+    if (t.protocol === "file:" || h.protocol === "file:") return t.protocol === h.protocol && t.pathname === h.pathname;
+    return t.origin === h.origin;
+  } catch { return false; }
+};
+
+// The app's own pages: the packaged files, or the dev server.
+const ownPage = (url) => String(url || "").startsWith("file:") || String(url || "").startsWith(process.env.DWIDDLE_DEV_URL || "http://localhost:5180");
+
+// True for a host that is, or resolves to, a private, loopback or link local
+// address, in any of the ways IPv6 can write an IPv4 one.
+const { BlockList, isIP } = require("node:net");
+const PRIVATE = new BlockList();
+for (const [net_, bits] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["224.0.0.0", 4], ["240.0.0.0", 4]]) PRIVATE.addSubnet(net_, bits, "ipv4");
+for (const [net_, bits] of [["::", 96], ["::ffff:0:0", 96], ["64:ff9b::", 96], ["2002::", 16], ["fc00::", 7], ["fe80::", 10], ["fec0::", 10], ["ff00::", 8]]) PRIVATE.addSubnet(net_, bits, "ipv6");
+PRIVATE.addAddress("::1", "ipv6");
+async function privateHost(host) {
+  const bare = String(host).replace(/^\[|\]$/g, "");
+  if (bare === "localhost" || bare.endsWith(".localhost") || bare.endsWith(".local")) return true;
+  const list = isIP(bare) ? [{ address: bare, family: isIP(bare) }] : await require("node:dns").promises.lookup(bare, { all: true });
+  return list.some((a) => PRIVATE.check(a.address, a.family === 6 ? "ipv6" : "ipv4"));
+}
 const dev = !app.isPackaged;
 
 let win = null;
@@ -113,15 +148,14 @@ function create() {
   // A link to somewhere else belongs in the real browser, not in a window with
   // no address bar where nobody can see where they have been taken.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openSafe(url);
     return { action: "deny" };
   });
 
   win.webContents.on("will-navigate", (event, url) => {
-    const here = win.webContents.getURL();
-    if (new URL(url).origin !== new URL(here).origin) {
+    if (!sameApp(url, win.webContents.getURL())) {
       event.preventDefault();
-      shell.openExternal(url);
+      openSafe(url);
     }
   });
 
@@ -256,6 +290,18 @@ app.whenReady().then(async () => {
     done({ requestHeaders: { ...details.requestHeaders, Referer: SITE + "/" } });
   });
 
+  // Nothing is allowed to ask for the camera, microphone, location or
+  // notifications except the app's own pages, and only for what it uses.
+  // Without a handler Electron says yes to every request from every site the
+  // notebook browser opens.
+  const ALLOWED = new Set(["media", "clipboard-sanitized-write", "fullscreen"]);
+  for (const s of [session.defaultSession, session.fromPartition("persist:dwiddle-browse")]) {
+    s.setPermissionRequestHandler((wc, permission, done, details) =>
+      done(ownPage(details?.requestingUrl || wc.getURL()) && ALLOWED.has(permission)));
+    s.setPermissionCheckHandler((wc, permission, origin) =>
+      ownPage(wc ? wc.getURL() : origin) && ALLOWED.has(permission));
+  }
+
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu()));
   create();
 
@@ -264,24 +310,33 @@ app.whenReady().then(async () => {
   updates.start();
   // Pictures dragged or pasted from the split screen browser are fetched
   // here, so the notebook page does not need to be allowed to reach any site.
-  ipcMain.handle("dwiddle:fetch-image", async (_e, url) => {
+  ipcMain.handle("dwiddle:fetch-image", async (e, url) => {
+    if (!ownPage(e.senderFrame?.url)) return null;
     if (!/^https?:\/\//.test(String(url))) return null;
     try {
+      // Not the machine's own address or anything on the local network.
+      if (await privateHost(new URL(url).hostname)) return null;
       const res = await net.fetch(url);
       const type = res.headers.get("content-type") || "";
       if (!res.ok || !type.startsWith("image/")) return null;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > 12e6) return null;
-      return `data:${type.split(";")[0]};base64,${buf.toString("base64")}`;
+      // Read in pieces and stop at the cap, instead of downloading it all first.
+      const chunks = [];
+      let size = 0;
+      for await (const part of res.body) {
+        size += part.length;
+        if (size > 12e6) return null;
+        chunks.push(Buffer.from(part));
+      }
+      return `data:${type.split(";")[0]};base64,${Buffer.concat(chunks).toString("base64")}`;
     } catch { return null; }
   });
 
-  ipcMain.handle("dwiddle:youtube", (_e, url, lang) => require("./youtube.cjs").read(url, lang).catch(() => ({
+  ipcMain.handle("dwiddle:youtube", (e, url, lang) => !ownPage(e.senderFrame?.url) ? { error: "Not available." } : require("./youtube.cjs").read(url, lang).catch(() => ({
     error: "The video could not be read just now. Check your connection and try again.",
   })));
-  ipcMain.handle("dwiddle:uninstall-plan", () => uninstall.plan());
+  ipcMain.handle("dwiddle:uninstall-plan", (e) => (ownPage(e.senderFrame?.url) ? uninstall.plan() : null));
   ipcMain.handle("dwiddle:uninstall", (event, phrase) =>
-    uninstall.run(BrowserWindow.fromWebContents(event.sender), phrase));
+    ownPage(event.senderFrame?.url) ? uninstall.run(BrowserWindow.fromWebContents(event.sender), phrase) : null);
 
   // On a Mac, closing the last window does not quit, and clicking the dock
   // icon opens a new one.

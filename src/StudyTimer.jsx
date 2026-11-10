@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Icon, Portal } from "./ui.jsx";
 import { Duck, DuckMark } from "./Duck.jsx";
 import { playCue } from "./voice.js";
-import { save } from "./store.js";
+import { save, localDay } from "./store.js";
 
 const KEY = "dwiddle-study-timer";
 const LOG = "dwiddle-study-log";
@@ -23,7 +23,7 @@ let timer = read(KEY, null);
 const listeners = new Set();
 function set(next) { timer = next; write(KEY, next); listeners.forEach((f) => f(next)); }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDay();
 const minutesToday = () => read(LOG, {})[today()] || 0;
 function logMinutes(m) { const log = read(LOG, {}); log[today()] = (log[today()] || 0) + m; save(LOG, log); }
 

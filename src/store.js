@@ -11,6 +11,15 @@ export function load(key, fallback) {
   }
 }
 
+// A calendar day as the person lives it (year, month and day from their own
+// clock), for streaks, review dates and the study timer. toISOString() gives
+// the UTC day instead, which put 7 hours of every Bangkok day, and 11 of every
+// Sydney day, on the wrong date.
+export function localDay(t = Date.now()) {
+  const d = t instanceof Date ? t : new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // When each value last changed on this device, so syncing can tell which of
 // two copies is newer instead of one device overwriting the other.
 const TIMES = "dwiddle-times";

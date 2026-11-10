@@ -376,7 +376,7 @@ export function derivedDrills(questions) {
       out.push({ id: `dw-${q.id}`, topic: q.topic, type: "word", q: `The word for: ${q.choices[q.answer]}`, answer: term, why: q.why || "" });
     }
   });
-  const byTopic = {};
+  const byTopic = Object.create(null);
   vocab.forEach((q) => { (byTopic[q.topic] ||= []).push(q); });
   Object.entries(byTopic).forEach(([topic, list]) => {
     if (list.length < 3) return;
@@ -425,7 +425,7 @@ export function trueFalseFrom(q) {
 
 // Four short question and answer pairs from one topic, to match up.
 export function matchFrom(questions, used = new Set()) {
-  const byTopic = {};
+  const byTopic = Object.create(null);
   questions.forEach((q) => {
     if (isDrill(q) || !Array.isArray(q.choices) || typeof q.answer !== "number" || used.has(q.id)) return;
     const a = String(q.choices[q.answer] ?? "");

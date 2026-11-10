@@ -7,7 +7,11 @@ const digits = (t) => t.replace(/\b(zero|one|two|three|four|five|six|seven|eight
 const norm = (s) => digits(String(s || "").replace(/[\u2212\u2012-\u2015]/g, "-").replace(/[\u00d7\u22c5\u00b7]/g, "*").replace(/\u00a0/g, " "))
   .toLowerCase()
   .normalize("NFKD").replace(/[̀-ͯ]/g, "")
-  .replace(/[^a-z0-9%.+\-*/²= ]/g, " ")
+  .replace(/(\d)\s*x\s*(\d)/g, "$1*$2")
+  .replace(/\s*\*\s*/g, "*")
+  // letters and numbers of any script: a Greek, Russian, Thai or Chinese answer used to be
+  // stripped to nothing, so it was marked wrong even when typed exactly right
+  .replace(/[^\p{L}\p{M}\p{N}%.+\-*/²= ]/gu, " ")
   .replace(/\s+/g, " ")
   .trim()
   .replace(/^(the|a|an) /, "");

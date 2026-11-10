@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHead, BusyScreen } from "./ui.jsx";
-import { load, save } from "./store.js";
+import { load, save, localDay } from "./store.js";
 import { readLog } from "./studylog.js";
 import { summarise, advice, bestWindow, topicMastery, predictGrade, STATUS_LABEL, planWeek, suggestPrefs, GOALS, defaultPrefs, DAY_NAMES, googleLink, makeIcs, parseIcsBusy } from "./insights.js";
 import { levelOf } from "./xp.js";
@@ -63,7 +63,7 @@ function Heatmap({ days }) {
     const col = [];
     for (let d = 0; d < 7; d++) {
       const day = new Date(start); day.setDate(start.getDate() + w * 7 + d);
-      const key = day.toISOString().slice(0, 10);
+      const key = localDay(day);
       const v = by[key]?.answered || 0;
       col.push({ key, v, future: day > today, lvl: v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)), month: day.getDate() <= 7 && d === 0 ? day.toLocaleDateString([], { month: "short" }) : "" });
     }
