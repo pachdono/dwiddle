@@ -1243,7 +1243,6 @@ export default function App() {
             <span className="topbar-title">{title}</span>
           )}
           <span className="crumb small">{study && !mustPick ? study.title : ""}</span>
-          <TopSearch materials={materials} go={go} setFocus={setFocus} />
           {preview && (
             <span className="top-chips">
               <button className="top-chip" title="Days in a row you have studied" onClick={() => go("leaderboard")}><Flame size={24} lit={streakOf(stats.days) > 0} />{streakOf(stats.days)}</button>
@@ -2620,40 +2619,6 @@ function HomeBridge({ home = true, ...props }) {
   const hello = greeting(me?.display_name?.trim().split(/\s+/)[0] || nameFor(auth?.user), pick);
   const due = reviewOn() ? dueFrom([...bank, ...drills], srs).length : 0;
   return <HomeFolders {...props} home={home} hello={hello} sub={greetingSub() || "Pick up where you left off."} streak={streakOf(stats?.days)} due={due} level={levelOf(stats?.xp || 0).level} xp={stats?.xp || 0} prefill={(t) => { try { sessionStorage.setItem("dwiddle-handoff-notes", t); } catch {} props.go("upload"); }} />;
-}
-
-// The search in the top bar: pages, library items and topics, from any screen.
-function TopSearch({ materials, go, setFocus }) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const box = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const away = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [open]);
-  const t = q.trim().toLowerCase();
-  const hits = !t ? [] : [
-    ...materials.filter((m) => String(m.title).toLowerCase().includes(t)).map((m) => ({ key: "m" + m.id, label: m.title, tag: "Library", run: () => { setFocus(m.id); go("sheet"); } })),
-    ...materials.flatMap((m) => (m.topics || []).filter((n) => String(n).toLowerCase().includes(t)).map((n) => ({ key: `t${m.id}:${n}`, label: n, tag: m.title, run: () => { setFocus(m.id); go("sheet"); } }))),
-    ...ALL_NAV.filter((n) => !["reader", "solve", "install-all"].includes(n.id) && n.label.toLowerCase().includes(t)).map((n) => ({ key: "p" + n.id, label: n.label, tag: "Page", run: () => go(n.id) })),
-  ].slice(0, 8);
-  const pick = (h) => { h.run(); setQ(""); setOpen(false); };
-  return (
-    <div className="top-search" ref={box}>
-      <input type="search" placeholder="Search" value={q} aria-label="Search Dwiddle"
-        onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
-        onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); if (e.key === "Enter" && hits[0]) pick(hits[0]); }} />
-      {open && t && (
-        <div className="top-search-list" role="listbox">
-          {hits.length === 0 ? <div className="small muted top-search-none">Nothing found</div> : hits.map((h) => (
-            <button key={h.key} role="option" onClick={() => pick(h)}><span>{h.label}</span><small>{h.tag}</small></button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function Library({ go, fullMade, materials, deleteMaterial, deleteItem, focus, setFocus }) {
