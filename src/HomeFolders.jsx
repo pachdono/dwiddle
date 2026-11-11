@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon, PageHead, Portal } from "./ui.jsx";
+import { NavIcon } from "./NavIcons.jsx";
 import Decks from "./Decks.jsx";
 import Explore from "./Explore.jsx";
 import { StudyTimerCard } from "./StudyTimer.jsx";
@@ -86,9 +87,9 @@ export function HomeFolders({ go, hello, sub, streak, due, level = 1, xp = 0, pr
       {home && (
         <>
           <div className="hf-actions">
-            <button onClick={() => go("upload")}><span className="hf-act-ico"><Icon name="upload" size={22} /></span><b>Upload file</b><span className="small muted">PDF, slides, a photo</span></button>
-            <button onClick={() => go("upload")}><span className="hf-act-ico hf-pink"><Icon name="sheet" size={22} /></span><b>Paste notes</b><span className="small muted">Paste any text</span></button>
-            <button onClick={() => go("upload")}><span className="hf-act-ico hf-green"><Icon name="exam" size={22} /></span><b>YouTube</b><span className="small muted">Paste a link</span></button>
+            <button onClick={() => go("upload")}><span className="hf-act-ico"><NavIcon id="upload" size={62} /></span><b>Upload file</b><span className="small muted">PDF, slides, a photo</span></button>
+            <button onClick={() => go("upload")}><span className="hf-act-ico hf-pink"><NavIcon id="paste" size={62} /></span><b>Paste notes</b><span className="small muted">Paste any text</span></button>
+            <button onClick={() => go("upload")}><span className="hf-act-ico hf-green"><NavIcon id="youtube" size={62} /></span><b>YouTube</b><span className="small muted">Paste a link</span></button>
           </div>
           <form className="hf-prompt" onSubmit={(e) => { e.preventDefault(); const t = idea.trim(); if (t) prefill?.(t); else go("upload"); }}>
             <input value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="Or type a topic you want to learn..." aria-label="A topic to learn" />

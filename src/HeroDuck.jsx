@@ -13,8 +13,9 @@ export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
     <svg className={"hd " + className} width={size} height={size * (150 / 130)} viewBox="-5 -5 130 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dwiddle duck">
       <defs>
         <radialGradient id={u("body")} cx="38%" cy="28%" r="85%">
-          <stop offset="0" stopColor="#FBE27C" />
-          <stop offset="1" stopColor="#F3D054" />
+          <stop offset="0" stopColor="#FFF1AC" />
+          <stop offset=".5" stopColor="#F9DA66" />
+          <stop offset="1" stopColor="#EFC44A" />
         </radialGradient>
         <radialGradient id={u("belly")} cx="50%" cy="30%" r="80%">
           <stop offset="0" stopColor="#FBE9A0" />
@@ -40,6 +41,7 @@ export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
           <stop offset="0" stopColor="#2a2b30" />
           <stop offset="1" stopColor="#1a1a1a" />
         </linearGradient>
+        <clipPath id={u("clip")}><ellipse cx="63" cy="90" rx="46" ry="33" /><circle cx="63" cy="59" r="30" /><ellipse cx="63" cy="74" rx="43" ry="25" /></clipPath>
         <radialGradient id={u("shadow")}>
           <stop offset="0" stopColor="#000" stopOpacity=".22" />
           <stop offset="1" stopColor="#000" stopOpacity="0" />
@@ -61,25 +63,34 @@ export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
           <rect x="81" y="124" width="1.6" height="5" rx=".8" />
         </g>
 
-        {/* body and head as one lit shape */}
+        {/* body and head as one lit shape, with a fine line round the whole silhouette */}
+        <g fill="#9a6b22" stroke="#9a6b22" strokeWidth="2.2"><ellipse cx="63" cy="90" rx="46" ry="33" /><circle cx="63" cy="59" r="30" /><ellipse cx="63" cy="74" rx="43" ry="25" /></g>
         <ellipse cx="63" cy="90" rx="46" ry="33" fill={`url(#${u("body")})`} />
         <circle cx="63" cy="59" r="30" fill={`url(#${u("body")})`} />
         <ellipse cx="63" cy="74" rx="43" ry="25" fill={`url(#${u("body")})`} />
         {/* a lower shade so the belly sits forward */}
         <path d="M20 96c8 26 74 26 86 0-6 18-24 30-43 30S26 114 20 96z" fill="#D9A92E" opacity=".22" />
+        {/* the far side in shade, cel style */}
+        <g clipPath={`url(#${u("clip")})`}><ellipse cx="116" cy="86" rx="20" ry="54" fill="#E7B93E" opacity=".7" /></g>
         <ellipse cx="65" cy="98" rx="28" ry="22" fill={`url(#${u("belly")})`} />
+        <ellipse cx="85" cy="101" rx="8" ry="17" fill="#F4D77A" opacity=".7" />
+        {/* a white shine on the lit side */}
+        <path d="M23 78c1-6 3.5-11 7.5-15" stroke="#fff" strokeWidth="2.6" opacity=".75" fill="none" strokeLinecap="round" />
 
         {/* cheeks */}
-        <ellipse cx="38" cy="66" rx="6" ry="3.6" fill="#F59A7A" opacity=".28" />
-        <ellipse cx="90" cy="66" rx="6" ry="3.6" fill="#F59A7A" opacity=".28" />
+        <ellipse cx="38" cy="64" rx="6" ry="3.6" fill="#ff9fb0" opacity=".7" />
+        <ellipse cx="90" cy="64" rx="5" ry="3.2" fill="#ff9fb0" opacity=".6" />
 
         {/* wing */}
         <g className="hd-wing">
-          <ellipse cx="29" cy="90" rx="13" ry="21" fill={`url(#${u("wing")})`} transform="rotate(-8 29 90)" />
+          <ellipse cx="29" cy="90" rx="13" ry="21" fill={`url(#${u("wing")})`} transform="rotate(-8 29 90)" stroke="#9a6b22" strokeWidth="1.1" />
+          <path d="M23 78c-3 6-3 16 0 23" stroke="#fff" strokeWidth="1.6" opacity=".55" fill="none" strokeLinecap="round" />
         </g>
 
         {/* beak */}
-        <ellipse cx="64" cy="64" rx="18" ry="11" fill={`url(#${u("beak")})`} />
+        <ellipse cx="64" cy="64" rx="18" ry="11" fill={`url(#${u("beak")})`} stroke="#b8661f" strokeWidth="1" />
+        <path d="M48 66c4 6.5 28 6.5 32 0" fill="#d07a2c" opacity=".8" />
+        <path d="M54 58c4-2 13-2.4 18-.5" stroke="#fff" strokeWidth="1.4" opacity=".7" fill="none" strokeLinecap="round" />
         <path d="M47.5 63c10 3 23 3 33 0" stroke="#B5621A" strokeWidth="1.8" strokeLinecap="round" />
         <circle cx="58" cy="62" r="1" fill="#9A4F14" opacity=".7" />
         <circle cx="70" cy="62" r="1" fill="#9A4F14" opacity=".7" />
@@ -95,12 +106,13 @@ export function HeroDuck({ size = 220, className = "", variant = "hat" }) {
 
         {/* straw hat, lit from above left */}
         {variant === "hat" && <g className="hd-hat">
-          <ellipse cx="64" cy="28.5" rx="43" ry="9.2" fill={`url(#${u("brim")})`} />
+          <ellipse cx="64" cy="28.5" rx="43" ry="9.2" fill={`url(#${u("brim")})`} stroke="#9a6b22" strokeWidth="1" />
           <ellipse cx="64" cy="26" rx="29" ry="6.4" fill="#F3E3B3" />
           <path d="M26 30c14 7 62 7 76 0" stroke="#A98A4C" strokeOpacity=".35" strokeWidth="1.6" strokeLinecap="round" />
           <rect x="45" y="19" width="39" height="10.5" rx="2" fill="#BF5A3F" />
           <path d="M45 26.6h39" stroke="#8F3A24" strokeOpacity=".5" strokeWidth="1.2" />
-          <path d="M45.5 19.5c0-9 8-14.5 19-14.5s19 5.5 19 14.5z" fill={`url(#${u("crown")})`} />
+          <path d="M45.5 19.5c0-9 8-14.5 19-14.5s19 5.5 19 14.5z" fill={`url(#${u("crown")})`} stroke="#9a6b22" strokeWidth="1" />
+          <path d="M50 14c2-3.4 5.4-5.4 9.6-6" stroke="#fff" strokeWidth="1.6" opacity=".7" fill="none" strokeLinecap="round" />
           <path d="M52 15c4-3 21-3 25 0M50 11c5-3.2 25-3.2 29 0" stroke="#B89B5A" strokeOpacity=".5" strokeWidth="1.2" strokeLinecap="round" />
         </g>}
         {variant === "grad" && (

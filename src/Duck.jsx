@@ -8,6 +8,7 @@
 // The colours are deliberately fixed rather than themed. A mascot that changes
 // colour in dark mode stops being the same character.
 
+import { useId } from "react";
 import { CHARACTERS as OUTFITS } from "./DuckAvatars.jsx";
 
 const YELLOW = "#F8DC6E";
@@ -22,6 +23,50 @@ const STRAW_LINE = "#CDB076";
 const BAND = "#C0563A";
 const BLACK = "#1A1A1A";
 const LENS = "#4A4A4A";
+// Shading, in the style of the Testiddle avatars: a fine warm line, a lit top left, a shaded far
+// side and a white shine, so the duck reads as round rather than flat.
+const LINE = "#9a6b22";
+const SHADE = "#E7B93E";
+const CHEEK = "#ff9fb0";
+const fine = { stroke: LINE, strokeWidth: 1.1, strokeLinejoin: "round", strokeLinecap: "round" };
+
+/** The body's shapes, used for the outline, the fill and the clip. */
+const BodyShapes = (p) => <><ellipse cx="63" cy="90" rx="45" ry="31" {...p} /><circle cx="63" cy="59" r="29" {...p} /><ellipse cx="63" cy="74" rx="42" ry="24" {...p} /></>;
+
+/** The round, shaded body: a fine outline round the whole silhouette, a lit gradient, the far side in shade. */
+function ShadedBody({ belly = true }) {
+  const k = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  return (
+    <>
+      <defs>
+        <linearGradient id={`${k}g`} gradientUnits="userSpaceOnUse" x1="30" y1="30" x2="100" y2="120"><stop offset="0" stopColor="#FFEEA6" /><stop offset=".45" stopColor={YELLOW} /><stop offset="1" stopColor="#F1C94F" /></linearGradient>
+        <clipPath id={`${k}c`}><BodyShapes /></clipPath>
+      </defs>
+      <BodyShapes fill={LINE} stroke={LINE} strokeWidth="2.4" />
+      <BodyShapes fill={`url(#${k}g)`} />
+      <g clipPath={`url(#${k}c)`}>
+        <ellipse cx="114" cy="86" rx="20" ry="52" fill={SHADE} opacity=".75" />
+        <ellipse cx="63" cy="128" rx="52" ry="12" fill={SHADE} opacity=".6" />
+        {belly && <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />}
+        {belly && <ellipse cx="84" cy="100" rx="8" ry="17" fill="#F6DB7E" opacity=".8" />}
+      </g>
+      <path d="M36 55c.6-3 2-5.6 4-7.6" stroke="#fff" strokeWidth="2.6" opacity=".8" fill="none" strokeLinecap="round" />
+      <ellipse cx="96" cy="66" rx="1.4" ry="2.2" fill="#fff" opacity=".55" transform="rotate(20 96 66)" />
+    </>
+  );
+}
+const Wing = () => <><ellipse cx="31" cy="88" rx="12" ry="19" fill={WING} transform="rotate(-6 31 88)" {...fine} /><path d="M26 76c-3 6-3 15 0 22" stroke="#fff" strokeWidth="1.6" opacity=".55" fill="none" strokeLinecap="round" /></>;
+const Cheeks = () => <><ellipse cx="38.5" cy="58" rx="5" ry="3" fill={CHEEK} opacity=".7" /><ellipse cx="89.5" cy="58" rx="4" ry="2.6" fill={CHEEK} opacity=".6" /></>;
+const ShadedBeak = () => <>
+  <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} stroke="#b8661f" strokeWidth="1" />
+  <path d="M48 64.5c4 6 28 6 32 0" fill="#d07a2c" />
+  <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+  <path d="M54 57.5c4-2 13-2.4 18-.5" stroke="#fff" strokeWidth="1.4" opacity=".7" fill="none" strokeLinecap="round" />
+</>;
+const Feet = () => <>
+  <ellipse cx="49" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 124)" stroke="#b8661f" strokeWidth="1" />
+  <ellipse cx="77" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 124)" stroke="#b8661f" strokeWidth="1" />
+</>;
 
 export function Duck({ size = 120, className = "", shadow = true, outfit }) {
   const dress = outfit && OUTFITS.find((c) => c.id === outfit);
@@ -54,17 +99,13 @@ export function PuddleParts() {
   const HAIR = "#D99A34";
   return (
     <>
-      <ellipse cx="49" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 124)" />
-      <ellipse cx="77" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 124)" />
-      <ellipse cx="63" cy="90" rx="45" ry="31" fill={YELLOW} />
-      <circle cx="63" cy="59" r="29" fill={YELLOW} />
-      <ellipse cx="63" cy="74" rx="42" ry="24" fill={YELLOW} />
-      <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />
-      <ellipse cx="31" cy="88" rx="12" ry="19" fill={WING} transform="rotate(-6 31 88)" />
-      <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
-      <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+      <Feet />
+      <ShadedBody />
+      <Wing />
+      <Cheeks />
+      <ShadedBeak />
       {/* a bob: full on top, a side fringe, falling past the cheeks */}
-      <path d="M30 74 C22 50 30 24 63 22 C96 24 104 50 96 74 C95 66 92 58 89 52 C86 46 80 42 72 40 C62 38 50 40 44 44 C38 48 34 56 33 64 C32 68 31 71 30 74 Z" fill={HAIR} />
+      <path d="M30 74 C22 50 30 24 63 22 C96 24 104 50 96 74 C95 66 92 58 89 52 C86 46 80 42 72 40 C62 38 50 40 44 44 C38 48 34 56 33 64 C32 68 31 71 30 74 Z" fill={HAIR} {...fine} />
       <path d="M40 46 C46 34 60 30 74 33 C62 34 52 38 46 46 Z" fill="#C9892A" />
       {/* one small hair clip */}
       <rect x="80" y="29" width="12" height="4.4" rx="2.2" fill="#F08BA8" transform="rotate(-28 86 31)" />
@@ -85,23 +126,14 @@ export function DuckParts({ hat = true, shades = true }) {
   return (
     <>
       {/* feet, splayed slightly outward */}
-      <ellipse cx="49" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(-8 49 124)" />
-      <ellipse cx="77" cy="124" rx="11" ry="6" fill={FOOT} transform="rotate(8 77 124)" />
-
-      {/* body, then head set into its top, so the outline reads as one shape */}
-      <ellipse cx="63" cy="90" rx="45" ry="31" fill={YELLOW} />
-      <circle cx="63" cy="59" r="29" fill={YELLOW} />
-      <ellipse cx="63" cy="74" rx="42" ry="24" fill={YELLOW} />
-
-      {/* belly */}
-      <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />
-
+      <Feet />
+      {/* body, then head set into its top, so the outline reads as one shape; belly and shading inside */}
+      <ShadedBody />
       {/* wing, tucked against the body rather than floating beside it */}
-      <ellipse cx="31" cy="88" rx="12" ry="19" fill={WING} transform="rotate(-6 31 88)" />
-
+      <Wing />
+      <Cheeks />
       {/* beak */}
-      <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
-      <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
+      <ShadedBeak />
 
       {shades && (<>
       {/* sunglasses: arms, then lenses, sitting clear of the brim above */}
@@ -116,12 +148,15 @@ export function DuckParts({ hat = true, shades = true }) {
 
       {hat && (<>
       {/* straw hat: wide flat brim, band, then the crown on top */}
-      <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} />
+      <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} {...fine} />
+      <path d="M26 29c10 5 66 5 76 0" stroke="#c4a463" strokeWidth="2.4" fill="none" strokeLinecap="round" />
       <ellipse cx="64" cy="25" rx="27" ry="6" fill={STRAW_LIGHT} />
       <path d="M47 24.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
-      <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
-      <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
+      <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} {...fine} />
+      <rect x="72" y="19.6" width="10.4" height="8.4" rx="1.4" fill="#a3442b" />
+      <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} {...fine} />
       <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M33 25.5c5-2.6 12-3.8 18-4" stroke="#fff" strokeWidth="1.6" opacity=".6" fill="none" strokeLinecap="round" />
       </>)}
     </>
   );
@@ -149,25 +184,7 @@ export function DuckMark({ size = 24, className = "" }) {
       role="img"
       aria-label="Dwiddle"
     >
-      <ellipse cx="63" cy="90" rx="45" ry="31" fill={YELLOW} />
-      <circle cx="63" cy="59" r="29" fill={YELLOW} />
-      <ellipse cx="63" cy="74" rx="42" ry="24" fill={YELLOW} />
-      <ellipse cx="65" cy="97" rx="27" ry="21" fill={BELLY} />
-      <ellipse cx="64" cy="63" rx="17" ry="10" fill={BEAK} />
-      <rect x="47" y="61.6" width="34" height="3" rx="1.5" fill={BEAK_LINE} />
-      <rect x="27" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
-      <rect x="87" y="43" width="14" height="5" rx="2.5" fill={BLACK} />
-      <rect x="40" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
-      <rect x="66" y="39" width="21" height="13" rx="4.5" fill={BLACK} />
-      <rect x="59" y="43" width="9" height="4" rx="1.6" fill={BLACK} />
-      <rect x="44" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
-      <rect x="70" y="42" width="8" height="3.4" rx="1.7" fill={LENS} />
-      <ellipse cx="64" cy="27" rx="41" ry="8.6" fill={STRAW} />
-      <ellipse cx="64" cy="25" rx="27" ry="6" fill={STRAW_LIGHT} />
-      <path d="M47 24.5c4-7 30-7 34 0" stroke={STRAW_LINE} strokeWidth="1.7" fill="none" strokeLinecap="round" />
-      <rect x="46" y="19" width="37" height="9.5" rx="1.8" fill={BAND} />
-      <ellipse cx="64.5" cy="18.5" rx="18" ry="5" fill={STRAW_LIGHT} />
-      <path d="M52 17c4-3.5 21-3.5 25 0" stroke={STRAW_LINE} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <DuckParts />
     </svg>
   );
 }
